@@ -6,7 +6,7 @@ import { formatOdds, getHitRateColor } from "@/lib/edge-engine";
 
 export default function PropCard({ prop }: { prop: PlayerProp }) {
   return (
-    <div className="border-b border-dark-border/40 px-4 py-4">
+    <div className="mx-3 my-3 rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.18)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <TeamLogo team={prop.team} color={prop.teamColor} />
@@ -32,6 +32,11 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
               {typeof prop.confidence === "number" && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue border border-accent-blue/20">
                   {prop.confidence}% confidence
+                </span>
+              )}
+              {("edgeTier" in prop) && (prop as any).edgeTier && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  Tier {(prop as any).edgeTier}
                 </span>
               )}
             </div>
