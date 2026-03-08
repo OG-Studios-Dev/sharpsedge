@@ -1,4 +1,5 @@
 import { OddsEvent } from "./types";
+import { findTeamAliases } from "./nhl-mappings";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
@@ -32,11 +33,15 @@ export function findOddsForGame(
   homeTeam: string,
   awayTeam: string
 ): OddsEvent | undefined {
-  return events.find(
-    (e) =>
-      e.home_team.includes(homeTeam) ||
-      e.away_team.includes(awayTeam)
-  );
+  const homeAliases = findTeamAliases(homeTeam);
+  const awayAliases = findTeamAliases(awayTeam);
+
+  return events.find((e) => {
+    const haystack = `${e.home_team} ${e.away_team}`.toLowerCase();
+    const homeMatch = homeAliases.some((alias) => haystack.includes(alias.toLowerCase()));
+    const awayMatch = awayAliases.some((alias) => haystack.includes(alias.toLowerCase()));
+    return homeMatch && awayMatch;
+  });
 }
 
 export function getBestOdds(

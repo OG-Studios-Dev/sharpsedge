@@ -1,0 +1,38 @@
+export const NHL_TEAM_NAME_MAP: Record<string, string[]> = {
+  ANA: ["Anaheim Ducks", "Anaheim"],
+  BOS: ["Boston Bruins", "Boston"],
+  BUF: ["Buffalo Sabres", "Buffalo"],
+  CAR: ["Carolina Hurricanes", "Carolina"],
+  CBJ: ["Columbus Blue Jackets", "Columbus"],
+  CGY: ["Calgary Flames", "Calgary"],
+  CHI: ["Chicago Blackhawks", "Chicago"],
+  COL: ["Colorado Avalanche", "Colorado"],
+  DAL: ["Dallas Stars", "Dallas"],
+  DET: ["Detroit Red Wings", "Detroit"],
+  EDM: ["Edmonton Oilers", "Edmonton"],
+  FLA: ["Florida Panthers", "Florida"],
+  LAK: ["Los Angeles Kings", "Los Angeles", "LA Kings"],
+  MIN: ["Minnesota Wild", "Minnesota"],
+  MTL: ["Montreal Canadiens", "Montreal"],
+  NJD: ["New Jersey Devils", "New Jersey"],
+  NSH: ["Nashville Predators", "Nashville"],
+  NYI: ["New York Islanders", "NY Islanders", "Islanders"],
+  NYR: ["New York Rangers", "Rangers"],
+  OTT: ["Ottawa Senators", "Ottawa"],
+  PHI: ["Philadelphia Flyers", "Philadelphia"],
+  PIT: ["Pittsburgh Penguins", "Pittsburgh"],
+  SEA: ["Seattle Kraken", "Seattle"],
+  SJS: ["San Jose Sharks", "San Jose"],
+  STL: ["St. Louis Blues", "St Louis Blues", "St. Louis", "St Louis"],
+  TBL: ["Tampa Bay Lightning", "Tampa Bay"],
+  TOR: ["Toronto Maple Leafs", "Toronto"],
+  UTA: ["Utah Hockey Club", "Utah"],
+  VAN: ["Vancouver Canucks", "Vancouver"],
+  VGK: ["Vegas Golden Knights", "Vegas"],
+  WPG: ["Winnipeg Jets", "Winnipeg"],
+  WSH: ["Washington Capitals", "Washington"],
+};
+
+export function findTeamAliases(abbrev: string): string[] {
+  return NHL_TEAM_NAME_MAP[abbrev] || [abbrev];
+}

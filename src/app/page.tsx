@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ScheduleStrip from "@/components/ScheduleStrip";
 
 export default function HomePage() {
   return (
@@ -9,9 +10,13 @@ export default function HomePage() {
       <div className="px-4 py-6 space-y-4">
         <div className="rounded-2xl bg-dark-surface border border-dark-border p-4">
           <h2 className="text-white font-semibold mb-2">Top Edges Today</h2>
-          <p className="text-sm text-gray-400">Live NHL trends and edge-ranked props are now flowing through the API layer.</p>
-          <Link href="/trends" className="inline-block mt-3 text-accent-blue text-sm font-medium">Open Trends →</Link>
+          <p className="text-sm text-gray-400">Goosalytics now ranks NHL-first props through a real edge-selection pipeline with upcoming games, odds linkage, and pick tracking hooks.</p>
+          <div className="flex gap-4 items-center mt-3">
+            <Link href="/trends" className="inline-block text-accent-blue text-sm font-medium">Open Trends →</Link>
+            <Link href="/props" className="inline-block text-gray-300 text-sm font-medium">Open Props →</Link>
+          </div>
         </div>
+        <ScheduleStrip />
       </div>
     </div>
   );

@@ -37,6 +37,30 @@ export type PlayerProp = {
   splits: TrendSplit[];
   indicators?: TrendIndicator[];
   league: League;
+  recommendation?: string;
+  direction?: "Over" | "Under";
+  confidence?: number;
+  confidenceBreakdown?: {
+    recentForm: number;
+    matchup: number;
+    situational: number;
+  };
+  rollingAverages?: {
+    last5: number | null;
+    last10: number | null;
+  };
+  isBackToBack?: boolean;
+  recentGames?: number[];
+  reasoning?: string;
+  summary?: string;
+  matchup?: string;
+  saved?: boolean;
+  playerId?: number;
+  projection?: number | null;
+  fairOdds?: number | null;
+  fairProbability?: number | null;
+  edgePct?: number | null;
+  statsSource?: "live-nhl" | "seed";
 };
 
 export type TeamTrend = {
@@ -100,6 +124,10 @@ export type NHLGame = {
     name?: string;
     score?: number;
     logo?: string;
+  };
+  bestMoneyline?: {
+    home?: { odds: number; book: string } | null;
+    away?: { odds: number; book: string } | null;
   };
 };
 

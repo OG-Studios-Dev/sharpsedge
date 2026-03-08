@@ -18,6 +18,26 @@ async function cachedFetch<T>(url: string): Promise<T> {
   return data;
 }
 
+function mapGame(g: any): NHLGame {
+  return {
+    id: g.id,
+    startTimeUTC: g.startTimeUTC,
+    gameState: g.gameState,
+    awayTeam: {
+      abbrev: g.awayTeam?.abbrev || "???",
+      name: g.awayTeam?.placeName?.default,
+      score: g.awayTeam?.score,
+      logo: g.awayTeam?.logo,
+    },
+    homeTeam: {
+      abbrev: g.homeTeam?.abbrev || "???",
+      name: g.homeTeam?.placeName?.default,
+      score: g.homeTeam?.score,
+      logo: g.homeTeam?.logo,
+    },
+  };
+}
+
 export async function getTodaySchedule(): Promise<ScheduleResponse> {
   try {
     const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
@@ -25,25 +45,27 @@ export async function getTodaySchedule(): Promise<ScheduleResponse> {
     const today = gameWeek[0];
     if (!today) return { games: [], date: new Date().toISOString().slice(0, 10) };
 
-    const games: NHLGame[] = (today.games || []).map((g: any) => ({
-      id: g.id,
-      startTimeUTC: g.startTimeUTC,
-      gameState: g.gameState,
-      awayTeam: {
-        abbrev: g.awayTeam?.abbrev || "???",
-        name: g.awayTeam?.placeName?.default,
-        score: g.awayTeam?.score,
-        logo: g.awayTeam?.logo,
-      },
-      homeTeam: {
-        abbrev: g.homeTeam?.abbrev || "???",
-        name: g.homeTeam?.placeName?.default,
-        score: g.homeTeam?.score,
-        logo: g.homeTeam?.logo,
-      },
-    }));
+    const games: NHLGame[] = (today.games || []).map(mapGame);
 
     return { games, date: today.date };
+  } catch {
+    return { games: [], date: new Date().toISOString().slice(0, 10) };
+  }
+}
+
+export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleResponse> {
+  try {
+    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
+    const gameWeek = Array.isArray(data.gameWeek) ? data.gameWeek.slice(0, days) : [];
+    const games: NHLGame[] = gameWeek
+      .flatMap((day: any) => day.games || [])
+      .map(mapGame)
+      .sort((a: NHLGame, b: NHLGame) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
+
+    return {
+      games,
+      date: gameWeek[0]?.date || new Date().toISOString().slice(0, 10),
+    };
   } catch {
     return { games: [], date: new Date().toISOString().slice(0, 10) };
   }
