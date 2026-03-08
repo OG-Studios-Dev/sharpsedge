@@ -26,19 +26,26 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 function mapPropsToScheduledGames(props: PlayerProp[], games: NHLGame[]) {
   return props
     .map((prop) => {
-      const game = games.find(
+      const exactGame = games.find(
         (g) =>
           (g.homeTeam.abbrev === prop.team || g.awayTeam.abbrev === prop.team) &&
           (g.homeTeam.abbrev === prop.opponent || g.awayTeam.abbrev === prop.opponent)
       );
 
+      const fallbackGame = games.find(
+        (g) => g.homeTeam.abbrev === prop.team || g.awayTeam.abbrev === prop.team
+      );
+
+      const game = exactGame || fallbackGame;
       if (!game) return null;
 
+      const derivedOpponent = game.homeTeam.abbrev === prop.team ? game.awayTeam.abbrev : game.homeTeam.abbrev;
       const event = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
       const teamOdds = game.homeTeam.abbrev === prop.team ? game.bestMoneyline?.home : game.bestMoneyline?.away;
 
       return {
         ...prop,
+        opponent: derivedOpponent,
         matchup: event,
         teamColor: NHL_TEAM_COLORS[prop.team] || prop.teamColor,
         book: teamOdds?.book || prop.book,
