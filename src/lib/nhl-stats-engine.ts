@@ -138,7 +138,7 @@ function makeProps(
   const recentLogs = logs.slice(0, 10); // last 10 for hit rate
   const recent5 = logs.slice(0, 5);
   const avgToi = avgTOI(logs, 10);
-  if (avgToi < 8 * 60) return []; // skip players with <8min avg TOI (scratches, 4th-liners)
+  if (avgToi < 5 * 60) return []; // skip players with <5min avg TOI (scratches, 4th-liners)
 
   const props: PlayerProp[] = [];
   const propDefs: { key: StatKey; label: string }[] = [
@@ -160,7 +160,7 @@ function makeProps(
     const overRate = overHits / sampleSize;
     const edge = overRate - STANDARD_IMPLIED_PROB;
 
-    if (edge <= 0.05) continue;
+    if (edge < 0.03) continue;
     if (sampleSize < 5) continue;
 
     const direction: "Over" = "Over";
@@ -248,7 +248,7 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
   const allProps: PlayerProp[] = [];
 
   // Process games in parallel (limit to first 4 to control API call volume)
-  const targetGames = liveOrFutureGames.slice(0, 4);
+  const targetGames = liveOrFutureGames.slice(0, 6);
 
   await Promise.all(
     targetGames.map(async (game) => {
@@ -295,5 +295,5 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
   // Rank by edge descending, return top 30
   return allProps
     .sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0))
-    .slice(0, 30);
+    .slice(0, 40);
 }

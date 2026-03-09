@@ -15,7 +15,7 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark-bg border-t border-dark-border">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark-bg border-t border-dark-border lg:hidden">
       <div className="max-w-lg mx-auto grid grid-cols-5 h-16">
         {tabs.map((tab) => {
           const isActive = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);

@@ -2,12 +2,22 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
+import DesktopShell from "@/components/DesktopShell";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Goosalytics - Sports Betting Edge",
   description: "Find player props and team trends that have been consistently hitting.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Goosalytics",
+  },
+  icons: {
+    apple: "/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -25,8 +35,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-dark-bg text-white antialiased`}>
-        <main className="max-w-lg mx-auto pb-20 min-h-screen">
-          {children}
+        <main className="max-w-lg lg:max-w-5xl mx-auto px-0 lg:px-6 pb-20 lg:pb-8 min-h-screen">
+          <DesktopShell>
+            {children}
+          </DesktopShell>
         </main>
         <BottomNav />
       </body>

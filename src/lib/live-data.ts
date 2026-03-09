@@ -25,7 +25,7 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 
 export async function getLiveDashboardData() {
   const [schedule, odds] = await Promise.all([
-    getUpcomingSchedule(7),
+    getUpcomingSchedule(4),
     getNHLOdds(),
   ]);
 
