@@ -122,7 +122,7 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
 
                     <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
                       <div className="flex items-center gap-3 min-w-0">
-                        <TeamLogo team={game.awayTeam.abbrev} color="#334155" />
+                        <TeamLogo team={game.awayTeam.abbrev} logo={game.awayTeam.logo} color="#334155" />
                         <div className="min-w-0">
                           <div className="text-white font-semibold truncate">{game.awayTeam.name || game.awayTeam.abbrev}</div>
                           <div className="text-xs text-gray-500">{game.awayTeam.abbrev}</div>
@@ -139,7 +139,7 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
                           <div className="text-white font-semibold truncate">{game.homeTeam.name || game.homeTeam.abbrev}</div>
                           <div className="text-xs text-gray-500">{game.homeTeam.abbrev}</div>
                         </div>
-                        <TeamLogo team={game.homeTeam.abbrev} color="#334155" />
+                        <TeamLogo team={game.homeTeam.abbrev} logo={game.homeTeam.logo} color="#334155" />
                       </div>
                     </div>
 

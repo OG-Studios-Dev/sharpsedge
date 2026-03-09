@@ -33,6 +33,15 @@ const tabs = [
     ),
   },
   {
+    label: "Picks",
+    href: "/picks",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+        <path d="M6 2h12a2 2 0 012 2v16l-8-4-8 4V4a2 2 0 012-2z" />
+      </svg>
+    ),
+  },
+  {
     label: "Trends",
     href: "/trends",
     icon: (
@@ -61,7 +70,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark-bg border-t border-dark-border lg:hidden">
-      <div className="max-w-lg mx-auto grid grid-cols-5 h-16">
+      <div className="max-w-lg mx-auto grid grid-cols-6 h-16">
         {tabs.map((tab) => {
           const isActive = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
           return (

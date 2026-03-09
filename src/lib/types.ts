@@ -55,6 +55,7 @@ export type PlayerProp = {
   summary?: string;
   matchup?: string;
   saved?: boolean;
+  savedAt?: string;
   playerId?: number;
   projection?: number | null;
   fairOdds?: number | null;
