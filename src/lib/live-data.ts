@@ -1,9 +1,7 @@
-import { getUpcomingSchedule, NHL_TEAM_COLORS } from "@/lib/nhl-api";
+import { getUpcomingSchedule } from "@/lib/nhl-api";
 import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
-import { buildPropsPayload } from "@/lib/props";
-import { NHLGame, PlayerProp } from "@/lib/types";
-import { rankProps } from "@/lib/edge-engine-v2";
-import { enrichPropsWithLiveHistory } from "@/lib/nhl-prop-model";
+import { NHLGame } from "@/lib/types";
+import { buildLivePropFeed } from "@/lib/live-props";
 
 function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<typeof getNHLOdds>>) {
   return games.map((game) => {
@@ -23,39 +21,6 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
   });
 }
 
-function mapPropsToScheduledGames(props: PlayerProp[], games: NHLGame[]) {
-  return props
-    .map((prop) => {
-      const exactGame = games.find(
-        (g) =>
-          (g.homeTeam.abbrev === prop.team || g.awayTeam.abbrev === prop.team) &&
-          (g.homeTeam.abbrev === prop.opponent || g.awayTeam.abbrev === prop.opponent)
-      );
-
-      const fallbackGame = games.find(
-        (g) => g.homeTeam.abbrev === prop.team || g.awayTeam.abbrev === prop.team
-      );
-
-      const game = exactGame || fallbackGame;
-      if (!game) return null;
-
-      const derivedOpponent = game.homeTeam.abbrev === prop.team ? game.awayTeam.abbrev : game.homeTeam.abbrev;
-      const event = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
-      const teamOdds = game.homeTeam.abbrev === prop.team ? game.bestMoneyline?.home : game.bestMoneyline?.away;
-
-      return {
-        ...prop,
-        opponent: derivedOpponent,
-        matchup: event,
-        teamColor: NHL_TEAM_COLORS[prop.team] || prop.teamColor,
-        book: teamOdds?.book || prop.book,
-        odds: teamOdds?.odds || prop.odds,
-        summary: `${event} • ${prop.overUnder} ${prop.line} ${prop.propType}`,
-      };
-    })
-    .filter(Boolean) as PlayerProp[];
-}
-
 export async function getLiveDashboardData() {
   const [schedule, odds] = await Promise.all([
     getUpcomingSchedule(3),
@@ -63,9 +28,7 @@ export async function getLiveDashboardData() {
   ]);
 
   const games = attachLiveOddsToSchedule(schedule.games, odds);
-  const scheduledProps = mapPropsToScheduledGames(buildPropsPayload(), games);
-  const modeledProps = await enrichPropsWithLiveHistory(scheduledProps);
-  const rankedProps = rankProps(modeledProps);
+  const rankedProps = odds.length > 0 ? await buildLivePropFeed(games, odds) : [];
 
   return {
     schedule: {
@@ -77,6 +40,7 @@ export async function getLiveDashboardData() {
       oddsConnected: odds.length > 0,
       gamesCount: games.length,
       propsCount: rankedProps.length,
+      liveOnly: true,
     },
   };
 }

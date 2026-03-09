@@ -9,6 +9,6 @@ export async function GET() {
       meta: data.meta,
     });
   } catch {
-    return NextResponse.json({ bestBets: [], meta: { oddsConnected: false, gamesCount: 0, propsCount: 0 } });
+    return NextResponse.json({ bestBets: [], meta: { oddsConnected: false, gamesCount: 0, propsCount: 0, liveOnly: true } });
   }
 }
