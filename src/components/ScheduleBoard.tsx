@@ -62,11 +62,14 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
   const sections = useMemo<Section[]>(() => {
     const grouped = new Map<string, NHLGame[]>();
     const today = startOfDay(new Date()).getTime();
+    const ACTIVE = new Set(["FUT", "LIVE", "PRE"]);
 
     for (const game of data.games) {
+      if (!ACTIVE.has(game.gameState)) continue; // skip finished games
       const date = new Date(game.startTimeUTC);
       const normalized = startOfDay(date).getTime();
       if (normalized < today) continue;
+      if (game.gameState === "OFF") continue;
       const key = dayKey(date);
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(game);

@@ -59,6 +59,7 @@ export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleRes
     const gameWeek = Array.isArray(data.gameWeek) ? data.gameWeek.slice(0, days) : [];
     const games: NHLGame[] = gameWeek
       .flatMap((day: any) => day.games || [])
+      .filter((g: any) => g.gameState !== "OFF")
       .map(mapGame)
       .sort((a: NHLGame, b: NHLGame) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
 

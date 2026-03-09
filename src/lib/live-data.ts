@@ -1,7 +1,9 @@
 import { getUpcomingSchedule } from "@/lib/nhl-api";
 import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { NHLGame } from "@/lib/types";
-import { buildLivePropFeed } from "@/lib/live-props";
+import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
+
+const ACTIVE_STATES = ["FUT", "LIVE", "PRE"];
 
 function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<typeof getNHLOdds>>) {
   return games.map((game) => {
@@ -23,24 +25,29 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 
 export async function getLiveDashboardData() {
   const [schedule, odds] = await Promise.all([
-    getUpcomingSchedule(3),
+    getUpcomingSchedule(7),
     getNHLOdds(),
   ]);
 
-  const games = attachLiveOddsToSchedule(schedule.games, odds);
-  const rankedProps = odds.length > 0 ? await buildLivePropFeed(games, odds) : [];
+  // Only keep active games (not finished)
+  const activeGames = schedule.games.filter((g) => ACTIVE_STATES.includes(g.gameState));
+  const gamesWithOdds = attachLiveOddsToSchedule(activeGames, odds);
+
+  // Build prop feed from NHL API stats for upcoming/live games
+  const rankedProps = await buildNHLStatsPropFeed(gamesWithOdds);
 
   return {
     schedule: {
       ...schedule,
-      games,
+      games: gamesWithOdds,
     },
     props: rankedProps,
     meta: {
       oddsConnected: odds.length > 0,
-      gamesCount: games.length,
+      gamesCount: gamesWithOdds.length,
       propsCount: rankedProps.length,
       liveOnly: true,
+      statsSource: "live-nhl",
     },
   };
 }

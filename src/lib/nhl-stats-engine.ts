@@ -1,0 +1,299 @@
+/**
+ * NHL Stats Engine
+ * Builds ranked player props entirely from the NHL API (free, no key needed).
+ * No external prop market feed required.
+ *
+ * Pipeline:
+ *  1. Take today/tomorrow scheduled games (FUT or LIVE)
+ *  2. Fetch roster for each team
+ *  3. For top scoring forwards + defensemen, fetch season game logs
+ *  4. Compute rolling averages + hit rates for Points, Shots on Goal
+ *  5. Generate model prop lines + edge scores
+ *  6. Return ranked list, highest-edge first
+ */
+
+import { NHLGame, PlayerProp } from "@/lib/types";
+import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
+
+const NHL_BASE = "https://api-web.nhle.com/v1";
+const SEASON = "20252026";
+
+// ──────────────────────────────────────────────────────────────────────
+// Types
+// ──────────────────────────────────────────────────────────────────────
+
+type GameLog = {
+  gameDate: string;
+  points: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  toi: string; // "MM:SS"
+};
+
+type SkaterRow = {
+  id: number;
+  name: string;
+  positionCode: string;
+};
+
+// ──────────────────────────────────────────────────────────────────────
+// Fetch helpers
+// ──────────────────────────────────────────────────────────────────────
+
+async function fetchJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url, { next: { revalidate: 900 } });
+  if (!res.ok) throw new Error(`NHL API ${res.status}: ${url}`);
+  return res.json();
+}
+
+function toiSeconds(toi: string): number {
+  const [m, s] = (toi || "0:00").split(":").map(Number);
+  return (m || 0) * 60 + (s || 0);
+}
+
+async function getRosterSkaters(teamAbbrev: string): Promise<SkaterRow[]> {
+  try {
+    const data = await fetchJSON<any>(`${NHL_BASE}/roster/${teamAbbrev}/current`);
+    const players: SkaterRow[] = [
+      ...(data.forwards || []),
+      ...(data.defensemen || []),
+    ].map((p: any) => ({
+      id: p.id,
+      name: `${p.firstName?.default || ""} ${p.lastName?.default || ""}`.trim(),
+      positionCode: p.positionCode || "F",
+    }));
+    return players;
+  } catch {
+    return [];
+  }
+}
+
+async function getGameLog(playerId: number): Promise<GameLog[]> {
+  try {
+    const data = await fetchJSON<any>(
+      `${NHL_BASE}/player/${playerId}/game-log/${SEASON}/2`
+    );
+    return (data.gameLog || []).map((g: any) => ({
+      gameDate: g.gameDate || "",
+      points: Number(g.points) || 0,
+      goals: Number(g.goals) || 0,
+      assists: Number(g.assists) || 0,
+      shots: Number(g.shots) || 0,
+      toi: g.toi || "0:00",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Rolling stat helpers
+// ──────────────────────────────────────────────────────────────────────
+
+type StatKey = "points" | "shots" | "assists";
+
+function rollingAvg(logs: GameLog[], key: StatKey, n: number): number | null {
+  const slice = logs.slice(0, n);
+  if (slice.length < 3) return null;
+  return slice.reduce((s, g) => s + g[key], 0) / slice.length;
+}
+
+function hitRate(logs: GameLog[], key: StatKey, line: number, direction: "Over" | "Under"): number {
+  if (!logs.length) return 0;
+  const hits = logs.filter((g) =>
+    direction === "Over" ? g[key] > line : g[key] < line
+  ).length;
+  return hits / logs.length;
+}
+
+function roundToHalf(n: number): number {
+  return Math.round(n * 2) / 2;
+}
+
+function avgTOI(logs: GameLog[], n: number): number {
+  const slice = logs.slice(0, n);
+  if (!slice.length) return 0;
+  return slice.reduce((s, g) => s + toiSeconds(g.toi), 0) / slice.length;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Build props for a single player
+// ──────────────────────────────────────────────────────────────────────
+
+const STANDARD_JUICE = -110;
+const STANDARD_IMPLIED_PROB = 110 / 210; // ≈ 0.524
+
+function makeProps(
+  player: SkaterRow,
+  logs: GameLog[],
+  team: string,
+  opponent: string,
+  isAway: boolean,
+  matchup: string,
+  gameId: string
+): PlayerProp[] {
+  if (logs.length < 5) return [];
+
+  const recentLogs = logs.slice(0, 10); // last 10 for hit rate
+  const recent5 = logs.slice(0, 5);
+  const avgToi = avgTOI(logs, 10);
+  if (avgToi < 8 * 60) return []; // skip players with <8min avg TOI (scratches, 4th-liners)
+
+  const props: PlayerProp[] = [];
+  const propDefs: { key: StatKey; label: string }[] = [
+    { key: "points", label: "Points" },
+    { key: "shots", label: "Shots on Goal" },
+  ];
+
+  for (const def of propDefs) {
+    const avg5 = rollingAvg(logs, def.key, 5);
+    const avg10 = rollingAvg(logs, def.key, 10);
+    if (avg5 === null || avg10 === null) continue;
+
+    const modelLine = roundToHalf(avg5);
+    if (modelLine < 0.5) continue;
+    const line = modelLine;
+
+    const sampleSize = Math.min(10, recentLogs.length);
+    const overHits = recentLogs.slice(0, sampleSize).filter((g) => g[def.key] > line).length;
+    const overRate = overHits / sampleSize;
+    const edge = overRate - STANDARD_IMPLIED_PROB;
+
+    if (edge <= 0.05) continue;
+    if (sampleSize < 5) continue;
+
+    const direction: "Over" = "Over";
+    const bestEdge = edge;
+    const bestRate = overRate;
+
+    const edgePct = Math.round(bestEdge * 100);
+    const confidence =
+      Math.abs(bestEdge) > 0.15 ? 90 :
+      Math.abs(bestEdge) > 0.10 ? 75 :
+      Math.abs(bestEdge) > 0.06 ? 60 : 45;
+
+    const hitRatePct = Math.round(bestRate * 100);
+
+    const recentGames = recent5.map((g) => g[def.key]);
+
+    props.push({
+      id: `${gameId}-${player.id}-${def.key}-${direction}`,
+      playerId: player.id,
+      playerName: player.name,
+      team,
+      teamColor: NHL_TEAM_COLORS[team] || "#4a9eff",
+      opponent,
+      isAway,
+      propType: def.label,
+      line,
+      overUnder: direction,
+      odds: STANDARD_JUICE,
+      book: "Model Line",
+      league: "NHL",
+      matchup,
+      recommendation: `${direction} ${line} ${def.label}`,
+      direction,
+      confidence,
+      confidenceBreakdown: {
+        recentForm: Math.round((avg5 / (avg10 + 0.01)) * 50),
+        matchup: 50,
+        situational: 50,
+      },
+      rollingAverages: {
+        last5: parseFloat(avg5.toFixed(2)),
+        last10: parseFloat(avg10.toFixed(2)),
+      },
+      isBackToBack: false,
+      recentGames,
+      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${hitRatePct}% in last 10 games. Model edge: +${edgePct}%.`,
+      summary: `${matchup} • ${direction} ${line} ${def.label} • L10 avg ${avg10.toFixed(1)}`,
+      saved: false,
+      impliedProb: STANDARD_IMPLIED_PROB,
+      hitRate: bestRate,
+      edge: bestEdge,
+      score: Math.abs(bestEdge) * confidence,
+      statsSource: "live-nhl",
+      splits: [
+        {
+          label: `Hit ${direction} ${line} in ${hitRatePct}% of last 10 games`,
+          hitRate: hitRatePct,
+          hits: Math.round(bestRate * 10),
+          total: 10,
+          type: "last_n",
+        },
+      ],
+      indicators: [],
+      projection: parseFloat(avg5.toFixed(2)),
+      fairProbability: bestRate,
+      fairOdds: null,
+      edgePct: bestEdge,
+    });
+  }
+
+  return props;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Main export: build full prop feed from scheduled games
+// ──────────────────────────────────────────────────────────────────────
+
+export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerProp[]> {
+  const liveOrFutureGames = games.filter(
+    (g) => g.gameState === "FUT" || g.gameState === "LIVE" || g.gameState === "PRE"
+  );
+
+  if (!liveOrFutureGames.length) return [];
+
+  const allProps: PlayerProp[] = [];
+
+  // Process games in parallel (limit to first 4 to control API call volume)
+  const targetGames = liveOrFutureGames.slice(0, 4);
+
+  await Promise.all(
+    targetGames.map(async (game) => {
+      const [homeRoster, awayRoster] = await Promise.all([
+        getRosterSkaters(game.homeTeam.abbrev),
+        getRosterSkaters(game.awayTeam.abbrev),
+      ]);
+
+      const matchup = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
+
+      // Take top 12 skaters from each team (forwards + defensemen only)
+      const pickPlayers = (roster: SkaterRow[]) => {
+        const forwards = roster.filter((p) => p.positionCode !== "D").slice(0, 8);
+        const defense = roster.filter((p) => p.positionCode === "D").slice(0, 4);
+        return [...forwards, ...defense];
+      };
+
+      const homePlayers = pickPlayers(homeRoster);
+      const awayPlayers = pickPlayers(awayRoster);
+
+      // Batch game log fetches in groups of 5
+      type PlayerTask = { player: SkaterRow; team: string; opponent: string; isAway: boolean };
+      const tasks: PlayerTask[] = [
+        ...homePlayers.map((p) => ({ player: p, team: game.homeTeam.abbrev, opponent: game.awayTeam.abbrev, isAway: false })),
+        ...awayPlayers.map((p) => ({ player: p, team: game.awayTeam.abbrev, opponent: game.homeTeam.abbrev, isAway: true })),
+      ];
+
+      for (let i = 0; i < tasks.length; i += 5) {
+        const batch = tasks.slice(i, i + 5);
+        await Promise.all(
+          batch.map(async ({ player, team, opponent, isAway }) => {
+            const logs = await getGameLog(player.id);
+            const props = makeProps(
+              player, logs, team, opponent,
+              isAway, matchup, String(game.id)
+            );
+            allProps.push(...props);
+          })
+        );
+      }
+    })
+  );
+
+  // Rank by edge descending, return top 30
+  return allProps
+    .sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0))
+    .slice(0, 30);
+}
