@@ -61,12 +61,17 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
 
   const sections = useMemo<Section[]>(() => {
     const grouped = new Map<string, NHLGame[]>();
+    const today = startOfDay(new Date()).getTime();
+
     for (const game of data.games) {
       const date = new Date(game.startTimeUTC);
+      const normalized = startOfDay(date).getTime();
+      if (normalized < today) continue;
       const key = dayKey(date);
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(game);
     }
+
     return Array.from(grouped.entries()).map(([key, games]) => ({
       key,
       title: sectionTitleFor(new Date(key)),
