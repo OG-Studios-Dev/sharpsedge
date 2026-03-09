@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { playerProps, teamTrends, parlays, sgps } from "@/data/seed";
+import { teamTrends, parlays, sgps } from "@/data/seed";
 import { League, PlayerProp, TeamTrend, Parlay, SGP } from "@/lib/types";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
 import ParlayCard from "@/components/ParlayCard";
 import SGPCard from "@/components/SGPCard";
 import LeagueSelector from "@/components/LeagueSelector";
-import FilterBar from "@/components/FilterBar";
+import EmptyStateCard from "@/components/EmptyStateCard";
 
 type Tab = "Player" | "Team" | "Parlay" | "SGP";
 
 export default function TrendsPage() {
   const [league, setLeague] = useState<League>("NHL");
   const [tab, setTab] = useState<Tab>("Player");
-  const [propsData, setPropsData] = useState<PlayerProp[]>(playerProps);
+  const [propsData, setPropsData] = useState<PlayerProp[]>([]);
   const [trendsData, setTrendsData] = useState<TeamTrend[]>(teamTrends);
   const [loading, setLoading] = useState(false);
 
@@ -28,9 +28,9 @@ export default function TrendsPage() {
           fetch('/api/trends').then(r => r.json()),
         ]);
         if (Array.isArray(propsRes)) setPropsData(propsRes);
-        if (Array.isArray(trendsRes)) setTrendsData(trendsRes);
+        if (trendsRes?.teamTrends) setTrendsData(trendsRes.teamTrends);
       } catch {
-        // keep seed fallback
+        // keep non-player trend fallbacks only
       } finally {
         setLoading(false);
       }
@@ -47,8 +47,10 @@ export default function TrendsPage() {
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-4">
-          <div className="w-8" />
-          <h1 className="text-xl font-bold text-white">Trends</h1>
+          <div>
+            <h1 className="text-xl font-bold text-white">Trends</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Live player props. Seeded team/parlay research modules.</p>
+          </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
 
@@ -66,23 +68,26 @@ export default function TrendsPage() {
             </button>
           ))}
         </div>
-
-        <div className="px-4 py-3">
-          <FilterBar
-            filters={[
-              { label: 'Lines', value: 'main', onChange: () => {}, options: [{ label: 'Main Lines', value: 'main' }] },
-              { label: 'Games', value: 'all', onChange: () => {}, options: [{ label: 'All Games', value: 'all' }] },
-              { label: 'OU', value: 'all', onChange: () => {}, options: [{ label: 'Over+Under', value: 'all' }] },
-              { label: 'Type', value: 'all', onChange: () => {}, options: [{ label: 'All Bet Types', value: 'all' }] },
-            ]}
-          />
-        </div>
       </header>
 
-      {loading && <div className="px-4 py-4 text-sm text-gray-500">Loading latest trends...</div>}
+      {loading && (
+        <EmptyStateCard
+          eyebrow="Refreshing"
+          title="Loading the current slate"
+          body="Goosalytics is refreshing live player prop markets and supporting trend context."
+        />
+      )}
 
       <div>
-        {tab === "Player" && filteredProps.map((item) => <PropCard key={item.id} prop={item} />)}
+        {tab === "Player" && (filteredProps.length > 0 ? (
+          filteredProps.map((item) => <PropCard key={item.id} prop={item} />)
+        ) : (
+          <EmptyStateCard
+            eyebrow="Live player trends"
+            title="No current player prop edges to show"
+            body="The app is intentionally strict here. If the live NHL slate does not produce enough current, matched player prop markets, Goosalytics stays quiet instead of showing stale seeded player cards."
+          />
+        ))}
         {tab === "Team" && filteredTrends.map((item) => <TeamTrendCard key={item.id} trend={item} />)}
         {tab === "Parlay" && filteredParlays.map((item) => <ParlayCard key={item.id} parlay={item} />)}
         {tab === "SGP" && filteredSGPs.map((item) => <SGPCard key={item.id} sgp={item} />)}

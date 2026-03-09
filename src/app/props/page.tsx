@@ -1,23 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { playerProps } from "@/data/seed";
+import { useEffect, useMemo, useState } from "react";
 import { League, PlayerProp } from "@/lib/types";
 import PropCard from "@/components/PropCard";
 import LeagueSelector from "@/components/LeagueSelector";
 import FilterBar from "@/components/FilterBar";
+import EmptyStateCard from "@/components/EmptyStateCard";
+
+type PropsMeta = {
+  liveOnly?: boolean;
+  oddsConnected?: boolean;
+};
 
 export default function PropsPage() {
   const [league, setLeague] = useState<League>("NHL");
   const [propType, setPropType] = useState("all");
   const [overUnder, setOverUnder] = useState("all");
-  const [data, setData] = useState<PlayerProp[]>(playerProps);
+  const [data, setData] = useState<PlayerProp[]>([]);
+  const [meta, setMeta] = useState<PropsMeta>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/props').then(r => r.json()).then((json) => {
-      if (Array.isArray(json)) setData(json);
-    }).catch(() => {});
+    setLoading(true);
+    fetch('/api/dashboard')
+      .then(r => r.json())
+      .then((json) => {
+        if (Array.isArray(json?.props)) setData(json.props);
+        if (json?.meta) setMeta(json.meta);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
+
+  const propTypes = useMemo(
+    () => Array.from(new Set(data.filter((p) => p.league === league).map((p) => p.propType))),
+    [data, league]
+  );
 
   const filtered = data.filter((p) => {
     if (p.league !== league) return false;
@@ -26,13 +44,14 @@ export default function PropsPage() {
     return true;
   });
 
-  const propTypes = Array.from(new Set(data.filter(p => p.league === league).map((p) => p.propType)));
-
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-bold text-white">Player Trends</h1>
+          <div>
+            <h1 className="text-lg font-bold text-white">Live Player Props</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Current-slate markets only. No seeded filler.</p>
+          </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
         <div className="px-4 pb-3">
@@ -43,7 +62,7 @@ export default function PropsPage() {
                 value: propType,
                 onChange: setPropType,
                 options: [
-                  { label: "All Bet Types", value: "all" },
+                  { label: "All Markets", value: "all" },
                   ...propTypes.map((t) => ({ label: t, value: t })),
                 ],
               },
@@ -62,9 +81,25 @@ export default function PropsPage() {
         </div>
       </header>
 
-      <div>
-        {filtered.map((prop) => <PropCard key={prop.id} prop={prop} />)}
-      </div>
+      {loading ? (
+        <EmptyStateCard
+          eyebrow="Loading live slate"
+          title="Pulling current NHL prop markets"
+          body="Goosalytics is checking the live slate, active books, and player-history context before ranking bets."
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyStateCard
+          eyebrow={meta.oddsConnected ? "Live markets thin" : "Live prop markets unavailable"}
+          title={meta.oddsConnected ? "No strong live prop edges right now" : "No live NHL player props available from the current feed"}
+          body={meta.oddsConnected
+            ? "Goosalytics is now intentionally strict: if the current slate doesn’t produce enough real, matched NHL prop markets, it shows nothing rather than fake edges."
+            : "The current external feed is not providing usable NHL player prop markets on this slate/tier. The app is intentionally avoiding seeded fake picks and will only show live, matched markets."}
+        />
+      ) : (
+        <div>
+          {filtered.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+        </div>
+      )}
     </div>
   );
 }
