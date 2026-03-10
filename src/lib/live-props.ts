@@ -25,6 +25,7 @@ function marketToPropType(market: string): string | null {
   if (market === "player_points") return "Points";
   if (market === "player_shots_on_goal") return "Shots on Goal";
   if (market === "player_assists") return "Assists";
+  if (market === "player_goals") return "Goals";
   return null;
 }
 

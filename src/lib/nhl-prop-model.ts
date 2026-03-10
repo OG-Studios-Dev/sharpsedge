@@ -9,6 +9,7 @@ function getStatValue(game: any, propType: string): number | null {
   const key = propType.toLowerCase();
   if (key.includes("shots")) return game.shots ?? game.sog ?? null;
   if (key.includes("assist")) return game.assists ?? null;
+  if (key === "goals" || key === "goal") return game.goals ?? null;
   if (key.includes("point")) {
     const goals = game.goals ?? 0;
     const assists = game.assists ?? 0;

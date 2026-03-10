@@ -17,7 +17,7 @@ export async function getNHLOdds(): Promise<OddsEvent[]> {
   }
 
   try {
-    const url = `${ODDS_BASE}/sports/icehockey_nhl/odds?apiKey=${apiKey}&regions=us&markets=h2h,spreads,player_points,player_shots_on_goal,player_assists&oddsFormat=american`;
+    const url = `${ODDS_BASE}/sports/icehockey_nhl/odds?apiKey=${apiKey}&regions=us&markets=h2h,spreads,player_points,player_shots_on_goal,player_assists,player_goals&oddsFormat=american`;
     const res = await fetch(url, { next: { revalidate: 900 } });
     if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
     const data: OddsEvent[] = await res.json();
