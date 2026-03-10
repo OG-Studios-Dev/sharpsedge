@@ -1,71 +1,213 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { PlayerProp } from "@/lib/types";
+import { usePicks } from "@/hooks/usePicks";
+import { useLeague } from "@/hooks/useLeague";
+import { AIPick } from "@/lib/types";
+import LeagueSelector from "@/components/LeagueSelector";
+import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
 
-const STORAGE_KEY = "goosalytics_picks";
+function ResultPill({ result }: { result: AIPick["result"] }) {
+  const styles: Record<AIPick["result"], string> = {
+    pending: "border-gray-500 text-gray-400",
+    win: "border-accent-green text-accent-green bg-accent-green/10",
+    loss: "border-accent-red text-accent-red bg-accent-red/10",
+    push: "border-accent-yellow text-accent-yellow bg-accent-yellow/10",
+  };
+  return (
+    <span
+      className={`text-[10px] font-semibold uppercase tracking-wide border rounded-full px-2 py-0.5 ${styles[result]}`}
+    >
+      {result}
+    </span>
+  );
+}
+
+function PickCard({ pick }: { pick: AIPick }) {
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 space-y-2">
+      <div className="flex items-center gap-3">
+        <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm truncate">
+            {pick.type === "player" ? pick.playerName : pick.team}
+          </p>
+          <p className="text-gray-500 text-xs">
+            {pick.isAway ? "@" : "vs"} {pick.opponent}
+          </p>
+        </div>
+        <ResultPill result={pick.result} />
+      </div>
+
+      <p className="text-accent-blue font-medium text-sm">{pick.pickLabel}</p>
+
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] bg-accent-green/10 text-accent-green rounded-full px-2 py-0.5 font-medium">
+          {pick.hitRate}% hit
+        </span>
+        <span className="text-[10px] bg-accent-blue/10 text-accent-blue rounded-full px-2 py-0.5 font-medium">
+          {pick.edge > 0 ? "+" : ""}
+          {pick.edge}% edge
+        </span>
+        <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
+      </div>
+
+      {pick.reasoning && (
+        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">
+          {pick.reasoning}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 space-y-3 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-dark-border" />
+        <div className="flex-1 space-y-1.5">
+          <div className="h-3.5 bg-dark-border rounded w-28" />
+          <div className="h-3 bg-dark-border rounded w-20" />
+        </div>
+      </div>
+      <div className="h-3.5 bg-dark-border rounded w-40" />
+      <div className="flex gap-2">
+        <div className="h-4 bg-dark-border rounded-full w-16" />
+        <div className="h-4 bg-dark-border rounded-full w-16" />
+      </div>
+    </div>
+  );
+}
+
+function formatDate(dateStr: string) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function PicksPage() {
-  const [picks, setPicks] = useState<PlayerProp[]>([]);
+  const [league, setLeague] = useLeague();
+  const { todayPicks, allPicks, record, loadingPicks, refreshPicks } = usePicks();
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setPicks(JSON.parse(raw));
-    } catch {}
-  }, []);
+  const todayKey = new Date().toISOString().slice(0, 10);
 
-  function clearAll() {
-    localStorage.removeItem(STORAGE_KEY);
-    setPicks([]);
-  }
+  const pastDates = Object.keys(allPicks)
+    .filter((d) => d !== todayKey)
+    .sort((a, b) => b.localeCompare(a));
 
   return (
     <main className="min-h-screen bg-dark-bg pb-24 pt-6 px-4 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-white text-xl font-semibold">Saved Picks</h1>
-        {picks.length > 0 && (
-          <button
-            onClick={clearAll}
-            className="text-xs text-red-400 hover:text-red-300 border border-red-400/30 rounded-xl px-3 py-1.5 transition-colors"
-          >
-            Clear all
-          </button>
-        )}
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-white text-xl font-semibold">AI Picks</h1>
+            <p className="text-gray-500 text-xs mt-0.5">{formatDate(todayKey)}</p>
+          </div>
+          <LeagueSelector selected={league} onSelect={setLeague} />
+        </div>
       </div>
 
-      {picks.length === 0 ? (
-        <EmptyStateCard
-          eyebrow="Saved Picks"
-          title="No picks saved yet"
-          body="Save picks from the Props page to track your bets here."
-        />
-      ) : (
-        <div className="space-y-3">
-          {picks.map((pick, i) => (
-            <div
-              key={pick.id || i}
-              className="rounded-2xl border border-dark-border bg-dark-surface p-4"
+      {/* Record Card */}
+      <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4">
+        <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-3">
+          Season Record
+        </p>
+        <div className="flex items-center gap-6">
+          <div className="text-center">
+            <p className="text-accent-green font-bold text-lg">{record.wins}</p>
+            <p className="text-gray-500 text-[10px] uppercase">W</p>
+          </div>
+          <div className="text-center">
+            <p className="text-accent-red font-bold text-lg">{record.losses}</p>
+            <p className="text-gray-500 text-[10px] uppercase">L</p>
+          </div>
+          <div className="text-center">
+            <p className="text-gray-400 font-bold text-lg">{record.pending}</p>
+            <p className="text-gray-500 text-[10px] uppercase">Pending</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p
+              className={`font-bold text-lg ${
+                record.profitUnits > 0
+                  ? "text-accent-green"
+                  : record.profitUnits < 0
+                    ? "text-accent-red"
+                    : "text-gray-400"
+              }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-white font-semibold">{pick.playerName}</span>
-                <span className="text-[10px] text-gray-500">
-                  {pick.savedAt ? new Date(pick.savedAt).toLocaleDateString() : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-accent-blue font-medium">
-                  {pick.direction || pick.overUnder} {pick.line}
-                </span>
-                <span className="text-gray-400">{pick.propType}</span>
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                {pick.team} vs {pick.opponent}
-              </div>
-            </div>
+              {record.profitUnits > 0 ? "+" : ""}
+              {record.profitUnits}u
+            </p>
+            <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Today's Picks */}
+      <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-2">
+        Today&apos;s Picks
+      </p>
+
+      {loadingPicks ? (
+        <div className="space-y-3 mb-6">
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+      ) : todayPicks.length === 0 ? (
+        <div className="mb-6">
+          <EmptyStateCard
+            eyebrow="AI Picks"
+            title="No picks today"
+            body="Check back when games are scheduled to see today's top AI picks."
+          />
+        </div>
+      ) : (
+        <div className="space-y-3 mb-6">
+          {todayPicks.map((pick) => (
+            <PickCard key={pick.id} pick={pick} />
           ))}
         </div>
+      )}
+
+      {/* Past Picks */}
+      {pastDates.length > 0 && (
+        <>
+          <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-2">
+            Past Picks
+          </p>
+          <div className="space-y-4">
+            {pastDates.map((date) => (
+              <div key={date}>
+                <p className="text-gray-500 text-xs mb-1.5">{formatDate(date)}</p>
+                <div className="space-y-2">
+                  {allPicks[date].map((pick) => (
+                    <div
+                      key={pick.id}
+                      className="rounded-xl border border-dark-border bg-dark-card px-3 py-2.5 flex items-center gap-3"
+                    >
+                      <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-xs font-medium truncate">
+                          {pick.pickLabel}
+                        </p>
+                        <p className="text-gray-500 text-[10px]">
+                          {pick.isAway ? "@" : "vs"} {pick.opponent}
+                        </p>
+                      </div>
+                      <ResultPill result={pick.result} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </main>
   );

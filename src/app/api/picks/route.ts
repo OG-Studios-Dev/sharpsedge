@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readPicks, savePick } from "@/lib/picks-store";
+import { savePick } from "@/lib/picks-store";
+import { getLiveDashboardData } from "@/lib/live-data";
+import { selectTopPicks } from "@/lib/picks-engine";
 
 export async function GET() {
-  const picks = await readPicks();
-  return NextResponse.json({ picks });
+  try {
+    const data = await getLiveDashboardData();
+    const date = new Date().toISOString().slice(0, 10);
+    const picks = selectTopPicks(data.props || [], data.teamTrends || [], date);
+    return NextResponse.json({ picks, date });
+  } catch {
+    return NextResponse.json({ picks: [], date: new Date().toISOString().slice(0, 10) });
+  }
 }
 
 export async function POST(req: NextRequest) {

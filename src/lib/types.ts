@@ -157,3 +157,27 @@ export type OddsEvent = {
     markets: OddsMarket[];
   }[];
 };
+
+export type AIPick = {
+  id: string;
+  date: string;
+  type: "player" | "team";
+  playerName?: string;
+  team: string;
+  teamColor: string;
+  opponent: string;
+  isAway: boolean;
+  propType?: string;
+  line?: number;
+  direction?: "Over" | "Under";
+  betType?: string;
+  pickLabel: string;
+  edge: number;
+  hitRate: number;
+  confidence: number;
+  reasoning: string;
+  result: "pending" | "win" | "loss" | "push";
+  units: 1;
+  gameId?: string;
+  odds: number;
+};
