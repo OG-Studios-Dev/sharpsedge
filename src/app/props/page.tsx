@@ -1,57 +1,92 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { League, PlayerProp } from "@/lib/types";
+import { League, PlayerProp, TeamTrend } from "@/lib/types";
 import { useLeague } from "@/hooks/useLeague";
 import PropCard from "@/components/PropCard";
+import TeamTrendCard from "@/components/TeamTrendCard";
 import LeagueSelector from "@/components/LeagueSelector";
 import FilterBar from "@/components/FilterBar";
 import EmptyStateCard from "@/components/EmptyStateCard";
 
-type PropsMeta = {
-  liveOnly?: boolean;
-  oddsConnected?: boolean;
-};
+type ViewType = "Players" | "Team";
+
+const PLAYER_METRIC_OPTIONS = [
+  { label: "All Props", value: "all" },
+  { label: "Goals", value: "Goals" },
+  { label: "Assists", value: "Assists" },
+  { label: "Points", value: "Points" },
+  { label: "Shots on Goal", value: "Shots on Goal" },
+  { label: "Over", value: "over" },
+  { label: "Under", value: "under" },
+];
+
+const TEAM_METRIC_OPTIONS = [
+  { label: "All Metrics", value: "all" },
+  { label: "Team Goals O/U", value: "Team Goals O/U" },
+  { label: "Team Win ML", value: "Team Win ML" },
+  { label: "Home Wins", value: "ML Home Win" },
+  { label: "Road Wins", value: "ML Road Win" },
+  { label: "ML Streak", value: "ML Streak" },
+  { label: "Score First & Win", value: "Score First & Win" },
+];
 
 export default function PropsPage() {
   const [league, setLeague] = useLeague();
-  const [propType, setPropType] = useState("all");
-  const [overUnder, setOverUnder] = useState("all");
-  const [data, setData] = useState<PlayerProp[]>([]);
-  const [meta, setMeta] = useState<PropsMeta>({});
+  const [view, setView] = useState<ViewType>("Players");
+  const [metric, setMetric] = useState("all");
+  const [playerProps, setPlayerProps] = useState<PlayerProp[]>([]);
+  const [teamTrends, setTeamTrends] = useState<TeamTrend[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Reset metric filter when switching view
+  const handleViewChange = (v: string) => {
+    setView(v as ViewType);
+    setMetric("all");
+  };
 
   useEffect(() => {
     setLoading(true);
     fetch('/api/dashboard')
       .then(r => r.json())
       .then((json) => {
-        if (Array.isArray(json?.props)) setData(json.props);
-        if (json?.meta) setMeta(json.meta);
+        if (Array.isArray(json?.props)) setPlayerProps(json.props);
+        if (Array.isArray(json?.teamTrends)) setTeamTrends(json.teamTrends);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const propTypes = useMemo(
-    () => Array.from(new Set(data.filter((p) => p.league === league).map((p) => p.propType))),
-    [data, league]
-  );
+  // Filter player props
+  const filteredPlayers = useMemo(() => {
+    return playerProps.filter((p) => {
+      if (p.league !== league) return false;
+      if (metric === "all") return true;
+      if (metric === "over") return p.overUnder === "Over";
+      if (metric === "under") return p.overUnder === "Under";
+      return p.propType === metric;
+    });
+  }, [playerProps, league, metric]);
 
-  const filtered = data.filter((p) => {
-    if (p.league !== league) return false;
-    if (propType !== "all" && p.propType !== propType) return false;
-    if (overUnder !== "all" && p.overUnder !== overUnder) return false;
-    return true;
-  });
+  // Filter team trends
+  const filteredTeams = useMemo(() => {
+    return teamTrends.filter((t) => {
+      if (t.league !== league) return false;
+      if (metric === "all") return true;
+      return t.betType === metric;
+    });
+  }, [teamTrends, league, metric]);
+
+  const metricOptions = view === "Players" ? PLAYER_METRIC_OPTIONS : TEAM_METRIC_OPTIONS;
+  const isEmpty = view === "Players" ? filteredPlayers.length === 0 : filteredTeams.length === 0;
 
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            <h1 className="text-lg font-bold text-white">Live Player Props</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Current-slate markets only. No seeded filler.</p>
+            <h1 className="text-lg font-bold text-white">Props & Analytics</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Live slate. Real stats only.</p>
           </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
@@ -59,23 +94,19 @@ export default function PropsPage() {
           <FilterBar
             filters={[
               {
-                label: "Type",
-                value: propType,
-                onChange: setPropType,
+                label: "View",
+                value: view,
+                onChange: handleViewChange,
                 options: [
-                  { label: "All Markets", value: "all" },
-                  ...propTypes.map((t) => ({ label: t, value: t })),
+                  { label: "Players", value: "Players" },
+                  { label: "Team", value: "Team" },
                 ],
               },
               {
-                label: "Over/Under",
-                value: overUnder,
-                onChange: setOverUnder,
-                options: [
-                  { label: "Over+Under", value: "all" },
-                  { label: "Over", value: "Over" },
-                  { label: "Under", value: "Under" },
-                ],
+                label: "Metric",
+                value: metric,
+                onChange: setMetric,
+                options: metricOptions,
               },
             ]}
           />
@@ -85,20 +116,24 @@ export default function PropsPage() {
       {loading ? (
         <EmptyStateCard
           eyebrow="Loading live slate"
-          title="Pulling current NHL prop markets"
-          body="Goosalytics is checking the live slate, active books, and player-history context before ranking bets."
+          title={view === "Players" ? "Pulling current NHL prop markets" : "Loading team analytics"}
+          body="Goosalytics is fetching live NHL data and computing edges for today's slate."
         />
-      ) : filtered.length === 0 ? (
+      ) : isEmpty ? (
         <EmptyStateCard
-          eyebrow={meta.oddsConnected ? "Live markets thin" : "Live prop markets unavailable"}
-          title={meta.oddsConnected ? "No strong live prop edges right now" : "No live NHL player props available from the current feed"}
-          body={meta.oddsConnected
-            ? "Goosalytics is now intentionally strict: if the current slate doesn’t produce enough real, matched NHL prop markets, it shows nothing rather than fake edges."
-            : "The current external feed is not providing usable NHL player prop markets on this slate/tier. The app is intentionally avoiding seeded fake picks and will only show live, matched markets."}
+          eyebrow="Nothing here yet"
+          title={view === "Players" ? "No player props match this filter" : "No team analytics match this filter"}
+          body={view === "Players"
+            ? "Try switching to All Props or check back once today's slate is posted."
+            : "Team analytics require today's schedule to be active. Check back closer to game time."}
         />
+      ) : view === "Players" ? (
+        <div>
+          {filteredPlayers.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+        </div>
       ) : (
         <div>
-          {filtered.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+          {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
         </div>
       )}
     </div>
