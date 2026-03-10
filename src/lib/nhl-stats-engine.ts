@@ -212,7 +212,7 @@ function makeProps(
       summary: `${matchup} • ${direction} ${line} ${def.label} • L10 avg ${avg10.toFixed(1)}`,
       saved: false,
       impliedProb: STANDARD_IMPLIED_PROB,
-      hitRate: bestRate,
+      hitRate: hitRatePct,   // stored as 0-100 to match split format and filter comparisons
       edge: bestEdge,
       score: Math.abs(bestEdge) * confidence,
       statsSource: "live-nhl",
