@@ -241,16 +241,13 @@ function makeProps(
 // ──────────────────────────────────────────────────────────────────────
 
 export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerProp[]> {
-  const liveOrFutureGames = games.filter(
-    (g) => g.gameState === "FUT" || g.gameState === "LIVE" || g.gameState === "PRE"
-  );
-
-  if (!liveOrFutureGames.length) return [];
+  // Accept all games (including recently completed OFF games for Trends)
+  if (!games.length) return [];
 
   const allProps: PlayerProp[] = [];
 
-  // Process games in parallel (limit to first 4 to control API call volume)
-  const targetGames = liveOrFutureGames.slice(0, 6);
+  // Process games in parallel (limit to 6 to control API call volume)
+  const targetGames = games.slice(0, 6);
 
   await Promise.all(
     targetGames.map(async (game) => {
