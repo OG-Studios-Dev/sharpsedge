@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { parlays, sgps } from "@/data/seed";
 import { League } from "@/lib/types";
+import { useLeague } from "@/hooks/useLeague";
 import ParlayCard from "@/components/ParlayCard";
 import SGPCard from "@/components/SGPCard";
 import LeagueSelector from "@/components/LeagueSelector";
@@ -11,7 +12,7 @@ import FilterBar from "@/components/FilterBar";
 type Tab = "Parlay" | "SGP";
 
 export default function ParlaysPage() {
-  const [league, setLeague] = useState<League>("NHL");
+  const [league, setLeague] = useLeague();
   const [tab, setTab] = useState<Tab>("Parlay");
   const [betType, setBetType] = useState("all");
 

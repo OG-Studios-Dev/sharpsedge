@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { teamTrends } from "@/data/seed";
 import { League } from "@/lib/types";
+import { useLeague } from "@/hooks/useLeague";
 import TeamTrendCard from "@/components/TeamTrendCard";
 import LeagueSelector from "@/components/LeagueSelector";
 import FilterBar from "@/components/FilterBar";
 
 export default function TeamsPage() {
-  const [league, setLeague] = useState<League>("NHL");
+  const [league, setLeague] = useLeague();
   const [betType, setBetType] = useState("all");
   const [overUnder, setOverUnder] = useState("all");
 

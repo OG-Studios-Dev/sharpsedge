@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { League, PlayerProp } from "@/lib/types";
+import { useLeague } from "@/hooks/useLeague";
 import PropCard from "@/components/PropCard";
 import LeagueSelector from "@/components/LeagueSelector";
 import FilterBar from "@/components/FilterBar";
@@ -13,7 +14,7 @@ type PropsMeta = {
 };
 
 export default function PropsPage() {
-  const [league, setLeague] = useState<League>("NHL");
+  const [league, setLeague] = useLeague();
   const [propType, setPropType] = useState("all");
   const [overUnder, setOverUnder] = useState("all");
   const [data, setData] = useState<PlayerProp[]>([]);

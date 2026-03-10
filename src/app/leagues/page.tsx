@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { League } from "@/lib/types";
 import { featuredLeagues, leagueMeta } from "@/lib/league-meta";
+import { useLeague } from "@/hooks/useLeague";
 
 export default function LeaguesPage() {
-  const [league, setLeague] = useState<League>("NHL");
+  const [league, setLeague] = useLeague();
 
   return (
     <div>

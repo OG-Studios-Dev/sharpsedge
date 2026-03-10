@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLeague } from "@/hooks/useLeague";
 import { parlays, sgps } from "@/data/seed";
 import { League, PlayerProp, TeamTrend, Parlay, SGP } from "@/lib/types";
 import PropCard from "@/components/PropCard";
@@ -13,7 +14,7 @@ import EmptyStateCard from "@/components/EmptyStateCard";
 type Tab = "Player" | "Team" | "Parlay" | "SGP";
 
 export default function TrendsPage() {
-  const [league, setLeague] = useState<League>("NHL");
+  const [league, setLeague] = useLeague();
   const [tab, setTab] = useState<Tab>("Player");
   const [propsData, setPropsData] = useState<PlayerProp[]>([]);
   const [teamTrendsData, setTeamTrendsData] = useState<TeamTrend[]>([]);
