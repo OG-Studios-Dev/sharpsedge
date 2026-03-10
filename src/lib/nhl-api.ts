@@ -113,6 +113,8 @@ export type TeamStandingRow = {
   points: number;
   gamesPlayed: number;
   winPct: number;
+  goalsFor: number;
+  goalsAgainst: number;
   logo?: string;
 };
 
@@ -133,8 +135,48 @@ export async function getTeamStandings(): Promise<TeamStandingRow[]> {
       points: t.points ?? 0,
       gamesPlayed: t.gamesPlayed ?? 0,
       winPct: t.winPctg ?? 0,
+      goalsFor: t.goalFor ?? 0,
+      goalsAgainst: t.goalAgainst ?? 0,
       logo: t.teamLogo || "",
     }));
+  } catch {
+    return [];
+  }
+}
+
+export type TeamRecentGame = {
+  isHome: boolean;
+  goalsFor: number;
+  goalsAgainst: number;
+  win: boolean;
+  period1GoalsFor: number;
+  period1GoalsAgainst: number;
+  scoredFirst: boolean;
+};
+
+export async function getTeamRecentGames(teamAbbrev: string): Promise<TeamRecentGame[]> {
+  try {
+    const data = await cachedFetch<{ games?: any[] }>(
+      `${NHL_BASE}/club-schedule-season/${teamAbbrev}/20252026`
+    );
+    const allGames = data.games || [];
+    const completed = allGames.filter((g: any) => g.gameState === "OFF");
+    const last10 = completed.slice(-10);
+
+    return last10.map((g: any) => {
+      const isHome = g.homeTeam?.abbrev === teamAbbrev;
+      const goalsFor = isHome ? (g.homeTeam?.score ?? 0) : (g.awayTeam?.score ?? 0);
+      const goalsAgainst = isHome ? (g.awayTeam?.score ?? 0) : (g.homeTeam?.score ?? 0);
+      const win = goalsFor > goalsAgainst;
+
+      // TODO: NHL club-schedule-season endpoint doesn't include period-level scoring.
+      // Period 1 goals and scoredFirst are approximated as 0/false for now.
+      const period1GoalsFor = 0;
+      const period1GoalsAgainst = 0;
+      const scoredFirst = false;
+
+      return { isHome, goalsFor, goalsAgainst, win, period1GoalsFor, period1GoalsAgainst, scoredFirst };
+    });
   } catch {
     return [];
   }

@@ -5,7 +5,7 @@
  */
 
 import { TeamTrend } from "@/lib/types";
-import { getTeamStandings, TeamStandingRow, NHL_TEAM_COLORS } from "@/lib/nhl-api";
+import { getTeamStandings, getTeamRecentGames, TeamStandingRow, TeamRecentGame, NHL_TEAM_COLORS } from "@/lib/nhl-api";
 import { NHLGame } from "@/lib/types";
 
 const STANDARD_JUICE = -110;
@@ -32,6 +32,12 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     teamsToday.add(g.homeTeam.abbrev);
     teamsToday.add(g.awayTeam.abbrev);
   });
+
+  // Fetch recent games for all teams in parallel
+  const recentGamesMap = new Map<string, TeamRecentGame[]>();
+  const abbrevs = Array.from(teamsToday);
+  const recentResults = await Promise.all(abbrevs.map((a) => getTeamRecentGames(a)));
+  abbrevs.forEach((a, i) => recentGamesMap.set(a, recentResults[i]));
 
   const trends: TeamTrend[] = [];
   let idx = 0;
@@ -169,6 +175,125 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
             },
           ],
           indicators: [{ type: "hot" as const, active: true }],
+        });
+      }
+    }
+
+    // Build new analytics for both teams in this game
+    for (const { abbrev, opponentAbbrev, isAway } of [
+      { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false },
+      { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true },
+    ]) {
+      const data = standingMap.get(abbrev);
+      const recent = recentGamesMap.get(abbrev) || [];
+      if (!data) continue;
+
+      // ── Team Goals Over/Under ──
+      if (data.gamesPlayed > 0) {
+        const avgGoals = data.goalsFor / data.gamesPlayed;
+        const modelLine = Math.round(avgGoals * 2) / 2;
+        const overGames = recent.filter((g) => g.goalsFor > modelLine).length;
+        const hitRate = recent.length > 0 ? Math.round((overGames / recent.length) * 100) : 0;
+        const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
+
+        trends.push({
+          id: `team-goals-ou-${abbrev}-${game.id}-${idx++}`,
+          team: abbrev,
+          teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
+          opponent: opponentAbbrev,
+          isAway,
+          betType: "Team Goals O/U",
+          line: `O/U ${modelLine}`,
+          odds: STANDARD_JUICE,
+          impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+          hitRate,
+          edge,
+          league: "NHL",
+          splits: [
+            {
+              label: `Over ${modelLine} in L10: ${overGames}/${recent.length}`,
+              hitRate,
+              hits: overGames,
+              total: recent.length,
+              type: "last_n",
+            },
+            {
+              label: `Season avg: ${avgGoals.toFixed(1)} GF/game`,
+              hitRate: Math.round(avgGoals * 30), // normalized display
+              hits: data.goalsFor,
+              total: data.gamesPlayed,
+              type: "home_away",
+            },
+          ],
+          indicators: hitRate >= 70 ? [{ type: "hot" as const, active: true }] : [],
+        });
+      }
+
+      // ── Team Win/Loss Trend (Last 10) ──
+      if (recent.length > 0) {
+        const wins = recent.filter((g) => g.win).length;
+        const losses = recent.length - wins;
+        const hitRate = Math.round((wins / recent.length) * 100);
+        const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
+
+        trends.push({
+          id: `team-win-l10-${abbrev}-${game.id}-${idx++}`,
+          team: abbrev,
+          teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
+          opponent: opponentAbbrev,
+          isAway,
+          betType: "Team Win ML",
+          line: `L10: ${wins}W-${losses}L`,
+          odds: STANDARD_JUICE,
+          impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+          hitRate,
+          edge,
+          league: "NHL",
+          splits: [
+            {
+              label: `Last 10 games: ${wins}W-${losses}L`,
+              hitRate,
+              hits: wins,
+              total: recent.length,
+              type: "last_n",
+            },
+          ],
+          indicators: hitRate >= 70 ? [{ type: "hot" as const, active: true }] : [],
+        });
+      }
+
+      // ── Team Score First & Win ──
+      // TODO: scoredFirst data is unavailable from club-schedule-season endpoint.
+      // Once period-level scoring data is accessible, enable this metric.
+      const scoredFirstGames = recent.filter((g) => g.scoredFirst);
+      if (scoredFirstGames.length > 0) {
+        const scoredFirstAndWon = scoredFirstGames.filter((g) => g.win).length;
+        const hitRate = Math.round((scoredFirstAndWon / scoredFirstGames.length) * 100);
+        const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
+
+        trends.push({
+          id: `team-score-first-${abbrev}-${game.id}-${idx++}`,
+          team: abbrev,
+          teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
+          opponent: opponentAbbrev,
+          isAway,
+          betType: "Score First & Win",
+          line: "Score First W%",
+          odds: STANDARD_JUICE,
+          impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+          hitRate,
+          edge,
+          league: "NHL",
+          splits: [
+            {
+              label: `Scored first & won: ${scoredFirstAndWon}/${scoredFirstGames.length}`,
+              hitRate,
+              hits: scoredFirstAndWon,
+              total: scoredFirstGames.length,
+              type: "last_n",
+            },
+          ],
+          indicators: hitRate >= 75 ? [{ type: "hot" as const, active: true }] : [],
         });
       }
     }

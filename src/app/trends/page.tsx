@@ -102,12 +102,21 @@ export default function TrendsPage() {
         )}
 
         {tab === "Team" && (
-          <>
-            <div className="mx-4 mt-4 mb-2 px-3 py-2 rounded-xl bg-yellow-500/5 border border-yellow-500/15 text-xs text-yellow-400">
-              Team trends are research data. Not live for this slate.
-            </div>
-            {filteredTrends.map((item) => <TeamTrendCard key={item.id} trend={item} />)}
-          </>
+          loading ? (
+            <EmptyStateCard
+              eyebrow="Building team analytics"
+              title="Pulling team standings & recent games"
+              body="Goosalytics is computing goals O/U, win trends, home/road records, and more for today's slate."
+            />
+          ) : filteredTrends.length > 0 ? (
+            filteredTrends.map((item) => <TeamTrendCard key={item.id} trend={item} />)
+          ) : (
+            <EmptyStateCard
+              eyebrow="Live team trends"
+              title="No team trends for this slate"
+              body="There are no qualifying team trends right now. Check back when the next slate opens."
+            />
+          )
         )}
 
         {tab === "Parlay" && (
