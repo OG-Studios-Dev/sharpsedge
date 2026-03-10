@@ -72,7 +72,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           },
         ],
         indicators: homeWinRate >= 0.60
-          ? [{ label: "Strong home win %", type: "hot" as const, active: true }]
+          ? [{ type: "hot" as const, active: true }]
           : [],
       });
     }
@@ -106,7 +106,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           },
         ],
         indicators: roadWinRate >= 0.55
-          ? [{ label: "Strong road win %", type: "hot" as const, active: true }]
+          ? [{ type: "hot" as const, active: true }]
           : [],
       });
     }
@@ -137,7 +137,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
               type: "last_n",
             },
           ],
-          indicators: [{ label: `W${streak.count} active streak`, type: "hot" as const, active: true }],
+          indicators: [{ type: "hot" as const, active: true }],
         });
       }
     }
@@ -168,7 +168,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
               type: "last_n",
             },
           ],
-          indicators: [{ label: `W${streak.count} active streak`, type: "hot" as const, active: true }],
+          indicators: [{ type: "hot" as const, active: true }],
         });
       }
     }
