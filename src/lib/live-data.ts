@@ -2,6 +2,7 @@ import { getUpcomingSchedule } from "@/lib/nhl-api";
 import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { NHLGame } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
+import { buildLiveTeamTrends } from "@/lib/nhl-team-trends";
 
 const ACTIVE_STATES = ["FUT", "LIVE", "PRE"];
 
@@ -33,8 +34,11 @@ export async function getLiveDashboardData() {
   const activeGames = schedule.games.filter((g) => ACTIVE_STATES.includes(g.gameState));
   const gamesWithOdds = attachLiveOddsToSchedule(activeGames, odds);
 
-  // Build prop feed from NHL API stats for upcoming/live games
-  const rankedProps = await buildNHLStatsPropFeed(gamesWithOdds);
+  // Build prop feed + team trends in parallel
+  const [rankedProps, teamTrends] = await Promise.all([
+    buildNHLStatsPropFeed(gamesWithOdds),
+    buildLiveTeamTrends(gamesWithOdds),
+  ]);
 
   return {
     schedule: {
@@ -42,6 +46,7 @@ export async function getLiveDashboardData() {
       games: gamesWithOdds,
     },
     props: rankedProps,
+    teamTrends,
     meta: {
       oddsConnected: odds.length > 0,
       gamesCount: gamesWithOdds.length,

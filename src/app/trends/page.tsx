@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { teamTrends, parlays, sgps } from "@/data/seed";
+import { parlays, sgps } from "@/data/seed";
 import { League, PlayerProp, TeamTrend, Parlay, SGP } from "@/lib/types";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
@@ -16,24 +16,25 @@ export default function TrendsPage() {
   const [league, setLeague] = useState<League>("NHL");
   const [tab, setTab] = useState<Tab>("Player");
   const [propsData, setPropsData] = useState<PlayerProp[]>([]);
-  const [trendsData] = useState<TeamTrend[]>(teamTrends);
+  const [teamTrendsData, setTeamTrendsData] = useState<TeamTrend[]>([]);
   const [loading, setLoading] = useState(true);
   const [propsError, setPropsError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/props')
+    fetch('/api/trends')
       .then(r => r.json())
       .then((json) => {
-        if (Array.isArray(json)) setPropsData(json);
+        if (Array.isArray(json?.props)) setPropsData(json.props);
         else setPropsError(true);
+        if (Array.isArray(json?.teamTrends)) setTeamTrendsData(json.teamTrends);
       })
       .catch(() => setPropsError(true))
       .finally(() => setLoading(false));
   }, []);
 
   const filteredProps = propsData.filter((p) => p.league === league);
-  const filteredTrends = trendsData.filter((t) => t.league === league);
+  const filteredTrends = teamTrendsData.filter((t) => t.league === league);
   const filteredParlays = parlays.filter((p) => p.league === league);
   const filteredSGPs = sgps.filter((s) => s.league === league);
 

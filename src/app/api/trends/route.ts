@@ -1,40 +1,33 @@
 import { NextResponse } from "next/server";
-import { teamTrends, parlays, sgps } from "@/data/seed";
-import { impliedProbability, deriveIndicators, categorizeSplits } from "@/lib/edge-engine";
+import { getLiveDashboardData } from "@/lib/live-data";
+
+const HIT_RATE_THRESHOLD = 70; // 70% in last 10 games
 
 export async function GET() {
   try {
-    const enrichedTeams = teamTrends.map((trend) => {
-      const splits = categorizeSplits(trend.splits);
-      const implied = impliedProbability(trend.odds);
-      const avgHitRate = splits.length > 0
-        ? splits.reduce((sum, s) => sum + s.hitRate, 0) / splits.length / 100
-        : 0;
-      const edge = avgHitRate - implied;
-      const indicators = deriveIndicators(splits);
+    const data = await getLiveDashboardData();
 
-      return {
-        ...trend,
-        splits,
-        impliedProb: Math.round(implied * 100),
-        hitRate: Math.round(avgHitRate * 100),
-        edge: Math.round(edge * 100),
-        indicators,
-      };
-    });
+    // Player props: only show 70%+ hit rate in last 10 games
+    const trendingProps = (data.props || []).filter(
+      (p) => typeof p.hitRate === "number" && p.hitRate >= HIT_RATE_THRESHOLD
+    );
 
-    const enrichedSGPs = sgps.map((sgp) => {
-      const splits = categorizeSplits(sgp.splits);
-      const indicators = deriveIndicators(splits);
-      return { ...sgp, splits, indicators };
-    });
+    // Team trends: only show 70%+ hit rate
+    const trendingTeams = (data.teamTrends || []).filter(
+      (t) => typeof t.hitRate === "number" && t.hitRate >= HIT_RATE_THRESHOLD
+    );
 
     return NextResponse.json({
-      teamTrends: enrichedTeams,
-      parlays,
-      sgps: enrichedSGPs,
+      props: trendingProps,
+      teamTrends: trendingTeams,
+      meta: {
+        ...data.meta,
+        threshold: HIT_RATE_THRESHOLD,
+        propsCount: trendingProps.length,
+        teamTrendsCount: trendingTeams.length,
+      },
     });
   } catch {
-    return NextResponse.json({ teamTrends, parlays, sgps });
+    return NextResponse.json({ props: [], teamTrends: [], meta: { threshold: 70 } });
   }
 }

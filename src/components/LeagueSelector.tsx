@@ -27,9 +27,9 @@ export default function LeagueSelector({ selected, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-12">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <div className="relative w-full max-w-lg bg-dark-card rounded-b-2xl max-h-[90vh] overflow-y-auto animate-slide-down">
+          <div className="relative w-full max-w-lg bg-dark-card rounded-b-2xl max-h-[85vh] overflow-y-auto animate-slide-down">
             <div className="sticky top-0 bg-dark-card z-10 flex items-center justify-between px-5 py-4 border-b border-dark-border">
               <button onClick={() => setOpen(false)} className="text-accent-blue text-sm font-medium">
                 Close

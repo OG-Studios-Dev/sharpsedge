@@ -1,13 +1,8 @@
 import { PlayerProp, TeamTrend, Parlay, SGP, LeagueCategory } from "@/lib/types";
 
 export const leagueCategories: LeagueCategory[] = [
-  { name: "My Leagues", leagues: ["NBA", "NFL", "NHL", "MLB", "Serie A"] },
-  { name: "Baseball", leagues: ["MLB"] },
-  { name: "Basketball", leagues: ["NBA", "WNBA", "NCAAB"] },
-  { name: "Football", leagues: ["NFL", "NCAAF"] },
-  { name: "Hockey", leagues: ["NHL"] },
-  { name: "Soccer", leagues: ["Serie A", "EPL"] },
-  { name: "Australian Rules Football", leagues: ["AFL"] },
+  { name: "Live Data", leagues: ["NHL"] },
+  { name: "Coming Soon", leagues: ["NBA", "NFL", "MLB"] },
 ];
 
 export const playerProps: PlayerProp[] = [

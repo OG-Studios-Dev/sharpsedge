@@ -91,7 +91,7 @@ async function getGameLog(playerId: number): Promise<GameLog[]> {
 // Rolling stat helpers
 // ──────────────────────────────────────────────────────────────────────
 
-type StatKey = "points" | "shots" | "assists";
+type StatKey = "points" | "shots" | "assists" | "goals";
 
 function rollingAvg(logs: GameLog[], key: StatKey, n: number): number | null {
   const slice = logs.slice(0, n);
@@ -144,6 +144,8 @@ function makeProps(
   const propDefs: { key: StatKey; label: string }[] = [
     { key: "points", label: "Points" },
     { key: "shots", label: "Shots on Goal" },
+    { key: "goals", label: "Goals" },
+    { key: "assists", label: "Assists" },
   ];
 
   for (const def of propDefs) {
@@ -160,7 +162,7 @@ function makeProps(
     const overRate = overHits / sampleSize;
     const edge = overRate - STANDARD_IMPLIED_PROB;
 
-    if (edge < 0.03) continue;
+    if (edge <= 0) continue; // Props page: show anything with a positive trend
     if (sampleSize < 5) continue;
 
     const direction: "Over" = "Over";
@@ -292,8 +294,6 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
     })
   );
 
-  // Rank by edge descending, return top 30
-  return allProps
-    .sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0))
-    .slice(0, 40);
+  // Rank by edge descending
+  return allProps.sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0));
 }

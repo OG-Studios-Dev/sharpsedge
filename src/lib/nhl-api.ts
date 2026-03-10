@@ -100,6 +100,46 @@ export async function getTeamRoster(teamAbbrev: string): Promise<any[]> {
   }
 }
 
+export type TeamStandingRow = {
+  teamAbbrev: string;
+  teamName: string;
+  homeWins: number;
+  homeLosses: number;
+  homeOtLosses: number;
+  roadWins: number;
+  roadLosses: number;
+  roadOtLosses: number;
+  streakCode: string; // e.g. "W3", "L2"
+  points: number;
+  gamesPlayed: number;
+  winPct: number;
+  logo?: string;
+};
+
+export async function getTeamStandings(): Promise<TeamStandingRow[]> {
+  try {
+    const data = await cachedFetch<any>(`${NHL_BASE}/standings/now`);
+    const standings = data.standings || [];
+    return standings.map((t: any) => ({
+      teamAbbrev: t.teamAbbrev?.default || t.teamAbbrev || "",
+      teamName: t.teamName?.default || t.teamCommonName?.default || "",
+      homeWins: t.homeWins ?? 0,
+      homeLosses: t.homeLosses ?? 0,
+      homeOtLosses: t.homeOtLosses ?? 0,
+      roadWins: t.roadWins ?? 0,
+      roadLosses: t.roadLosses ?? 0,
+      roadOtLosses: t.roadOtLosses ?? 0,
+      streakCode: t.streakCode || "",
+      points: t.points ?? 0,
+      gamesPlayed: t.gamesPlayed ?? 0,
+      winPct: t.winPctg ?? 0,
+      logo: t.teamLogo || "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // NHL team colors for rendering
 export const NHL_TEAM_COLORS: Record<string, string> = {
   ANA: "#F47A38", ARI: "#8C2633", BOS: "#FFB81C", BUF: "#002654",
