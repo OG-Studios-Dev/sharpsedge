@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getLiveDashboardData } from "@/lib/live-data";
+import { getLiveTrendData } from "@/lib/live-data";
 
 const HIT_RATE_THRESHOLD = 70; // 70% in last 10 games
 
 export async function GET() {
   try {
-    const data = await getLiveDashboardData();
+    const data = await getLiveTrendData();
 
     // Player props: only show 70%+ hit rate in last 10 games
     const trendingProps = (data.props || []).filter(

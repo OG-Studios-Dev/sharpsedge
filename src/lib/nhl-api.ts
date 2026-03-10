@@ -72,6 +72,25 @@ export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleRes
   }
 }
 
+// Returns recent + upcoming games including completed ones — used for Trends (always has data)
+export async function getBroadSchedule(days: number = 4): Promise<ScheduleResponse> {
+  try {
+    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
+    const gameWeek = Array.isArray(data.gameWeek) ? data.gameWeek.slice(0, days) : [];
+    const games: NHLGame[] = gameWeek
+      .flatMap((day: any) => day.games || [])
+      .map(mapGame)
+      .sort((a: NHLGame, b: NHLGame) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
+
+    return {
+      games,
+      date: gameWeek[0]?.date || new Date().toISOString().slice(0, 10),
+    };
+  } catch {
+    return { games: [], date: new Date().toISOString().slice(0, 10) };
+  }
+}
+
 export async function getPlayerGameLog(
   playerId: number,
   season: string = "20252026"

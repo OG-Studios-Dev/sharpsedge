@@ -1,4 +1,4 @@
-import { getUpcomingSchedule } from "@/lib/nhl-api";
+import { getUpcomingSchedule, getBroadSchedule } from "@/lib/nhl-api";
 import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { NHLGame } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
@@ -22,6 +22,42 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
       },
     };
   });
+}
+
+// Used by /api/trends — includes recent completed games so Trends always has data
+export async function getLiveTrendData() {
+  const [schedule, odds] = await Promise.all([
+    getBroadSchedule(4),  // includes OFF games from last few days
+    getNHLOdds(),
+  ]);
+
+  const gamesWithOdds = attachLiveOddsToSchedule(schedule.games, odds);
+
+  // Deduplicate teams (completed + upcoming may overlap)
+  const seen = new Set<string>();
+  const uniqueGames = gamesWithOdds.filter((g) => {
+    const key = `${g.homeTeam.abbrev}-${g.awayTeam.abbrev}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const [rankedProps, teamTrends] = await Promise.all([
+    buildNHLStatsPropFeed(uniqueGames),
+    buildLiveTeamTrends(uniqueGames),
+  ]);
+
+  return {
+    props: rankedProps,
+    teamTrends,
+    meta: {
+      oddsConnected: odds.length > 0,
+      gamesCount: uniqueGames.length,
+      propsCount: rankedProps.length,
+      liveOnly: false,
+      statsSource: "live-nhl",
+    },
+  };
 }
 
 export async function getLiveDashboardData() {
