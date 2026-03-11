@@ -56,6 +56,10 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     const awayData = standingMap.get(awayAbbrev);
     const matchup = `${awayAbbrev} @ ${homeAbbrev}`;
 
+    // Real ML odds from Odds API if available, else standard juice
+    const homeMLOdds = (game as any).bestMoneyline?.home?.odds ?? STANDARD_JUICE;
+    const awayMLOdds = (game as any).bestMoneyline?.away?.odds ?? STANDARD_JUICE;
+
     // ── Home team: home win rate trend ──
     if (homeData) {
       const homeGames = homeData.homeWins + homeData.homeLosses + homeData.homeOtLosses;
@@ -70,7 +74,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         isAway: false,
         betType: "ML Home Win",
         line: `Home ML`,
-        odds: STANDARD_JUICE,
+        odds: homeMLOdds,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(homeWinRate * 100),
         edge: Math.round(edge * 100),
@@ -104,7 +108,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         isAway: true,
         betType: "ML Road Win",
         line: `Road ML`,
-        odds: STANDARD_JUICE,
+        odds: awayMLOdds,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(roadWinRate * 100),
         edge: Math.round(edge * 100),

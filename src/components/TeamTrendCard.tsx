@@ -18,10 +18,10 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-gray-300 text-[14px]">
-                {trend.line ? `${trend.line} ` : ""}{trend.betType}
+                {trend.betType}
               </span>
               <span className="text-gray-400 text-[13px] font-medium">
-                {formatOdds(trend.odds)}
+                {trend.odds === -110 ? <span className="text-gray-600">N/A</span> : formatOdds(trend.odds)}
               </span>
               {trend.book && (
                 <span className="text-[10px] px-1 py-0.5 rounded bg-dark-surface text-gray-500">
