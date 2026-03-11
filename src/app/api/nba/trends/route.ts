@@ -21,7 +21,7 @@ export async function GET() {
       teamTrends: trendingTeams,
       meta: {
         ...data.meta,
-        criteria: "70%+ L10 OR 3/5 L5 OR 3-game streak",
+        criteria: "60%+ L10 OR 3/5 L5 OR 3-game streak",
         propsCount: trendingProps.length,
         teamTrendsCount: trendingTeams.length,
       },

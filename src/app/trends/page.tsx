@@ -63,7 +63,7 @@ export default function TrendsPage() {
         <div className="flex items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-xl font-bold text-white">Trends</h1>
-            <p className="text-xs text-gray-500 mt-0.5">70%+ L10 · 3/5 L5 · 3-game streak</p>
+            <p className="text-xs text-gray-500 mt-0.5">60%+ L10 · 3/5 L5 · 3-game streak</p>
           </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
@@ -101,14 +101,14 @@ export default function TrendsPage() {
           ) : allEmpty ? (
             <EmptyStateCard
               eyebrow="No trends yet"
-              title="No trends hitting 70%+ right now"
+              title="No trends hitting 60%+ right now"
               body="Check back once recent games are logged. The model needs at least 5 games of data per player."
             />
           ) : (
             <>
               {usingFallback && (
                 <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
-                  Games in progress — showing all today's props. 70%+ trends appear after games complete.
+                  Games in progress — showing all today's props. 60%+ trends appear after games complete.
                 </div>
               )}
               {filteredTeams.length > 0 && (
@@ -143,7 +143,7 @@ export default function TrendsPage() {
             <>
               {usingFallback && (
                 <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
-                  Games in progress — showing all today's props. 70%+ trends appear after games complete.
+                  Games in progress — showing all today's props. 60%+ trends appear after games complete.
                 </div>
               )}
               {filteredProps.map((p) => <PropCard key={p.id} prop={p} />)}
@@ -170,7 +170,7 @@ export default function TrendsPage() {
           ) : (
             <EmptyStateCard
               eyebrow="Team trends"
-              title="No team trends at 70%+ right now"
+              title="No team trends at 60%+ right now"
               body="Check back closer to game time."
             />
           )

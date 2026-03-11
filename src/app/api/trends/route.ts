@@ -3,7 +3,7 @@ import { getLiveTrendData } from "@/lib/live-data";
 import { TeamTrend } from "@/lib/types";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 
-const L10_THRESHOLD = 70;
+const L10_THRESHOLD = 60;
 const TEAM_THRESHOLD = 58; // Season win % — 70% is too strict, 58%+ is a real edge
 
 function teamQualifies(t: TeamTrend): boolean {
@@ -22,7 +22,7 @@ export async function GET() {
       teamTrends: trendingTeams,
       meta: {
         ...data.meta,
-        criteria: "70%+ L10 OR 3/5 L5 OR 3-game streak",
+        criteria: "60%+ L10 OR 3/5 L5 OR 3-game streak",
         propsCount: trendingProps.length,
         teamTrendsCount: trendingTeams.length,
       },
