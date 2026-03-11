@@ -128,7 +128,7 @@ export default function PicksPage() {
       <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white text-xl font-semibold">AI Picks</h1>
+            <h1 className="text-white text-xl font-semibold tracking-tight">🪿 GOOSE AI PICKS</h1>
             <p className="text-gray-500 text-xs mt-0.5">{formatDate(todayKey)}</p>
           </div>
           <LeagueSelector selected={league} onSelect={setLeague} />

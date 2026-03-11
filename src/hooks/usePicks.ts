@@ -20,47 +20,101 @@ function saveStore(store: PickStore) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
-function today() {
+function todayKey() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function resolvePicksFromAPI(picks: AIPick[]): Promise<AIPick[]> {
+  const pending = picks.filter((p) => p.result === "pending");
+  if (!pending.length) return picks;
+  try {
+    const res = await fetch("/api/picks/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ picks }),
+    });
+    if (!res.ok) return picks;
+    const data = await res.json();
+    return Array.isArray(data.picks) ? data.picks : picks;
+  } catch {
+    return picks;
+  }
 }
 
 export function usePicks() {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
 
-  const todayKey = today();
-  const todayPicks = allPicks[todayKey] || [];
+  const key = todayKey();
+  const todayPicks = allPicks[key] || [];
 
+  // Fetch fresh picks for today — ONLY if today has no picks yet (LOCK)
   const fetchAndStore = useCallback(async () => {
     setLoadingPicks(true);
     try {
+      const store = loadStore();
+      // HARD LOCK: if today already has picks, never overwrite them
+      if (store[key]?.length) {
+        setAllPicks(store);
+        setLoadingPicks(false);
+        return;
+      }
       const res = await fetch("/api/picks");
       const data = await res.json();
       if (data.picks?.length) {
-        const store = loadStore();
-        store[data.date || todayKey] = data.picks;
-        saveStore(store);
-        setAllPicks(store);
+        const date = data.date || key;
+        // Only store if this date has no picks yet
+        if (!store[date]?.length) {
+          store[date] = data.picks;
+          saveStore(store);
+        }
+        setAllPicks({ ...store });
       }
     } catch {
       // silently fail
     } finally {
       setLoadingPicks(false);
     }
-  }, [todayKey]);
+  }, [key]);
+
+  // Attempt to auto-resolve pending picks from completed game stats
+  const resolvePending = useCallback(async (store: PickStore) => {
+    let changed = false;
+    const updated = { ...store };
+
+    for (const [date, picks] of Object.entries(updated)) {
+      const hasPending = picks.some((p) => p.result === "pending");
+      if (!hasPending) continue;
+
+      const resolved = await resolvePicksFromAPI(picks);
+      const anyChange = resolved.some(
+        (r, i) => r.result !== picks[i].result
+      );
+      if (anyChange) {
+        updated[date] = resolved;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      saveStore(updated);
+      setAllPicks({ ...updated });
+    }
+  }, []);
 
   useEffect(() => {
     const store = loadStore();
-    if (store[todayKey]?.length) {
-      setAllPicks(store);
+    setAllPicks(store);
+
+    if (store[key]?.length) {
       setLoadingPicks(false);
+      // Picks already exist for today — just try to resolve any pending ones
+      resolvePending(store);
     } else {
-      setAllPicks(store);
+      // No picks for today yet — fetch and lock them in
       fetchAndStore();
     }
-  }, [todayKey, fetchAndStore]);
-
-  // TODO: add boxscore resolution to update pick results from final scores
+  }, [key, fetchAndStore, resolvePending]);
 
   const record = (() => {
     let wins = 0;
