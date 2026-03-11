@@ -48,7 +48,8 @@ export default function PropsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/dashboard')
+    const endpoint = league === "NBA" ? "/api/nba/dashboard" : "/api/dashboard";
+    fetch(endpoint)
       .then(r => r.json())
       .then((json) => {
         if (Array.isArray(json?.props)) setPlayerProps(json.props);
@@ -56,7 +57,7 @@ export default function PropsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [league]);
 
   // Filter player props — apply same 3-criteria trend filter
   const filteredPlayers = useMemo(() => {

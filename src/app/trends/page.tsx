@@ -24,7 +24,9 @@ export default function TrendsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/trends')
+    const trendsEndpoint = league === "NBA" ? "/api/nba/trends" : "/api/trends";
+    const propsEndpoint = league === "NBA" ? "/api/nba/dashboard" : "/api/props";
+    fetch(trendsEndpoint)
       .then(r => r.json())
       .then(async (json) => {
         const trendProps = Array.isArray(json?.props) ? json.props : [];
@@ -35,15 +37,15 @@ export default function TrendsPage() {
           setUsingFallback(false);
         } else {
           // Fallback: show all props for the day (games in progress = show until complete)
-          const fallback = await fetch('/api/props').then(r => r.json()).catch(() => []);
-          const allProps = Array.isArray(fallback) ? fallback : [];
+          const fallback = await fetch(propsEndpoint).then(r => r.json()).catch(() => []);
+          const allProps = Array.isArray(fallback) ? fallback : (Array.isArray(fallback?.props) ? fallback.props : []);
           setPropsData(allProps);
           setUsingFallback(allProps.length > 0);
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [league]);
 
   const filteredProps = propsData.filter((p) => p.league === league);
   const filteredTeams = teamTrendsData.filter((t) => t.league === league);

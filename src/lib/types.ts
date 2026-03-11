@@ -61,7 +61,7 @@ export type PlayerProp = {
   fairOdds?: number | null;
   fairProbability?: number | null;
   edgePct?: number | null;
-  statsSource?: "live-nhl" | "seed";
+  statsSource?: "live-nhl" | "live-nba" | "seed";
 };
 
 export type TeamTrend = {
