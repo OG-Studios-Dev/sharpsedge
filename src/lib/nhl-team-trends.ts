@@ -230,9 +230,9 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
             },
             {
               label: `Season avg: ${avgGoals.toFixed(1)} GF/game`,
-              hitRate: Math.round(avgGoals * 30), // normalized display
-              hits: data.goalsFor,
-              total: data.gamesPlayed,
+              hitRate: 0, // descriptive stat, not a hit rate — % suppressed in UI
+              hits: 0,
+              total: 0,
               type: "home_away",
             },
           ],

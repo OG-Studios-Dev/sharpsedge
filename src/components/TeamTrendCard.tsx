@@ -40,9 +40,11 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
             <span className="text-[13px] text-gray-400 leading-tight">
               &bull; {split.label}
             </span>
-            <span className={`text-[13px] font-semibold shrink-0 ${getHitRateColor(split.hitRate)}`}>
-              {split.hitRate}%
-            </span>
+            {split.hitRate > 0 && split.hitRate <= 100 && (
+              <span className={`text-[13px] font-semibold shrink-0 ${getHitRateColor(split.hitRate)}`}>
+                {split.hitRate}%
+              </span>
+            )}
           </div>
         ))}
       </div>
