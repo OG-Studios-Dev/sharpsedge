@@ -101,8 +101,8 @@ function NHLStandings() {
 type NBAStanding = {
   teamAbbrev: string; teamName: string;
   wins: number; losses: number; winPct: number;
-  homeWins: number; homeLosses: number;
-  awayWins: number; awayLosses: number;
+  homeRecord: string; // "34-7"
+  roadRecord: string; // "30-11"
   streak: string;
 };
 

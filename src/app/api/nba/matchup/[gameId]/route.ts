@@ -29,13 +29,13 @@ export async function GET(
         status: game.status,
         homeTeam: {
           abbreviation: game.homeTeam.abbreviation,
-          fullName: game.homeTeam.full_name,
+          fullName: game.homeTeam.fullName,
           score: game.homeScore,
           color: NBA_TEAM_COLORS[game.homeTeam.abbreviation] || "#4a9eff",
         },
         awayTeam: {
           abbreviation: game.awayTeam.abbreviation,
-          fullName: game.awayTeam.full_name,
+          fullName: game.awayTeam.fullName,
           score: game.awayScore,
           color: NBA_TEAM_COLORS[game.awayTeam.abbreviation] || "#4a9eff",
         },

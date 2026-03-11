@@ -6,11 +6,11 @@ import { NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { OddsEvent } from "@/lib/types";
 
 export type NBAGameCardGame = {
-  id: number;
+  id: string;
   date: string;
   status: string;
-  homeTeam: { id: number; abbreviation: string; full_name: string };
-  awayTeam: { id: number; abbreviation: string; full_name: string };
+  homeTeam: { id: string; abbreviation: string; fullName: string };
+  awayTeam: { id: string; abbreviation: string; fullName: string };
   homeScore: number | null;
   awayScore: number | null;
 };
@@ -90,8 +90,8 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
 
   const { homeML, awayML, homeSpread, awaySpread, total } = extractOdds(
     oddsEvent,
-    game.homeTeam.full_name,
-    game.awayTeam.full_name
+    game.homeTeam.fullName,
+    game.awayTeam.fullName
   );
 
   const homeProb = homeML !== null ? oddsToWinProb(homeML) : null;

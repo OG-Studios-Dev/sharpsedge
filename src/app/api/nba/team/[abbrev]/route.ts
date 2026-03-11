@@ -19,14 +19,14 @@ export async function GET(
     const standing = standings.find((s) => s.teamAbbrev === teamAbbrev) || null;
 
     // Find team ID from today's schedule
-    let teamId = 0;
+    let teamId = "";
     for (const game of schedule) {
       if (game.homeTeam.abbreviation === teamAbbrev) { teamId = game.homeTeam.id; break; }
       if (game.awayTeam.abbreviation === teamAbbrev) { teamId = game.awayTeam.id; break; }
     }
 
     // Fetch roster if we found a team ID
-    const teamRoster = teamId > 0 ? await getNBATeamRoster(teamId) : [];
+    const teamRoster = teamId ? await getNBATeamRoster(parseInt(teamId) || 0) : [];
 
     // Recent games from schedule (completed games only)
     const recentGames = schedule

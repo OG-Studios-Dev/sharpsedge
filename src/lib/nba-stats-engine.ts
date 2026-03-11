@@ -1,233 +1,238 @@
 /**
- * NBA Stats Engine
- * Builds ranked player props from BallDontLie API data.
+ * NBA Stats Engine (ESPN-powered)
+ * Derives player prop lines from ESPN boxscore data for recent completed games.
+ * No API key required.
  *
  * Pipeline:
- *  1. Take today/tomorrow scheduled games
- *  2. Fetch roster for each team
- *  3. For top players (guards/forwards first), fetch game logs
+ *  1. Take today/tomorrow scheduled games from ESPN
+ *  2. For each playing team, fetch last 10 completed games via ESPN scoreboard
+ *  3. Parse player stats from each game's boxscore
  *  4. Compute rolling averages + hit rates for Points, Rebounds, Assists, 3PM
  *  5. Generate model prop lines + edge scores
  *  6. Return ranked list, highest-edge first
  */
 
 import { PlayerProp } from "@/lib/types";
-import { NBAGame, NBAPlayerGameLog, getNBATeamRoster, getNBAPlayerGameLog, NBA_TEAM_COLORS } from "@/lib/nba-api";
-
-// ──────────────────────────────────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────────────────────────────────
-
-type StatKey = "points" | "rebounds" | "assists" | "threePointersMade" | "steals" | "blocks";
-
-const NBA_PROP_DEFS: { key: StatKey; label: string }[] = [
-  { key: "points", label: "Points" },
-  { key: "rebounds", label: "Rebounds" },
-  { key: "assists", label: "Assists" },
-  { key: "threePointersMade", label: "3-Pointers Made" },
-  { key: "steals", label: "Steals" },
-  { key: "blocks", label: "Blocks" },
-];
-
-// ──────────────────────────────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────────────────────────────
+import { NBAGame, getNBABoxscore, getNBASchedule, NBA_TEAM_COLORS } from "@/lib/nba-api";
 
 const STANDARD_JUICE = -110;
-const STANDARD_IMPLIED_PROB = 110 / 210; // ≈ 0.524
-
-function parseMinutes(min: string): number {
-  if (!min) return 0;
-  // BallDontLie returns minutes as "MM:SS" or just a number string
-  if (min.includes(":")) {
-    const [m, s] = min.split(":").map(Number);
-    return (m || 0) + (s || 0) / 60;
-  }
-  return parseFloat(min) || 0;
-}
-
-function rollingAvg(logs: NBAPlayerGameLog[], key: StatKey, n: number): number | null {
-  const slice = logs.slice(0, n);
-  if (slice.length < 3) return null;
-  return slice.reduce((s, g) => s + g[key], 0) / slice.length;
-}
+const STANDARD_IMPLIED_PROB = 110 / 210;
 
 function roundToHalf(n: number): number {
   return Math.round(n * 2) / 2;
 }
 
-function avgMinutes(logs: NBAPlayerGameLog[], n: number): number {
-  const slice = logs.slice(0, n);
-  if (!slice.length) return 0;
-  return slice.reduce((s, g) => s + parseMinutes(g.minutesPlayed), 0) / slice.length;
+const NBA_PROP_DEFS = [
+  { key: "points" as const, label: "Points", minLine: 5 },
+  { key: "rebounds" as const, label: "Rebounds", minLine: 2 },
+  { key: "assists" as const, label: "Assists", minLine: 2 },
+  { key: "threePointersMade" as const, label: "3-Pointers Made", minLine: 0.5 },
+];
+
+type StatKey = typeof NBA_PROP_DEFS[number]["key"];
+
+type GameStat = {
+  points: number;
+  rebounds: number;
+  assists: number;
+  threePointersMade: number;
+  minutes: number;
+};
+
+async function getPlayerRecentStats(
+  playerName: string,
+  teamAbbrev: string,
+  recentGames: NBAGame[]
+): Promise<GameStat[]> {
+  const logs: GameStat[] = [];
+  const teamGames = recentGames
+    .filter(g => g.status === "Final" &&
+      (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev))
+    .slice(0, 12);
+
+  for (const game of teamGames) {
+    try {
+      const box = await getNBABoxscore(game.id);
+      const isHome = game.homeTeam.abbreviation === teamAbbrev;
+      const teamPlayers = isHome ? box.home : box.away;
+      const nameLower = playerName.toLowerCase();
+      const p = teamPlayers.find(pl =>
+        pl.name.toLowerCase().includes(nameLower.split(" ").pop() ?? "") &&
+        pl.name.toLowerCase().includes(nameLower.split(" ")[0] ?? "")
+      );
+      if (!p) continue;
+      const mins = parseFloat(p.minutes) || 0;
+      if (mins < 15) continue;
+      logs.push({
+        points: p.points,
+        rebounds: p.rebounds,
+        assists: p.assists,
+        threePointersMade: parseInt(p.threePointers.split("-")[0]) || 0,
+        minutes: mins,
+      });
+    } catch {
+      // skip failed boxscore
+    }
+    if (logs.length >= 10) break;
+  }
+  return logs;
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Build props for a single player
-// ──────────────────────────────────────────────────────────────────────
+function computeHitRate(logs: GameStat[], key: StatKey, line: number): number {
+  if (!logs.length) return 0;
+  const hits = logs.filter(g => g[key] > line).length;
+  return Math.round((hits / logs.length) * 100);
+}
 
-function makeProps(
-  player: { id: number; name: string; position: string },
-  logs: NBAPlayerGameLog[],
+function buildProp(
+  playerName: string,
   team: string,
   opponent: string,
   isAway: boolean,
+  teamColor: string,
+  logs: GameStat[],
+  propDef: typeof NBA_PROP_DEFS[number],
   matchup: string,
   gameId: string
-): PlayerProp[] {
-  if (logs.length < 5) return [];
+): PlayerProp | null {
+  const vals = logs.map(g => g[propDef.key]);
+  const avg10 = vals.slice(0, 10).reduce((a, b) => a + b, 0) / Math.min(vals.length, 10);
+  const line = Math.max(roundToHalf(avg10), propDef.minLine);
 
-  const avgMin = avgMinutes(logs, 10);
-  if (avgMin < 20) return []; // skip bench players
+  const hitRate = computeHitRate(logs, propDef.key, line);
+  const recentGames = vals.slice(0, 10);
+  const edge = (hitRate / 100) - STANDARD_IMPLIED_PROB;
 
-  const recentLogs = logs.slice(0, 10);
-  const recent5 = logs.slice(0, 5);
-  const props: PlayerProp[] = [];
+  if (edge <= 0) return null;
 
-  for (const def of NBA_PROP_DEFS) {
-    // Skip 3PM for centers (position "C")
-    if (def.key === "threePointersMade" && player.position === "C") continue;
-
-    const avg5 = rollingAvg(logs, def.key, 5);
-    const avg10 = rollingAvg(logs, def.key, 10);
-    if (avg5 === null || avg10 === null) continue;
-
-    const modelLine = roundToHalf(avg5);
-    if (modelLine < 0.5) continue;
-    const line = modelLine;
-
-    const sampleSize = Math.min(10, recentLogs.length);
-    const overHits = recentLogs.slice(0, sampleSize).filter((g) => g[def.key] > line).length;
-    const overRate = overHits / sampleSize;
-    const edge = overRate - STANDARD_IMPLIED_PROB;
-
-    if (edge <= 0) continue;
-    if (sampleSize < 5) continue;
-
-    const direction: "Over" = "Over";
-    const edgePct = Math.round(edge * 100);
-    const confidence =
-      Math.abs(edge) > 0.15 ? 90 :
-      Math.abs(edge) > 0.10 ? 75 :
-      Math.abs(edge) > 0.06 ? 60 : 45;
-
-    const hitRatePct = Math.round(overRate * 100);
-    const recentGames = recent5.map((g) => g[def.key]);
-
-    props.push({
-      id: `nba-${gameId}-${player.id}-${def.key}-${direction}`,
-      playerId: player.id,
-      playerName: player.name,
-      team,
-      teamColor: NBA_TEAM_COLORS[team] || "#4a9eff",
-      opponent,
-      isAway,
-      propType: def.label,
-      line,
-      overUnder: direction,
-      odds: STANDARD_JUICE,
-      book: "Model Line",
-      league: "NBA",
-      matchup,
-      recommendation: `${direction} ${line} ${def.label}`,
-      direction,
-      confidence,
-      confidenceBreakdown: {
-        recentForm: Math.round((avg5 / (avg10 + 0.01)) * 50),
-        matchup: 50,
-        situational: 50,
+  return {
+    id: `nba-${team}-${playerName.replace(/\s+/g, "-")}-${propDef.key}`,
+    league: "NBA",
+    playerName,
+    team,
+    teamColor,
+    opponent,
+    isAway,
+    matchup,
+    propType: propDef.label,
+    line,
+    direction: "Over",
+    overUnder: "Over",
+    odds: STANDARD_JUICE,
+    impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+    hitRate,
+    recentGames,
+    edgePct: edge,
+    edge: Math.round(edge * 100),
+    fairProbability: hitRate / 100,
+    fairOdds: null,
+    splits: [
+      {
+        label: `L${Math.min(logs.length, 10)}: ${logs.slice(0, 10).filter(g => g[propDef.key] > line).length}/${Math.min(logs.length, 10)} over ${line}`,
+        hitRate,
+        hits: logs.slice(0, 10).filter(g => g[propDef.key] > line).length,
+        total: Math.min(logs.length, 10),
+        type: "last_n",
       },
-      rollingAverages: {
-        last5: parseFloat(avg5.toFixed(2)),
-        last10: parseFloat(avg10.toFixed(2)),
-      },
-      isBackToBack: false,
-      recentGames,
-      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${hitRatePct}% in last 10 games. Model edge: +${edgePct}%.`,
-      summary: `${matchup} • ${direction} ${line} ${def.label} • L10 avg ${avg10.toFixed(1)}`,
-      saved: false,
-      impliedProb: STANDARD_IMPLIED_PROB,
-      hitRate: hitRatePct,
-      edge,
-      score: Math.abs(edge) * confidence,
-      statsSource: "live-nba" as PlayerProp["statsSource"],
-      splits: [
-        {
-          label: `Hit ${direction} ${line} in ${hitRatePct}% of last 10 games`,
-          hitRate: hitRatePct,
-          hits: Math.round(overRate * 10),
-          total: 10,
-          type: "last_n",
-        },
-      ],
-      indicators: [],
-      projection: parseFloat(avg5.toFixed(2)),
-      fairProbability: overRate,
-      fairOdds: null,
-      edgePct: edge,
-    });
-  }
-
-  return props;
+    ],
+    indicators: [],
+  };
 }
-
-// ──────────────────────────────────────────────────────────────────────
-// Main export: build full prop feed from scheduled games
-// ──────────────────────────────────────────────────────────────────────
 
 export async function buildNBAStatsPropFeed(
   games: NBAGame[],
   opts: { maxGames?: number; maxPlayers?: number } = {}
 ): Promise<PlayerProp[]> {
-  const { maxGames = 4, maxPlayers = 6 } = opts;
+  const { maxGames = 3, maxPlayers = 5 } = opts;
   if (!games.length) return [];
+
+  // Get 30 recent completed games for boxscore mining
+  let recentGames: NBAGame[] = [];
+  try {
+    // Fetch past 14 days of games
+    const past: NBAGame[] = [];
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`);
+      if (res.ok) {
+        const data = await res.json();
+        past.push(...(data.events ?? []).map((e: any) => {
+          const comp = e.competitions?.[0] ?? {};
+          const comps = comp.competitors ?? [];
+          const home = comps.find((c: any) => c.homeAway === "home") ?? comps[0] ?? {};
+          const away = comps.find((c: any) => c.homeAway === "away") ?? comps[1] ?? {};
+          return {
+            id: e.id, date: e.date?.slice(0, 10) ?? "",
+            status: e.status?.type?.completed ? "Final" : "Other",
+            statusDetail: e.status?.type?.shortDetail ?? "",
+            homeTeam: { id: home.team?.id ?? "", abbreviation: home.team?.abbreviation ?? "", fullName: home.team?.displayName ?? "", record: "" },
+            awayTeam: { id: away.team?.id ?? "", abbreviation: away.team?.abbreviation ?? "", fullName: away.team?.displayName ?? "", record: "" },
+            homeScore: home.score ? parseInt(home.score) : null,
+            awayScore: away.score ? parseInt(away.score) : null,
+          } as NBAGame;
+        }));
+      }
+      if (past.filter(g => g.status === "Final").length >= 30) break;
+    }
+    recentGames = past.filter(g => g.status === "Final");
+  } catch {
+    return [];
+  }
 
   const allProps: PlayerProp[] = [];
   const targetGames = games.slice(0, maxGames);
 
-  await Promise.all(
-    targetGames.map(async (game) => {
-      const [homeRoster, awayRoster] = await Promise.all([
-        getNBATeamRoster(game.homeTeam.id),
-        getNBATeamRoster(game.awayTeam.id),
-      ]);
+  for (const game of targetGames) {
+    const homeBox = recentGames.filter(g => g.homeTeam.abbreviation === game.homeTeam.abbreviation || g.awayTeam.abbreviation === game.homeTeam.abbreviation).slice(0, 1);
+    const awayBox = recentGames.filter(g => g.homeTeam.abbreviation === game.awayTeam.abbreviation || g.awayTeam.abbreviation === game.awayTeam.abbreviation).slice(0, 1);
 
-      const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`;
-
-      // Prioritize guards and forwards, limit per team
-      const pickPlayers = (roster: Array<{ id: number; name: string; position: string }>) => {
-        const guards = roster.filter((p) => p.position.includes("G"));
-        const forwards = roster.filter((p) => p.position.includes("F"));
-        const centers = roster.filter((p) => p.position === "C");
-        return [...guards, ...forwards, ...centers].slice(0, maxPlayers);
-      };
-
-      const homePlayers = pickPlayers(homeRoster);
-      const awayPlayers = pickPlayers(awayRoster);
-
-      type PlayerTask = { player: { id: number; name: string; position: string }; team: string; opponent: string; isAway: boolean };
-      const tasks: PlayerTask[] = [
-        ...homePlayers.map((p) => ({ player: p, team: game.homeTeam.abbreviation, opponent: game.awayTeam.abbreviation, isAway: false })),
-        ...awayPlayers.map((p) => ({ player: p, team: game.awayTeam.abbreviation, opponent: game.homeTeam.abbreviation, isAway: true })),
-      ];
-
-      // Batch game log fetches in groups of 5
-      for (let i = 0; i < tasks.length; i += 5) {
-        const batch = tasks.slice(i, i + 5);
-        await Promise.all(
-          batch.map(async ({ player, team, opponent, isAway }) => {
-            const logs = await getNBAPlayerGameLog(player.id);
-            const props = makeProps(
-              player, logs, team, opponent,
-              isAway, matchup, String(game.id)
-            );
-            allProps.push(...props);
-          })
-        );
+    // Get a recent boxscore to discover player names for each team
+    const getTopPlayers = async (teamAbbrev: string): Promise<string[]> => {
+      const teamGames = recentGames.filter(g =>
+        g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev
+      ).slice(0, 3);
+      const players = new Map<string, number>();
+      for (const tg of teamGames) {
+        try {
+          const box = await getNBABoxscore(tg.id);
+          const isHome = tg.homeTeam.abbreviation === teamAbbrev;
+          const teamPlayers = isHome ? box.home : box.away;
+          for (const p of teamPlayers) {
+            const mins = parseFloat(p.minutes) || 0;
+            if (mins >= 20) players.set(p.name, (players.get(p.name) ?? 0) + p.points);
+          }
+        } catch { /* skip */ }
       }
-    })
-  );
+      return Array.from(players.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, maxPlayers)
+        .map(([name]) => name);
+    };
 
-  // Rank by edge descending
-  return allProps.sort((a, b) => (b.edge ?? 0) - (a.edge ?? 0));
+    const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`;
+
+    const [homePlayers, awayPlayers] = await Promise.all([
+      getTopPlayers(game.homeTeam.abbreviation),
+      getTopPlayers(game.awayTeam.abbreviation),
+    ]);
+
+    const tasks = [
+      ...homePlayers.map(name => ({ name, team: game.homeTeam.abbreviation, opp: game.awayTeam.abbreviation, isAway: false })),
+      ...awayPlayers.map(name => ({ name, team: game.awayTeam.abbreviation, opp: game.homeTeam.abbreviation, isAway: true })),
+    ];
+
+    for (const task of tasks) {
+      const logs = await getPlayerRecentStats(task.name, task.team, recentGames);
+      if (logs.length < 5) continue;
+      const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
+      for (const propDef of NBA_PROP_DEFS) {
+        const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, matchup, game.id);
+        if (prop) allProps.push(prop);
+      }
+    }
+  }
+
+  return allProps.sort((a, b) => (b.edgePct ?? 0) - (a.edgePct ?? 0));
 }

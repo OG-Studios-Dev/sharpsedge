@@ -11,6 +11,12 @@ const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210; // ≈ 0.524
 const DEFAULT_TOTAL_LINE = 220;
 
+/** Parse "34-7" → { wins: 34, losses: 7 } */
+function parseRecord(record: string): { wins: number; losses: number } {
+  const [w, l] = record.split("-").map(Number);
+  return { wins: isNaN(w) ? 0 : w, losses: isNaN(l) ? 0 : l };
+}
+
 function parseStreak(streakCode: string): { type: "W" | "L"; count: number } | null {
   if (!streakCode) return null;
   const match = streakCode.match(/^([WL])(\d+)$/);
@@ -80,8 +86,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
 
     // ── Home team: home win rate trend ──
     if (homeData) {
-      const homeGames = homeData.homeWins + homeData.homeLosses;
-      const homeWinRate = homeGames > 0 ? homeData.homeWins / homeGames : 0;
+      const { wins: hw, losses: hl } = parseRecord(homeData.homeRecord ?? "0-0");
+      const homeGames = hw + hl;
+      const homeWinRate = homeGames > 0 ? hw / homeGames : 0;
       const edge = homeWinRate - STANDARD_IMPLIED_PROB;
 
       trends.push({
@@ -99,9 +106,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         league: "NBA",
         splits: [
           {
-            label: `Home: ${homeData.homeWins}-${homeData.homeLosses}`,
+            label: `Home: ${hw}-${hl}`,
             hitRate: Math.round(homeWinRate * 100),
-            hits: homeData.homeWins,
+            hits: hw,
             total: homeGames,
             type: "home_away",
           },
@@ -114,8 +121,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
 
     // ── Away team: road win rate trend ──
     if (awayData) {
-      const roadGames = awayData.awayWins + awayData.awayLosses;
-      const roadWinRate = roadGames > 0 ? awayData.awayWins / roadGames : 0;
+      const { wins: rw, losses: rl } = parseRecord(awayData.roadRecord ?? "0-0");
+      const roadGames = rw + rl;
+      const roadWinRate = roadGames > 0 ? rw / roadGames : 0;
       const edge = roadWinRate - STANDARD_IMPLIED_PROB;
 
       trends.push({
@@ -133,9 +141,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         league: "NBA",
         splits: [
           {
-            label: `Road: ${awayData.awayWins}-${awayData.awayLosses}`,
+            label: `Road: ${rw}-${rl}`,
             hitRate: Math.round(roadWinRate * 100),
-            hits: awayData.awayWins,
+            hits: rw,
             total: roadGames,
             type: "home_away",
           },

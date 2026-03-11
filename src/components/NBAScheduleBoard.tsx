@@ -5,11 +5,11 @@ import NBAGameCard from "./NBAGameCard";
 import type { OddsEvent } from "@/lib/types";
 
 type NBAGame = {
-  id: number;
+  id: string;
   date: string;
   status: string;
-  homeTeam: { id: number; abbreviation: string; full_name: string };
-  awayTeam: { id: number; abbreviation: string; full_name: string };
+  homeTeam: { id: string; abbreviation: string; fullName: string };
+  awayTeam: { id: string; abbreviation: string; fullName: string };
   homeScore: number | null;
   awayScore: number | null;
 };
@@ -59,8 +59,8 @@ export default function NBAScheduleBoard({ compact }: Props) {
   const displaySections = compact ? sections.slice(0, 2) : sections;
 
   function findOddsEvent(game: NBAGame): OddsEvent | undefined {
-    const homeFull = game.homeTeam.full_name.toLowerCase();
-    const awayFull = game.awayTeam.full_name.toLowerCase();
+    const homeFull = game.homeTeam.fullName.toLowerCase();
+    const awayFull = game.awayTeam.fullName.toLowerCase();
     return oddsEvents.find((e) => {
       const eHome = e.home_team.toLowerCase();
       const eAway = e.away_team.toLowerCase();

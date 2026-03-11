@@ -1,52 +1,51 @@
 /**
  * NBA API Client
- * Uses BallDontLie API (v1) for schedule, player stats, rosters, and standings.
- * Falls back gracefully when API key is missing.
+ * Primary source: ESPN hidden API (no key required, server-side only)
+ * Fallback: BallDontLie v1 (key: BALLDONTLIE_API_KEY — basic schedule/players only)
+ *
+ * ESPN endpoints used:
+ *   Scoreboard:  site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard
+ *   Game summary: site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=ID
+ *   Standings:   site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
  */
 
+const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+const ESPN_BASE_V2 = "https://site.api.espn.com/apis/v2/sports/basketball/nba";
 const BDL_BASE = "https://api.balldontlie.io/v1";
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 15 * 60 * 1000;
 
 type CacheEntry<T> = { data: T; timestamp: number };
 const cache = new Map<string, CacheEntry<unknown>>();
 
-function getHeaders(): HeadersInit {
-  const key = process.env.BALLDONTLIE_API_KEY;
-  if (key) return { Authorization: key };
-  return {};
-}
-
-async function cachedFetch<T>(url: string, ttl: number = CACHE_TTL): Promise<T> {
-  const cached = cache.get(url);
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    return cached.data as T;
-  }
-  const res = await fetch(url, {
-    headers: getHeaders(),
-    next: { revalidate: Math.round(ttl / 1000) },
-  });
-  if (!res.ok) throw new Error(`BallDontLie API error: ${res.status}`);
+async function cachedFetch<T>(url: string, ttl = CACHE_TTL, headers?: HeadersInit): Promise<T> {
+  const hit = cache.get(url);
+  if (hit && Date.now() - hit.timestamp < ttl) return hit.data as T;
+  const res = await fetch(url, { headers, next: { revalidate: Math.round(ttl / 1000) } });
+  if (!res.ok) throw new Error(`Fetch error ${res.status}: ${url}`);
   const data = await res.json();
   cache.set(url, { data, timestamp: Date.now() });
   return data;
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Types
-// ──────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type NBAGame = {
-  id: number;
-  date: string;
-  status: string;
-  homeTeam: { id: number; abbreviation: string; full_name: string };
-  awayTeam: { id: number; abbreviation: string; full_name: string };
+  id: string;                 // ESPN event id (string)
+  date: string;               // YYYY-MM-DD
+  status: string;             // "Final" | "In Progress" | "7:30 PM ET"
+  statusDetail: string;       // "Final" | "Q4 2:35" | "Halftime"
+  homeTeam: { id: string; abbreviation: string; fullName: string; record: string };
+  awayTeam: { id: string; abbreviation: string; fullName: string; record: string };
   homeScore: number | null;
   awayScore: number | null;
+  spread?: string;            // "CLE -8.5"
+  overUnder?: number;         // 224.5
+  homeML?: number;            // American odds
+  awayML?: number;
 };
 
 export type NBAPlayerGameLog = {
-  playerId: number;
+  playerId: string;
   playerName: string;
   gameDate: string;
   points: number;
@@ -55,255 +54,274 @@ export type NBAPlayerGameLog = {
   threePointersMade: number;
   steals: number;
   blocks: number;
-  minutesPlayed: string;
+  minutesPlayed: number;
 };
 
 export type NBATeamStanding = {
   teamAbbrev: string;
   teamName: string;
+  conference: "Eastern" | "Western";
+  seed: number;
   wins: number;
   losses: number;
-  homeWins: number;
-  homeLosses: number;
-  awayWins: number;
-  awayLosses: number;
   winPct: number;
-  streak: string;
+  homeRecord: string;   // "34-7"
+  roadRecord: string;   // "30-11"
+  last10: string;       // "7-3"
+  streak: string;       // "L1" | "W3"
+  gamesBehind: string;
 };
 
-// ──────────────────────────────────────────────────────────────────────
-// Helper: format date as YYYY-MM-DD
-// ──────────────────────────────────────────────────────────────────────
+export type NBABoxscorePlayer = {
+  id: string;
+  name: string;
+  teamAbbrev: string;
+  position: string;
+  minutes: string;
+  points: number;
+  rebounds: number;
+  assists: number;
+  steals: number;
+  blocks: number;
+  fieldGoals: string;  // "7-18"
+  threePointers: string; // "2-5"
+  plusMinus: string;
+};
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+// ── ESPN Scoreboard ──────────────────────────────────────────────────────────
 
-function mapGame(g: any): NBAGame {
+function parseESPNGame(event: any): NBAGame {
+  const comp = event.competitions?.[0] ?? {};
+  const comps: any[] = comp.competitors ?? [];
+  const home = comps.find((c: any) => c.homeAway === "home") ?? comps[0] ?? {};
+  const away = comps.find((c: any) => c.homeAway === "away") ?? comps[1] ?? {};
+
+  const status = event.status?.type;
+  const statusText = status?.completed ? "Final"
+    : status?.state === "in" ? "Live"
+    : event.date ? new Date(event.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET"
+    : "TBD";
+  const statusDetail = status?.shortDetail ?? statusText;
+
+  // Odds
+  const odds = comp.odds?.[0] ?? {};
+  const spread = odds.details as string | undefined;
+  const overUnder = odds.overUnder as number | undefined;
+
   return {
-    id: g.id,
-    date: g.date ? g.date.slice(0, 10) : "",
-    status: g.status || "Final",
+    id: event.id,
+    date: event.date ? event.date.slice(0, 10) : "",
+    status: statusText,
+    statusDetail,
     homeTeam: {
-      id: g.home_team?.id ?? 0,
-      abbreviation: g.home_team?.abbreviation || "???",
-      full_name: g.home_team?.full_name || "",
+      id: home.team?.id ?? "",
+      abbreviation: home.team?.abbreviation ?? "???",
+      fullName: home.team?.displayName ?? "",
+      record: home.records?.[0]?.summary ?? "",
     },
     awayTeam: {
-      id: g.visitor_team?.id ?? g.away_team?.id ?? 0,
-      abbreviation: g.visitor_team?.abbreviation || g.away_team?.abbreviation || "???",
-      full_name: g.visitor_team?.full_name || g.away_team?.full_name || "",
+      id: away.team?.id ?? "",
+      abbreviation: away.team?.abbreviation ?? "???",
+      fullName: away.team?.displayName ?? "",
+      record: away.records?.[0]?.summary ?? "",
     },
-    homeScore: g.home_team_score ?? null,
-    awayScore: g.visitor_team_score ?? g.away_team_score ?? null,
+    homeScore: home.score != null ? parseInt(home.score) : null,
+    awayScore: away.score != null ? parseInt(away.score) : null,
+    spread,
+    overUnder,
   };
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Schedule: today + tomorrow
-// ──────────────────────────────────────────────────────────────────────
-
-export async function getNBASchedule(): Promise<NBAGame[]> {
+export async function getNBASchedule(daysAhead = 2): Promise<NBAGame[]> {
   try {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const d1 = formatDate(today);
-    const d2 = formatDate(tomorrow);
-
-    const data = await cachedFetch<any>(
-      `${BDL_BASE}/games?dates[]=${d1}&dates[]=${d2}&per_page=100`
-    );
-    return (data.data || []).map(mapGame);
-  } catch {
-    return [];
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Player game log: last 15 games for a player in the current season
-// ──────────────────────────────────────────────────────────────────────
-
-export async function getNBAPlayerGameLog(playerId: number): Promise<NBAPlayerGameLog[]> {
-  try {
-    const data = await cachedFetch<any>(
-      `${BDL_BASE}/stats?player_ids[]=${playerId}&per_page=15&seasons[]=2025&sort=-game.date`
-    );
-    return (data.data || []).map((s: any) => ({
-      playerId: s.player?.id ?? playerId,
-      playerName: `${s.player?.first_name || ""} ${s.player?.last_name || ""}`.trim(),
-      gameDate: s.game?.date?.slice(0, 10) || "",
-      points: s.pts ?? 0,
-      rebounds: s.reb ?? 0,
-      assists: s.ast ?? 0,
-      threePointersMade: s.fg3m ?? 0,
-      steals: s.stl ?? 0,
-      blocks: s.blk ?? 0,
-      minutesPlayed: s.min || "0:00",
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Team roster
-// ──────────────────────────────────────────────────────────────────────
-
-export async function getNBATeamRoster(
-  teamId: number
-): Promise<Array<{ id: number; name: string; position: string }>> {
-  try {
-    const data = await cachedFetch<any>(
-      `${BDL_BASE}/players?team_ids[]=${teamId}&per_page=100`
-    );
-    return (data.data || []).map((p: any) => ({
-      id: p.id,
-      name: `${p.first_name || ""} ${p.last_name || ""}`.trim(),
-      position: p.position || "",
-    }));
-  } catch {
-    return [];
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────
-// Standings — BallDontLie free tier does not expose a standings endpoint.
-// We derive standings from season averages if possible, otherwise return [].
-// TODO: Integrate a standings source when available.
-// ──────────────────────────────────────────────────────────────────────
-
-export async function getNBAStandings(): Promise<NBATeamStanding[]> {
-  // BallDontLie v1 does not have a standings endpoint in the free tier.
-  // Use the /games endpoint to derive W/L records from completed games.
-  try {
-    // Fetch a large batch of completed games from the current season
-    const data = await cachedFetch<any>(
-      `${BDL_BASE}/games?seasons[]=2025&per_page=100&page=1`,
-      30 * 60 * 1000 // 30-min cache for standings derivation
-    );
-    const allGames: any[] = data.data || [];
-
-    // Build team records from completed games
-    const teamMap = new Map<string, {
-      teamName: string;
-      wins: number; losses: number;
-      homeWins: number; homeLosses: number;
-      awayWins: number; awayLosses: number;
-      streak: string; lastResults: string[];
-    }>();
-
-    const ensureTeam = (abbrev: string, name: string) => {
-      if (!teamMap.has(abbrev)) {
-        teamMap.set(abbrev, {
-          teamName: name,
-          wins: 0, losses: 0,
-          homeWins: 0, homeLosses: 0,
-          awayWins: 0, awayLosses: 0,
-          streak: "", lastResults: [],
-        });
-      }
-    };
-
-    for (const g of allGames) {
-      if (g.status !== "Final") continue;
-      const homeAbbrev = g.home_team?.abbreviation;
-      const awayAbbrev = g.visitor_team?.abbreviation || g.away_team?.abbreviation;
-      if (!homeAbbrev || !awayAbbrev) continue;
-
-      ensureTeam(homeAbbrev, g.home_team?.full_name || homeAbbrev);
-      ensureTeam(awayAbbrev, g.visitor_team?.full_name || g.away_team?.full_name || awayAbbrev);
-
-      const homeScore = g.home_team_score ?? 0;
-      const awayScore = g.visitor_team_score ?? g.away_team_score ?? 0;
-      const homeWin = homeScore > awayScore;
-
-      const home = teamMap.get(homeAbbrev)!;
-      const away = teamMap.get(awayAbbrev)!;
-
-      if (homeWin) {
-        home.wins++; home.homeWins++;
-        away.losses++; away.awayLosses++;
-        home.lastResults.push("W");
-        away.lastResults.push("L");
-      } else {
-        away.wins++; away.awayWins++;
-        home.losses++; home.homeLosses++;
-        away.lastResults.push("W");
-        home.lastResults.push("L");
-      }
+    const games: NBAGame[] = [];
+    const dates: string[] = [];
+    for (let i = 0; i <= daysAhead; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      dates.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
     }
 
-    // Compute streaks
-    teamMap.forEach((team) => {
-      const results = team.lastResults;
-      if (!results.length) { team.streak = ""; return; }
-      const last = results[results.length - 1];
-      let count = 0;
-      for (let i = results.length - 1; i >= 0; i--) {
-        if (results[i] === last) count++;
-        else break;
+    for (const dateStr of dates) {
+      const data = await cachedFetch<any>(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
+      const events: any[] = data.events ?? [];
+      games.push(...events.map(parseESPNGame));
+    }
+    return games;
+  } catch (err) {
+    console.warn("[nba-api] getNBASchedule failed:", err);
+    return [];
+  }
+}
+
+// ── ESPN Standings ────────────────────────────────────────────────────────────
+
+export async function getNBAStandings(): Promise<NBATeamStanding[]> {
+  try {
+    const data = await cachedFetch<any>(`${ESPN_BASE_V2}/standings?season=2025`, 30 * 60 * 1000);
+    const results: NBATeamStanding[] = [];
+
+    for (const conf of (data.children ?? [])) {
+      const confName: "Eastern" | "Western" = conf.name?.includes("Eastern") ? "Eastern" : "Western";
+      const entries: any[] = conf.standings?.entries ?? [];
+
+      for (const entry of entries) {
+        const statsArr: any[] = entry.stats ?? [];
+        const s = Object.fromEntries(statsArr.map((x: any) => [x.name, x.displayValue ?? x.value]));
+        results.push({
+          teamAbbrev: entry.team?.abbreviation ?? "",
+          teamName: entry.team?.displayName ?? "",
+          conference: confName,
+          seed: parseInt(s["playoffSeed"] ?? "0") || 0,
+          wins: parseInt(s["wins"] ?? "0") || 0,
+          losses: parseInt(s["losses"] ?? "0") || 0,
+          winPct: parseFloat(s["winPercent"]?.replace(".","0.") ?? "0") || 0,
+          homeRecord: s["Home"] ?? "0-0",
+          roadRecord: s["Road"] ?? "0-0",
+          last10: s["Last Ten Games"] ?? "—",
+          streak: s["streak"] ?? "—",
+          gamesBehind: s["gamesBehind"] ?? "—",
+        });
       }
-      team.streak = `${last}${count}`;
-    });
+    }
+    return results.sort((a, b) => a.seed - b.seed || b.wins - a.wins);
+  } catch (err) {
+    console.warn("[nba-api] getNBAStandings failed:", err);
+    return [];
+  }
+}
 
-    const standings: NBATeamStanding[] = [];
-    teamMap.forEach((t, abbrev) => {
-      const total = t.wins + t.losses;
-      standings.push({
-        teamAbbrev: abbrev,
-        teamName: t.teamName,
-        wins: t.wins,
-        losses: t.losses,
-        homeWins: t.homeWins,
-        homeLosses: t.homeLosses,
-        awayWins: t.awayWins,
-        awayLosses: t.awayLosses,
-        winPct: total > 0 ? t.wins / total : 0,
-        streak: t.streak,
-      });
-    });
+// ── ESPN Game Summary (boxscore + player stats) ───────────────────────────────
 
-    return standings.sort((a, b) => b.winPct - a.winPct);
+export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxscorePlayer[]; away: NBABoxscorePlayer[] }> {
+  try {
+    const data = await cachedFetch<any>(`${ESPN_BASE}/summary?event=${eventId}`);
+    const teams: any[] = data.boxscore?.players ?? [];
+    const result = { home: [] as NBABoxscorePlayer[], away: [] as NBABoxscorePlayer[] };
+
+    for (const team of teams) {
+      const abbrev = team.team?.abbreviation ?? "";
+      const isHome = team.homeAway === "home";
+      const statsGroup: any = team.statistics?.[0] ?? {};
+      const labels: string[] = statsGroup.labels ?? [];
+      const athletes: any[] = statsGroup.athletes ?? [];
+
+      const getIdx = (label: string) => labels.indexOf(label);
+      const ptIdx = getIdx("PTS");
+      const rebIdx = getIdx("REB");
+      const astIdx = getIdx("AST");
+      const stlIdx = getIdx("STL");
+      const blkIdx = getIdx("BLK");
+      const fgIdx = getIdx("FG");
+      const tpIdx = getIdx("3PT");
+      const minIdx = getIdx("MIN");
+      const pmIdx = getIdx("+/-");
+
+      for (const a of athletes) {
+        const stats: string[] = a.stats ?? [];
+        if (!stats.length) continue;
+        const player: NBABoxscorePlayer = {
+          id: a.athlete?.id ?? "",
+          name: a.athlete?.displayName ?? "",
+          teamAbbrev: abbrev,
+          position: a.athlete?.position?.abbreviation ?? "",
+          minutes: minIdx >= 0 ? stats[minIdx] : "0",
+          points: ptIdx >= 0 ? parseInt(stats[ptIdx]) || 0 : 0,
+          rebounds: rebIdx >= 0 ? parseInt(stats[rebIdx]) || 0 : 0,
+          assists: astIdx >= 0 ? parseInt(stats[astIdx]) || 0 : 0,
+          steals: stlIdx >= 0 ? parseInt(stats[stlIdx]) || 0 : 0,
+          blocks: blkIdx >= 0 ? parseInt(stats[blkIdx]) || 0 : 0,
+          fieldGoals: fgIdx >= 0 ? stats[fgIdx] : "0-0",
+          threePointers: tpIdx >= 0 ? stats[tpIdx] : "0-0",
+          plusMinus: pmIdx >= 0 ? stats[pmIdx] : "0",
+        };
+        if (isHome) result.home.push(player);
+        else result.away.push(player);
+      }
+    }
+    return result;
+  } catch (err) {
+    console.warn("[nba-api] getNBABoxscore failed:", err);
+    return { home: [], away: [] };
+  }
+}
+
+// ── Player game log (derived from recent boxscores) ───────────────────────────
+
+export async function getNBAPlayerGameLog(playerName: string, teamAbbrev: string, recentGames: NBAGame[]): Promise<NBAPlayerGameLog[]> {
+  const logs: NBAPlayerGameLog[] = [];
+  const completedGames = recentGames
+    .filter((g) => g.status === "Final" && (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev))
+    .slice(0, 10);
+
+  for (const game of completedGames) {
+    try {
+      const boxscore = await getNBABoxscore(game.id);
+      const isHome = game.homeTeam.abbreviation === teamAbbrev;
+      const players = isHome ? boxscore.home : boxscore.away;
+      const player = players.find((p) =>
+        p.name.toLowerCase().includes(playerName.split(" ").pop()?.toLowerCase() ?? "")
+      );
+      if (player && player.points > 0) {
+        const mins = parseFloat(player.minutes) || 0;
+        if (mins < 15) continue; // skip DNP/garbage time
+        logs.push({
+          playerId: player.id,
+          playerName: player.name,
+          gameDate: game.date,
+          points: player.points,
+          rebounds: player.rebounds,
+          assists: player.assists,
+          threePointersMade: parseInt(player.threePointers.split("-")[0]) || 0,
+          steals: player.steals,
+          blocks: player.blocks,
+          minutesPlayed: mins,
+        });
+      }
+    } catch {
+      // skip failed game
+    }
+  }
+  return logs;
+}
+
+// ── Team roster from BallDontLie (basic, no stats) ───────────────────────────
+
+export async function getNBATeamRoster(teamId: number): Promise<Array<{ id: number; name: string; position: string }>> {
+  const key = process.env.BALLDONTLIE_API_KEY;
+  if (!key) return [];
+  try {
+    const data = await cachedFetch<any>(
+      `${BDL_BASE}/players?team_ids[]=${teamId}&per_page=30`,
+      60 * 60 * 1000,
+      { Authorization: key }
+    );
+    return (data.data ?? []).map((p: any) => ({
+      id: p.id,
+      name: `${p.first_name} ${p.last_name}`,
+      position: p.position ?? "",
+    }));
   } catch {
     return [];
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// NBA Team Colors (official primary colors)
-// ──────────────────────────────────────────────────────────────────────
+// ── ESPN team ID mapping ──────────────────────────────────────────────────────
+// Maps our abbreviations to ESPN team IDs (for roster/stats lookups)
+export const ESPN_TEAM_IDS: Record<string, string> = {
+  ATL: "1", BOS: "2", BKN: "17", CHA: "30", CHI: "4", CLE: "5",
+  DAL: "6", DEN: "7", DET: "8", GSW: "9", HOU: "10", IND: "11",
+  LAC: "12", LAL: "13", MEM: "29", MIA: "14", MIL: "15", MIN: "16",
+  NOP: "3", NYK: "18", OKC: "25", ORL: "19", PHI: "20", PHX: "21",
+  POR: "22", SAC: "23", SAS: "24", TOR: "28", UTA: "26", WAS: "27",
+};
 
+// ── Team colors ───────────────────────────────────────────────────────────────
 export const NBA_TEAM_COLORS: Record<string, string> = {
-  ATL: "#E03A3E", // Hawks
-  BOS: "#007A33", // Celtics
-  BKN: "#000000", // Nets
-  CHA: "#1D1160", // Hornets
-  CHI: "#CE1141", // Bulls
-  CLE: "#860038", // Cavaliers
-  DAL: "#00538C", // Mavericks
-  DEN: "#0E2240", // Nuggets
-  DET: "#C8102E", // Pistons
-  GSW: "#1D428A", // Warriors
-  HOU: "#CE1141", // Rockets
-  IND: "#002D62", // Pacers
-  LAC: "#C8102E", // Clippers
-  LAL: "#552583", // Lakers
-  MEM: "#5D76A9", // Grizzlies
-  MIA: "#98002E", // Heat
-  MIL: "#00471B", // Bucks
-  MIN: "#0C2340", // Timberwolves
-  NOP: "#0C2340", // Pelicans
-  NYK: "#006BB6", // Knicks
-  OKC: "#007AC1", // Thunder
-  ORL: "#0077C0", // Magic
-  PHI: "#006BB6", // 76ers
-  PHX: "#1D1160", // Suns
-  POR: "#E03A3E", // Trail Blazers
-  SAC: "#5A2D81", // Kings
-  SAS: "#C4CED4", // Spurs
-  TOR: "#CE1141", // Raptors
-  UTA: "#002B5C", // Jazz
-  WAS: "#002B5C", // Wizards
+  ATL: "#E03A3E", BOS: "#007A33", BKN: "#000000", CHA: "#1D1160", CHI: "#CE1141",
+  CLE: "#860038", DAL: "#00538C", DEN: "#0E2240", DET: "#C8102E", GSW: "#1D428A",
+  HOU: "#CE1141", IND: "#002D62", LAC: "#C8102E", LAL: "#552583", MEM: "#5D76A9",
+  MIA: "#98002E", MIL: "#00471B", MIN: "#0C2340", NOP: "#0C2340", NYK: "#006BB6",
+  OKC: "#007AC1", ORL: "#0077C0", PHI: "#006BB6", PHX: "#1D1160", POR: "#E03A3E",
+  SAC: "#5A2D81", SAS: "#C4CED4", TOR: "#CE1141", UTA: "#002B5C", WAS: "#002B5C",
 };

@@ -37,7 +37,7 @@ export async function getNBATrendData() {
   ]);
 
   const [props, teamTrends] = await Promise.all([
-    buildNBAStatsPropFeed(schedule, { maxGames: 3, maxPlayers: 5 }),
+    buildNBAStatsPropFeed(schedule, { maxGames: 3 }),
     buildNBATeamTrends(schedule),
   ]);
 
