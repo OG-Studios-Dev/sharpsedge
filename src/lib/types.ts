@@ -180,4 +180,5 @@ export type AIPick = {
   units: 1;
   gameId?: string;
   odds: number;
+  league?: string; // "NHL", "NBA", etc.
 };
