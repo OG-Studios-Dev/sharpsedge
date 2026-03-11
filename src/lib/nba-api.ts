@@ -3,10 +3,22 @@
  * Primary source: ESPN hidden API (no key required, server-side only)
  * Fallback: BallDontLie v1 (key: BALLDONTLIE_API_KEY — basic schedule/players only)
  *
- * ESPN endpoints used:
- *   Scoreboard:  site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard
+ * ⚠️  COMMERCIAL USE WARNING:
+ * ESPN's API is NOT licensed for commercial use (ToS prohibits it).
+ * This implementation is for development/personal use ONLY.
+ *
+ * BEFORE MONETIZING — migrate to a licensed data provider:
+ *   • MySportsFeeds  — ~$30/mo for NBA, commercial OK, same data shape (easiest migration)
+ *   • SportsDataIO   — ~$100+/mo, full official licensed feed
+ *   • Sportradar     — Official NBA partner, enterprise pricing
+ *
+ * Migration path: swap this file only. All exported types + function signatures
+ * stay the same. Everything upstream (stats engine, live-data, routes) is unaffected.
+ *
+ * ESPN endpoints currently used:
+ *   Scoreboard:   site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard
  *   Game summary: site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=ID
- *   Standings:   site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
+ *   Standings:    site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
  */
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
