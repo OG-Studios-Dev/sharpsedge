@@ -61,7 +61,7 @@ export default function TrendsPage() {
         <div className="flex items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-xl font-bold text-white">Trends</h1>
-            <p className="text-xs text-gray-500 mt-0.5">70%+ hit rate in last 10 games</p>
+            <p className="text-xs text-gray-500 mt-0.5">70%+ L10 · 3/5 L5 · 3-game streak</p>
           </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
