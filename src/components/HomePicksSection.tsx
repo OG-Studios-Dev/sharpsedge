@@ -16,7 +16,7 @@ function ResultPill({ result }: { result: string }) {
   return <span className="text-[10px] text-gray-500 uppercase">Pending</span>;
 }
 
-export default function HomePicksSection() {
+export default function HomePicksSection({ league = "NHL" }: { league?: string }) {
   const { todayPicks, record, loadingPicks } = usePicks();
 
   const unitColor = record.profitUnits > 0
@@ -24,6 +24,25 @@ export default function HomePicksSection() {
     : record.profitUnits < 0
       ? "text-red-400"
       : "text-gray-400";
+
+  // NBA picks not yet available — show coming soon
+  if (league === "NBA") {
+    return (
+      <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-bold text-white tracking-tight">🪿 TODAY'S GOOSE AI PICKS</h3>
+            <p className="text-[10px] text-gray-500 mt-0.5">NBA · 3 picks/day · 1 unit each</p>
+          </div>
+        </div>
+        <div className="text-center py-5">
+          <p className="text-2xl mb-2">🏀</p>
+          <p className="text-gray-400 text-sm font-medium">NBA picks coming soon</p>
+          <p className="text-gray-600 text-xs mt-1">AI pick engine is being trained on NBA data</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">

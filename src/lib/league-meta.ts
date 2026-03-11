@@ -1,6 +1,7 @@
 import { League } from "@/lib/types";
 
 export const leagueMeta: Record<League, { icon: string; subtitle: string; accent: string }> = {
+  All: { icon: "🏆", subtitle: "All sports", accent: "from-gray-500/20 to-slate-500/10" },
   NHL: { icon: "🏒", subtitle: "Props, trends, goalies, and skating roles", accent: "from-cyan-500/20 to-blue-500/10" },
   NBA: { icon: "🏀", subtitle: "Pace, usage, assists, threes, and props", accent: "from-orange-500/20 to-red-500/10" },
   NFL: { icon: "🏈", subtitle: "Receiving, rushing, alt lines, game scripts", accent: "from-green-500/20 to-lime-500/10" },
