@@ -337,3 +337,29 @@ export const NBA_TEAM_COLORS: Record<string, string> = {
   OKC: "#007AC1", ORL: "#0077C0", PHI: "#006BB6", PHX: "#1D1160", POR: "#E03A3E",
   SAC: "#5A2D81", SAS: "#C4CED4", TOR: "#CE1141", UTA: "#002B5C", WAS: "#002B5C",
 };
+
+// ── Recent completed games (last N days) — used by stats engine ───────────────
+export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
+  const cacheKey = `recent-games-${daysBack}`;
+  const hit = cache.get(cacheKey);
+  if (hit && Date.now() - hit.timestamp < CACHE_TTL) return hit.data as NBAGame[];
+
+  const games: NBAGame[] = [];
+  for (let i = 1; i <= daysBack; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
+    try {
+      const data = await cachedFetch<any>(`${ESPN_BASE}/scoreboard?dates=${dateStr}`, CACHE_TTL);
+      const events: any[] = data.events ?? [];
+      const completed = events
+        .filter((e) => e.status?.type?.completed)
+        .map(parseESPNGame);
+      games.push(...completed);
+    } catch { /* skip day */ }
+    if (games.length >= 40) break;
+  }
+
+  cache.set(cacheKey, { data: games, timestamp: Date.now() });
+  return games;
+}

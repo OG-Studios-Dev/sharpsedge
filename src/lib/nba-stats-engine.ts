@@ -13,7 +13,7 @@
  */
 
 import { PlayerProp } from "@/lib/types";
-import { NBAGame, getNBABoxscore, getNBASchedule, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { NBAGame, getNBABoxscore, NBA_TEAM_COLORS } from "@/lib/nba-api";
 
 const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210;
@@ -141,45 +141,13 @@ function buildProp(
 
 export async function buildNBAStatsPropFeed(
   games: NBAGame[],
-  opts: { maxGames?: number; maxPlayers?: number } = {}
+  opts: { maxGames?: number; maxPlayers?: number; recentGames?: NBAGame[] } = {}
 ): Promise<PlayerProp[]> {
   const { maxGames = 3, maxPlayers = 5 } = opts;
   if (!games.length) return [];
 
-  // Get 30 recent completed games for boxscore mining
-  let recentGames: NBAGame[] = [];
-  try {
-    // Fetch past 14 days of games
-    const past: NBAGame[] = [];
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
-      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`);
-      if (res.ok) {
-        const data = await res.json();
-        past.push(...(data.events ?? []).map((e: any) => {
-          const comp = e.competitions?.[0] ?? {};
-          const comps = comp.competitors ?? [];
-          const home = comps.find((c: any) => c.homeAway === "home") ?? comps[0] ?? {};
-          const away = comps.find((c: any) => c.homeAway === "away") ?? comps[1] ?? {};
-          return {
-            id: e.id, date: e.date?.slice(0, 10) ?? "",
-            status: e.status?.type?.completed ? "Final" : "Other",
-            statusDetail: e.status?.type?.shortDetail ?? "",
-            homeTeam: { id: home.team?.id ?? "", abbreviation: home.team?.abbreviation ?? "", fullName: home.team?.displayName ?? "", record: "" },
-            awayTeam: { id: away.team?.id ?? "", abbreviation: away.team?.abbreviation ?? "", fullName: away.team?.displayName ?? "", record: "" },
-            homeScore: home.score ? parseInt(home.score) : null,
-            awayScore: away.score ? parseInt(away.score) : null,
-          } as NBAGame;
-        }));
-      }
-      if (past.filter(g => g.status === "Final").length >= 30) break;
-    }
-    recentGames = past.filter(g => g.status === "Final");
-  } catch {
-    return [];
-  }
+  // Use pre-fetched recent games if provided (avoids re-fetching in live-data)
+  const recentGames: NBAGame[] = opts.recentGames ?? [];
 
   const allProps: PlayerProp[] = [];
   const targetGames = games.slice(0, maxGames);
