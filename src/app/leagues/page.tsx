@@ -1,8 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { League } from "@/lib/types";
 import { featuredLeagues, leagueMeta } from "@/lib/league-meta";
 import { useLeague } from "@/hooks/useLeague";
+
+const LEAGUE_ROUTES: Partial<Record<League, string>> = {
+  NHL: "/leagues/nhl",
+};
 
 export default function LeaguesPage() {
   const [league, setLeague] = useLeague();
@@ -32,35 +37,60 @@ export default function LeaguesPage() {
           <div className="grid grid-cols-1 gap-3">
             {featuredLeagues.map((item) => {
               const active = league === item;
-              return (
-                <button
-                  key={item}
-                  onClick={() => setLeague(item)}
-                  className={`text-left rounded-2xl border p-4 transition-all bg-gradient-to-br ${leagueMeta[item].accent} ${
-                    active
-                      ? "border-accent-blue shadow-[0_0_0_1px_rgba(96,165,250,0.35)]"
-                      : "border-dark-border hover:border-gray-600"
-                  }`}
-                >
+              const route = LEAGUE_ROUTES[item];
+              const comingSoon = !route;
+
+              const card = (
+                <div className="relative">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       <div className="w-12 h-12 rounded-2xl bg-dark-bg/80 border border-dark-border flex items-center justify-center text-2xl">
                         {leagueMeta[item].icon}
                       </div>
                       <div>
-                        <div className="text-white text-base font-semibold">{item}</div>
+                        <div className="text-white text-base font-semibold flex items-center gap-2">
+                          {item}
+                          {comingSoon && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-dark-bg text-gray-500 border border-dark-border uppercase tracking-wider">
+                              Coming Soon
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-300 mt-1 max-w-[240px]">
                           {leagueMeta[item].subtitle}
                         </div>
                       </div>
                     </div>
-                    <div className={`mt-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                      active ? "bg-accent-blue text-white" : "bg-dark-bg text-gray-400 border border-dark-border"
-                    }`}>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLeague(item); }}
+                      className={`mt-1 px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 ${
+                        active ? "bg-accent-blue text-white" : "bg-dark-bg text-gray-400 border border-dark-border"
+                      }`}
+                    >
                       {active ? "Active" : "Set Active"}
-                    </div>
+                    </button>
                   </div>
-                </button>
+                </div>
+              );
+
+              const cls = `block text-left rounded-2xl border p-4 transition-all bg-gradient-to-br ${leagueMeta[item].accent} ${
+                active
+                  ? "border-accent-blue shadow-[0_0_0_1px_rgba(96,165,250,0.35)]"
+                  : "border-dark-border hover:border-gray-600"
+              }`;
+
+              if (route) {
+                return (
+                  <Link key={item} href={route} className={cls}>
+                    {card}
+                  </Link>
+                );
+              }
+
+              return (
+                <div key={item} className={cls + " cursor-default"}>
+                  {card}
+                </div>
               );
             })}
           </div>

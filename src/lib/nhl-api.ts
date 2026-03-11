@@ -123,6 +123,11 @@ export async function getTeamRoster(teamAbbrev: string): Promise<any[]> {
 export type TeamStandingRow = {
   teamAbbrev: string;
   teamName: string;
+  conferenceName: string;
+  divisionName: string;
+  wins: number;
+  losses: number;
+  otLosses: number;
   homeWins: number;
   homeLosses: number;
   homeOtLosses: number;
@@ -145,6 +150,11 @@ export async function getTeamStandings(): Promise<TeamStandingRow[]> {
     return standings.map((t: any) => ({
       teamAbbrev: t.teamAbbrev?.default || t.teamAbbrev || "",
       teamName: t.teamName?.default || t.teamCommonName?.default || "",
+      conferenceName: t.conferenceName || "",
+      divisionName: t.divisionName || "",
+      wins: (t.homeWins ?? 0) + (t.roadWins ?? 0),
+      losses: (t.homeLosses ?? 0) + (t.roadLosses ?? 0),
+      otLosses: (t.homeOtLosses ?? 0) + (t.roadOtLosses ?? 0),
       homeWins: t.homeWins ?? 0,
       homeLosses: t.homeLosses ?? 0,
       homeOtLosses: t.homeOtLosses ?? 0,
@@ -172,6 +182,8 @@ export type TeamRecentGame = {
   period1GoalsFor: number;
   period1GoalsAgainst: number;
   scoredFirst: boolean;
+  opponentAbbrev: string;
+  gameDate: string;
 };
 
 export async function getTeamRecentGames(teamAbbrev: string): Promise<TeamRecentGame[]> {
@@ -195,7 +207,9 @@ export async function getTeamRecentGames(teamAbbrev: string): Promise<TeamRecent
       const period1GoalsAgainst = 0;
       const scoredFirst = false;
 
-      return { isHome, goalsFor, goalsAgainst, win, period1GoalsFor, period1GoalsAgainst, scoredFirst };
+      const opponentAbbrev = isHome ? (g.awayTeam?.abbrev || "") : (g.homeTeam?.abbrev || "");
+      const gameDate = g.gameDate || "";
+      return { isHome, goalsFor, goalsAgainst, win, period1GoalsFor, period1GoalsAgainst, scoredFirst, opponentAbbrev, gameDate };
     });
   } catch {
     return [];
