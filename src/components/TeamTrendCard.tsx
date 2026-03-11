@@ -1,6 +1,6 @@
 import { TeamTrend } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
-import TrendIndicators from "./TrendIndicators";
+import TrendBadge, { computeTeamBadgeLevel } from "./TrendBadge";
 import { formatOdds, getHitRateColor } from "@/lib/edge-engine";
 
 export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
@@ -31,7 +31,7 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
             </div>
           </div>
         </div>
-        <TrendIndicators indicators={trend.indicators} />
+        <TrendBadge level={computeTeamBadgeLevel(trend.hitRate, trend.betType)} />
       </div>
 
       <div className="mt-3 space-y-0.5">

@@ -1,6 +1,7 @@
 import { PlayerProp } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import SavePickButton from "./SavePickButton";
+import TrendBadge, { computeBadgeLevel } from "./TrendBadge";
 import { formatOdds } from "@/lib/edge-engine";
 
 function EdgeBadge({ edgePct }: { edgePct: number | null | undefined }) {
@@ -46,6 +47,7 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
             {prop.propType}
           </span>
           <EdgeBadge edgePct={prop.edgePct} />
+          <TrendBadge level={computeBadgeLevel(prop.hitRate, prop.recentGames, prop.line, prop.direction || prop.overUnder)} />
         </div>
       </div>
 
