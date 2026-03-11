@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
-import LeagueSelector from "@/components/LeagueSelector";
+import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
 
@@ -170,7 +170,7 @@ export default function PicksPage() {
             <h1 className="text-white text-xl font-bold tracking-widest uppercase">GOOSE AI PICKS</h1>
             <p className="text-gray-500 text-xs mt-0.5">{formatDate(todayKey)}</p>
           </div>
-          <LeagueSelector selected={league} onSelect={setLeague} />
+          <LeagueSwitcher active={league} onChange={setLeague} />
         </div>
       </div>
 
