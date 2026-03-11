@@ -41,7 +41,6 @@ const NHL_TEAM_METRICS = [
   { label: "Home Wins", value: "ML Home Win" },
   { label: "Road Wins", value: "ML Road Win" },
   { label: "ML Streak", value: "ML Streak" },
-  { label: "Score First & Win", value: "Score First & Win" },
 ];
 
 const NBA_TEAM_METRICS = [

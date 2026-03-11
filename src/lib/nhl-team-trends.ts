@@ -329,40 +329,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         });
       }
 
-      // ── Team Score First & Win ──
-      // TODO: scoredFirst data is unavailable from club-schedule-season endpoint.
-      // Once period-level scoring data is accessible, enable this metric.
-      const scoredFirstGames = recent.filter((g) => g.scoredFirst);
-      if (scoredFirstGames.length > 0) {
-        const scoredFirstAndWon = scoredFirstGames.filter((g) => g.win).length;
-        const hitRate = Math.round((scoredFirstAndWon / scoredFirstGames.length) * 100);
-        const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
-
-        trends.push({
-          id: `team-score-first-${abbrev}-${idx}-${idx++}`,
-          team: abbrev,
-          teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
-          opponent: opponentAbbrev,
-          isAway,
-          betType: "Score First & Win",
-          line: "Score First W%",
-          odds: STANDARD_JUICE,
-          impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
-          hitRate,
-          edge,
-          league: "NHL",
-          splits: [
-            {
-              label: `Scored first & won: ${scoredFirstAndWon}/${scoredFirstGames.length}`,
-              hitRate,
-              hits: scoredFirstAndWon,
-              total: scoredFirstGames.length,
-              type: "last_n",
-            },
-          ],
-          indicators: hitRate >= 75 ? [{ type: "hot" as const, active: true }] : [],
-        });
-      }
+      // Score First & Win removed — NHL API doesn't provide period-level scoring data
+      // Re-enable when a data source with period-level goals is available
     }
   }
 
