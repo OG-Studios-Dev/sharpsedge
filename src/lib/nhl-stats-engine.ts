@@ -246,14 +246,18 @@ function makeProps(
 // Main export: build full prop feed from scheduled games
 // ──────────────────────────────────────────────────────────────────────
 
-export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerProp[]> {
+export async function buildNHLStatsPropFeed(
+  games: NHLGame[],
+  opts: { maxGames?: number; maxForwards?: number; maxDefense?: number } = {}
+): Promise<PlayerProp[]> {
+  const { maxGames = 4, maxForwards = 5, maxDefense = 2 } = opts;
+
   // Accept all games (including recently completed OFF games for Trends)
   if (!games.length) return [];
 
   const allProps: PlayerProp[] = [];
 
-  // Process games in parallel (limit to 6 to control API call volume)
-  const targetGames = games.slice(0, 6);
+  const targetGames = games.slice(0, maxGames);
 
   await Promise.all(
     targetGames.map(async (game) => {
@@ -265,10 +269,9 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
 
       const matchup = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
 
-      // Take top 12 skaters from each team (forwards + defensemen only)
       const pickPlayers = (roster: SkaterRow[]) => {
-        const forwards = roster.filter((p) => p.positionCode !== "D").slice(0, 8);
-        const defense = roster.filter((p) => p.positionCode === "D").slice(0, 4);
+        const forwards = roster.filter((p) => p.positionCode !== "D").slice(0, maxForwards);
+        const defense = roster.filter((p) => p.positionCode === "D").slice(0, maxDefense);
         return [...forwards, ...defense];
       };
 

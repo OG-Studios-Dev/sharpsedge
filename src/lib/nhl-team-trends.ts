@@ -42,7 +42,14 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
   const trends: TeamTrend[] = [];
   let idx = 0;
 
+  // Each team should only appear once — use their first game in the list
+  const seenTeams = new Set<string>();
+
   for (const game of games) {
+    // Skip if we've already generated trends for both teams
+    if (seenTeams.has(game.homeTeam.abbrev) && seenTeams.has(game.awayTeam.abbrev)) continue;
+    seenTeams.add(game.homeTeam.abbrev);
+    seenTeams.add(game.awayTeam.abbrev);
     const homeAbbrev = game.homeTeam.abbrev;
     const awayAbbrev = game.awayTeam.abbrev;
     const homeData = standingMap.get(homeAbbrev);
@@ -259,6 +266,39 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
             },
           ],
           indicators: hitRate >= 70 ? [{ type: "hot" as const, active: true }] : [],
+        });
+      }
+
+      // ── H2H ML vs Today's Opponent ──
+      const h2hGames = recent.filter((g) => g.opponentAbbrev === opponentAbbrev);
+      if (h2hGames.length >= 2) {
+        const h2hWins = h2hGames.filter((g) => g.win).length;
+        const h2hHitRate = Math.round((h2hWins / h2hGames.length) * 100);
+        const h2hEdge = h2hHitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
+
+        trends.push({
+          id: `team-h2h-${abbrev}-vs-${opponentAbbrev}-${game.id}-${idx++}`,
+          team: abbrev,
+          teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
+          opponent: opponentAbbrev,
+          isAway,
+          betType: `H2H ML vs ${opponentAbbrev}`,
+          line: `H2H: ${h2hWins}W-${h2hGames.length - h2hWins}L`,
+          odds: STANDARD_JUICE,
+          impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+          hitRate: h2hHitRate,
+          edge: h2hEdge,
+          league: "NHL",
+          splits: [
+            {
+              label: `vs ${opponentAbbrev} this season: ${h2hWins}W-${h2hGames.length - h2hWins}L (${isAway ? "road" : "home"})`,
+              hitRate: h2hHitRate,
+              hits: h2hWins,
+              total: h2hGames.length,
+              type: "vs_opponent",
+            },
+          ],
+          indicators: h2hHitRate >= 70 ? [{ type: "vs_opponent" as const, active: true }] : [],
         });
       }
 

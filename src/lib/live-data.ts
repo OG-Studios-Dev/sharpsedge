@@ -43,7 +43,8 @@ export async function getLiveTrendData() {
   });
 
   const [rankedProps, teamTrends] = await Promise.all([
-    buildNHLStatsPropFeed(uniqueGames),
+    // Tighter limits for Trends to stay within Vercel timeout
+    buildNHLStatsPropFeed(uniqueGames, { maxGames: 3, maxForwards: 4, maxDefense: 2 }),
     buildLiveTeamTrends(uniqueGames),
   ]);
 
