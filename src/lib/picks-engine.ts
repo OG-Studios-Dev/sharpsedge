@@ -4,6 +4,30 @@ import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
 
+function buildTeamPickLabel(trend: TeamTrend): string {
+  const betType = trend.betType || "";
+  if (betType === "Team Goals O/U") {
+    // Extract line from split label: "Over 2.5 in L10: 9/10"
+    const splitLabel = trend.splits?.[0]?.label || "";
+    const match = splitLabel.match(/Over\s+([\d.]+)/i);
+    const line = match ? match[1] : "";
+    return line ? `${trend.team} Over ${line} Goals` : `${trend.team} Over Goals`;
+  }
+  if (betType === "Team Win ML" || betType === "ML Home Win" || betType === "ML Streak") {
+    return `${trend.team} Win ML`;
+  }
+  if (betType === "ML Road Win") {
+    return `${trend.team} Win ML (Road)`;
+  }
+  if (betType.startsWith("H2H ML")) {
+    return `${trend.team} Win vs ${trend.opponent} (H2H)`;
+  }
+  if (betType === "Score First & Win") {
+    return `${trend.team} Score First & Win`;
+  }
+  return `${trend.team} ${betType}`;
+}
+
 function scoreItem(hitRate?: number, edge?: number): number {
   const hr = hitRate ?? 0;
   const e = Math.abs(edge ?? 0);
@@ -45,7 +69,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     opponent: trend.opponent,
     isAway: trend.isAway,
     betType: trend.betType,
-    pickLabel: `${trend.team} ${trend.betType}`,
+    pickLabel: buildTeamPickLabel(trend),
     edge: trend.edge ?? 0,
     hitRate: trend.hitRate ?? 0,
     confidence: Math.round(scoreItem(trend.hitRate, trend.edge) * 100),
