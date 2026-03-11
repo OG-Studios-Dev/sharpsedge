@@ -18,13 +18,15 @@ import { NBAGame, NBAPlayerGameLog, getNBATeamRoster, getNBAPlayerGameLog, NBA_T
 // Types
 // ──────────────────────────────────────────────────────────────────────
 
-type StatKey = "points" | "rebounds" | "assists" | "threePointersMade";
+type StatKey = "points" | "rebounds" | "assists" | "threePointersMade" | "steals" | "blocks";
 
 const NBA_PROP_DEFS: { key: StatKey; label: string }[] = [
   { key: "points", label: "Points" },
   { key: "rebounds", label: "Rebounds" },
   { key: "assists", label: "Assists" },
   { key: "threePointersMade", label: "3-Pointers Made" },
+  { key: "steals", label: "Steals" },
+  { key: "blocks", label: "Blocks" },
 ];
 
 // ──────────────────────────────────────────────────────────────────────

@@ -55,13 +55,14 @@ function NHLStandings() {
         <div key={div.name}>
           <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-2">{div.name}</p>
           <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
-            <div className="grid grid-cols-[1fr_repeat(5,_minmax(28px,40px))_48px] gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 border-b border-dark-border/50">
+            <div className="grid grid-cols-[1fr_repeat(6,_minmax(28px,40px))_48px] gap-1 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500 border-b border-dark-border/50">
               <div>Team</div>
               <div className="text-center">GP</div>
               <div className="text-center">W</div>
               <div className="text-center">L</div>
               <div className="text-center">OTL</div>
               <div className="text-center">PTS</div>
+              <div className="text-center">W%</div>
               <div className="text-center">Streak</div>
             </div>
             {div.teams.map((team) => {
@@ -69,9 +70,10 @@ function NHLStandings() {
               const streakColor = sc === "W" ? "bg-accent-green/20 text-accent-green border-accent-green/30"
                 : sc === "L" ? "bg-accent-red/20 text-accent-red border-accent-red/30"
                 : "bg-dark-bg text-gray-400 border-dark-border";
+              const winPct = team.gamesPlayed > 0 ? ((team.wins / team.gamesPlayed) * 100).toFixed(0) : "0";
               return (
                 <Link key={team.teamAbbrev} href={`/team/${team.teamAbbrev}`}
-                  className="grid grid-cols-[1fr_repeat(5,_minmax(28px,40px))_48px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0">
+                  className="grid grid-cols-[1fr_repeat(6,_minmax(28px,40px))_48px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0">
                   <div className="flex items-center gap-2 min-w-0">
                     <TeamLogo team={team.teamAbbrev} logo={team.logo} size={26} />
                     <span className="text-xs text-white font-medium truncate">{team.teamAbbrev}</span>
@@ -81,6 +83,7 @@ function NHLStandings() {
                   <div className="text-center text-xs text-gray-400">{team.losses}</div>
                   <div className="text-center text-xs text-gray-400">{team.otLosses}</div>
                   <div className="text-center text-xs text-white font-bold">{team.points}</div>
+                  <div className="text-center text-xs text-gray-400">{winPct}%</div>
                   <div className="flex justify-center">
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${streakColor}`}>{team.streakCode || "—"}</span>
                   </div>
@@ -156,7 +159,8 @@ function NBAStandings() {
               : sc === "L" ? "bg-accent-red/20 text-accent-red border-accent-red/30"
               : "bg-dark-bg text-gray-400 border-dark-border";
             return (
-              <div key={team.teamAbbrev} className="grid grid-cols-[1fr_40px_40px_40px_56px] gap-1 px-3 py-2.5 items-center border-b border-dark-border/30 last:border-b-0">
+              <Link key={team.teamAbbrev} href={`/nba/team/${team.teamAbbrev}`}
+                className="grid grid-cols-[1fr_40px_40px_40px_56px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0">
                 <div className="flex items-center gap-2 min-w-0">
                   <TeamLogo team={team.teamAbbrev} size={26} />
                   <span className="text-xs text-white font-medium truncate">{team.teamAbbrev}</span>
@@ -167,7 +171,7 @@ function NBAStandings() {
                 <div className="flex justify-center">
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${streakColor}`}>{team.streak || "—"}</span>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

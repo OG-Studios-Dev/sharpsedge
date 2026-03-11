@@ -132,11 +132,13 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
       {/* Footer: source tag + save */}
       <div className="mt-3 flex items-center justify-between">
         <span className="text-[10px] text-gray-600">
-          {prop.statsSource === "live-nhl" && prop.book === "Model Line"
-            ? "Model Line \u2022 NHL API"
-            : prop.book
-              ? prop.book
-              : ""}
+          {prop.statsSource === "live-nba" && prop.book === "Model Line"
+            ? "Model Line \u2022 BallDontLie"
+            : prop.statsSource === "live-nhl" && prop.book === "Model Line"
+              ? "Model Line \u2022 NHL API"
+              : prop.book
+                ? prop.book
+                : ""}
         </span>
         <SavePickButton prop={prop} />
       </div>

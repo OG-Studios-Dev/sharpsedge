@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
 import LeagueSelector from "@/components/LeagueSelector";
@@ -24,13 +24,11 @@ function ResultPill({ result }: { result: AIPick["result"] }) {
   );
 }
 
-// Normalize hit rate: stored values may be 0-1 decimal (old) or 0-100 (new)
 function displayHitRate(val: number): string {
   const pct = val <= 1 ? Math.round(val * 100) : Math.round(val);
   return `${pct}%`;
 }
 
-// Normalize edge: stored as decimal (0.18) → display as "+18%"
 function displayEdge(val: number): string {
   const pct = Math.abs(val) <= 1 ? Math.round(val * 100) : Math.round(val);
   return `${pct > 0 ? "+" : ""}${pct}%`;
@@ -42,9 +40,14 @@ function PickCard({ pick }: { pick: AIPick }) {
       <div className="flex items-center gap-3">
         <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
         <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold text-sm truncate">
-            {pick.type === "player" ? pick.playerName : pick.team}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-white font-semibold text-sm truncate">
+              {pick.type === "player" ? pick.playerName : pick.team}
+            </p>
+            {pick.league && (
+              <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+            )}
+          </div>
           <p className="text-gray-500 text-xs">
             {pick.isAway ? "@" : "vs"} {pick.opponent}
           </p>
@@ -103,17 +106,53 @@ function formatDate(dateStr: string) {
 
 type PastFilter = "all" | "win" | "loss";
 
+function computeRecord(picks: AIPick[]) {
+  let wins = 0, losses = 0, pending = 0, profitUnits = 0;
+  for (const p of picks) {
+    if (p.result === "win") { wins++; profitUnits += p.units; }
+    else if (p.result === "loss") { losses++; profitUnits -= p.units; }
+    else { pending++; }
+  }
+  return { wins, losses, pending, profitUnits };
+}
+
 export default function PicksPage() {
   const [league, setLeague] = useLeague();
-  const { todayPicks, allPicks, record, loadingPicks, refreshPicks } = usePicks();
+  const { todayPicks: nhlToday, allPicks: nhlAll, record: nhlRecord, loadingPicks: nhlLoading } = usePicks();
+  const { todayPicks: nbaToday, allPicks: nbaAll, record: nbaRecord, loadingPicks: nbaLoading } = useNBAPicks();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
-  // Past picks: only resolved (win/loss/push), not pending
-  const pastDates = Object.keys(allPicks)
+  // Merge picks stores based on league
+  const activeToday = league === "NBA" ? nbaToday
+    : league === "All" ? [...nhlToday, ...nbaToday]
+    : nhlToday;
+
+  const activeAll: Record<string, AIPick[]> = {};
+  const mergeStore = (store: Record<string, AIPick[]>) => {
+    for (const [date, picks] of Object.entries(store)) {
+      if (!activeAll[date]) activeAll[date] = [];
+      activeAll[date].push(...picks);
+    }
+  };
+  if (league === "NHL" || league === "All") mergeStore(nhlAll);
+  if (league === "NBA" || league === "All") mergeStore(nbaAll);
+
+  const allFlat = Object.values(activeAll).flat();
+  const activeRecord = computeRecord(allFlat);
+
+  const loading = league === "NBA" ? nbaLoading : league === "All" ? (nhlLoading || nbaLoading) : nhlLoading;
+
+  // Per-league records for combined view
+  const nhlFlat = Object.values(nhlAll).flat();
+  const nbaFlat = Object.values(nbaAll).flat();
+  const nhlRec = computeRecord(nhlFlat);
+  const nbaRec = computeRecord(nbaFlat);
+
+  const pastDates = Object.keys(activeAll)
     .filter((d) => d !== todayKey)
-    .filter((d) => allPicks[d].some((p) => p.result !== "pending"))
+    .filter((d) => activeAll[d].some((p) => p.result !== "pending"))
     .sort((a, b) => b.localeCompare(a));
 
   function filterPastPicks(picks: AIPick[]) {
@@ -138,37 +177,57 @@ export default function PicksPage() {
       {/* Record Card */}
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4">
         <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-3">
-          Season Record
+          {league === "All" ? "Combined" : league} Season Record
         </p>
         <div className="flex items-center gap-6">
           <div className="text-center">
-            <p className="text-accent-green font-bold text-lg">{record.wins}</p>
+            <p className="text-accent-green font-bold text-lg">{activeRecord.wins}</p>
             <p className="text-gray-500 text-[10px] uppercase">W</p>
           </div>
           <div className="text-center">
-            <p className="text-accent-red font-bold text-lg">{record.losses}</p>
+            <p className="text-accent-red font-bold text-lg">{activeRecord.losses}</p>
             <p className="text-gray-500 text-[10px] uppercase">L</p>
           </div>
           <div className="text-center">
-            <p className="text-gray-400 font-bold text-lg">{record.pending}</p>
+            <p className="text-gray-400 font-bold text-lg">{activeRecord.pending}</p>
             <p className="text-gray-500 text-[10px] uppercase">Pending</p>
           </div>
           <div className="ml-auto text-right">
             <p
               className={`font-bold text-lg ${
-                record.profitUnits > 0
+                activeRecord.profitUnits > 0
                   ? "text-accent-green"
-                  : record.profitUnits < 0
+                  : activeRecord.profitUnits < 0
                     ? "text-accent-red"
                     : "text-gray-400"
               }`}
             >
-              {record.profitUnits > 0 ? "+" : ""}
-              {record.profitUnits}u
+              {activeRecord.profitUnits > 0 ? "+" : ""}
+              {activeRecord.profitUnits}u
             </p>
             <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
           </div>
         </div>
+        {league === "All" && (
+          <div className="flex gap-2 mt-3 pt-3 border-t border-dark-border/40">
+            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+              <span className="text-[10px] text-gray-500 font-semibold">🏒 NHL</span>
+              <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
+              <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
+              <span className={`ml-auto text-[11px] font-bold ${nhlRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits}u
+              </span>
+            </div>
+            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+              <span className="text-[10px] text-gray-500 font-semibold">🏀 NBA</span>
+              <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
+              <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
+              <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Today's Picks */}
@@ -179,23 +238,23 @@ export default function PicksPage() {
         <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
       </div>
 
-      {loadingPicks ? (
+      {loading ? (
         <div className="space-y-3 mb-6">
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
         </div>
-      ) : todayPicks.length === 0 ? (
+      ) : activeToday.length === 0 ? (
         <div className="mb-6">
           <EmptyStateCard
             eyebrow="AI Picks"
-            title="No picks today"
+            title={`No ${league === "All" ? "" : league + " "}picks today`}
             body="Check back when games are scheduled to see today's top AI picks."
           />
         </div>
       ) : (
         <div className="space-y-3 mb-6">
-          {todayPicks.map((pick) => (
+          {activeToday.map((pick) => (
             <PickCard key={pick.id} pick={pick} />
           ))}
         </div>
@@ -230,7 +289,7 @@ export default function PicksPage() {
           </div>
           <div className="space-y-4">
             {pastDates.map((date) => {
-              const picks = filterPastPicks(allPicks[date]);
+              const picks = filterPastPicks(activeAll[date]);
               if (!picks.length) return null;
               return (
                 <div key={date}>
@@ -243,9 +302,14 @@ export default function PicksPage() {
                       >
                         <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-white text-xs font-medium truncate">
-                            {pick.pickLabel}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-white text-xs font-medium truncate">
+                              {pick.pickLabel}
+                            </p>
+                            {pick.league && (
+                              <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+                            )}
+                          </div>
                           <p className="text-gray-500 text-[10px]">
                             {pick.isAway ? "@" : "vs"} {pick.opponent}
                           </p>

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import TeamLogo from "./TeamLogo";
+import { AIPick } from "@/lib/types";
 
 function displayHitRate(val: number): string {
   const pct = val <= 1 ? Math.round(val * 100) : Math.round(val);
@@ -45,54 +46,62 @@ function RecordBar({ wins, losses, pending, profitUnits, label }: {
   );
 }
 
+function PickRow({ pick }: { pick: AIPick }) {
+  return (
+    <div className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0">
+      <TeamLogo team={pick.team} size={28} color={pick.teamColor} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <p className="text-white text-xs font-semibold truncate">
+            {pick.type === "player" ? pick.playerName : pick.team}
+          </p>
+          {pick.league && (
+            <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+          )}
+        </div>
+        <p className="text-accent-blue text-[11px] truncate">{pick.pickLabel}</p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
+        <ResultPill result={pick.result} />
+      </div>
+    </div>
+  );
+}
+
+function computeRecord(picks: AIPick[]) {
+  const wins = picks.filter((p) => p.result === "win").length;
+  const losses = picks.filter((p) => p.result === "loss").length;
+  const pending = picks.filter((p) => p.result === "pending").length;
+  const profitUnits = Math.round((wins - losses) * 10) / 10;
+  return { wins, losses, pending, profitUnits };
+}
+
 export default function HomePicksSection({ league = "NHL" }: { league?: string }) {
-  const { todayPicks, record, allPicks: allPicksStore, loadingPicks } = usePicks();
+  const nhl = usePicks();
+  const nba = useNBAPicks();
 
-  // Flatten all picks across all days for cumulative records
-  const allPicks = Object.values(allPicksStore).flat();
-  const nhlPicks = allPicks.filter((p) => !p.league || p.league === "NHL");
-  const nbaPicks = allPicks.filter((p) => p.league === "NBA");
+  const allNHLPicks = Object.values(nhl.allPicks).flat();
+  const allNBAPicks = Object.values(nba.allPicks).flat();
+  const allPicks = [...allNHLPicks, ...allNBAPicks];
 
-  function computeRecord(picks: typeof allPicks) {
-    const resolved = picks.filter((p) => p.result !== "pending");
-    const wins = resolved.filter((p) => p.result === "win").length;
-    const losses = resolved.filter((p) => p.result === "loss").length;
-    const pending = picks.filter((p) => p.result === "pending").length;
-    const profitUnits = Math.round((wins - losses) * 10) / 10;
-    return { wins, losses, pending, profitUnits };
-  }
-
-  const nhlRecord = computeRecord(nhlPicks);
-  const nbaRecord = computeRecord(nbaPicks);
+  const nhlRecord = computeRecord(allNHLPicks);
+  const nbaRecord = computeRecord(allNBAPicks);
   const allRecord = computeRecord(allPicks);
 
-  const displayPicks = league === "NBA"
-    ? todayPicks.filter((p) => p.league === "NBA")
-    : league === "All"
-      ? todayPicks
-      : todayPicks.filter((p) => !p.league || p.league === "NHL");
+  // Which today picks to show
+  const displayPicks =
+    league === "NBA"
+      ? nba.todayPicks
+      : league === "All"
+      ? [...nhl.todayPicks, ...nba.todayPicks]
+      : nhl.todayPicks;
 
-  // NBA coming soon — no picks yet
-  if (league === "NBA") {
-    return (
-      <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-sm font-bold text-white tracking-tight">🪿 TODAY'S GOOSE AI PICKS</h3>
-            <p className="text-[10px] text-gray-500 mt-0.5">NBA · 3 picks/day · 1 unit each</p>
-          </div>
-        </div>
-        <RecordBar {...nbaRecord} label="NBA" />
-        <div className="text-center py-5 mt-3">
-          <p className="text-2xl mb-2">🏀</p>
-          <p className="text-gray-400 text-sm font-medium">NBA picks coming soon</p>
-          <p className="text-gray-600 text-xs mt-1">AI pick engine is being trained on NBA data</p>
-        </div>
-      </section>
-    );
-  }
+  const loadingPicks =
+    league === "NBA" ? nba.loadingPicks : league === "All" ? nhl.loadingPicks || nba.loadingPicks : nhl.loadingPicks;
 
-  const unitColor = record.profitUnits > 0 ? "text-emerald-400" : record.profitUnits < 0 ? "text-red-400" : "text-gray-400";
+  const record =
+    league === "NBA" ? nbaRecord : league === "All" ? allRecord : nhlRecord;
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
@@ -107,7 +116,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
         <Link href="/picks" className="text-xs text-accent-blue font-medium">View all →</Link>
       </div>
 
-      {/* Record bar — combined or per-league */}
+      {/* Record bar */}
       {league === "All" ? (
         <div className="space-y-1.5">
           <RecordBar {...allRecord} label="All" />
@@ -131,7 +140,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
           </div>
         </div>
       ) : (
-        <RecordBar wins={record.wins} losses={record.losses} pending={record.pending} profitUnits={record.profitUnits} />
+        <RecordBar {...record} />
       )}
 
       {/* Picks */}
@@ -148,26 +157,9 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
             <p className="text-gray-600 text-xs mt-1">Check back once games are posted</p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-0">
             {displayPicks.map((pick) => (
-              <div key={pick.id} className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0">
-                <TeamLogo team={pick.team} size={28} color={pick.teamColor} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-white text-xs font-semibold truncate">
-                      {pick.type === "player" ? pick.playerName : pick.team}
-                    </p>
-                    {pick.league && (
-                      <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-                    )}
-                  </div>
-                  <p className="text-accent-blue text-[11px] truncate">{pick.pickLabel}</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
-                  <ResultPill result={pick.result} />
-                </div>
-              </div>
+              <PickRow key={pick.id} pick={pick} />
             ))}
           </div>
         )}

@@ -3,21 +3,22 @@
 import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
 
-const STORAGE_KEY = "goosalytics_ai_picks_v2";
+const NHL_STORAGE_KEY = "goosalytics_ai_picks_v2";
+const NBA_STORAGE_KEY = "goosalytics_nba_picks_v2";
 
 type PickStore = Record<string, AIPick[]>;
 
-function loadStore(): PickStore {
+function loadStore(key: string): PickStore {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
 }
 
-function saveStore(store: PickStore) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+function saveStore(key: string, store: PickStore) {
+  localStorage.setItem(key, JSON.stringify(store));
 }
 
 function todayKey() {
@@ -41,32 +42,29 @@ async function resolvePicksFromAPI(picks: AIPick[]): Promise<AIPick[]> {
   }
 }
 
-export function usePicks() {
+function usePicksForLeague(storageKey: string, fetchEndpoint: string) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
 
   const key = todayKey();
   const todayPicks = allPicks[key] || [];
 
-  // Fetch fresh picks for today — ONLY if today has no picks yet (LOCK)
   const fetchAndStore = useCallback(async () => {
     setLoadingPicks(true);
     try {
-      const store = loadStore();
-      // HARD LOCK: if today already has picks, never overwrite them
+      const store = loadStore(storageKey);
       if (store[key]?.length) {
         setAllPicks(store);
         setLoadingPicks(false);
         return;
       }
-      const res = await fetch("/api/picks");
+      const res = await fetch(fetchEndpoint);
       const data = await res.json();
       if (data.picks?.length) {
         const date = data.date || key;
-        // Only store if this date has no picks yet
         if (!store[date]?.length) {
           store[date] = data.picks;
-          saveStore(store);
+          saveStore(storageKey, store);
         }
         setAllPicks({ ...store });
       }
@@ -75,9 +73,8 @@ export function usePicks() {
     } finally {
       setLoadingPicks(false);
     }
-  }, [key]);
+  }, [key, storageKey, fetchEndpoint]);
 
-  // Attempt to auto-resolve pending picks from completed game stats
   const resolvePending = useCallback(async (store: PickStore) => {
     let changed = false;
     const updated = { ...store };
@@ -97,24 +94,22 @@ export function usePicks() {
     }
 
     if (changed) {
-      saveStore(updated);
+      saveStore(storageKey, updated);
       setAllPicks({ ...updated });
     }
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    const store = loadStore();
+    const store = loadStore(storageKey);
     setAllPicks(store);
 
     if (store[key]?.length) {
       setLoadingPicks(false);
-      // Picks already exist for today — just try to resolve any pending ones
       resolvePending(store);
     } else {
-      // No picks for today yet — fetch and lock them in
       fetchAndStore();
     }
-  }, [key, fetchAndStore, resolvePending]);
+  }, [key, fetchAndStore, resolvePending, storageKey]);
 
   const record = (() => {
     let wins = 0;
@@ -138,4 +133,12 @@ export function usePicks() {
   })();
 
   return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore };
+}
+
+export function usePicks() {
+  return usePicksForLeague(NHL_STORAGE_KEY, "/api/picks");
+}
+
+export function useNBAPicks() {
+  return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks");
 }

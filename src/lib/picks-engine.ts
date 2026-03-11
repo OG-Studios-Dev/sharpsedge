@@ -1,5 +1,6 @@
 import { PlayerProp, TeamTrend, AIPick } from "@/lib/types";
 import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
+import { NBA_TEAM_COLORS } from "@/lib/nba-api";
 
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
@@ -7,11 +8,13 @@ type ScoredTeamTrend = TeamTrend & { _score: number };
 function buildTeamPickLabel(trend: TeamTrend): string {
   const betType = trend.betType || "";
   if (betType === "Team Goals O/U") {
-    // Extract line from split label: "Over 2.5 in L10: 9/10"
     const splitLabel = trend.splits?.[0]?.label || "";
     const match = splitLabel.match(/Over\s+([\d.]+)/i);
     const line = match ? match[1] : "";
     return line ? `${trend.team} Over ${line} Goals` : `${trend.team} Over Goals`;
+  }
+  if (betType === "Team Points O/U") {
+    return `${trend.team} ${trend.line}`;
   }
   if (betType === "Team Win ML" || betType === "ML Home Win" || betType === "ML Streak") {
     return `${trend.team} Win ML`;
@@ -128,6 +131,70 @@ export function selectTopPicks(
     for (const t of extraTrends) {
       if (filled >= remaining) break;
       picks.push(teamTrendToAIPick(t, date));
+      filled++;
+    }
+  }
+
+  return picks.slice(0, 3);
+}
+
+export function selectNBATopPicks(
+  props: PlayerProp[],
+  teamTrends: TeamTrend[],
+  date: string,
+): AIPick[] {
+  const scoredProps: ScoredPlayerProp[] = props
+    .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
+    .sort((a, b) => b._score - a._score);
+
+  const scoredTrends: ScoredTeamTrend[] = teamTrends
+    .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
+    .sort((a, b) => b._score - a._score);
+
+  const picks: AIPick[] = [];
+
+  const playerPicks = scoredProps.slice(0, 2);
+  const teamPicks = scoredTrends.slice(0, 1);
+
+  for (const p of playerPicks) {
+    const pick = playerPickToAIPick(p, date);
+    pick.league = "NBA";
+    pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
+    picks.push(pick);
+  }
+  for (const t of teamPicks) {
+    const pick = teamTrendToAIPick(t, date);
+    pick.league = "NBA";
+    pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
+    picks.push(pick);
+  }
+
+  if (picks.length < 3) {
+    const remaining = 3 - picks.length;
+    const usedIds = new Set(picks.map((p) => p.id));
+
+    const extraProps = scoredProps
+      .slice(playerPicks.length)
+      .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
+    const extraTrends = scoredTrends
+      .slice(teamPicks.length)
+      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`));
+
+    let filled = 0;
+    for (const p of extraProps) {
+      if (filled >= remaining) break;
+      const pick = playerPickToAIPick(p, date);
+      pick.league = "NBA";
+      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
+      picks.push(pick);
+      filled++;
+    }
+    for (const t of extraTrends) {
+      if (filled >= remaining) break;
+      const pick = teamTrendToAIPick(t, date);
+      pick.league = "NBA";
+      pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
+      picks.push(pick);
       filled++;
     }
   }

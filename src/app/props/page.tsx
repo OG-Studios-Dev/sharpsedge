@@ -12,7 +12,7 @@ import EmptyStateCard from "@/components/EmptyStateCard";
 
 type ViewType = "Players" | "Team";
 
-const PLAYER_METRIC_OPTIONS = [
+const NHL_PLAYER_METRICS = [
   { label: "All Props", value: "all" },
   { label: "Goals", value: "Goals" },
   { label: "Assists", value: "Assists" },
@@ -22,7 +22,19 @@ const PLAYER_METRIC_OPTIONS = [
   { label: "Under", value: "under" },
 ];
 
-const TEAM_METRIC_OPTIONS = [
+const NBA_PLAYER_METRICS = [
+  { label: "All Props", value: "all" },
+  { label: "Points", value: "Points" },
+  { label: "Rebounds", value: "Rebounds" },
+  { label: "Assists", value: "Assists" },
+  { label: "3PM", value: "3-Pointers Made" },
+  { label: "Steals", value: "Steals" },
+  { label: "Blocks", value: "Blocks" },
+  { label: "Over", value: "over" },
+  { label: "Under", value: "under" },
+];
+
+const NHL_TEAM_METRICS = [
   { label: "All Metrics", value: "all" },
   { label: "Team Goals O/U", value: "Team Goals O/U" },
   { label: "Team Win ML", value: "Team Win ML" },
@@ -30,6 +42,15 @@ const TEAM_METRIC_OPTIONS = [
   { label: "Road Wins", value: "ML Road Win" },
   { label: "ML Streak", value: "ML Streak" },
   { label: "Score First & Win", value: "Score First & Win" },
+];
+
+const NBA_TEAM_METRICS = [
+  { label: "All Metrics", value: "all" },
+  { label: "Team Points O/U", value: "Team Points O/U" },
+  { label: "Team Win ML", value: "Team Win ML" },
+  { label: "Home Wins", value: "ML Home Win" },
+  { label: "Road Wins", value: "ML Road Win" },
+  { label: "Streak", value: "ML Streak" },
 ];
 
 export default function PropsPage() {
@@ -40,11 +61,14 @@ export default function PropsPage() {
   const [teamTrends, setTeamTrends] = useState<TeamTrend[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Reset metric filter when switching view
   const handleViewChange = (v: string) => {
     setView(v as ViewType);
     setMetric("all");
   };
+
+  useEffect(() => {
+    setMetric("all");
+  }, [league]);
 
   useEffect(() => {
     setLoading(true);
@@ -59,7 +83,6 @@ export default function PropsPage() {
       .finally(() => setLoading(false));
   }, [league]);
 
-  // Filter player props — apply same 3-criteria trend filter
   const filteredPlayers = useMemo(() => {
     return playerProps.filter((p) => {
       if (p.league !== league) return false;
@@ -71,7 +94,6 @@ export default function PropsPage() {
     });
   }, [playerProps, league, metric]);
 
-  // Filter team trends
   const filteredTeams = useMemo(() => {
     return teamTrends.filter((t) => {
       if (t.league !== league) return false;
@@ -80,8 +102,12 @@ export default function PropsPage() {
     });
   }, [teamTrends, league, metric]);
 
-  const metricOptions = view === "Players" ? PLAYER_METRIC_OPTIONS : TEAM_METRIC_OPTIONS;
+  const isNBA = league === "NBA";
+  const playerMetrics = isNBA ? NBA_PLAYER_METRICS : NHL_PLAYER_METRICS;
+  const teamMetrics = isNBA ? NBA_TEAM_METRICS : NHL_TEAM_METRICS;
+  const metricOptions = view === "Players" ? playerMetrics : teamMetrics;
   const isEmpty = view === "Players" ? filteredPlayers.length === 0 : filteredTeams.length === 0;
+  const sportLabel = isNBA ? "NBA" : "NHL";
 
   return (
     <div>
@@ -119,13 +145,13 @@ export default function PropsPage() {
       {loading ? (
         <EmptyStateCard
           eyebrow="Loading live slate"
-          title={view === "Players" ? "Pulling current NHL prop markets" : "Loading team analytics"}
-          body="Goosalytics is fetching live NHL data and computing edges for today's slate."
+          title={view === "Players" ? `Pulling current ${sportLabel} prop markets` : "Loading team analytics"}
+          body={`Goosalytics is fetching live ${sportLabel} data and computing edges for today's slate.`}
         />
       ) : isEmpty ? (
         <EmptyStateCard
           eyebrow="Nothing here yet"
-          title={view === "Players" ? "No player props match this filter" : "No team analytics match this filter"}
+          title={view === "Players" ? `No ${sportLabel} player props match this filter` : `No ${sportLabel} team analytics match this filter`}
           body={view === "Players"
             ? "Try switching to All Props or check back once today's slate is posted."
             : "Team analytics require today's schedule to be active. Check back closer to game time."}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import TeamLogo from "./TeamLogo";
+import NBAGameCard from "./NBAGameCard";
+import type { OddsEvent } from "@/lib/types";
 
 type NBAGame = {
   id: number;
@@ -25,18 +26,11 @@ function sectionTitleFor(dateStr: string) {
   return target.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
-function GameStatusBadge({ status }: { status: string }) {
-  const isLive = status === "In Progress";
-  const isFinal = status === "Final";
-  if (isLive) return <span className="text-[10px] font-bold text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">LIVE</span>;
-  if (isFinal) return <span className="text-[10px] text-gray-500 px-2 py-0.5 rounded-full bg-dark-bg/50 border border-dark-border">Final</span>;
-  return <span className="text-[10px] text-gray-400">{status}</span>;
-}
-
 interface Props { compact?: boolean }
 
 export default function NBAScheduleBoard({ compact }: Props) {
   const [games, setGames] = useState<NBAGame[]>([]);
+  const [oddsEvents, setOddsEvents] = useState<OddsEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +38,7 @@ export default function NBAScheduleBoard({ compact }: Props) {
       .then((r) => r.json())
       .then((data) => {
         setGames(Array.isArray(data.schedule) ? data.schedule : data.schedule?.games || []);
+        setOddsEvents(Array.isArray(data.odds) ? data.odds : []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -63,6 +58,17 @@ export default function NBAScheduleBoard({ compact }: Props) {
 
   const displaySections = compact ? sections.slice(0, 2) : sections;
 
+  function findOddsEvent(game: NBAGame): OddsEvent | undefined {
+    const homeFull = game.homeTeam.full_name.toLowerCase();
+    const awayFull = game.awayTeam.full_name.toLowerCase();
+    return oddsEvents.find((e) => {
+      const eHome = e.home_team.toLowerCase();
+      const eAway = e.away_team.toLowerCase();
+      return (eHome.includes(homeFull) || homeFull.includes(eHome)) &&
+             (eAway.includes(awayFull) || awayFull.includes(eAway));
+    });
+  }
+
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
       <div className="flex items-center justify-between mb-3">
@@ -73,8 +79,8 @@ export default function NBAScheduleBoard({ compact }: Props) {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => <div key={i} className="h-14 rounded-xl bg-dark-border/40 animate-pulse" />)}
+        <div className="grid grid-cols-2 gap-3">
+          {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-2xl bg-dark-border/40 animate-pulse" />)}
         </div>
       ) : displaySections.length === 0 ? (
         <div className="text-center py-6">
@@ -89,38 +95,14 @@ export default function NBAScheduleBoard({ compact }: Props) {
                 <p className="text-xs font-semibold text-gray-300">{label}</p>
                 <p className="text-[10px] text-gray-500">{dayGames.length} game{dayGames.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="space-y-2">
-                {dayGames.map((game) => {
-                  const isLive = game.status === "In Progress";
-                  const isFinal = game.status === "Final";
-                  return (
-                    <div
-                      key={game.id}
-                      className={`rounded-xl border px-3 py-2.5 ${
-                        isLive ? "bg-emerald-950/20 border-emerald-500/15" : "bg-dark-bg/40 border-dark-border/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <TeamLogo team={game.awayTeam.abbreviation} size={20} />
-                            <span className="text-white text-xs font-semibold">{game.awayTeam.abbreviation}</span>
-                            {isFinal && game.awayScore !== null && (
-                              <span className="text-white text-xs font-bold">{game.awayScore}</span>
-                            )}
-                            <span className="text-gray-600 text-[10px]">at</span>
-                            <TeamLogo team={game.homeTeam.abbreviation} size={20} />
-                            <span className="text-white text-xs font-semibold">{game.homeTeam.abbreviation}</span>
-                            {isFinal && game.homeScore !== null && (
-                              <span className="text-white text-xs font-bold">{game.homeScore}</span>
-                            )}
-                          </div>
-                          <GameStatusBadge status={game.status} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-3">
+                {dayGames.map((game) => (
+                  <NBAGameCard
+                    key={game.id}
+                    game={game}
+                    oddsEvent={findOddsEvent(game)}
+                  />
+                ))}
               </div>
             </div>
           ))}

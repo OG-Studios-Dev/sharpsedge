@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { NHLGame } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
+import { computeWinProb } from "@/components/WinProbability";
 
 type GoalieStarter = {
   playerId: number;
@@ -264,16 +265,38 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
                       </div>
 
                       {(game.bestMoneyline?.away || game.bestMoneyline?.home) && (
-                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                          <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
-                            <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Away line</div>
-                            <div>{game.awayTeam.abbrev} {game.bestMoneyline?.away?.odds ?? "-"}</div>
+                        <>
+                          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                            <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
+                              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Away line</div>
+                              <div>{game.awayTeam.abbrev} {game.bestMoneyline?.away?.odds ?? "-"}</div>
+                            </div>
+                            <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
+                              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Home line</div>
+                              <div>{game.homeTeam.abbrev} {game.bestMoneyline?.home?.odds ?? "-"}</div>
+                            </div>
                           </div>
-                          <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
-                            <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Home line</div>
-                            <div>{game.homeTeam.abbrev} {game.bestMoneyline?.home?.odds ?? "-"}</div>
+                          {/* Win Probability */}
+                          <div className="mt-2 flex items-center justify-between text-[10px] px-1">
+                            <span className="text-gray-500">
+                              {game.awayTeam.abbrev}{" "}
+                              <span className="text-white font-semibold">
+                                {game.bestMoneyline?.away?.odds != null
+                                  ? `${Math.round(computeWinProb(game.bestMoneyline.away.odds) * 100)}%`
+                                  : "—"}
+                              </span>
+                            </span>
+                            <span className="text-gray-600 uppercase tracking-wider text-[8px]">Win Prob</span>
+                            <span className="text-gray-500">
+                              {game.homeTeam.abbrev}{" "}
+                              <span className="text-white font-semibold">
+                                {game.bestMoneyline?.home?.odds != null
+                                  ? `${Math.round(computeWinProb(game.bestMoneyline.home.odds) * 100)}%`
+                                  : "—"}
+                              </span>
+                            </span>
                           </div>
-                        </div>
+                        </>
                       )}
 
                       {(goalieMap[game.id]?.away || goalieMap[game.id]?.home) && (
