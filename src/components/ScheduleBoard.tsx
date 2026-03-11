@@ -4,6 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { NHLGame } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 
+type GoalieStarter = {
+  playerId: number;
+  name: string;
+  status: "confirmed" | "probable" | "unconfirmed";
+  team: string;
+  wins: number;
+  losses: number;
+  otLosses: number;
+  savePct: number;
+  gaa: number;
+  isBackup: boolean;
+};
+
+type GameGoalies = {
+  gameId: number;
+  home: GoalieStarter | null;
+  away: GoalieStarter | null;
+};
+
 type GamesResponse = {
   games: NHLGame[];
   date: string;
@@ -45,15 +64,58 @@ function sectionTitleFor(date: Date) {
   return formatDayLabel(date);
 }
 
+function GoalieInfo({ goalie }: { goalie: GoalieStarter | null }) {
+  if (!goalie) return <div className="text-[11px] text-gray-600">TBD</div>;
+  const statusColor =
+    goalie.status === "confirmed" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
+    goalie.status === "probable" ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/10" :
+    "text-gray-400 border-gray-500/30 bg-gray-500/10";
+  const statusLabel = goalie.status === "confirmed" ? "Confirmed ✓" : goalie.status === "probable" ? "Probable" : "TBD";
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-xs text-white font-medium">{goalie.name}</span>
+        {goalie.isBackup && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-semibold uppercase tracking-wider">Backup</span>
+        )}
+      </div>
+      <div className="text-[10px] text-gray-400">
+        SV% {goalie.savePct.toFixed(3)} • GAA {goalie.gaa.toFixed(2)}
+      </div>
+      <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full border ${statusColor}`}>{statusLabel}</span>
+    </div>
+  );
+}
+
 export default function ScheduleBoard({ compact = false }: { compact?: boolean }) {
   const [data, setData] = useState<GamesResponse>({ games: [], date: "" });
   const [loading, setLoading] = useState(true);
+  const [goalieMap, setGoalieMap] = useState<Record<number, GameGoalies>>({});
 
   useEffect(() => {
     fetch(`/api/games?days=${compact ? 3 : 7}`)
       .then((r) => r.json())
       .then((json) => {
-        if (json?.games) setData(json);
+        if (json?.games) {
+          setData(json);
+          // Fetch goalie data for each game
+          const futureGames = (json.games as NHLGame[]).filter(
+            (g) => g.gameState === "FUT" || g.gameState === "LIVE" || g.gameState === "PRE"
+          );
+          Promise.allSettled(
+            futureGames.map((g) =>
+              fetch(`/api/goalies?gameId=${g.id}`)
+                .then((r) => r.json())
+                .then((data: GameGoalies) => ({ gameId: g.id, data }))
+            )
+          ).then((results) => {
+            const map: Record<number, GameGoalies> = {};
+            for (const r of results) {
+              if (r.status === "fulfilled") map[r.value.gameId] = r.value.data;
+            }
+            setGoalieMap(map);
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -152,6 +214,19 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
                         <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
                           <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Home line</div>
                           <div>{game.homeTeam.abbrev} {game.bestMoneyline?.home?.odds ?? "-"}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {(goalieMap[game.id]?.away || goalieMap[game.id]?.home) && (
+                      <div className="mt-3 pt-3 border-t border-dark-border/50">
+                        <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-2">Starting Goalies</div>
+                        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start">
+                          <GoalieInfo goalie={goalieMap[game.id]?.away ?? null} />
+                          <div className="text-[10px] text-gray-600 pt-1">vs</div>
+                          <div className="text-right">
+                            <GoalieInfo goalie={goalieMap[game.id]?.home ?? null} />
+                          </div>
                         </div>
                       </div>
                     )}

@@ -13,7 +13,8 @@
  */
 
 import { NHLGame, PlayerProp } from "@/lib/types";
-import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
+import { NHL_TEAM_COLORS, getGameGoalies } from "@/lib/nhl-api";
+import type { GoalieStarter } from "@/lib/nhl-api";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -131,7 +132,8 @@ function makeProps(
   opponent: string,
   isAway: boolean,
   matchup: string,
-  gameId: string
+  gameId: string,
+  opposingGoalie?: GoalieStarter | null
 ): PlayerProp[] {
   if (logs.length < 5) return [];
 
@@ -162,11 +164,15 @@ function makeProps(
     const overRate = overHits / sampleSize;
     const edge = overRate - STANDARD_IMPLIED_PROB;
 
-    if (edge <= 0) continue; // Props page: show anything with a positive trend
+    // Backup goalie boost: +10% edge for Goals and Shots
+    const isGoalieBoosted = opposingGoalie?.isBackup === true && (def.key === "goals" || def.key === "shots");
+    const adjustedEdge = isGoalieBoosted ? edge + 0.10 : edge;
+
+    if (adjustedEdge <= 0) continue;
     if (sampleSize < 5) continue;
 
     const direction: "Over" = "Over";
-    const bestEdge = edge;
+    const bestEdge = adjustedEdge;
     const bestRate = overRate;
 
     const edgePct = Math.round(bestEdge * 100);
@@ -208,7 +214,7 @@ function makeProps(
       },
       isBackToBack: false,
       recentGames,
-      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${hitRatePct}% in last 10 games. Model edge: +${edgePct}%.`,
+      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${hitRatePct}% in last 10 games. Model edge: +${edgePct}%.${isGoalieBoosted ? " Backup goalie starting — elevated Goals/Shots edge." : ""}`,
       summary: `${matchup} • ${direction} ${line} ${def.label} • L10 avg ${avg10.toFixed(1)}`,
       saved: false,
       impliedProb: STANDARD_IMPLIED_PROB,
@@ -251,9 +257,10 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
 
   await Promise.all(
     targetGames.map(async (game) => {
-      const [homeRoster, awayRoster] = await Promise.all([
+      const [homeRoster, awayRoster, goalies] = await Promise.all([
         getRosterSkaters(game.homeTeam.abbrev),
         getRosterSkaters(game.awayTeam.abbrev),
+        getGameGoalies(game.id).catch(() => ({ gameId: game.id, home: null, away: null })),
       ]);
 
       const matchup = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
@@ -269,20 +276,21 @@ export async function buildNHLStatsPropFeed(games: NHLGame[]): Promise<PlayerPro
       const awayPlayers = pickPlayers(awayRoster);
 
       // Batch game log fetches in groups of 5
-      type PlayerTask = { player: SkaterRow; team: string; opponent: string; isAway: boolean };
+      type PlayerTask = { player: SkaterRow; team: string; opponent: string; isAway: boolean; opposingGoalie: GoalieStarter | null };
       const tasks: PlayerTask[] = [
-        ...homePlayers.map((p) => ({ player: p, team: game.homeTeam.abbrev, opponent: game.awayTeam.abbrev, isAway: false })),
-        ...awayPlayers.map((p) => ({ player: p, team: game.awayTeam.abbrev, opponent: game.homeTeam.abbrev, isAway: true })),
+        ...homePlayers.map((p) => ({ player: p, team: game.homeTeam.abbrev, opponent: game.awayTeam.abbrev, isAway: false, opposingGoalie: goalies.away })),
+        ...awayPlayers.map((p) => ({ player: p, team: game.awayTeam.abbrev, opponent: game.homeTeam.abbrev, isAway: true, opposingGoalie: goalies.home })),
       ];
 
       for (let i = 0; i < tasks.length; i += 5) {
         const batch = tasks.slice(i, i + 5);
         await Promise.all(
-          batch.map(async ({ player, team, opponent, isAway }) => {
+          batch.map(async ({ player, team, opponent, isAway, opposingGoalie }) => {
             const logs = await getGameLog(player.id);
             const props = makeProps(
               player, logs, team, opponent,
-              isAway, matchup, String(game.id)
+              isAway, matchup, String(game.id),
+              opposingGoalie
             );
             allProps.push(...props);
           })

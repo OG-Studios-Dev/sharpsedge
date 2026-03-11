@@ -6,12 +6,13 @@ const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 type CacheEntry<T> = { data: T; timestamp: number };
 const cache = new Map<string, CacheEntry<unknown>>();
 
-async function cachedFetch<T>(url: string): Promise<T> {
+async function cachedFetch<T>(url: string, ttl: number = CACHE_TTL): Promise<T> {
   const cached = cache.get(url);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  if (cached && Date.now() - cached.timestamp < ttl) {
     return cached.data as T;
   }
-  const res = await fetch(url, { next: { revalidate: 900 } });
+  const revalidate = Math.round(ttl / 1000);
+  const res = await fetch(url, { next: { revalidate } });
   if (!res.ok) throw new Error(`NHL API error: ${res.status}`);
   const data = await res.json();
   cache.set(url, { data, timestamp: Date.now() });
@@ -198,6 +199,110 @@ export async function getTeamRecentGames(teamAbbrev: string): Promise<TeamRecent
     });
   } catch {
     return [];
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Starting goalie data
+// ──────────────────────────────────────────────────────────────────────
+
+export type GoalieStarter = {
+  playerId: number;
+  name: string;
+  status: "confirmed" | "probable" | "unconfirmed";
+  team: string;
+  wins: number;
+  losses: number;
+  otLosses: number;
+  savePct: number;
+  gaa: number;
+  isBackup: boolean;
+};
+
+export type GameGoalies = {
+  gameId: number;
+  home: GoalieStarter | null;
+  away: GoalieStarter | null;
+};
+
+function parseGoalieFromMatchup(player: any, team: string): GoalieStarter | null {
+  if (!player) return null;
+  const seasonStats = player.seasonStats || {};
+  const wins = seasonStats.wins ?? 0;
+  const losses = seasonStats.losses ?? 0;
+  const otLosses = seasonStats.otLosses ?? 0;
+  return {
+    playerId: player.playerId ?? 0,
+    name: `${player.firstName?.default || ""} ${player.lastName?.default || ""}`.trim(),
+    status: "probable",
+    team,
+    wins,
+    losses,
+    otLosses,
+    savePct: seasonStats.savePctg ?? 0,
+    gaa: seasonStats.goalsAgainstAvg ?? 0,
+    isBackup: wins + losses + otLosses < 10,
+  };
+}
+
+function parseGoalieFromBoxscore(goalies: any[], team: string): GoalieStarter | null {
+  if (!goalies?.length) return null;
+  // Starting goalie: has toi > "00:00" or has a decision field
+  const starter = goalies.find((g: any) => g.decision) || goalies.find((g: any) => g.toi && g.toi !== "00:00") || goalies[0];
+  if (!starter) return null;
+  return {
+    playerId: starter.playerId ?? 0,
+    name: `${starter.firstName?.default || starter.name?.default || ""} ${starter.lastName?.default || ""}`.trim(),
+    status: starter.decision ? "confirmed" : "probable",
+    team,
+    wins: starter.wins ?? 0,
+    losses: starter.losses ?? 0,
+    otLosses: starter.otLosses ?? 0,
+    savePct: starter.savePctg ?? starter.savePct ?? 0,
+    gaa: starter.goalsAgainstAvg ?? starter.gaa ?? 0,
+    isBackup: (starter.wins ?? 0) + (starter.losses ?? 0) + (starter.otLosses ?? 0) < 10,
+  };
+}
+
+export async function getGameGoalies(gameId: number): Promise<GameGoalies> {
+  const GOALIE_TTL = 5 * 60 * 1000; // 5 minutes
+  const empty: GameGoalies = { gameId, home: null, away: null };
+
+  try {
+    // Try landing endpoint first (works for pre-game and live)
+    const landing = await cachedFetch<any>(`${NHL_BASE}/gamecenter/${gameId}/landing`, GOALIE_TTL);
+
+    let home: GoalieStarter | null = null;
+    let away: GoalieStarter | null = null;
+    const homeAbbrev = landing.homeTeam?.abbrev || "";
+    const awayAbbrev = landing.awayTeam?.abbrev || "";
+
+    // Try matchup goalie comparison (pre-game)
+    const gc = landing.matchup?.goalieComparison;
+    if (gc) {
+      const homePlayers = gc.homeTeam?.players;
+      const awayPlayers = gc.awayTeam?.players;
+      if (homePlayers?.length) home = parseGoalieFromMatchup(homePlayers[0], homeAbbrev);
+      if (awayPlayers?.length) away = parseGoalieFromMatchup(awayPlayers[0], awayAbbrev);
+    }
+
+    // Try boxscore for live/completed games (overrides matchup data with confirmed info)
+    try {
+      const boxscore = await cachedFetch<any>(`${NHL_BASE}/gamecenter/${gameId}/boxscore`, GOALIE_TTL);
+      const pgs = boxscore.playerByGameStats;
+      if (pgs) {
+        const homeBox = parseGoalieFromBoxscore(pgs.homeTeam?.goalies, homeAbbrev);
+        const awayBox = parseGoalieFromBoxscore(pgs.awayTeam?.goalies, awayAbbrev);
+        if (homeBox) home = homeBox;
+        if (awayBox) away = awayBox;
+      }
+    } catch {
+      // Boxscore not available yet (pre-game) — use matchup data
+    }
+
+    return { gameId, home, away };
+  } catch {
+    return empty;
   }
 }
 
