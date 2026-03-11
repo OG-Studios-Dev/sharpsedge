@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { League, PlayerProp, TeamTrend } from "@/lib/types";
 import { useLeague } from "@/hooks/useLeague";
+import { qualifiesAsTrend } from "@/lib/trend-filter";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
 import LeagueSelector from "@/components/LeagueSelector";
@@ -57,10 +58,11 @@ export default function PropsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Filter player props
+  // Filter player props — apply same 3-criteria trend filter
   const filteredPlayers = useMemo(() => {
     return playerProps.filter((p) => {
       if (p.league !== league) return false;
+      if (!qualifiesAsTrend(p)) return false;
       if (metric === "all") return true;
       if (metric === "over") return p.overUnder === "Over";
       if (metric === "under") return p.overUnder === "Under";
