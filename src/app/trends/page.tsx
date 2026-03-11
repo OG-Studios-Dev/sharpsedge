@@ -20,13 +20,26 @@ export default function TrendsPage() {
   const [teamTrendsData, setTeamTrendsData] = useState<TeamTrend[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [usingFallback, setUsingFallback] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     fetch('/api/trends')
       .then(r => r.json())
-      .then((json) => {
-        if (Array.isArray(json?.props)) setPropsData(json.props);
+      .then(async (json) => {
+        const trendProps = Array.isArray(json?.props) ? json.props : [];
         if (Array.isArray(json?.teamTrends)) setTeamTrendsData(json.teamTrends);
+
+        if (trendProps.length > 0) {
+          setPropsData(trendProps);
+          setUsingFallback(false);
+        } else {
+          // Fallback: show all props for the day (games in progress = show until complete)
+          const fallback = await fetch('/api/props').then(r => r.json()).catch(() => []);
+          const allProps = Array.isArray(fallback) ? fallback : [];
+          setPropsData(allProps);
+          setUsingFallback(allProps.length > 0);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -91,6 +104,11 @@ export default function TrendsPage() {
             />
           ) : (
             <>
+              {usingFallback && (
+                <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
+                  Games in progress — showing all today's props. 70%+ trends appear after games complete.
+                </div>
+              )}
               {filteredTeams.length > 0 && (
                 <>
                   <div className="px-4 pt-4 pb-1">
@@ -120,12 +138,19 @@ export default function TrendsPage() {
               body="Computing rolling hit rates from recent NHL games."
             />
           ) : filteredProps.length > 0 ? (
-            filteredProps.map((p) => <PropCard key={p.id} prop={p} />)
+            <>
+              {usingFallback && (
+                <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
+                  Games in progress — showing all today's props. 70%+ trends appear after games complete.
+                </div>
+              )}
+              {filteredProps.map((p) => <PropCard key={p.id} prop={p} />)}
+            </>
           ) : (
             <EmptyStateCard
               eyebrow="Player trends"
-              title="No player props at 70%+ right now"
-              body="The model requires at least 5 recent games per player. Check back after tonight's slate."
+              title="No player props right now"
+              body="Check back once today's slate is posted. Props appear as soon as games are scheduled."
             />
           )
         )}
