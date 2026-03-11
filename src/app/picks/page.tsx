@@ -128,7 +128,7 @@ export default function PicksPage() {
       <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white text-xl font-semibold tracking-tight">🪿 GOOSE AI PICKS</h1>
+            <h1 className="text-white text-xl font-bold tracking-widest uppercase">GOOSE AI PICKS</h1>
             <p className="text-gray-500 text-xs mt-0.5">{formatDate(todayKey)}</p>
           </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
@@ -172,9 +172,12 @@ export default function PicksPage() {
       </div>
 
       {/* Today's Picks */}
-      <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-2">
-        Today&apos;s Picks
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-white text-sm font-bold uppercase tracking-wide">
+          Today&apos;s Goose AI Picks
+        </p>
+        <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
+      </div>
 
       {loadingPicks ? (
         <div className="space-y-3 mb-6">

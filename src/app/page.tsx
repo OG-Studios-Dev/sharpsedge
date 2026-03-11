@@ -1,6 +1,7 @@
 import Link from "next/link";
 import ScheduleBoard from "@/components/ScheduleBoard";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import HomePicksSection from "@/components/HomePicksSection";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
@@ -74,29 +75,8 @@ export default async function HomePage() {
           <p className="text-xs text-gray-500 mt-0.5">{today}</p>
         </div>
 
-        {/* Top Picks */}
-        <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-white">Top Picks Today</h3>
-            {topPicks.length > 0 && (
-              <Link href="/props" className="text-xs text-accent-blue">View all</Link>
-            )}
-          </div>
-          {topPicks.length > 0 ? (
-            <div>
-              {topPicks.map((prop: any, i: number) => (
-                <PickRow key={i} prop={prop} />
-              ))}
-            </div>
-          ) : (
-            <EmptyStateCard
-              title="No edges right now"
-              body="When live NHL player prop markets surface with real statistical backing, they'll appear here."
-              ctaLabel="Check props"
-              ctaHref="/props"
-            />
-          )}
-        </section>
+        {/* Goose AI Picks */}
+        <HomePicksSection />
 
         {/* Schedule */}
         <ScheduleBoard compact />
