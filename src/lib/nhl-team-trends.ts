@@ -26,39 +26,62 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     standings.map((t) => [t.teamAbbrev, t])
   );
 
-  // Only build trends for teams playing today
+  // Build trends for teams playing today, OR fall back to all teams from standings
   const teamsToday = new Set<string>();
   games.forEach((g) => {
     teamsToday.add(g.homeTeam.abbrev);
     teamsToday.add(g.awayTeam.abbrev);
   });
 
+  // If no active games, use top 12 teams from standings so trends are never empty
+  const abbrevs = teamsToday.size > 0
+    ? Array.from(teamsToday)
+    : standings
+        .sort((a, b) => b.points - a.points)
+        .slice(0, 12)
+        .map((t) => t.teamAbbrev);
+
   // Fetch recent games for all teams in parallel
   const recentGamesMap = new Map<string, TeamRecentGame[]>();
-  const abbrevs = Array.from(teamsToday);
   const recentResults = await Promise.all(abbrevs.map((a) => getTeamRecentGames(a)));
   abbrevs.forEach((a, i) => recentGamesMap.set(a, recentResults[i]));
 
   const trends: TeamTrend[] = [];
   let idx = 0;
 
-  // Each team should only appear once — use their first game in the list
+  // Build iteration list: use games if available, else synthesize from abbrevs (fallback)
   const seenTeams = new Set<string>();
 
-  for (const game of games) {
-    // Skip if we've already generated trends for both teams
-    if (seenTeams.has(game.homeTeam.abbrev) && seenTeams.has(game.awayTeam.abbrev)) continue;
-    seenTeams.add(game.homeTeam.abbrev);
-    seenTeams.add(game.awayTeam.abbrev);
-    const homeAbbrev = game.homeTeam.abbrev;
-    const awayAbbrev = game.awayTeam.abbrev;
+  // Build synthetic "game" entries for fallback (no actual game, just standings data)
+  const iterationList: Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; matchup: string; gameId: number }> =
+    games.length > 0
+      ? games
+          .filter((g) => {
+            if (seenTeams.has(g.homeTeam.abbrev) && seenTeams.has(g.awayTeam.abbrev)) return false;
+            seenTeams.add(g.homeTeam.abbrev);
+            seenTeams.add(g.awayTeam.abbrev);
+            return true;
+          })
+          .map((g) => ({
+            homeAbbrev: g.homeTeam.abbrev,
+            awayAbbrev: g.awayTeam.abbrev,
+            homeMLOdds: (g as any).bestMoneyline?.home?.odds ?? STANDARD_JUICE,
+            awayMLOdds: (g as any).bestMoneyline?.away?.odds ?? STANDARD_JUICE,
+            matchup: `${g.awayTeam.abbrev} @ ${g.homeTeam.abbrev}`,
+            gameId: g.id,
+          }))
+      : abbrevs.reduce<typeof iterationList>((acc, abbrev, i) => {
+          // Pair teams from standings for "vs TBD" display
+          if (i % 2 === 0) {
+            const opp = abbrevs[i + 1] || "TBD";
+            acc.push({ homeAbbrev: abbrev, awayAbbrev: opp, homeMLOdds: STANDARD_JUICE, awayMLOdds: STANDARD_JUICE, matchup: `${opp} @ ${abbrev}`, gameId: 0 });
+          }
+          return acc;
+        }, []);
+
+  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, matchup } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
-    const matchup = `${awayAbbrev} @ ${homeAbbrev}`;
-
-    // Real ML odds from Odds API if available, else standard juice
-    const homeMLOdds = (game as any).bestMoneyline?.home?.odds ?? STANDARD_JUICE;
-    const awayMLOdds = (game as any).bestMoneyline?.away?.odds ?? STANDARD_JUICE;
 
     // ── Home team: home win rate trend ──
     if (homeData) {
@@ -67,7 +90,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
       const edge = homeWinRate - STANDARD_IMPLIED_PROB;
 
       trends.push({
-        id: `team-home-${homeAbbrev}-${game.id}-${idx++}`,
+        id: `team-home-${homeAbbrev}-${idx}-${idx++}`,
         team: homeAbbrev,
         teamColor: NHL_TEAM_COLORS[homeAbbrev] || "#4a9eff",
         opponent: awayAbbrev,
@@ -101,7 +124,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
       const edge = roadWinRate - STANDARD_IMPLIED_PROB;
 
       trends.push({
-        id: `team-road-${awayAbbrev}-${game.id}-${idx++}`,
+        id: `team-road-${awayAbbrev}-${idx}-${idx++}`,
         team: awayAbbrev,
         teamColor: NHL_TEAM_COLORS[awayAbbrev] || "#4a9eff",
         opponent: homeAbbrev,
@@ -133,7 +156,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
       const streak = parseStreak(homeData.streakCode);
       if (streak && streak.type === "W" && streak.count >= 2) {
         trends.push({
-          id: `team-streak-${homeAbbrev}-${game.id}-${idx++}`,
+          id: `team-streak-${homeAbbrev}-${idx}-${idx++}`,
           team: homeAbbrev,
           teamColor: NHL_TEAM_COLORS[homeAbbrev] || "#4a9eff",
           opponent: awayAbbrev,
@@ -164,7 +187,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
       const streak = parseStreak(awayData.streakCode);
       if (streak && streak.type === "W" && streak.count >= 2) {
         trends.push({
-          id: `team-streak-${awayAbbrev}-${game.id}-${idx++}`,
+          id: `team-streak-${awayAbbrev}-${idx}-${idx++}`,
           team: awayAbbrev,
           teamColor: NHL_TEAM_COLORS[awayAbbrev] || "#4a9eff",
           opponent: homeAbbrev,
@@ -208,7 +231,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
 
         trends.push({
-          id: `team-goals-ou-${abbrev}-${game.id}-${idx++}`,
+          id: `team-goals-ou-${abbrev}-${idx}-${idx++}`,
           team: abbrev,
           teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
           opponent: opponentAbbrev,
@@ -248,7 +271,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
 
         trends.push({
-          id: `team-win-l10-${abbrev}-${game.id}-${idx++}`,
+          id: `team-win-l10-${abbrev}-${idx}-${idx++}`,
           team: abbrev,
           teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
           opponent: opponentAbbrev,
@@ -281,7 +304,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         const h2hEdge = h2hHitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
 
         trends.push({
-          id: `team-h2h-${abbrev}-vs-${opponentAbbrev}-${game.id}-${idx++}`,
+          id: `team-h2h-${abbrev}-vs-${opponentAbbrev}-${idx}-${idx++}`,
           team: abbrev,
           teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
           opponent: opponentAbbrev,
@@ -316,7 +339,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
 
         trends.push({
-          id: `team-score-first-${abbrev}-${game.id}-${idx++}`,
+          id: `team-score-first-${abbrev}-${idx}-${idx++}`,
           team: abbrev,
           teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
           opponent: opponentAbbrev,
