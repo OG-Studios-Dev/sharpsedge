@@ -69,7 +69,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         opponent: awayAbbrev,
         isAway: false,
         betType: "ML Home Win",
-        line: `Home W: ${homeData.homeWins}-${homeData.homeLosses + homeData.homeOtLosses}`,
+        line: `Home ML`,
         odds: STANDARD_JUICE,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(homeWinRate * 100),
@@ -77,7 +77,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         league: "NHL",
         splits: [
           {
-            label: `Home record: ${homeData.homeWins}W-${homeData.homeLosses + homeData.homeOtLosses}L`,
+            label: `Home: ${homeData.homeWins}-${homeData.homeLosses + homeData.homeOtLosses}`,
             hitRate: Math.round(homeWinRate * 100),
             hits: homeData.homeWins,
             total: homeGames,
@@ -103,7 +103,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         opponent: homeAbbrev,
         isAway: true,
         betType: "ML Road Win",
-        line: `Road W: ${awayData.roadWins}-${awayData.roadLosses + awayData.roadOtLosses}`,
+        line: `Road ML`,
         odds: STANDARD_JUICE,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(roadWinRate * 100),
@@ -111,7 +111,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         league: "NHL",
         splits: [
           {
-            label: `Road record: ${awayData.roadWins}W-${awayData.roadLosses + awayData.roadOtLosses}L`,
+            label: `Road: ${awayData.roadWins}-${awayData.roadLosses + awayData.roadOtLosses}`,
             hitRate: Math.round(roadWinRate * 100),
             hits: awayData.roadWins,
             total: roadGames,
@@ -218,7 +218,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           league: "NHL",
           splits: [
             {
-              label: `Over ${modelLine} in L10: ${overGames}/${recent.length}`,
+              label: `Over ${modelLine} — ${overGames}/${recent.length} L10`,
               hitRate,
               hits: overGames,
               total: recent.length,
@@ -250,7 +250,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           opponent: opponentAbbrev,
           isAway,
           betType: "Team Win ML",
-          line: `L10: ${wins}W-${losses}L`,
+          line: `L10`,
           odds: STANDARD_JUICE,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate,
@@ -258,7 +258,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           league: "NHL",
           splits: [
             {
-              label: `Last 10 games: ${wins}W-${losses}L`,
+              label: `L10: ${wins}-${losses}`,
               hitRate,
               hits: wins,
               total: recent.length,
@@ -282,8 +282,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
           opponent: opponentAbbrev,
           isAway,
-          betType: `H2H ML vs ${opponentAbbrev}`,
-          line: `H2H: ${h2hWins}W-${h2hGames.length - h2hWins}L`,
+          betType: `H2H ML`,
+          line: `vs ${opponentAbbrev}`,
           odds: STANDARD_JUICE,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: h2hHitRate,
@@ -291,7 +291,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           league: "NHL",
           splits: [
             {
-              label: `vs ${opponentAbbrev} this season: ${h2hWins}W-${h2hGames.length - h2hWins}L (${isAway ? "road" : "home"})`,
+              label: `H2H ${h2hWins}-${h2hGames.length - h2hWins} vs ${opponentAbbrev}`,
               hitRate: h2hHitRate,
               hits: h2hWins,
               total: h2hGames.length,
