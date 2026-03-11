@@ -65,7 +65,7 @@ export default async function HomePage() {
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-4">
-        <h1 className="text-xl font-bold text-white text-center">Goosalytics</h1>
+        <h1 className="text-xl font-bold text-white text-center">🪿MONEYTIME🪿</h1>
       </header>
 
       <div className="px-4 py-6 space-y-5">
