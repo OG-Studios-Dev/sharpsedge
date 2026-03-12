@@ -79,7 +79,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           return acc;
         }, []);
 
-  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, matchup } of iterationList) {
+  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, matchup, gameId } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
 
@@ -102,6 +102,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         hitRate: Math.round(homeWinRate * 100),
         edge: Math.round(edge * 100),
         league: "NHL",
+        gameId: gameId ? String(gameId) : undefined,
         splits: [
           {
             label: `Home: ${homeData.homeWins}-${homeData.homeLosses + homeData.homeOtLosses}`,
@@ -136,6 +137,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         hitRate: Math.round(roadWinRate * 100),
         edge: Math.round(edge * 100),
         league: "NHL",
+        gameId: gameId ? String(gameId) : undefined,
         splits: [
           {
             label: `Road: ${awayData.roadWins}-${awayData.roadLosses + awayData.roadOtLosses}`,
@@ -168,6 +170,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           hitRate: Math.min(100, Math.round((homeData.winPct * 100) + streak.count * 5)),
           edge: Math.round((homeData.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NHL",
+          gameId: gameId ? String(gameId) : undefined,
           splits: [
             {
               label: `Active ${streak.count}-game win streak`,
@@ -199,6 +202,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           hitRate: Math.min(100, Math.round((awayData.winPct * 100) + streak.count * 5)),
           edge: Math.round((awayData.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NHL",
+          gameId: gameId ? String(gameId) : undefined,
           splits: [
             {
               label: `Active ${streak.count}-game win streak`,
@@ -243,6 +247,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           hitRate,
           edge,
           league: "NHL",
+          gameId: gameId ? String(gameId) : undefined,
           splits: [
             {
               label: `Over ${modelLine} — ${overGames}/${recent.length} L10`,
@@ -283,6 +288,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           hitRate,
           edge,
           league: "NHL",
+          gameId: gameId ? String(gameId) : undefined,
           splits: [
             {
               label: `L10: ${wins}-${losses}`,
@@ -316,6 +322,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           hitRate: h2hHitRate,
           edge: h2hEdge,
           league: "NHL",
+          gameId: gameId ? String(gameId) : undefined,
           splits: [
             {
               label: `H2H ${h2hWins}-${h2hGames.length - h2hWins} vs ${opponentAbbrev}`,

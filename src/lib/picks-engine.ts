@@ -5,6 +5,14 @@ import { NBA_TEAM_COLORS } from "@/lib/nba-api";
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
 
+function parseTrendLine(line?: string): number | undefined {
+  if (!line) return undefined;
+  const match = line.match(/([\d.]+)/);
+  if (!match) return undefined;
+  const parsed = parseFloat(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function buildTeamPickLabel(trend: TeamTrend): string {
   const betType = trend.betType || "";
   if (betType === "Team Goals O/U") {
@@ -58,6 +66,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     reasoning: prop.reasoning || prop.summary || "",
     result: "pending",
     units: 1,
+    gameId: prop.gameId,
     odds: prop.odds,
   };
 }
@@ -72,6 +81,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     opponent: trend.opponent,
     isAway: trend.isAway,
     betType: trend.betType,
+    line: parseTrendLine(trend.line),
     pickLabel: buildTeamPickLabel(trend),
     edge: trend.edge ?? 0,
     hitRate: trend.hitRate ?? 0,
@@ -79,6 +89,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     reasoning: trend.splits?.[0]?.label || "",
     result: "pending",
     units: 1,
+    gameId: trend.gameId,
     odds: trend.odds,
   };
 }

@@ -73,6 +73,7 @@ export type TeamTrend = {
   isAway: boolean;
   betType: string;
   line: string;
+  gameId?: string;
   odds: number;
   book?: string;
   impliedProb?: number;

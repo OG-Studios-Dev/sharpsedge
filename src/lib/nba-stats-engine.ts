@@ -126,6 +126,7 @@ function buildProp(
     edge: Math.round(edge * 100),
     fairProbability: hitRate / 100,
     fairOdds: null,
+    gameId,
     splits: [
       {
         label: `L${Math.min(logs.length, 10)}: ${logs.slice(0, 10).filter(g => g[propDef.key] > line).length}/${Math.min(logs.length, 10)} over ${line}`,

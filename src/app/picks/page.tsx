@@ -104,6 +104,14 @@ function formatDate(dateStr: string) {
   });
 }
 
+function localTodayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 type PastFilter = "all" | "win" | "loss";
 
 function computeRecord(picks: AIPick[]) {
@@ -122,7 +130,7 @@ export default function PicksPage() {
   const { todayPicks: nbaToday, allPicks: nbaAll, record: nbaRecord, loadingPicks: nbaLoading } = useNBAPicks();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localTodayKey();
 
   // Merge picks stores based on league
   const activeToday = league === "NBA" ? nbaToday
@@ -291,9 +299,17 @@ export default function PicksPage() {
             {pastDates.map((date) => {
               const picks = filterPastPicks(activeAll[date]);
               if (!picks.length) return null;
+              const dailyRecord = computeRecord(activeAll[date]);
               return (
-                <div key={date}>
-                  <p className="text-gray-500 text-xs mb-1.5">{formatDate(date)}</p>
+                <div key={date} className="rounded-2xl border border-dark-border/70 bg-dark-surface/40 p-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <p className="text-gray-300 text-xs font-medium">{formatDate(date)}</p>
+                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase">
+                      <span className="text-emerald-400">{dailyRecord.wins}W</span>
+                      <span className="text-red-400">{dailyRecord.losses}L</span>
+                      {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending} pending</span>}
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     {picks.map((pick) => (
                       <div

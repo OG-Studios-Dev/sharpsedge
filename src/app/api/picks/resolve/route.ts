@@ -1,15 +1,19 @@
 /**
  * POST /api/picks/resolve
  * Takes an array of pending AIPick objects.
- * For each one, checks NHL API for completed game results.
+ * For each one, checks the correct league API for completed game results.
  * Returns the picks with result updated to "win", "loss", or "push" where resolvable.
- * Picks for games not yet complete stay "pending".
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
+const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+
+function normalizeName(value: string) {
+  return value.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+}
 
 async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
@@ -21,17 +25,13 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
-// Resolve a player prop pick from boxscore
-async function resolvePlayerPick(pick: AIPick): Promise<AIPick["result"]> {
+async function resolveNHLPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
   if (!pick.gameId) return "pending";
 
   const boxscore = await fetchJSON<any>(`${NHL_BASE}/gamecenter/${pick.gameId}/boxscore`);
   if (!boxscore) return "pending";
+  if (!["OFF", "FINAL"].includes(boxscore.gameState)) return "pending";
 
-  // Game must be finished
-  if (boxscore.gameState !== "OFF" && boxscore.gameState !== "FINAL") return "pending";
-
-  // Find player in boxscore
   const allSkaters = [
     ...(boxscore.playerByGameStats?.homeTeam?.forwards || []),
     ...(boxscore.playerByGameStats?.homeTeam?.defense || []),
@@ -39,14 +39,11 @@ async function resolvePlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     ...(boxscore.playerByGameStats?.awayTeam?.defense || []),
   ];
 
-  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, "").trim();
-  const targetName = normalize(pick.playerName || "");
-
-  const player = allSkaters.find((p: any) => {
-    const name = normalize(`${p.name?.default || ""}`);
-    return name === targetName || name.includes(targetName.split(" ").pop() || "");
+  const targetName = normalizeName(pick.playerName || "");
+  const player = allSkaters.find((entry: any) => {
+    const candidate = normalizeName(entry.name?.default || "");
+    return candidate === targetName || candidate.includes(targetName.split(" ").pop() || "");
   });
-
   if (!player) return "pending";
 
   const propKey = (pick.propType || "").toLowerCase();
@@ -58,45 +55,40 @@ async function resolvePlayerPick(pick: AIPick): Promise<AIPick["result"]> {
   else if (propKey.includes("point")) actual = (player.goals ?? 0) + (player.assists ?? 0);
 
   if (actual === null || pick.line === undefined) return "pending";
-
-  if (pick.direction === "Over") {
-    if (actual > pick.line) return "win";
-    if (actual < pick.line) return "loss";
-    return "push";
-  } else {
+  if (pick.direction === "Under") {
     if (actual < pick.line) return "win";
     if (actual > pick.line) return "loss";
     return "push";
   }
+  if (actual > pick.line) return "win";
+  if (actual < pick.line) return "loss";
+  return "push";
 }
 
-// Resolve a team goals O/U pick from final score
-async function resolveTeamPick(pick: AIPick): Promise<AIPick["result"]> {
+async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]> {
   if (!pick.gameId) return "pending";
 
   const boxscore = await fetchJSON<any>(`${NHL_BASE}/gamecenter/${pick.gameId}/boxscore`);
   if (!boxscore) return "pending";
-
-  if (boxscore.gameState !== "OFF" && boxscore.gameState !== "FINAL") return "pending";
+  if (!["OFF", "FINAL"].includes(boxscore.gameState)) return "pending";
 
   const homeScore = boxscore.homeTeam?.score ?? 0;
   const awayScore = boxscore.awayTeam?.score ?? 0;
+  const teamScore = pick.isAway ? awayScore : homeScore;
+  const oppScore = pick.isAway ? homeScore : awayScore;
 
   if (pick.betType === "Team Goals O/U") {
-    // Total goals for the team
-    const teamScore = (pick.isAway ? awayScore : homeScore);
-    // Extract line from reasoning or use a default
-    const lineMatch = pick.reasoning?.match(/over\s+([\d.]+)/i);
-    const line = lineMatch ? parseFloat(lineMatch[1]) : 2.5;
-
+    const line = pick.line ?? (() => {
+      const match = pick.reasoning?.match(/over\s+([\d.]+)/i);
+      return match ? parseFloat(match[1]) : undefined;
+    })();
+    if (line === undefined) return "pending";
     if (teamScore > line) return "win";
     if (teamScore < line) return "loss";
     return "push";
   }
 
-  if (pick.betType === "Team Win ML" || pick.betType === "ML Home Win" || pick.betType === "ML Road Win" || pick.betType === "ML Streak") {
-    const teamScore = pick.isAway ? awayScore : homeScore;
-    const oppScore = pick.isAway ? homeScore : awayScore;
+  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak"].includes(pick.betType || "")) {
     if (teamScore > oppScore) return "win";
     if (teamScore < oppScore) return "loss";
     return "push";
@@ -105,26 +97,113 @@ async function resolveTeamPick(pick: AIPick): Promise<AIPick["result"]> {
   return "pending";
 }
 
+async function resolveNBAPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
+  if (!pick.gameId) return "pending";
+
+  const summary = await fetchJSON<any>(`${NBA_BASE}/summary?event=${pick.gameId}`);
+  const completed = summary?.header?.competitions?.[0]?.status?.type?.completed;
+  if (!summary || !completed) return "pending";
+
+  const playerGroups = summary.boxscore?.players ?? [];
+  const players = playerGroups.flatMap((group: any) => {
+    const statsGroup = group.statistics?.[0] ?? {};
+    const labels: string[] = statsGroup.labels ?? [];
+    const athletes: any[] = statsGroup.athletes ?? [];
+    return athletes.map((athlete: any) => ({
+      name: athlete.athlete?.displayName ?? "",
+      stats: athlete.stats ?? [],
+      labels,
+    }));
+  });
+
+  const targetName = normalizeName(pick.playerName || "");
+  const player = players.find((entry: any) => {
+    const candidate = normalizeName(entry.name || "");
+    return candidate === targetName || candidate.includes(targetName.split(" ").pop() || "");
+  });
+  if (!player || pick.line === undefined) return "pending";
+
+  const getStat = (label: string) => {
+    const index = player.labels.indexOf(label);
+    if (index < 0) return null;
+    const raw = player.stats[index];
+    if (typeof raw !== "string") return Number(raw) || 0;
+    const made = raw.match(/^(\d+)-/);
+    return made ? parseInt(made[1], 10) : parseInt(raw, 10) || 0;
+  };
+
+  const propKey = (pick.propType || "").toLowerCase();
+  let actual: number | null = null;
+  if (propKey.includes("point")) actual = getStat("PTS");
+  else if (propKey.includes("rebound")) actual = getStat("REB");
+  else if (propKey.includes("assist")) actual = getStat("AST");
+  else if (propKey.includes("3-pointer") || propKey.includes("three")) actual = getStat("3PT");
+
+  if (actual === null) return "pending";
+  if (pick.direction === "Under") {
+    if (actual < pick.line) return "win";
+    if (actual > pick.line) return "loss";
+    return "push";
+  }
+  if (actual > pick.line) return "win";
+  if (actual < pick.line) return "loss";
+  return "push";
+}
+
+async function resolveNBATeamPick(pick: AIPick): Promise<AIPick["result"]> {
+  if (!pick.gameId) return "pending";
+
+  const summary = await fetchJSON<any>(`${NBA_BASE}/summary?event=${pick.gameId}`);
+  const competition = summary?.header?.competitions?.[0];
+  const completed = competition?.status?.type?.completed;
+  if (!summary || !completed) return "pending";
+
+  const competitors = competition?.competitors ?? [];
+  const home = competitors.find((entry: any) => entry.homeAway === "home") ?? competitors[0];
+  const away = competitors.find((entry: any) => entry.homeAway === "away") ?? competitors[1];
+  const homeScore = parseInt(home?.score ?? "0", 10) || 0;
+  const awayScore = parseInt(away?.score ?? "0", 10) || 0;
+  const teamScore = pick.isAway ? awayScore : homeScore;
+  const oppScore = pick.isAway ? homeScore : awayScore;
+
+  if (pick.betType === "Team Points O/U") {
+    if (pick.line === undefined) return "pending";
+    if (teamScore > pick.line) return "win";
+    if (teamScore < pick.line) return "loss";
+    return "push";
+  }
+
+  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak"].includes(pick.betType || "")) {
+    if (teamScore > oppScore) return "win";
+    if (teamScore < oppScore) return "loss";
+    return "push";
+  }
+
+  return "pending";
+}
+
+async function resolvePick(pick: AIPick): Promise<AIPick> {
+  if (pick.result !== "pending") return pick;
+
+  const isNBA = pick.league === "NBA";
+  const result = isNBA
+    ? pick.type === "player"
+      ? await resolveNBAPlayerPick(pick)
+      : await resolveNBATeamPick(pick)
+    : pick.type === "player"
+      ? await resolveNHLPlayerPick(pick)
+      : await resolveNHLTeamPick(pick);
+
+  return { ...pick, result };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { picks } = await req.json() as { picks: AIPick[] };
     if (!Array.isArray(picks)) return NextResponse.json({ picks: [] });
+    if (!picks.some((pick) => pick.result === "pending")) return NextResponse.json({ picks });
 
-    const pendingPicks = picks.filter((p) => p.result === "pending");
-    if (!pendingPicks.length) return NextResponse.json({ picks });
-
-    const resolved = await Promise.all(
-      picks.map(async (pick) => {
-        if (pick.result !== "pending") return pick;
-
-        const result = pick.type === "player"
-          ? await resolvePlayerPick(pick)
-          : await resolveTeamPick(pick);
-
-        return { ...pick, result };
-      })
-    );
-
+    const resolved = await Promise.all(picks.map(resolvePick));
     return NextResponse.json({ picks: resolved });
   } catch {
     return NextResponse.json({ picks: [] });

@@ -5,6 +5,8 @@ import { AIPick } from "@/lib/types";
 
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v2";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v2";
+const NHL_RESOLVE_ENDPOINT = "/api/picks/resolve";
+const NBA_RESOLVE_ENDPOINT = "/api/picks/resolve";
 
 type PickStore = Record<string, AIPick[]>;
 
@@ -22,14 +24,19 @@ function saveStore(key: string, store: PickStore) {
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-async function resolvePicksFromAPI(picks: AIPick[]): Promise<AIPick[]> {
+async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<AIPick[]> {
   const pending = picks.filter((p) => p.result === "pending");
   if (!pending.length) return picks;
+
   try {
-    const res = await fetch("/api/picks/resolve", {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ picks }),
@@ -42,51 +49,22 @@ async function resolvePicksFromAPI(picks: AIPick[]): Promise<AIPick[]> {
   }
 }
 
-function usePicksForLeague(storageKey: string, fetchEndpoint: string) {
+function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
 
   const key = todayKey();
   const todayPicks = allPicks[key] || [];
 
-  const fetchAndStore = useCallback(async () => {
-    setLoadingPicks(true);
-    try {
-      const store = loadStore(storageKey);
-      if (store[key]?.length) {
-        setAllPicks(store);
-        setLoadingPicks(false);
-        return;
-      }
-      const res = await fetch(fetchEndpoint);
-      const data = await res.json();
-      if (data.picks?.length) {
-        const date = data.date || key;
-        if (!store[date]?.length) {
-          store[date] = data.picks;
-          saveStore(storageKey, store);
-        }
-        setAllPicks({ ...store });
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoadingPicks(false);
-    }
-  }, [key, storageKey, fetchEndpoint]);
-
   const resolvePending = useCallback(async (store: PickStore) => {
     let changed = false;
     const updated = { ...store };
 
     for (const [date, picks] of Object.entries(updated)) {
-      const hasPending = picks.some((p) => p.result === "pending");
-      if (!hasPending) continue;
+      if (!picks.some((p) => p.result === "pending")) continue;
 
-      const resolved = await resolvePicksFromAPI(picks);
-      const anyChange = resolved.some(
-        (r, i) => r.result !== picks[i].result
-      );
+      const resolved = await resolvePicksFromAPI(picks, resolveEndpoint);
+      const anyChange = resolved.some((pick, index) => pick.result !== picks[index]?.result);
       if (anyChange) {
         updated[date] = resolved;
         changed = true;
@@ -97,38 +75,65 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string) {
       saveStore(storageKey, updated);
       setAllPicks({ ...updated });
     }
-  }, [storageKey]);
+  }, [resolveEndpoint, storageKey]);
+
+  const fetchAndStore = useCallback(async () => {
+    setLoadingPicks(true);
+    try {
+      const store = loadStore(storageKey);
+      if (!store[key]?.length) {
+        const res = await fetch(`${fetchEndpoint}?date=${key}`);
+        const data = await res.json();
+        if (data.picks?.length) {
+          const date = data.date || key;
+          if (!store[date]?.length) {
+            store[date] = data.picks;
+            saveStore(storageKey, store);
+          }
+        }
+      }
+
+      setAllPicks({ ...store });
+      await resolvePending(store);
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingPicks(false);
+    }
+  }, [fetchEndpoint, key, resolvePending, storageKey]);
 
   useEffect(() => {
     const store = loadStore(storageKey);
     setAllPicks(store);
 
-    if (store[key]?.length) {
+    if (Object.keys(store).length) {
       setLoadingPicks(false);
-      resolvePending(store);
-    } else {
-      fetchAndStore();
+      void resolvePending(store);
     }
-  }, [key, fetchAndStore, resolvePending, storageKey]);
+
+    void fetchAndStore();
+  }, [fetchAndStore, key, resolvePending, storageKey]);
 
   const record = (() => {
     let wins = 0;
     let losses = 0;
     let pending = 0;
     let profitUnits = 0;
+
     for (const picks of Object.values(allPicks)) {
-      for (const p of picks) {
-        if (p.result === "win") {
+      for (const pick of picks) {
+        if (pick.result === "win") {
           wins++;
-          profitUnits += p.units;
-        } else if (p.result === "loss") {
+          profitUnits += pick.units;
+        } else if (pick.result === "loss") {
           losses++;
-          profitUnits -= p.units;
+          profitUnits -= pick.units;
         } else {
           pending++;
         }
       }
     }
+
     return { wins, losses, pending, profitUnits };
   })();
 
@@ -136,9 +141,9 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string) {
 }
 
 export function usePicks() {
-  return usePicksForLeague(NHL_STORAGE_KEY, "/api/picks");
+  return usePicksForLeague(NHL_STORAGE_KEY, "/api/picks", NHL_RESOLVE_ENDPOINT);
 }
 
 export function useNBAPicks() {
-  return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks");
+  return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks", NBA_RESOLVE_ENDPOINT);
 }
