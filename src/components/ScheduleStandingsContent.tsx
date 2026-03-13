@@ -99,10 +99,15 @@ function NHLStandings() {
 
 // ─── NBA Standings ────────────────────────────────────────────────────────────
 type NBAStanding = {
-  teamAbbrev: string; teamName: string;
-  wins: number; losses: number; winPct: number;
-  homeRecord: string; // "34-7"
-  roadRecord: string; // "30-11"
+  teamAbbrev: string;
+  teamName: string;
+  conference: "Eastern" | "Western";
+  seed: number;
+  wins: number;
+  losses: number;
+  winPct: number;
+  homeRecord: string;
+  roadRecord: string;
   streak: string;
 };
 
@@ -119,11 +124,9 @@ function NBAStandings() {
       .finally(() => setLoading(false));
   }, []);
 
-  // BallDontLie doesn't give conference — split by win% top 15 each as fallback
-  const sorted = [...standings].sort((a, b) => b.winPct - a.winPct);
-  const east = sorted.slice(0, Math.ceil(sorted.length / 2));
-  const west = sorted.slice(Math.ceil(sorted.length / 2));
-  const display = conf === "East" ? east : west;
+  const display = standings
+    .filter((team) => team.conference === (conf === "East" ? "Eastern" : "Western"))
+    .sort((a, b) => a.seed - b.seed || a.losses - b.losses || b.wins - a.wins);
 
   return (
     <div className="space-y-4">
@@ -141,8 +144,8 @@ function NBAStandings() {
       ) : display.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-2xl mb-2">🏀</p>
-          <p className="text-gray-400 text-sm">NBA standings loading</p>
-          <p className="text-gray-600 text-xs mt-1">Requires BallDontLie API key</p>
+          <p className="text-gray-400 text-sm">NBA standings unavailable right now</p>
+          <p className="text-gray-600 text-xs mt-1">Live feed will repopulate automatically when ESPN responds.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">

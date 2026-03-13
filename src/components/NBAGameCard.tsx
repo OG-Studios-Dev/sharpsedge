@@ -84,7 +84,7 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
   const awayColor = NBA_TEAM_COLORS[awayAbbrev] || "#334155";
   const homeColor = NBA_TEAM_COLORS[homeAbbrev] || "#334155";
 
-  const isLive = game.status === "In Progress";
+  const isLive = game.status === "Live";
   const isFinal = game.status === "Final";
   const isScheduled = !isLive && !isFinal;
 

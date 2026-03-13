@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
+import { computePickRecord } from "@/lib/pick-record";
 
 function displayHitRate(val: number): string {
   const pct = val <= 1 ? Math.round(val * 100) : Math.round(val);
@@ -17,8 +18,8 @@ function ResultPill({ result }: { result: string }) {
   return <span className="text-[10px] text-gray-500 uppercase">Pending</span>;
 }
 
-function RecordBar({ wins, losses, pending, profitUnits, label }: {
-  wins: number; losses: number; pending: number; profitUnits: number; label?: string;
+function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
+  wins: number; losses: number; pushes: number; pending: number; profitUnits: number; label?: string;
 }) {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
   return (
@@ -31,6 +32,10 @@ function RecordBar({ wins, losses, pending, profitUnits, label }: {
       <div className="text-center">
         <p className="text-red-400 font-bold text-sm">{losses}</p>
         <p className="text-[9px] text-gray-500 uppercase">L</p>
+      </div>
+      <div className="text-center">
+        <p className="text-yellow-400 font-bold text-sm">{pushes}</p>
+        <p className="text-[9px] text-gray-500 uppercase">Push</p>
       </div>
       <div className="text-center">
         <p className="text-gray-400 font-bold text-sm">{pending}</p>
@@ -70,11 +75,7 @@ function PickRow({ pick }: { pick: AIPick }) {
 }
 
 function computeRecord(picks: AIPick[]) {
-  const wins = picks.filter((p) => p.result === "win").length;
-  const losses = picks.filter((p) => p.result === "loss").length;
-  const pending = picks.filter((p) => p.result === "pending").length;
-  const profitUnits = Math.round((wins - losses) * 10) / 10;
-  return { wins, losses, pending, profitUnits };
+  return computePickRecord(picks);
 }
 
 export default function HomePicksSection({ league = "NHL" }: { league?: string }) {

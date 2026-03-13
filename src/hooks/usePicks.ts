@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
+import { computePickRecord } from "@/lib/pick-record";
 
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v2";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v2";
@@ -114,28 +115,7 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
     void fetchAndStore();
   }, [fetchAndStore, key, resolvePending, storageKey]);
 
-  const record = (() => {
-    let wins = 0;
-    let losses = 0;
-    let pending = 0;
-    let profitUnits = 0;
-
-    for (const picks of Object.values(allPicks)) {
-      for (const pick of picks) {
-        if (pick.result === "win") {
-          wins++;
-          profitUnits += pick.units;
-        } else if (pick.result === "loss") {
-          losses++;
-          profitUnits -= pick.units;
-        } else {
-          pending++;
-        }
-      }
-    }
-
-    return { wins, losses, pending, profitUnits };
-  })();
+  const record = computePickRecord(Object.values(allPicks).flat());
 
   return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore };
 }

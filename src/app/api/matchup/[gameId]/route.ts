@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   getGameGoalies,
+  getScheduleGameById,
   getTeamStandings,
   getTeamRecentGames,
 } from "@/lib/nhl-api";

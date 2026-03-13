@@ -22,8 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required pick fields" }, { status: 400 });
     }
 
+    const sport = body.sport === "NBA" ? "NBA" : "NHL";
+
     const saved = await savePick({
-      sport: "NHL",
+      sport,
       gameId: body.gameId,
       matchup: body.matchup,
       playerName: body.playerName,

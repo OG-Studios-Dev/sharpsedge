@@ -15,6 +15,24 @@ function normalizeName(value: string) {
   return value.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeTeam(value?: string) {
+  return (value || "").trim().toUpperCase();
+}
+
+function findPlayerByName<T>(players: T[], targetName: string, getName: (player: T) => string): T | undefined {
+  const normalizedTarget = normalizeName(targetName);
+  if (!normalizedTarget) return undefined;
+
+  const exact = players.find((player) => normalizeName(getName(player)) === normalizedTarget);
+  if (exact) return exact;
+
+  const lastName = normalizedTarget.split(" ").pop();
+  if (!lastName) return undefined;
+
+  const partialMatches = players.filter((player) => normalizeName(getName(player)).includes(lastName));
+  return partialMatches.length === 1 ? partialMatches[0] : undefined;
+}
+
 async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
     const res = await fetch(url, { next: { revalidate: 60 } });
@@ -32,18 +50,17 @@ async function resolveNHLPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
   if (!boxscore) return "pending";
   if (!["OFF", "FINAL"].includes(boxscore.gameState)) return "pending";
 
-  const allSkaters = [
-    ...(boxscore.playerByGameStats?.homeTeam?.forwards || []),
-    ...(boxscore.playerByGameStats?.homeTeam?.defense || []),
-    ...(boxscore.playerByGameStats?.awayTeam?.forwards || []),
-    ...(boxscore.playerByGameStats?.awayTeam?.defense || []),
+  const homeAbbrev = normalizeTeam(boxscore.homeTeam?.abbrev);
+  const awayAbbrev = normalizeTeam(boxscore.awayTeam?.abbrev);
+  const targetTeam = normalizeTeam(pick.team);
+  const side = targetTeam && targetTeam === awayAbbrev ? "awayTeam" : targetTeam && targetTeam === homeAbbrev ? "homeTeam" : pick.isAway ? "awayTeam" : "homeTeam";
+  const teamStats = boxscore.playerByGameStats?.[side] || {};
+  const skaters = [
+    ...(teamStats.forwards || []),
+    ...(teamStats.defense || []),
   ];
 
-  const targetName = normalizeName(pick.playerName || "");
-  const player = allSkaters.find((entry: any) => {
-    const candidate = normalizeName(entry.name?.default || "");
-    return candidate === targetName || candidate.includes(targetName.split(" ").pop() || "");
-  });
+  const player = findPlayerByName(skaters, pick.playerName || "", (entry: any) => entry.name?.default || "");
   if (!player) return "pending";
 
   const propKey = (pick.propType || "").toLowerCase();
@@ -88,7 +105,7 @@ async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]> {
     return "push";
   }
 
-  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak"].includes(pick.betType || "")) {
+  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak", "H2H ML"].includes(pick.betType || "")) {
     if (teamScore > oppScore) return "win";
     if (teamScore < oppScore) return "loss";
     return "push";
@@ -104,7 +121,12 @@ async function resolveNBAPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
   const completed = summary?.header?.competitions?.[0]?.status?.type?.completed;
   if (!summary || !completed) return "pending";
 
-  const playerGroups = summary.boxscore?.players ?? [];
+  const targetTeam = normalizeTeam(pick.team);
+  const playerGroups = (summary.boxscore?.players ?? []).filter((group: any) => {
+    const abbrev = normalizeTeam(group.team?.abbreviation);
+    if (!targetTeam) return true;
+    return abbrev ? abbrev === targetTeam : true;
+  });
   const players = playerGroups.flatMap((group: any) => {
     const statsGroup = group.statistics?.[0] ?? {};
     const labels: string[] = statsGroup.labels ?? [];
@@ -116,11 +138,7 @@ async function resolveNBAPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     }));
   });
 
-  const targetName = normalizeName(pick.playerName || "");
-  const player = players.find((entry: any) => {
-    const candidate = normalizeName(entry.name || "");
-    return candidate === targetName || candidate.includes(targetName.split(" ").pop() || "");
-  });
+  const player = findPlayerByName(players, pick.playerName || "", (entry: any) => entry.name || "");
   if (!player || pick.line === undefined) return "pending";
 
   const getStat = (label: string) => {

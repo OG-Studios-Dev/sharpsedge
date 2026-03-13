@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
+import { computePickRecord } from "@/lib/pick-record";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
@@ -115,13 +116,7 @@ function localTodayKey() {
 type PastFilter = "all" | "win" | "loss";
 
 function computeRecord(picks: AIPick[]) {
-  let wins = 0, losses = 0, pending = 0, profitUnits = 0;
-  for (const p of picks) {
-    if (p.result === "win") { wins++; profitUnits += p.units; }
-    else if (p.result === "loss") { losses++; profitUnits -= p.units; }
-    else { pending++; }
-  }
-  return { wins, losses, pending, profitUnits };
+  return computePickRecord(picks);
 }
 
 export default function PicksPage() {
@@ -195,6 +190,10 @@ export default function PicksPage() {
           <div className="text-center">
             <p className="text-accent-red font-bold text-lg">{activeRecord.losses}</p>
             <p className="text-gray-500 text-[10px] uppercase">L</p>
+          </div>
+          <div className="text-center">
+            <p className="text-accent-yellow font-bold text-lg">{activeRecord.pushes}</p>
+            <p className="text-gray-500 text-[10px] uppercase">Push</p>
           </div>
           <div className="text-center">
             <p className="text-gray-400 font-bold text-lg">{activeRecord.pending}</p>
@@ -307,6 +306,7 @@ export default function PicksPage() {
                     <div className="flex items-center gap-2 text-[10px] font-semibold uppercase">
                       <span className="text-emerald-400">{dailyRecord.wins}W</span>
                       <span className="text-red-400">{dailyRecord.losses}L</span>
+                      {dailyRecord.pushes > 0 && <span className="text-yellow-400">{dailyRecord.pushes} push</span>}
                       {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending} pending</span>}
                     </div>
                   </div>

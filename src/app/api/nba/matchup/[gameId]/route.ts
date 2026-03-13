@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNBAStandings, getNBASchedule, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { getNBAStandings, getNBASchedule, NBA_TEAM_COLORS, parseNBARecord } from "@/lib/nba-api";
 
 export async function GET(
   _req: NextRequest,
@@ -19,8 +19,22 @@ export async function GET(
     }
 
     const standingMap = new Map(standings.map((s) => [s.teamAbbrev, s]));
-    const homeStanding = standingMap.get(game.homeTeam.abbreviation) || null;
-    const awayStanding = standingMap.get(game.awayTeam.abbreviation) || null;
+    const normalizeStanding = (teamAbbrev: string) => {
+      const standing = standingMap.get(teamAbbrev);
+      if (!standing) return null;
+      const home = parseNBARecord(standing.homeRecord);
+      const away = parseNBARecord(standing.roadRecord);
+      return {
+        ...standing,
+        homeWins: home.wins,
+        homeLosses: home.losses,
+        awayWins: away.wins,
+        awayLosses: away.losses,
+      };
+    };
+
+    const homeStanding = normalizeStanding(game.homeTeam.abbreviation);
+    const awayStanding = normalizeStanding(game.awayTeam.abbreviation);
 
     return NextResponse.json({
       game: {

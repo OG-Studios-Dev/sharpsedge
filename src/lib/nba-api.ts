@@ -44,7 +44,7 @@ async function cachedFetch<T>(url: string, ttl = CACHE_TTL, headers?: HeadersIni
 export type NBAGame = {
   id: string;                 // ESPN event id (string)
   date: string;               // YYYY-MM-DD
-  status: string;             // "Final" | "In Progress" | "7:30 PM ET"
+  status: string;             // "Final" | "Live" | "7:30 PM ET"
   statusDetail: string;       // "Final" | "Q4 2:35" | "Halftime"
   homeTeam: { id: string; abbreviation: string; fullName: string; record: string };
   awayTeam: { id: string; abbreviation: string; fullName: string; record: string };
@@ -168,6 +168,23 @@ export async function getNBASchedule(daysAhead = 2): Promise<NBAGame[]> {
 
 // ── ESPN Standings ────────────────────────────────────────────────────────────
 
+export function parseNBARecord(record: string): { wins: number; losses: number } {
+  const [wins, losses] = String(record || "0-0").split("-").map((value) => parseInt(value, 10));
+  return {
+    wins: Number.isFinite(wins) ? wins : 0,
+    losses: Number.isFinite(losses) ? losses : 0,
+  };
+}
+
+function parseWinPct(value: unknown): number {
+  const raw = String(value ?? "0").trim();
+  if (!raw) return 0;
+  if (raw.startsWith(".")) return Number(`0${raw}`) || 0;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return 0;
+  return parsed > 1 ? parsed / 100 : parsed;
+}
+
 export async function getNBAStandings(): Promise<NBATeamStanding[]> {
   try {
     const data = await cachedFetch<any>(`${ESPN_BASE_V2}/standings?season=2025`, 30 * 60 * 1000);
@@ -187,7 +204,7 @@ export async function getNBAStandings(): Promise<NBATeamStanding[]> {
           seed: parseInt(s["playoffSeed"] ?? "0") || 0,
           wins: parseInt(s["wins"] ?? "0") || 0,
           losses: parseInt(s["losses"] ?? "0") || 0,
-          winPct: parseFloat(s["winPercent"]?.replace(".","0.") ?? "0") || 0,
+          winPct: parseWinPct(s["winPercent"]),
           homeRecord: s["Home"] ?? "0-0",
           roadRecord: s["Road"] ?? "0-0",
           last10: s["Last Ten Games"] ?? "—",
@@ -318,14 +335,22 @@ export async function getNBATeamRoster(teamId: number): Promise<Array<{ id: numb
   }
 }
 
-// ── ESPN team ID mapping ──────────────────────────────────────────────────────
-// Maps our abbreviations to ESPN team IDs (for roster/stats lookups)
+// ── Team ID mappings ──────────────────────────────────────────────────────────
+// ESPN IDs are used for ESPN boxscores/summaries. BallDontLie IDs are separate.
 export const ESPN_TEAM_IDS: Record<string, string> = {
   ATL: "1", BOS: "2", BKN: "17", CHA: "30", CHI: "4", CLE: "5",
   DAL: "6", DEN: "7", DET: "8", GSW: "9", HOU: "10", IND: "11",
   LAC: "12", LAL: "13", MEM: "29", MIA: "14", MIL: "15", MIN: "16",
   NOP: "3", NYK: "18", OKC: "25", ORL: "19", PHI: "20", PHX: "21",
   POR: "22", SAC: "23", SAS: "24", TOR: "28", UTA: "26", WAS: "27",
+};
+
+export const BDL_TEAM_IDS: Record<string, number> = {
+  ATL: 1, BOS: 2, BKN: 3, CHA: 4, CHI: 5, CLE: 6,
+  DAL: 7, DEN: 8, DET: 9, GSW: 10, HOU: 11, IND: 12,
+  LAC: 13, LAL: 14, MEM: 15, MIA: 16, MIL: 17, MIN: 18,
+  NOP: 19, NYK: 20, OKC: 21, ORL: 22, PHI: 23, PHX: 24,
+  POR: 25, SAC: 26, SAS: 27, TOR: 28, UTA: 29, WAS: 30,
 };
 
 // ── Team colors ───────────────────────────────────────────────────────────────

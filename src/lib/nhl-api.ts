@@ -19,6 +19,13 @@ async function cachedFetch<T>(url: string, ttl: number = CACHE_TTL): Promise<T> 
   return data;
 }
 
+function getCanonicalTeamName(team: any): string {
+  const place = team?.placeName?.default || team?.placeName || "";
+  const common = team?.commonName?.default || team?.commonName || "";
+  const full = [place, common].filter(Boolean).join(" ").trim();
+  return full || team?.name?.default || team?.teamName?.default || place || common || team?.abbrev || "???";
+}
+
 function mapGame(g: any): NHLGame {
   return {
     id: g.id,
@@ -26,13 +33,13 @@ function mapGame(g: any): NHLGame {
     gameState: g.gameState,
     awayTeam: {
       abbrev: g.awayTeam?.abbrev || "???",
-      name: g.awayTeam?.placeName?.default,
+      name: getCanonicalTeamName(g.awayTeam),
       score: g.awayTeam?.score,
       logo: g.awayTeam?.logo,
     },
     homeTeam: {
       abbrev: g.homeTeam?.abbrev || "???",
-      name: g.homeTeam?.placeName?.default,
+      name: getCanonicalTeamName(g.homeTeam),
       score: g.homeTeam?.score,
       logo: g.homeTeam?.logo,
     },
@@ -89,6 +96,19 @@ export async function getBroadSchedule(days: number = 4): Promise<ScheduleRespon
     };
   } catch {
     return { games: [], date: new Date().toISOString().slice(0, 10) };
+  }
+}
+
+export async function getScheduleGameById(gameId: number): Promise<NHLGame | null> {
+  try {
+    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
+    const rawGame = (data.gameWeek || [])
+      .flatMap((day: any) => day.games || [])
+      .find((game: any) => Number(game?.id) === gameId);
+
+    return rawGame ? mapGame(rawGame) : null;
+  } catch {
+    return null;
   }
 }
 

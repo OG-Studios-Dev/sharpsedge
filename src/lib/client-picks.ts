@@ -24,8 +24,8 @@ export function savePickLocal(prop: PlayerProp): SavedPick {
   const saved: SavedPick = {
     id: `local_${Date.now()}`,
     createdAt: new Date().toISOString(),
-    sport: "NHL",
-    gameId: prop.id,
+    sport: prop.league === "NBA" ? "NBA" : "NHL",
+    gameId: prop.gameId || prop.id,
     matchup: prop.matchup,
     playerName: prop.playerName,
     team: prop.team,

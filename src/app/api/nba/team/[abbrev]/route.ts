@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getNBAStandings, getNBASchedule, getNBATeamRoster, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { BDL_TEAM_IDS, getNBAStandings, getNBATeamRoster, getRecentNBAGames, NBA_TEAM_COLORS, parseNBARecord } from "@/lib/nba-api";
 
 export async function GET(
   _req: NextRequest,
@@ -9,27 +9,26 @@ export async function GET(
   const teamAbbrev = abbrev.toUpperCase();
 
   try {
-    const [standings, schedule, roster] = await Promise.all([
+    const [standings, recentGamesFeed] = await Promise.all([
       getNBAStandings(),
-      getNBASchedule(),
-      // We need to find the team ID — derive from schedule or roster search
-      Promise.resolve([]),
+      getRecentNBAGames(10),
     ]);
 
-    const standing = standings.find((s) => s.teamAbbrev === teamAbbrev) || null;
+    const rawStanding = standings.find((s) => s.teamAbbrev === teamAbbrev) || null;
+    const standing = rawStanding
+      ? {
+          ...rawStanding,
+          homeWins: parseNBARecord(rawStanding.homeRecord).wins,
+          homeLosses: parseNBARecord(rawStanding.homeRecord).losses,
+          awayWins: parseNBARecord(rawStanding.roadRecord).wins,
+          awayLosses: parseNBARecord(rawStanding.roadRecord).losses,
+        }
+      : null;
 
-    // Find team ID from today's schedule
-    let teamId = "";
-    for (const game of schedule) {
-      if (game.homeTeam.abbreviation === teamAbbrev) { teamId = game.homeTeam.id; break; }
-      if (game.awayTeam.abbreviation === teamAbbrev) { teamId = game.awayTeam.id; break; }
-    }
+    const teamId = BDL_TEAM_IDS[teamAbbrev] || 0;
+    const teamRoster = teamId ? await getNBATeamRoster(teamId) : [];
 
-    // Fetch roster if we found a team ID
-    const teamRoster = teamId ? await getNBATeamRoster(parseInt(teamId) || 0) : [];
-
-    // Recent games from schedule (completed games only)
-    const recentGames = schedule
+    const recentGames = recentGamesFeed
       .filter((g) =>
         g.status === "Final" &&
         (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev)

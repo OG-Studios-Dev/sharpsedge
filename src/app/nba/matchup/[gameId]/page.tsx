@@ -59,7 +59,7 @@ export default function NBAMatchupPage() {
   const homeColor = game?.homeTeam.color || "#334155";
 
   const statusLabel = game
-    ? game.status === "In Progress"
+    ? game.status === "Live"
       ? "LIVE"
       : game.status === "Final"
         ? `Final${game.awayTeam.score !== null ? ` ${game.awayTeam.score}-${game.homeTeam.score}` : ""}`
