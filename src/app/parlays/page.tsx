@@ -1,94 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { parlays, sgps } from "@/data/seed";
-import { League } from "@/lib/types";
 import { useLeague } from "@/hooks/useLeague";
-import ParlayCard from "@/components/ParlayCard";
-import SGPCard from "@/components/SGPCard";
 import LeagueSelector from "@/components/LeagueSelector";
-import FilterBar from "@/components/FilterBar";
-
-type Tab = "Parlay" | "SGP";
+import EmptyStateCard from "@/components/EmptyStateCard";
 
 export default function ParlaysPage() {
   const [league, setLeague] = useLeague();
-  const [tab, setTab] = useState<Tab>("Parlay");
-  const [betType, setBetType] = useState("all");
-
-  const filteredParlays = parlays.filter((p) => {
-    if (p.league !== league) return false;
-    if (betType !== "all" && p.category !== betType) return false;
-    return true;
-  });
-
-  const filteredSGPs = sgps.filter((s) => {
-    if (s.league !== league) return false;
-    return true;
-  });
-
-  const parlayCategories = Array.from(new Set(parlays.filter(p => p.league === league).map((p) => p.category)));
+  const sportLabel = league === "NBA" ? "NBA" : league === "All" ? "cross-sport" : "NHL";
 
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-lg font-bold text-white">Trends</h1>
+          <div>
+            <h1 className="text-lg font-bold text-white">Parlays</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Held back until pricing and legs are live.</p>
+          </div>
           <LeagueSelector selected={league} onSelect={setLeague} />
         </div>
-
-        <div className="flex border-b border-dark-border">
-          {(["Parlay", "SGP"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors relative ${
-                tab === t ? "text-white" : "text-gray-500"
-              }`}
-            >
-              {t}
-              {tab === t && (
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-blue" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {tab === "Parlay" && (
-          <div className="px-4 py-3">
-            <FilterBar
-              filters={[
-                {
-                  label: "Type",
-                  value: betType,
-                  onChange: setBetType,
-                  options: [
-                    { label: "All Bet Types", value: "all" },
-                    ...parlayCategories.map((c) => ({ label: c, value: c })),
-                  ],
-                },
-              ]}
-            />
-          </div>
-        )}
       </header>
 
-      <div>
-        {tab === "Parlay" ? (
-          filteredParlays.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 px-4">
-              <p className="text-gray-500 text-sm">No parlays found.</p>
-            </div>
-          ) : (
-            filteredParlays.map((parlay) => <ParlayCard key={parlay.id} parlay={parlay} />)
-          )
-        ) : filteredSGPs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-4">
-            <p className="text-gray-500 text-sm">No SGPs found.</p>
-          </div>
-        ) : (
-          filteredSGPs.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)
-        )}
+      <EmptyStateCard
+        eyebrow="Disabled"
+        title={`No live ${sportLabel} parlays in this build`}
+        body="Parlay cards were using illustrative legs instead of live bookable prices, so they’ve been removed. Use Picks for current recommendations and Props for market-by-market research."
+      />
+
+      <div className="px-4 pb-6 grid gap-3 sm:grid-cols-2">
+        <a href="/picks" className="rounded-2xl border border-dark-border bg-dark-surface px-4 py-4 transition-colors hover:border-gray-600">
+          <p className="text-white font-semibold">Open Picks</p>
+          <p className="text-sm text-gray-400 mt-1">See the best current recommendations instead of placeholder parlays.</p>
+        </a>
+        <a href="/props" className="rounded-2xl border border-dark-border bg-dark-surface px-4 py-4 transition-colors hover:border-gray-600">
+          <p className="text-white font-semibold">Open Props</p>
+          <p className="text-sm text-gray-400 mt-1">Review individual player props and team trends with live data.</p>
+        </a>
       </div>
     </div>
   );

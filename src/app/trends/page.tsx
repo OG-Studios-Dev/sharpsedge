@@ -2,16 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
-import { parlays, sgps } from "@/data/seed";
 import { PlayerProp, TeamTrend } from "@/lib/types";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
-import ParlayCard from "@/components/ParlayCard";
-import SGPCard from "@/components/SGPCard";
 import LeagueSelector from "@/components/LeagueSelector";
 import EmptyStateCard from "@/components/EmptyStateCard";
 
-type Tab = "All" | "Player" | "Team" | "Parlay" | "SGP";
+type Tab = "All" | "Player" | "Team";
 
 export default function TrendsPage() {
   const [league, setLeague] = useLeague();
@@ -52,13 +49,10 @@ export default function TrendsPage() {
 
   const filteredProps = propsData.filter((p) => p.league === league);
   const filteredTeams = teamTrendsData.filter((t) => t.league === league);
-  const filteredParlays = parlays.filter((p) => p.league === league);
-  const filteredSGPs = sgps.filter((s) => s.league === league);
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
 
-  const TABS: Tab[] = ["All", "Player", "Team", "Parlay", "SGP"];
-  const researchTabs: Tab[] = ["Parlay", "SGP"];
+  const TABS: Tab[] = ["All", "Player", "Team"];
 
   return (
     <div>
@@ -81,11 +75,6 @@ export default function TrendsPage() {
               }`}
             >
               {t}
-              {researchTabs.includes(t) && (
-                <span className="text-[8px] px-1 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 uppercase tracking-wide">
-                  soon
-                </span>
-              )}
               {tab === t && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-blue" />}
             </button>
           ))}
@@ -153,7 +142,7 @@ export default function TrendsPage() {
             <EmptyStateCard
               eyebrow="Player trends"
               title={`No ${sportLabel} player props right now`}
-              body="Check back once today's slate is posted. Props appear as soon as games are scheduled."
+              body="Check back once today&apos;s slate is posted. Props appear as soon as games are scheduled."
             />
           )
         )}
@@ -174,24 +163,6 @@ export default function TrendsPage() {
               body="Check back closer to game time."
             />
           )
-        )}
-
-        {tab === "Parlay" && (
-          <>
-            <div className="mx-4 mt-4 mb-2 px-3 py-2 rounded-xl bg-yellow-500/5 border border-yellow-500/15 text-xs text-yellow-400">
-              Parlay builder coming soon. Lines are illustrative.
-            </div>
-            {filteredParlays.map((item) => <ParlayCard key={item.id} parlay={item} />)}
-          </>
-        )}
-
-        {tab === "SGP" && (
-          <>
-            <div className="mx-4 mt-4 mb-2 px-3 py-2 rounded-xl bg-yellow-500/5 border border-yellow-500/15 text-xs text-yellow-400">
-              Same-game parlay builder coming soon. Lines are illustrative.
-            </div>
-            {filteredSGPs.map((item) => <SGPCard key={item.id} sgp={item} />)}
-          </>
         )}
       </div>
     </div>
