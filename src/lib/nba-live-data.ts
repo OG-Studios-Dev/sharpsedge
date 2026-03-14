@@ -44,7 +44,7 @@ export async function getNBADashboardData() {
 
   // Pass recentGames in so stats engine doesn't re-fetch
   const [props, teamTrends] = await Promise.all([
-    buildNBAStatsPropFeed(gamesWithOdds, { maxGames: 3, maxPlayers: 5, recentGames }),
+    buildNBAStatsPropFeed(gamesWithOdds, { maxGames: 2, maxPlayers: 4, recentGames }),
     buildNBATeamTrends(gamesWithOdds),
   ]);
 

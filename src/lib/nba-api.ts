@@ -377,22 +377,29 @@ export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.timestamp < CACHE_TTL) return hit.data as NBAGame[];
 
-  const games: NBAGame[] = [];
+  // Fetch all days in parallel for speed
+  const dateStrings: string[] = [];
   for (let i = 1; i <= daysBack; i++) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, "");
-    try {
-      const data = await cachedFetch<any>(`${ESPN_BASE}/scoreboard?dates=${dateStr}`, CACHE_TTL);
-      const events: any[] = data.events ?? [];
-      const completed = events
-        .filter((e) => e.status?.type?.completed)
-        .map(parseESPNGame);
-      games.push(...completed);
-    } catch { /* skip day */ }
-    if (games.length >= 80) break;
+    dateStrings.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
   }
 
+  const results = await Promise.all(
+    dateStrings.map(async (dateStr) => {
+      try {
+        const data = await cachedFetch<any>(`${ESPN_BASE}/scoreboard?dates=${dateStr}`, CACHE_TTL);
+        const events: any[] = data.events ?? [];
+        return events
+          .filter((e) => e.status?.type?.completed)
+          .map(parseESPNGame);
+      } catch {
+        return [];
+      }
+    })
+  );
+
+  const games = results.flat().slice(0, 80);
   cache.set(cacheKey, { data: games, timestamp: Date.now() });
   return games;
 }

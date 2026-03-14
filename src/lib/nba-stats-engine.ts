@@ -283,13 +283,13 @@ export async function buildNBAStatsPropFeed(
   for (const team of Array.from(neededTeams)) {
     const teamGames = recentGames
       .filter(g => g.status === "Final" && (g.homeTeam.abbreviation === team || g.awayTeam.abbreviation === team))
-      .slice(0, 8);
+      .slice(0, 5);
     teamGames.forEach(g => statGameIds.add(g.id));
   }
 
   // Fetch all stat boxscores in parallel (skip already cached ones)
   const uncachedIds = Array.from(statGameIds).filter(id => !boxscoreCache.has(id));
-  const BATCH_SIZE = 6;
+  const BATCH_SIZE = 10;
   for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
     const batch = uncachedIds.slice(i, i + BATCH_SIZE);
     await Promise.all(
