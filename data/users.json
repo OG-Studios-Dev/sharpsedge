@@ -1,0 +1,12 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Marco Grossi",
+    "email": "marcodgrossi@gmail.com",
+    "username": "marco",
+    "passwordHash": "$2b$12$1ftGntDcmF/b4V.2B.mw9.9RN0GNu2cCr.BfvDYYAAa0r0o86DhQS",
+    "role": "admin",
+    "createdAt": "2026-03-14T22:18:41.057Z",
+    "lastLoginAt": null
+  }
+]

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { savePick } from "@/lib/picks-store";
+import { upsertPickHistory } from "@/lib/pick-history";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
 
@@ -8,6 +9,13 @@ export async function GET(req: NextRequest) {
     const data = await getLiveDashboardData();
     const date = req.nextUrl.searchParams.get("date") || new Date().toISOString().slice(0, 10);
     const picks = selectTopPicks(data.props || [], data.teamTrends || [], date);
+
+    try {
+      await upsertPickHistory(picks.map((pick) => ({ ...pick, league: pick.league ?? "NHL" })));
+    } catch (error) {
+      console.warn("[picks] unable to update admin pick history", error);
+    }
+
     return NextResponse.json({ picks, date });
   } catch {
     return NextResponse.json({ picks: [], date: new Date().toISOString().slice(0, 10) });

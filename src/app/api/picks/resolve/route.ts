@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { updatePickHistoryResults } from "@/lib/pick-history";
 import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
@@ -341,6 +342,15 @@ export async function POST(req: NextRequest) {
     if (!picks.some((pick) => pick.result === "pending")) return NextResponse.json({ picks });
 
     const resolved = await Promise.all(picks.map(resolvePick));
+
+    try {
+      await updatePickHistoryResults(resolved);
+    } catch (historyError) {
+      console.warn("[picks-resolve] unable to update admin pick history", {
+        error: historyError instanceof Error ? historyError.message : String(historyError),
+      });
+    }
+
     return NextResponse.json({ picks: resolved });
   } catch (error) {
     console.warn("[picks-resolve] request failed", { error: error instanceof Error ? error.message : String(error) });

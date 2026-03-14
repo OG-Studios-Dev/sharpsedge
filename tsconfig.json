@@ -14,7 +14,14 @@
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      "bcryptjs": ["./src/vendor/bcryptjs/index.js"],
+      "next-auth": ["./src/vendor/next-auth/index.ts"],
+      "next-auth/jwt": ["./src/vendor/next-auth/jwt.ts"],
+      "next-auth/react": ["./src/vendor/next-auth/react.ts"],
+      "next-auth/providers/credentials": ["./src/vendor/next-auth/providers/credentials.ts"]
+    }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

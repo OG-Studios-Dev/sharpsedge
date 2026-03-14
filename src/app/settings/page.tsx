@@ -1,37 +1,52 @@
-import EmptyStateCard from "@/components/EmptyStateCard";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import LogoutButton from "@/components/auth/LogoutButton";
+import { auth } from "@/lib/auth";
 
-const statusItems = [
-  ["Version", "0.1.0"],
-  ["Player data", "Live league feeds"],
-  ["Saved picks", "Local device + server fallback"],
-];
+function formatDateTime(value?: string | null) {
+  if (!value) {
+    return "Unavailable";
+  }
 
-const notes = [
-  "User preferences are not editable yet, so this page only shows current app status.",
-  "Parlay builder and global search stay hidden until they are backed by live data and real actions.",
-  "Goosalytics is a research tool, not a sportsbook.",
-];
+  return new Date(value).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const profileItems = [
+    ["Display name", session.user.name || "Unnamed user"],
+    ["Email", session.user.email || "No email found"],
+    ["Username", session.user.username || "Not set"],
+    ["Role", session.user.role === "admin" ? "Admin" : "User"],
+    ["Account created", formatDateTime(session.user.createdAt)],
+    ["Last login", formatDateTime(session.user.lastLoginAt)],
+  ];
+
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="px-4 py-3">
           <h1 className="text-lg font-bold text-white">Settings</h1>
+          <p className="mt-1 text-sm text-gray-500">Account access and profile details for your current session.</p>
         </div>
       </header>
 
-      <EmptyStateCard
-        eyebrow="Read only"
-        title="No adjustable settings yet"
-        body="This build doesn’t persist preferences, alerts, or account-level controls yet. Rather than show dead toggles, this page just reports the current app state."
-      />
-
       <div className="px-4 py-4 space-y-6">
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Current app status</h2>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Profile</h2>
           <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
-            {statusItems.map(([label, value], index) => (
+            {profileItems.map(([label, value], index) => (
               <div
                 key={label}
                 className={`flex items-center justify-between px-4 py-3.5 ${index > 0 ? "border-t border-dark-border/50" : ""}`}
@@ -44,15 +59,31 @@ export default function SettingsPage() {
         </section>
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">Notes</h2>
-          <div className="rounded-2xl border border-dark-border bg-dark-surface px-4 py-1">
-            {notes.map((note, index) => (
-              <p key={index} className={`text-sm text-gray-400 py-3 ${index > 0 ? "border-t border-dark-border/50" : ""}`}>
-                {note}
-              </p>
-            ))}
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Session</h2>
+          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+            <p className="text-sm leading-6 text-gray-400">
+              Your session is stored as a JWT, so it stays active across refreshes until you log out.
+            </p>
+            <LogoutButton className="mt-4 w-full rounded-2xl border border-accent-red/40 bg-accent-red/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-accent-red/15 disabled:cursor-not-allowed disabled:opacity-60" />
           </div>
         </section>
+
+        {session.user.role === "admin" && (
+          <section>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Admin</h2>
+            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+              <p className="text-sm leading-6 text-gray-400">
+                Review account activity, picks, and upstream API health from the admin dashboard.
+              </p>
+              <Link
+                href="/admin"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-accent-blue/40 bg-accent-blue/10 px-4 py-3 text-sm font-semibold text-accent-blue transition hover:bg-accent-blue/15"
+              >
+                Open Admin Dashboard
+              </Link>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
