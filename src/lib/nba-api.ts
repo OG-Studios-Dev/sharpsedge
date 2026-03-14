@@ -233,9 +233,13 @@ export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxsco
     const teams: any[] = data.boxscore?.players ?? [];
     const result = { home: [] as NBABoxscorePlayer[], away: [] as NBABoxscorePlayer[] };
 
+    // Determine home team from competition data since boxscore.players doesn't have homeAway
+    const competitors: any[] = data.header?.competitions?.[0]?.competitors ?? [];
+    const homeTeamId = competitors.find((c: any) => c.homeAway === "home")?.team?.abbreviation ?? "";
+
     for (const team of teams) {
       const abbrev = team.team?.abbreviation ?? "";
-      const isHome = team.homeAway === "home";
+      const isHome = abbrev === homeTeamId || team.homeAway === "home";
       const statGroups: any[] = team.statistics ?? [];
 
       for (const statsGroup of statGroups) {
