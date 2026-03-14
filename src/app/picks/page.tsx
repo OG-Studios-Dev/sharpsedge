@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { usePicks, useNBAPicks } from "@/hooks/usePicks";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
@@ -314,11 +315,15 @@ export default function PicksPage() {
         </div>
       </div>
 
-      {/* Record Card */}
-      <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4">
-        <p className="text-gray-400 text-xs font-medium uppercase tracking-wide mb-3">
-          {sportLeague === "All" ? "Combined" : sportLeague} Season Record
-        </p>
+      {/* Record Card — tappable to drill down */}
+      <Link href="/picks/history">
+      <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4 cursor-pointer hover:border-accent-blue/30 transition-colors">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">
+            {sportLeague === "All" ? "Combined" : sportLeague} Season Record
+          </p>
+          <span className="text-[10px] text-accent-blue font-medium">View History →</span>
+        </div>
         <div className="flex items-center gap-6">
           <div className="text-center">
             <p className="text-accent-green font-bold text-lg">{activeRecord.wins}</p>
@@ -386,6 +391,7 @@ export default function PicksPage() {
           </div>
         )}
       </div>
+      </Link>
 
       {/* Today's Picks */}
       <div className="flex items-center justify-between mb-2">
