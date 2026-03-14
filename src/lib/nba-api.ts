@@ -390,7 +390,7 @@ export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
         .map(parseESPNGame);
       games.push(...completed);
     } catch { /* skip day */ }
-    if (games.length >= 40) break;
+    if (games.length >= 80) break;
   }
 
   cache.set(cacheKey, { data: games, timestamp: Date.now() });

@@ -28,10 +28,10 @@ function attachLiveOddsToSchedule(
 }
 
 export async function getNBADashboardData() {
-  // Fetch schedule + recent games + odds in parallel
+  // Fetch schedule + recent games (14 days for enough player data) + odds in parallel
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(),
-    getRecentNBAGames(10),
+    getRecentNBAGames(14),
     getNBAOdds(),
   ]);
 
@@ -66,7 +66,7 @@ export async function getNBADashboardData() {
 export async function getNBATrendData() {
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(),
-    getRecentNBAGames(10),
+    getRecentNBAGames(14),
     getNBAOdds(),
   ]);
 

@@ -97,7 +97,7 @@ function pickBestPropPrice(
   oddsOptions: PlayerPropOdds[]
 ) {
   const sample = logs.slice(0, 10);
-  if (sample.length < 5) return null;
+  if (sample.length < 3) return null;
 
   const candidates = oddsOptions.length > 0
     ? oddsOptions
@@ -205,61 +205,161 @@ export async function buildNBAStatsPropFeed(
   games: NBAGame[],
   opts: { maxGames?: number; maxPlayers?: number; recentGames?: NBAGame[] } = {}
 ): Promise<PlayerProp[]> {
-  const { maxGames = 3, maxPlayers = 5 } = opts;
+  const { maxGames = 2, maxPlayers = 4 } = opts;
   if (!games.length) return [];
 
-  // Use pre-fetched recent games if provided (avoids re-fetching in live-data)
   const recentGames: NBAGame[] = opts.recentGames ?? [];
-
   const allProps: PlayerProp[] = [];
-  const targetGames = games.slice(0, maxGames);
+
+  // Only process non-completed games
+  const activeGames = games.filter(g => g.status !== "Final");
+  const targetGames = (activeGames.length > 0 ? activeGames : games).slice(0, maxGames);
+
+  // Pre-fetch all discovery boxscores in parallel (1 per team, not 3)
+  const allTeamAbbrevs = new Set<string>();
+  targetGames.forEach(g => {
+    allTeamAbbrevs.add(g.homeTeam.abbreviation);
+    allTeamAbbrevs.add(g.awayTeam.abbreviation);
+  });
+
+  // For each team, find their most recent completed game for player discovery
+  const discoveryGameMap = new Map<string, NBAGame>();
+  for (const abbrev of Array.from(allTeamAbbrevs)) {
+    const teamGame = recentGames.find(g =>
+      g.status === "Final" &&
+      (g.homeTeam.abbreviation === abbrev || g.awayTeam.abbreviation === abbrev)
+    );
+    if (teamGame) discoveryGameMap.set(abbrev, teamGame);
+  }
+
+  // Parallel-fetch all discovery boxscores (one per team)
+  const discoveryIds = Array.from(new Set(Array.from(discoveryGameMap.values()).map(g => g.id)));
+  const boxscoreCache = new Map<string, Awaited<ReturnType<typeof getNBABoxscore>>>();
+  await Promise.all(
+    discoveryIds.map(async (id) => {
+      try {
+        const box = await getNBABoxscore(id);
+        boxscoreCache.set(id, box);
+      } catch { /* skip */ }
+    })
+  );
+
+  // Discover top players per team from cached boxscores
+  const getTopPlayers = (teamAbbrev: string): string[] => {
+    const discoveryGame = discoveryGameMap.get(teamAbbrev);
+    if (!discoveryGame) return [];
+    const box = boxscoreCache.get(discoveryGame.id);
+    if (!box) return [];
+    const isHome = discoveryGame.homeTeam.abbreviation === teamAbbrev;
+    const teamPlayers = isHome ? box.home : box.away;
+    return teamPlayers
+      .filter(p => parseFloat(p.minutes) >= 20)
+      .sort((a, b) => b.points - a.points)
+      .slice(0, maxPlayers)
+      .map(p => p.name);
+  };
+
+  // Build all player tasks across all games
+  type PlayerTask = { name: string; team: string; opp: string; isAway: boolean; matchup: string; gameId: string; oddsEventId?: string };
+  const playerTasks: PlayerTask[] = [];
 
   for (const game of targetGames) {
-    const eventOdds = await getNBAEventOdds(game.oddsEventId).catch(() => null);
-
-    // Get a recent boxscore to discover player names for each team
-    const getTopPlayers = async (teamAbbrev: string): Promise<string[]> => {
-      const teamGames = recentGames.filter(g =>
-        g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev
-      ).slice(0, 3);
-      const players = new Map<string, number>();
-      for (const tg of teamGames) {
-        try {
-          const box = await getNBABoxscore(tg.id);
-          const isHome = tg.homeTeam.abbreviation === teamAbbrev;
-          const teamPlayers = isHome ? box.home : box.away;
-          for (const p of teamPlayers) {
-            const mins = parseFloat(p.minutes) || 0;
-            if (mins >= 20) players.set(p.name, (players.get(p.name) ?? 0) + p.points);
-          }
-        } catch { /* skip */ }
-      }
-      return Array.from(players.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, maxPlayers)
-        .map(([name]) => name);
-    };
-
     const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`;
+    const homePlayers = getTopPlayers(game.homeTeam.abbreviation);
+    const awayPlayers = getTopPlayers(game.awayTeam.abbreviation);
 
-    const [homePlayers, awayPlayers] = await Promise.all([
-      getTopPlayers(game.homeTeam.abbreviation),
-      getTopPlayers(game.awayTeam.abbreviation),
-    ]);
+    for (const name of homePlayers) {
+      playerTasks.push({ name, team: game.homeTeam.abbreviation, opp: game.awayTeam.abbreviation, isAway: false, matchup, gameId: game.id, oddsEventId: game.oddsEventId });
+    }
+    for (const name of awayPlayers) {
+      playerTasks.push({ name, team: game.awayTeam.abbreviation, opp: game.homeTeam.abbreviation, isAway: true, matchup, gameId: game.id, oddsEventId: game.oddsEventId });
+    }
+  }
 
-    const tasks = [
-      ...homePlayers.map(name => ({ name, team: game.homeTeam.abbreviation, opp: game.awayTeam.abbreviation, isAway: false })),
-      ...awayPlayers.map(name => ({ name, team: game.awayTeam.abbreviation, opp: game.homeTeam.abbreviation, isAway: true })),
-    ];
+  // Pre-fetch all needed stat boxscores in parallel
+  // Find all recent games relevant to any player's team
+  const neededTeams = new Set(playerTasks.map(t => t.team));
+  const statGameIds = new Set<string>();
+  for (const team of Array.from(neededTeams)) {
+    const teamGames = recentGames
+      .filter(g => g.status === "Final" && (g.homeTeam.abbreviation === team || g.awayTeam.abbreviation === team))
+      .slice(0, 8);
+    teamGames.forEach(g => statGameIds.add(g.id));
+  }
 
-    for (const task of tasks) {
-      const logs = await getPlayerRecentStats(task.name, task.team, recentGames);
-      if (logs.length < 5) continue;
-      const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
-      for (const propDef of NBA_PROP_DEFS) {
-        const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, matchup, game.id, eventOdds);
-        if (prop) allProps.push(prop);
+  // Fetch all stat boxscores in parallel (skip already cached ones)
+  const uncachedIds = Array.from(statGameIds).filter(id => !boxscoreCache.has(id));
+  const BATCH_SIZE = 6;
+  for (let i = 0; i < uncachedIds.length; i += BATCH_SIZE) {
+    const batch = uncachedIds.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (id) => {
+        try {
+          const box = await getNBABoxscore(id);
+          boxscoreCache.set(id, box);
+        } catch { /* skip */ }
+      })
+    );
+  }
+
+  // Now build props for each player using cached boxscores
+  const getPlayerStatsCached = (playerName: string, teamAbbrev: string): GameStat[] => {
+    const logs: GameStat[] = [];
+    const teamGames = recentGames
+      .filter(g => g.status === "Final" && (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev))
+      .slice(0, 10);
+
+    const nameLower = playerName.toLowerCase();
+    const lastName = nameLower.split(" ").pop() ?? "";
+    const firstName = nameLower.split(" ")[0] ?? "";
+
+    for (const game of teamGames) {
+      const box = boxscoreCache.get(game.id);
+      if (!box) continue;
+      const isHome = game.homeTeam.abbreviation === teamAbbrev;
+      const teamPlayers = isHome ? box.home : box.away;
+      const p = teamPlayers.find(pl =>
+        pl.name.toLowerCase().includes(lastName) &&
+        pl.name.toLowerCase().includes(firstName)
+      );
+      if (!p) continue;
+      const mins = parseFloat(p.minutes) || 0;
+      if (mins < 15) continue;
+      logs.push({
+        points: p.points,
+        rebounds: p.rebounds,
+        assists: p.assists,
+        threePointersMade: parseInt(p.threePointers.split("-")[0]) || 0,
+        minutes: mins,
+      });
+      if (logs.length >= 10) break;
+    }
+    return logs;
+  };
+
+  // Fetch event odds in parallel per unique oddsEventId
+  const oddsMap = new Map<string, OddsEvent | null>();
+  const uniqueOddsIds = Array.from(new Set(playerTasks.map(t => t.oddsEventId).filter(Boolean))) as string[];
+  await Promise.all(
+    uniqueOddsIds.map(async (id) => {
+      try {
+        const odds = await getNBAEventOdds(id);
+        oddsMap.set(id, odds);
+      } catch {
+        oddsMap.set(id, null);
       }
+    })
+  );
+
+  // Generate props (no more async — everything is cached)
+  for (const task of playerTasks) {
+    const logs = getPlayerStatsCached(task.name, task.team);
+    if (logs.length < 3) continue;
+    const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
+    const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
+    for (const propDef of NBA_PROP_DEFS) {
+      const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, task.matchup, task.gameId, eventOdds);
+      if (prop) allProps.push(prop);
     }
   }
 
