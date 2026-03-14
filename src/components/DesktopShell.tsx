@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export default function DesktopShell({ children }: { children: React.ReactNode }) {
@@ -14,9 +13,8 @@ export default function DesktopShell({ children }: { children: React.ReactNode }
             { href: "/props", label: "Live Props" },
             { href: "/trends", label: "Trends" },
             { href: "/leagues", label: "Leagues" },
-            { href: "/settings", label: "Settings" },
           ].map((item) => (
-            <Link
+            <a
               key={item.href}
               href={item.href}
               className={`flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
@@ -26,7 +24,7 @@ export default function DesktopShell({ children }: { children: React.ReactNode }
               }`}
             >
               {item.label}
-            </Link>
+            </a>
           ))}
         </nav>
       </aside>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
-import { upsertPickHistory } from "@/lib/pick-history";
 import { selectNBATopPicks } from "@/lib/picks-engine";
 
 // Today's game IDs from schedule (filter picks to today only)
@@ -25,13 +24,6 @@ export async function GET(req: NextRequest) {
     const todayTrends = (data.teamTrends || []).filter((t: any) => !t.gameId || todayIds.has(t.gameId));
 
     const picks = selectNBATopPicks(todayProps, todayTrends, date);
-
-    try {
-      await upsertPickHistory(picks.map((pick) => ({ ...pick, league: "NBA" })));
-    } catch (error) {
-      console.warn("[nba-picks] unable to update admin pick history", error);
-    }
-
     return NextResponse.json({ picks, date });
   } catch {
     return NextResponse.json({ picks: [], date: new Date().toISOString().slice(0, 10) });
