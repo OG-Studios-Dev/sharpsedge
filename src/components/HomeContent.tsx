@@ -39,7 +39,7 @@ function HomeSection({
   );
 }
 
-export default function HomeContent({ today }: { today: string }) {
+export default function HomeContent() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
@@ -78,9 +78,8 @@ export default function HomeContent({ today }: { today: string }) {
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
         <section className="relative overflow-hidden rounded-[28px] border border-dark-border bg-[radial-gradient(circle_at_top_left,rgba(74,158,255,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.16),transparent_34%),linear-gradient(180deg,#161b26_0%,#0d1118_100%)] px-5 py-6 shadow-[0_16px_60px_rgba(0,0,0,0.32)]">
           <div className="relative z-10">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-accent-blue/80">Goosalytics</p>
-            <h1 className="text-white text-[32px] leading-none font-black mt-3">GOOSE AI PICKS</h1>
-            <p className="text-sm text-gray-400 mt-3">{today}</p>
+            <h1 className="text-white text-xl font-bold tracking-wide">Goosalytics</h1>
+            <p className="text-sm text-gray-400 mt-1">Pickin&apos; Sports Smarter</p>
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-300">
                 {formatRecordSummary(activeRecord.wins, activeRecord.losses, activeRecord.pushes, activeRecord.profitUnits)}
