@@ -40,11 +40,16 @@ function formatAmericanOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function PickCard({ pick }: { pick: AIPick }) {
+function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
   const showBookOdds = Boolean(pick.book && pick.book !== "Model Line");
 
   return (
-    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 space-y-2">
+    <div
+      className={`rounded-2xl border bg-dark-surface p-4 space-y-2 cursor-pointer transition-all ${
+        isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border"
+      }`}
+      onClick={onToggle}
+    >
       <div className="flex items-center gap-3">
         <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
         <div className="flex-1 min-w-0">
@@ -60,7 +65,10 @@ function PickCard({ pick }: { pick: AIPick }) {
             {pick.isAway ? "@" : "vs"} {pick.opponent}
           </p>
         </div>
-        <ResultPill result={pick.result} />
+        <div className="flex items-center gap-2">
+          <ResultPill result={pick.result} />
+          <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+        </div>
       </div>
 
       <p className="text-accent-blue font-medium text-sm">{pick.pickLabel}</p>
@@ -80,10 +88,79 @@ function PickCard({ pick }: { pick: AIPick }) {
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
       </div>
 
-      {pick.reasoning && (
-        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">
-          {pick.reasoning}
-        </p>
+      {/* Expanded AI Analysis */}
+      {isExpanded && (
+        <div className="mt-3 pt-3 border-t border-dark-border/50 space-y-3">
+          {/* AI Reasoning */}
+          {pick.reasoning && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue mb-1.5">🤖 AI Analysis</p>
+              <p className="text-gray-300 text-xs leading-relaxed">
+                {pick.reasoning}
+              </p>
+            </div>
+          )}
+
+          {/* Key Stats Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
+              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Hit Rate</p>
+              <p className="text-accent-green font-bold text-sm mt-0.5">{displayHitRate(pick.hitRate)}</p>
+            </div>
+            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
+              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Edge</p>
+              <p className="text-accent-blue font-bold text-sm mt-0.5">{displayEdge(pick.edge)}</p>
+            </div>
+            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
+              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Odds</p>
+              <p className="text-white font-bold text-sm mt-0.5">{formatAmericanOdds(pick.odds)}</p>
+            </div>
+          </div>
+
+          {/* Confidence Bar */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Confidence</p>
+              <p className="text-[10px] text-gray-400 font-semibold">{pick.confidence ?? Math.round(pick.hitRate)}%</p>
+            </div>
+            <div className="h-1.5 bg-dark-bg rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  (pick.confidence ?? pick.hitRate) >= 80 ? "bg-accent-green" :
+                  (pick.confidence ?? pick.hitRate) >= 60 ? "bg-accent-blue" : "bg-accent-yellow"
+                }`}
+                style={{ width: `${Math.min(pick.confidence ?? pick.hitRate, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Pick Details */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {pick.type === "player" && (
+              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+                Player Prop
+              </span>
+            )}
+            {pick.type === "team" && (
+              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+                Team Trend
+              </span>
+            )}
+            {pick.book && pick.book !== "Model Line" && (
+              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+                📖 {pick.book}
+              </span>
+            )}
+            <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+              🎯 1 unit
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed hint */}
+      {!isExpanded && pick.reasoning && (
+        <p className="text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
       )}
     </div>
   );
@@ -151,6 +228,7 @@ export default function PicksPage() {
     clearStalePicks: clearNBAStalePicks,
   } = useNBAPicks();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
+  const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
 
   const todayKey = localTodayKey();
 
@@ -334,7 +412,12 @@ export default function PicksPage() {
       ) : (
         <div className="space-y-3 mb-6">
           {activeToday.map((pick) => (
-            <PickCard key={pick.id} pick={pick} />
+            <PickCard
+              key={pick.id}
+              pick={pick}
+              isExpanded={expandedPickId === pick.id}
+              onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
+            />
           ))}
         </div>
       )}
