@@ -14,7 +14,7 @@ export type TrendSplit = {
 };
 
 export type TrendIndicator = {
-  type: "hot" | "vs_opponent" | "home_away" | "without_player";
+  type: "hot" | "vs_opponent" | "home_away" | "without_player" | "goose_lean" | "money" | "lock" | "streak";
   active: boolean;
 };
 

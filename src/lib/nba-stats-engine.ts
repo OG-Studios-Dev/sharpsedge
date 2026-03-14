@@ -16,6 +16,7 @@ import { OddsEvent, PlayerProp } from "@/lib/types";
 import { NBAGame, getNBABoxscore, NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 import { getNBAEventOdds } from "@/lib/nba-odds";
+import { assignIndicators } from "@/lib/trend-indicators";
 
 const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210;
@@ -198,7 +199,14 @@ function buildProp(
         type: "last_n",
       },
     ],
-    indicators: [],
+    indicators: assignIndicators({
+      hitRate,
+      edge,
+      sampleSize: Math.min(logs.length, 10),
+      recentGames: recentGames,
+      line,
+      odds: bestMarket.odds,
+    }),
     reasoning: `${playerName} is over ${line} ${propDef.label.toLowerCase()} in ${hitRate.toFixed(1)}% of the last ${Math.min(logs.length, 10)} qualifying games. Edge vs implied probability: +${(edge * 100).toFixed(1)}%.${bookSummary}`,
     summary: `${matchup} • Over ${line} ${propDef.label} • L10 avg ${avg10.toFixed(1)}`,
   };

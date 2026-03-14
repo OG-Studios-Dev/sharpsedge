@@ -9,25 +9,36 @@ import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import { TREND_FILTER_OPTIONS } from "@/components/TrendIndicators";
 
 type Tab = "All" | "Player" | "Team";
+type IndicatorFilter = "all" | "goose_lean" | "hot" | "money" | "lock" | "streak";
 
 const TEAM_THRESHOLD = 50;
+
+function hasIndicator(indicators: { type: string; active: boolean }[] | undefined, type: string): boolean {
+  if (!indicators) return false;
+  return indicators.some((ind) => ind.type === type && ind.active);
+}
 
 export default function TrendsPage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const [tab, setTab] = useState<Tab>("All");
+  const [indicatorFilter, setIndicatorFilter] = useState<IndicatorFilter>("all");
   const dashboards = useSportsDashboards(sportLeague);
 
-  const filteredProps = useMemo(
-    () => dashboards.props.filter(qualifiesAsTrend),
-    [dashboards.props],
-  );
-  const filteredTeams = useMemo(
-    () => dashboards.teamTrends.filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD),
-    [dashboards.teamTrends],
-  );
+  const filteredProps = useMemo(() => {
+    const qualified = dashboards.props.filter(qualifiesAsTrend);
+    if (indicatorFilter === "all") return qualified;
+    return qualified.filter((p) => hasIndicator(p.indicators, indicatorFilter));
+  }, [dashboards.props, indicatorFilter]);
+
+  const filteredTeams = useMemo(() => {
+    const qualified = dashboards.teamTrends.filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD);
+    if (indicatorFilter === "all") return qualified;
+    return qualified.filter((t) => hasIndicator(t.indicators, indicatorFilter));
+  }, [dashboards.teamTrends, indicatorFilter]);
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
   const title = sportLeague === "All" ? "NHL + NBA Trends" : `${sportLeague} Trends`;
@@ -54,6 +65,24 @@ export default function TrendsPage() {
             >
               {item}
               {tab === item && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-blue" />}
+            </button>
+          ))}
+        </div>
+
+        {/* Trend Indicator Filters */}
+        <div className="flex gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-hide">
+          {TREND_FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.type}
+              onClick={() => setIndicatorFilter(opt.type as IndicatorFilter)}
+              className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                indicatorFilter === opt.type
+                  ? "bg-accent-blue/15 border-accent-blue/40 text-accent-blue"
+                  : "border-dark-border text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              <span>{opt.icon}</span>
+              <span>{opt.label}</span>
             </button>
           ))}
         </div>

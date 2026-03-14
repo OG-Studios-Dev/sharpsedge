@@ -16,6 +16,7 @@ import { NHLGame, OddsEvent, PlayerProp } from "@/lib/types";
 import { NHL_TEAM_COLORS, getGameGoalies } from "@/lib/nhl-api";
 import type { GoalieStarter } from "@/lib/nhl-api";
 import { getNHLEventOdds, getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
+import { assignIndicators } from "@/lib/trend-indicators";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -293,7 +294,14 @@ function makeProps(
           type: "last_n",
         },
       ],
-      indicators: [],
+      indicators: assignIndicators({
+        hitRate: hitRatePct,
+        edge: bestEdge,
+        sampleSize: Math.min(recentLogs.length, 10),
+        recentGames: recent5.map(g => g[def.key]),
+        line,
+        odds: bestMarket.odds,
+      }),
       projection: parseFloat(avg5.toFixed(2)),
       fairProbability: bestRate,
       fairOdds: null,
