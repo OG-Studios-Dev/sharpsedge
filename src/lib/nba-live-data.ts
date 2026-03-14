@@ -35,7 +35,12 @@ export async function getNBADashboardData() {
     getNBAOdds(),
   ]);
 
-  const gamesWithOdds = attachLiveOddsToSchedule(schedule, odds);
+  // Filter out completed games — only keep upcoming/live games for picks & trends
+  const activeGames = schedule.filter((g) => g.status !== "Final");
+  const gamesWithOdds = attachLiveOddsToSchedule(
+    activeGames.length > 0 ? activeGames : schedule,
+    odds
+  );
 
   // Pass recentGames in so stats engine doesn't re-fetch
   const [props, teamTrends] = await Promise.all([
@@ -44,7 +49,7 @@ export async function getNBADashboardData() {
   ]);
 
   return {
-    schedule: gamesWithOdds,
+    schedule: attachLiveOddsToSchedule(schedule, odds), // full schedule for display
     props,
     teamTrends,
     odds,
@@ -65,6 +70,7 @@ export async function getNBATrendData() {
     getNBAOdds(),
   ]);
 
+  // For trends, include recent completed games so trend data is populated
   const gamesWithOdds = attachLiveOddsToSchedule(schedule, odds);
 
   const [props, teamTrends] = await Promise.all([
