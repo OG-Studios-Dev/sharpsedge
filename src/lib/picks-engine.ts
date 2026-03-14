@@ -50,6 +50,66 @@ function scoreItem(hitRate?: number, edge?: number): number {
   return (hr / 100) * 0.6 + (e / 100) * 0.4;
 }
 
+function buildPlayerReasoning(prop: ScoredPlayerProp): string {
+  const hr = normalizePercentValue(prop.hitRate);
+  const edge = normalizePercentValue(prop.edge);
+  const avg5 = prop.rollingAverages?.last5;
+  const avg10 = prop.rollingAverages?.last10;
+  const recentGames = prop.recentGames || [];
+  const last3 = recentGames.slice(0, 3);
+  const direction = prop.direction || prop.overUnder || "Over";
+  const matchup = prop.isAway ? `@ ${prop.opponent}` : `vs ${prop.opponent}`;
+
+  const parts: string[] = [];
+  parts.push(`${prop.playerName} has hit ${direction} ${prop.line} ${prop.propType} in ${hr.toFixed(0)}% of recent games.`);
+
+  if (avg10 != null) {
+    parts.push(`L10 avg: ${avg10.toFixed(1)}${avg5 != null ? `, L5 avg: ${avg5.toFixed(1)}` : ""}.`);
+  }
+
+  if (last3.length >= 3) {
+    parts.push(`Last 3 games: ${last3.join(", ")}.`);
+  }
+
+  if (edge > 0) {
+    parts.push(`Model edge: +${edge.toFixed(1)}% over implied odds.`);
+  }
+
+  if (prop.book && prop.book !== "Model Line") {
+    parts.push(`Best price: ${prop.book} ${prop.odds > 0 ? "+" : ""}${prop.odds}.`);
+  }
+
+  parts.push(`${matchup} today.`);
+  return parts.join(" ");
+}
+
+function buildTeamReasoning(trend: ScoredTeamTrend): string {
+  const hr = normalizePercentValue(trend.hitRate);
+  const edge = normalizePercentValue(trend.edge);
+  const matchup = trend.isAway ? `@ ${trend.opponent}` : `vs ${trend.opponent}`;
+  const splits = trend.splits || [];
+
+  const parts: string[] = [];
+  parts.push(`${trend.team} ${trend.betType}: ${hr.toFixed(0)}% hit rate.`);
+
+  for (const split of splits.slice(0, 2)) {
+    if (split.label) parts.push(split.label + ".");
+  }
+
+  if (edge > 0) {
+    parts.push(`Edge: +${edge.toFixed(1)}% over implied.`);
+  }
+
+  parts.push(`${matchup} today.`);
+  return parts.join(" ");
+}
+
+// Filter: odds must be between -200 and +300 (no heavy favorites or long shots)
+function isPickableOdds(odds?: number): boolean {
+  if (typeof odds !== "number") return true; // allow if no odds data
+  return odds >= -200;
+}
+
 function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
   const direction = prop.direction || prop.overUnder;
   return {
@@ -68,7 +128,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     edge: normalizePercentValue(prop.edge),
     hitRate: normalizePercentValue(prop.hitRate),
     confidence: prop.confidence ?? Math.round(prop._score * 100),
-    reasoning: prop.reasoning || prop.summary || "",
+    reasoning: buildPlayerReasoning(prop),
     result: "pending",
     units: 1,
     gameId: prop.gameId,
@@ -92,7 +152,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     edge: normalizePercentValue(trend.edge),
     hitRate: normalizePercentValue(trend.hitRate),
     confidence: Math.round(scoreItem(trend.hitRate, trend.edge) * 100),
-    reasoning: trend.splits?.[0]?.label || "",
+    reasoning: buildTeamReasoning(trend),
     result: "pending",
     units: 1,
     gameId: trend.gameId,
@@ -157,10 +217,12 @@ export function selectTopPicks(
   date: string,
 ): AIPick[] {
   const scoredProps: ScoredPlayerProp[] = props
+    .filter((p) => isPickableOdds(p.odds))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
+    .filter((t) => isPickableOdds(t.odds))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -212,10 +274,12 @@ export function selectNBATopPicks(
   date: string,
 ): AIPick[] {
   const scoredProps: ScoredPlayerProp[] = props
+    .filter((p) => isPickableOdds(p.odds))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
+    .filter((t) => isPickableOdds(t.odds))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
