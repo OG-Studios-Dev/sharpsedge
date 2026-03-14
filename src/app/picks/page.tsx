@@ -183,15 +183,19 @@ export default function PicksPage() {
   const nhlRec = computeRecord(nhlFlat);
   const nbaRec = computeRecord(nbaFlat);
 
+  // Pick History: all past dates (including pending), sorted newest first
   const pastDates = Object.keys(activeAll)
     .filter((d) => d !== todayKey)
-    .filter((d) => activeAll[d].some((p) => p.result !== "pending"))
     .sort((a, b) => b.localeCompare(a));
 
-  function filterPastPicks(picks: AIPick[]) {
-    const resolved = picks.filter((p) => p.result !== "pending");
-    if (pastFilter === "all") return resolved;
-    return resolved.filter((p) => p.result === pastFilter);
+  // Flat list of all past picks for history
+  const allHistoryPicks = pastDates.flatMap((d) =>
+    (activeAll[d] || []).map((p) => ({ ...p, _date: d }))
+  );
+
+  function filterHistoryPicks(picks: (AIPick & { _date: string })[]) {
+    if (pastFilter === "all") return picks;
+    return picks.filter((p) => p.result === pastFilter);
   }
 
   function handleClearStalePicks() {
@@ -323,12 +327,12 @@ export default function PicksPage() {
         </div>
       )}
 
-      {/* Past Picks */}
-      {pastDates.length > 0 && (
+      {/* Pick History */}
+      {allHistoryPicks.length > 0 && (
         <>
-          <div className="flex items-center justify-between mb-2 mt-2">
-            <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">
-              Past Picks
+          <div className="flex items-center justify-between mb-3 mt-4">
+            <p className="text-white text-sm font-bold uppercase tracking-wide">
+              Pick History
             </p>
             <div className="flex gap-1">
               {(["all", "win", "loss"] as PastFilter[]).map((f) => (
@@ -350,27 +354,45 @@ export default function PicksPage() {
               ))}
             </div>
           </div>
-          <div className="space-y-4">
+
+          {/* Daily grouped history */}
+          <div className="space-y-3">
             {pastDates.map((date) => {
-              const picks = filterPastPicks(activeAll[date]);
-              if (!picks.length) return null;
+              const dayPicks = (activeAll[date] || []).map((p) => ({ ...p, _date: date }));
+              const filtered = filterHistoryPicks(dayPicks);
+              if (!filtered.length) return null;
               const dailyRecord = computeRecord(activeAll[date]);
+              const dailyWinPct = (dailyRecord.wins + dailyRecord.losses) > 0
+                ? Math.round((dailyRecord.wins / (dailyRecord.wins + dailyRecord.losses)) * 100)
+                : null;
               return (
-                <div key={date} className="rounded-2xl border border-dark-border/70 bg-dark-surface/40 p-3">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <p className="text-gray-300 text-xs font-medium">{formatDate(date)}</p>
-                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase">
+                <div key={date} className="rounded-2xl border border-dark-border/70 bg-dark-surface/40 overflow-hidden">
+                  {/* Day header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-dark-bg/40 border-b border-dark-border/40">
+                    <p className="text-gray-300 text-xs font-semibold">{formatDate(date)}</p>
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
                       <span className="text-emerald-400">{dailyRecord.wins}W</span>
                       <span className="text-red-400">{dailyRecord.losses}L</span>
-                      {dailyRecord.pushes > 0 && <span className="text-yellow-400">{dailyRecord.pushes} push</span>}
-                      {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending} pending</span>}
+                      {dailyRecord.pushes > 0 && <span className="text-yellow-400">{dailyRecord.pushes}P</span>}
+                      {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending}⏳</span>}
+                      {dailyWinPct !== null && (
+                        <span className={`ml-1 ${dailyWinPct >= 50 ? "text-emerald-400" : "text-red-400"}`}>
+                          {dailyWinPct}%
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    {picks.map((pick) => (
+                  {/* Pick rows */}
+                  <div className="divide-y divide-dark-border/30">
+                    {filtered.map((pick) => (
                       <div
                         key={pick.id}
-                        className="rounded-xl border border-dark-border bg-dark-card px-3 py-2.5 flex items-center gap-3"
+                        className={`px-4 py-3 flex items-center gap-3 ${
+                          pick.result === "win" ? "border-l-2 border-l-emerald-500" :
+                          pick.result === "loss" ? "border-l-2 border-l-red-500" :
+                          pick.result === "push" ? "border-l-2 border-l-yellow-500" :
+                          "border-l-2 border-l-gray-600"
+                        }`}
                       >
                         <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
                         <div className="flex-1 min-w-0">
@@ -382,11 +404,24 @@ export default function PicksPage() {
                               <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
                             )}
                           </div>
-                          <p className="text-gray-500 text-[10px]">
-                            {pick.isAway ? "@" : "vs"} {pick.opponent}
-                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-gray-500 text-[10px]">
+                              {pick.isAway ? "@" : "vs"} {pick.opponent}
+                            </p>
+                            <span className="text-[9px] text-gray-600">
+                              {displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge
+                            </span>
+                          </div>
                         </div>
-                        <ResultPill result={pick.result} />
+                        {pick.result === "win" ? (
+                          <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>
+                        ) : pick.result === "loss" ? (
+                          <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✗</span>
+                        ) : pick.result === "push" ? (
+                          <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
+                        ) : (
+                          <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>
+                        )}
                       </div>
                     ))}
                   </div>

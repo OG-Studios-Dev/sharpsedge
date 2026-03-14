@@ -4,8 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 
-const NHL_STORAGE_KEY = "goosalytics_ai_picks_v2";
-const NBA_STORAGE_KEY = "goosalytics_nba_picks_v2";
+const NHL_STORAGE_KEY = "goosalytics_ai_picks_v3";
+const NBA_STORAGE_KEY = "goosalytics_nba_picks_v3";
+
+// One-time migration: clear old v2 keys
+if (typeof window !== "undefined") {
+  for (const oldKey of ["goosalytics_ai_picks_v2", "goosalytics_nba_picks_v2"]) {
+    if (localStorage.getItem(oldKey)) localStorage.removeItem(oldKey);
+  }
+}
 const NHL_RESOLVE_ENDPOINT = "/api/picks/resolve";
 const NBA_RESOLVE_ENDPOINT = "/api/picks/resolve";
 
