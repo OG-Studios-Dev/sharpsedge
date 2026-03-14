@@ -14,7 +14,7 @@ export function scorePropEdge(prop: PlayerProp): RankedProp {
   const hitRate = prop.hitRate ?? 0;
   const impliedProb = prop.impliedProb ?? 0;
   const trendEdge = hitRate - impliedProb;
-  const modeledEdge = prop.edgePct ?? 0;
+  const modeledEdge = (prop.edgePct ?? 0) * 100;
   const confidence = prop.confidence ?? 0;
   const recentForm = prop.confidenceBreakdown?.recentForm ?? 0;
   const matchup = prop.confidenceBreakdown?.matchup ?? 0;

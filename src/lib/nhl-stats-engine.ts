@@ -12,9 +12,10 @@
  *  6. Return ranked list, highest-edge first
  */
 
-import { NHLGame, PlayerProp } from "@/lib/types";
+import { NHLGame, OddsEvent, PlayerProp } from "@/lib/types";
 import { NHL_TEAM_COLORS, getGameGoalies } from "@/lib/nhl-api";
 import type { GoalieStarter } from "@/lib/nhl-api";
+import { getNHLEventOdds, getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -93,6 +94,14 @@ async function getGameLog(playerId: number): Promise<GameLog[]> {
 // ──────────────────────────────────────────────────────────────────────
 
 type StatKey = "points" | "shots" | "assists" | "goals";
+type PropDef = { key: StatKey; label: string; market: string };
+
+const NHL_PROP_DEFS: PropDef[] = [
+  { key: "points", label: "Points", market: "player_points" },
+  { key: "shots", label: "Shots on Goal", market: "player_shots_on_goal" },
+  { key: "goals", label: "Goals", market: "player_goals" },
+  { key: "assists", label: "Assists", market: "player_assists" },
+];
 
 function rollingAvg(logs: GameLog[], key: StatKey, n: number): number | null {
   const slice = logs.slice(0, n);
@@ -118,6 +127,58 @@ function avgTOI(logs: GameLog[], n: number): number {
   return slice.reduce((s, g) => s + toiSeconds(g.toi), 0) / slice.length;
 }
 
+function formatPct(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatAmericanOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function pickBestPropPrice(
+  recentLogs: GameLog[],
+  key: StatKey,
+  modelLine: number,
+  isGoalieBoosted: boolean,
+  oddsOptions: PlayerPropOdds[]
+) {
+  const sampleSize = Math.min(10, recentLogs.length);
+  if (sampleSize < 5) return null;
+
+  const candidates = oddsOptions.length > 0
+    ? oddsOptions
+    : [{ odds: STANDARD_JUICE, book: "Model Line", line: modelLine, impliedProbability: STANDARD_IMPLIED_PROB }];
+
+  let best: {
+    line: number;
+    odds: number;
+    book: string;
+    impliedProbability: number;
+    hitRate: number;
+    edge: number;
+  } | null = null;
+
+  for (const candidate of candidates) {
+    const hits = recentLogs.slice(0, sampleSize).filter((game) => game[key] > candidate.line).length;
+    const baseRate = hits / sampleSize;
+    const baseEdge = baseRate - candidate.impliedProbability;
+    const adjustedEdge = isGoalieBoosted ? baseEdge + 0.10 : baseEdge;
+
+    if (!best || adjustedEdge > best.edge || (adjustedEdge === best.edge && candidate.odds > best.odds)) {
+      best = {
+        line: candidate.line,
+        odds: candidate.odds,
+        book: candidate.book,
+        impliedProbability: candidate.impliedProbability,
+        hitRate: baseRate,
+        edge: adjustedEdge,
+      };
+    }
+  }
+
+  return best;
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Build props for a single player
 // ──────────────────────────────────────────────────────────────────────
@@ -133,6 +194,7 @@ function makeProps(
   isAway: boolean,
   matchup: string,
   gameId: string,
+  oddsEvent?: OddsEvent | null,
   opposingGoalie?: GoalieStarter | null
 ): PlayerProp[] {
   if (logs.length < 5) return [];
@@ -143,47 +205,47 @@ function makeProps(
   if (avgToi < 5 * 60) return []; // skip players with <5min avg TOI (scratches, 4th-liners)
 
   const props: PlayerProp[] = [];
-  const propDefs: { key: StatKey; label: string }[] = [
-    { key: "points", label: "Points" },
-    { key: "shots", label: "Shots on Goal" },
-    { key: "goals", label: "Goals" },
-    { key: "assists", label: "Assists" },
-  ];
 
-  for (const def of propDefs) {
+  for (const def of NHL_PROP_DEFS) {
     const avg5 = rollingAvg(logs, def.key, 5);
     const avg10 = rollingAvg(logs, def.key, 10);
     if (avg5 === null || avg10 === null) continue;
 
     const modelLine = roundToHalf(avg5);
     if (modelLine < 0.5) continue;
-    const line = modelLine;
-
-    const sampleSize = Math.min(10, recentLogs.length);
-    const overHits = recentLogs.slice(0, sampleSize).filter((g) => g[def.key] > line).length;
-    const overRate = overHits / sampleSize;
-    const edge = overRate - STANDARD_IMPLIED_PROB;
 
     // Backup goalie boost: +10% edge for Goals and Shots
     const isGoalieBoosted = opposingGoalie?.isBackup === true && (def.key === "goals" || def.key === "shots");
-    const adjustedEdge = isGoalieBoosted ? edge + 0.10 : edge;
+    const bestMarket = pickBestPropPrice(
+      recentLogs,
+      def.key,
+      modelLine,
+      isGoalieBoosted,
+      getPlayerPropOdds(oddsEvent, def.market, player.name, "Over")
+    );
 
-    if (adjustedEdge <= 0) continue;
-    if (sampleSize < 5) continue;
+    if (!bestMarket || bestMarket.edge <= 0) continue;
 
     const direction: "Over" = "Over";
-    const bestEdge = adjustedEdge;
-    const bestRate = overRate;
+    const bestEdge = bestMarket.edge;
+    const bestRate = bestMarket.hitRate;
+    const line = bestMarket.line;
+    const odds = bestMarket.odds;
+    const book = bestMarket.book;
+    const impliedProbability = bestMarket.impliedProbability;
 
-    const edgePct = Math.round(bestEdge * 100);
+    const edgePct = Number((bestEdge * 100).toFixed(1));
     const confidence =
       Math.abs(bestEdge) > 0.15 ? 90 :
       Math.abs(bestEdge) > 0.10 ? 75 :
       Math.abs(bestEdge) > 0.06 ? 60 : 45;
 
-    const hitRatePct = Math.round(bestRate * 100);
+    const hitRatePct = Number((bestRate * 100).toFixed(1));
 
     const recentGames = recent5.map((g) => g[def.key]);
+    const bookSummary = book !== "Model Line"
+      ? ` Best price: ${book} ${formatAmericanOdds(odds)} at ${line}.`
+      : "";
 
     props.push({
       id: `${gameId}-${player.id}-${def.key}-${direction}`,
@@ -196,8 +258,8 @@ function makeProps(
       propType: def.label,
       line,
       overUnder: direction,
-      odds: STANDARD_JUICE,
-      book: "Model Line",
+      odds,
+      book,
       league: "NHL",
       matchup,
       recommendation: `${direction} ${line} ${def.label}`,
@@ -214,20 +276,20 @@ function makeProps(
       },
       isBackToBack: false,
       recentGames,
-      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${hitRatePct}% in last 10 games. Model edge: +${edgePct}%.${isGoalieBoosted ? " Backup goalie starting — elevated Goals/Shots edge." : ""}`,
+      reasoning: `${player.name} averages ${avg10.toFixed(1)} ${def.label.toLowerCase()} over L10 (${avg5.toFixed(1)} in L5). Hit rate ${direction} ${line}: ${formatPct(bestRate)} over the last ${Math.min(recentLogs.length, 10)} games. Edge vs implied probability: +${edgePct.toFixed(1)}%.${isGoalieBoosted ? " Backup goalie starting — elevated Goals/Shots edge." : ""}${bookSummary}`,
       summary: `${matchup} • ${direction} ${line} ${def.label} • L10 avg ${avg10.toFixed(1)}`,
       saved: false,
-      impliedProb: STANDARD_IMPLIED_PROB,
-      hitRate: hitRatePct,   // stored as 0-100 to match split format and filter comparisons
+      impliedProb: Number((impliedProbability * 100).toFixed(1)),
+      hitRate: hitRatePct,
       edge: bestEdge,
       score: Math.abs(bestEdge) * confidence,
       statsSource: "live-nhl",
       splits: [
         {
-          label: `Hit ${direction} ${line} in ${hitRatePct}% of last 10 games`,
+          label: `Hit ${direction} ${line} in ${hitRatePct.toFixed(1)}% of last ${Math.min(recentLogs.length, 10)} games`,
           hitRate: hitRatePct,
-          hits: Math.round(bestRate * 10),
-          total: 10,
+          hits: Math.round(bestRate * Math.min(recentLogs.length, 10)),
+          total: Math.min(recentLogs.length, 10),
           type: "last_n",
         },
       ],
@@ -236,6 +298,7 @@ function makeProps(
       fairProbability: bestRate,
       fairOdds: null,
       edgePct: bestEdge,
+      gameId,
     });
   }
 
@@ -261,10 +324,11 @@ export async function buildNHLStatsPropFeed(
 
   await Promise.all(
     targetGames.map(async (game) => {
-      const [homeRoster, awayRoster, goalies] = await Promise.all([
+      const [homeRoster, awayRoster, goalies, oddsEvent] = await Promise.all([
         getRosterSkaters(game.homeTeam.abbrev),
         getRosterSkaters(game.awayTeam.abbrev),
         getGameGoalies(game.id).catch(() => ({ gameId: game.id, home: null, away: null })),
+        getNHLEventOdds(game.oddsEventId).catch(() => null),
       ]);
 
       const matchup = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
@@ -292,7 +356,7 @@ export async function buildNHLStatsPropFeed(
             const logs = await getGameLog(player.id);
             const props = makeProps(
               player, logs, team, opponent,
-              isAway, matchup, String(game.id),
+              isAway, matchup, String(game.id), oddsEvent,
               opposingGoalie
             );
             allProps.push(...props);

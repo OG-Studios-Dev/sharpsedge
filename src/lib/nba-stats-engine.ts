@@ -12,8 +12,10 @@
  *  6. Return ranked list, highest-edge first
  */
 
-import { PlayerProp } from "@/lib/types";
+import { OddsEvent, PlayerProp } from "@/lib/types";
 import { NBAGame, getNBABoxscore, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
+import { getNBAEventOdds } from "@/lib/nba-odds";
 
 const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210;
@@ -23,10 +25,10 @@ function roundToHalf(n: number): number {
 }
 
 const NBA_PROP_DEFS = [
-  { key: "points" as const, label: "Points", minLine: 5 },
-  { key: "rebounds" as const, label: "Rebounds", minLine: 2 },
-  { key: "assists" as const, label: "Assists", minLine: 2 },
-  { key: "threePointersMade" as const, label: "3-Pointers Made", minLine: 0.5 },
+  { key: "points" as const, label: "Points", market: "player_points", minLine: 5 },
+  { key: "rebounds" as const, label: "Rebounds", market: "player_rebounds", minLine: 2 },
+  { key: "assists" as const, label: "Assists", market: "player_assists", minLine: 2 },
+  { key: "threePointersMade" as const, label: "3-Pointers Made", market: "player_threes", minLine: 0.5 },
 ];
 
 type StatKey = typeof NBA_PROP_DEFS[number]["key"];
@@ -81,7 +83,53 @@ async function getPlayerRecentStats(
 function computeHitRate(logs: GameStat[], key: StatKey, line: number): number {
   if (!logs.length) return 0;
   const hits = logs.filter(g => g[key] > line).length;
-  return Math.round((hits / logs.length) * 100);
+  return Number(((hits / logs.length) * 100).toFixed(1));
+}
+
+function formatAmericanOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function pickBestPropPrice(
+  logs: GameStat[],
+  key: StatKey,
+  modelLine: number,
+  oddsOptions: PlayerPropOdds[]
+) {
+  const sample = logs.slice(0, 10);
+  if (sample.length < 5) return null;
+
+  const candidates = oddsOptions.length > 0
+    ? oddsOptions
+    : [{ odds: STANDARD_JUICE, book: "Model Line", line: modelLine, impliedProbability: STANDARD_IMPLIED_PROB }];
+
+  let best: {
+    line: number;
+    odds: number;
+    book: string;
+    impliedProbability: number;
+    hitRate: number;
+    edge: number;
+  } | null = null;
+
+  for (const candidate of candidates) {
+    const hits = sample.filter((game) => game[key] > candidate.line).length;
+    const hitRate = hits / sample.length;
+    const edge = hitRate - candidate.impliedProbability;
+
+    if (!best || edge > best.edge || (edge === best.edge && candidate.odds > best.odds)) {
+      best = {
+        line: candidate.line,
+        odds: candidate.odds,
+        book: candidate.book,
+        impliedProbability: candidate.impliedProbability,
+        hitRate,
+        edge,
+      };
+    }
+  }
+
+  return best;
 }
 
 function buildProp(
@@ -93,17 +141,27 @@ function buildProp(
   logs: GameStat[],
   propDef: typeof NBA_PROP_DEFS[number],
   matchup: string,
-  gameId: string
+  gameId: string,
+  eventOdds?: OddsEvent | null
 ): PlayerProp | null {
   const vals = logs.map(g => g[propDef.key]);
   const avg10 = vals.slice(0, 10).reduce((a, b) => a + b, 0) / Math.min(vals.length, 10);
-  const line = Math.max(roundToHalf(avg10), propDef.minLine);
-
-  const hitRate = computeHitRate(logs, propDef.key, line);
+  const modelLine = Math.max(roundToHalf(avg10), propDef.minLine);
   const recentGames = vals.slice(0, 10);
-  const edge = (hitRate / 100) - STANDARD_IMPLIED_PROB;
+  const oddsOptions = getPlayerPropOdds(eventOdds, propDef.market, playerName);
+  const bestMarket = pickBestPropPrice(logs, propDef.key, modelLine, oddsOptions);
+
+  if (!bestMarket) return null;
+
+  const hitRate = Number((bestMarket.hitRate * 100).toFixed(1));
+  const edge = bestMarket.edge;
+  const line = bestMarket.line;
 
   if (edge <= 0) return null;
+
+  const bookSummary = bestMarket.book !== "Model Line"
+    ? ` Best price: ${bestMarket.book} ${formatAmericanOdds(bestMarket.odds)} at ${line}.`
+    : "";
 
   return {
     id: `nba-${team}-${playerName.replace(/\s+/g, "-")}-${propDef.key}`,
@@ -118,12 +176,13 @@ function buildProp(
     line,
     direction: "Over",
     overUnder: "Over",
-    odds: STANDARD_JUICE,
-    impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+    odds: bestMarket.odds,
+    book: bestMarket.book,
+    impliedProb: Number((bestMarket.impliedProbability * 100).toFixed(1)),
     hitRate,
     recentGames,
     edgePct: edge,
-    edge: Math.round(edge * 100),
+    edge,
     fairProbability: hitRate / 100,
     fairOdds: null,
     gameId,
@@ -137,6 +196,8 @@ function buildProp(
       },
     ],
     indicators: [],
+    reasoning: `${playerName} is over ${line} ${propDef.label.toLowerCase()} in ${hitRate.toFixed(1)}% of the last ${Math.min(logs.length, 10)} qualifying games. Edge vs implied probability: +${(edge * 100).toFixed(1)}%.${bookSummary}`,
+    summary: `${matchup} • Over ${line} ${propDef.label} • L10 avg ${avg10.toFixed(1)}`,
   };
 }
 
@@ -154,8 +215,7 @@ export async function buildNBAStatsPropFeed(
   const targetGames = games.slice(0, maxGames);
 
   for (const game of targetGames) {
-    const homeBox = recentGames.filter(g => g.homeTeam.abbreviation === game.homeTeam.abbreviation || g.awayTeam.abbreviation === game.homeTeam.abbreviation).slice(0, 1);
-    const awayBox = recentGames.filter(g => g.homeTeam.abbreviation === game.awayTeam.abbreviation || g.awayTeam.abbreviation === game.awayTeam.abbreviation).slice(0, 1);
+    const eventOdds = await getNBAEventOdds(game.oddsEventId).catch(() => null);
 
     // Get a recent boxscore to discover player names for each team
     const getTopPlayers = async (teamAbbrev: string): Promise<string[]> => {
@@ -197,7 +257,7 @@ export async function buildNBAStatsPropFeed(
       if (logs.length < 5) continue;
       const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
       for (const propDef of NBA_PROP_DEFS) {
-        const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, matchup, game.id);
+        const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, matchup, game.id, eventOdds);
         if (prop) allProps.push(prop);
       }
     }

@@ -55,6 +55,8 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
   const iterationList: Array<{
     homeAbbrev: string; awayAbbrev: string;
     homeMLOdds: number; awayMLOdds: number;
+    homeBook?: string;
+    awayBook?: string;
     matchup: string;
     gameId?: string;
   }> =
@@ -69,12 +71,14 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           .map((g) => ({
             homeAbbrev: g.homeTeam.abbreviation,
             awayAbbrev: g.awayTeam.abbreviation,
-            homeMLOdds: STANDARD_JUICE,
-            awayMLOdds: STANDARD_JUICE,
+            homeMLOdds: g.bestMoneyline?.home?.odds ?? STANDARD_JUICE,
+            awayMLOdds: g.bestMoneyline?.away?.odds ?? STANDARD_JUICE,
+            homeBook: g.bestMoneyline?.home?.book,
+            awayBook: g.bestMoneyline?.away?.book,
             matchup: `${g.awayTeam.abbreviation} @ ${g.homeTeam.abbreviation}`,
             gameId: g.id,
           }))
-      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; matchup: string; gameId?: string }>>((acc, abbrev, i) => {
+      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; matchup: string; gameId?: string }>>((acc, abbrev, i) => {
           if (i % 2 === 0) {
             const opp = abbrevs[i + 1] || "TBD";
             acc.push({ homeAbbrev: abbrev, awayAbbrev: opp, homeMLOdds: STANDARD_JUICE, awayMLOdds: STANDARD_JUICE, matchup: `${opp} @ ${abbrev}`, gameId: undefined });
@@ -82,7 +86,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           return acc;
         }, []);
 
-  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, gameId } of iterationList) {
+  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, homeBook, awayBook, gameId } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
 
@@ -102,6 +106,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         betType: "ML Home Win",
         line: "Home ML",
         odds: homeMLOdds,
+        book: homeBook,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(homeWinRate * 100),
         edge: Math.round(edge * 100),
@@ -138,6 +143,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         betType: "ML Road Win",
         line: "Road ML",
         odds: awayMLOdds,
+        book: awayBook,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(roadWinRate * 100),
         edge: Math.round(edge * 100),
@@ -177,6 +183,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           betType: "ML Streak",
           line: `W${streak.count} streak`,
           odds,
+          book: isAway ? awayBook : homeBook,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: Math.min(100, Math.round((data.winPct * 100) + streak.count * 5)),
           edge: Math.round((data.winPct - STANDARD_IMPLIED_PROB) * 100),

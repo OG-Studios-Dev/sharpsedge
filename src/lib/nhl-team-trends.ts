@@ -53,7 +53,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
   const seenTeams = new Set<string>();
 
   // Build synthetic "game" entries for fallback (no actual game, just standings data)
-  const iterationList: Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; matchup: string; gameId: number }> =
+  const iterationList: Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; matchup: string; gameId: number }> =
     games.length > 0
       ? games
           .filter((g) => {
@@ -67,6 +67,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
             awayAbbrev: g.awayTeam.abbrev,
             homeMLOdds: (g as any).bestMoneyline?.home?.odds ?? STANDARD_JUICE,
             awayMLOdds: (g as any).bestMoneyline?.away?.odds ?? STANDARD_JUICE,
+            homeBook: (g as any).bestMoneyline?.home?.book,
+            awayBook: (g as any).bestMoneyline?.away?.book,
             matchup: `${g.awayTeam.abbrev} @ ${g.homeTeam.abbrev}`,
             gameId: g.id,
           }))
@@ -79,7 +81,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           return acc;
         }, []);
 
-  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, matchup, gameId } of iterationList) {
+  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, homeBook, awayBook, matchup, gameId } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
 
@@ -98,6 +100,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         betType: "ML Home Win",
         line: `Home ML`,
         odds: homeMLOdds,
+        book: homeBook,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(homeWinRate * 100),
         edge: Math.round(edge * 100),
@@ -133,6 +136,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         betType: "ML Road Win",
         line: `Road ML`,
         odds: awayMLOdds,
+        book: awayBook,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(roadWinRate * 100),
         edge: Math.round(edge * 100),
@@ -165,7 +169,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           isAway: false,
           betType: "ML Streak",
           line: `W${streak.count} streak`,
-          odds: STANDARD_JUICE,
+          odds: homeMLOdds,
+          book: homeBook,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: Math.min(100, Math.round((homeData.winPct * 100) + streak.count * 5)),
           edge: Math.round((homeData.winPct - STANDARD_IMPLIED_PROB) * 100),
@@ -197,7 +202,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           isAway: true,
           betType: "ML Streak",
           line: `W${streak.count} streak`,
-          odds: STANDARD_JUICE,
+          odds: awayMLOdds,
+          book: awayBook,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: Math.min(100, Math.round((awayData.winPct * 100) + streak.count * 5)),
           edge: Math.round((awayData.winPct - STANDARD_IMPLIED_PROB) * 100),
@@ -218,9 +224,9 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     }
 
     // Build new analytics for both teams in this game
-    for (const { abbrev, opponentAbbrev, isAway } of [
-      { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false },
-      { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true },
+    for (const { abbrev, opponentAbbrev, isAway, odds, book } of [
+      { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false, odds: homeMLOdds, book: homeBook },
+      { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true, odds: awayMLOdds, book: awayBook },
     ]) {
       const data = standingMap.get(abbrev);
       const recent = recentGamesMap.get(abbrev) || [];
@@ -242,7 +248,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           isAway,
           betType: "Team Goals O/U",
           line: `O/U ${modelLine}`,
-          odds: STANDARD_JUICE,
+          odds,
+          book,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate,
           edge,
@@ -283,7 +290,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           isAway,
           betType: "Team Win ML",
           line: `L10`,
-          odds: STANDARD_JUICE,
+          odds,
+          book,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate,
           edge,
@@ -317,7 +325,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           isAway,
           betType: `H2H ML`,
           line: `vs ${opponentAbbrev}`,
-          odds: STANDARD_JUICE,
+          odds,
+          book,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: h2hHitRate,
           edge: h2hEdge,

@@ -26,16 +26,22 @@ function ResultPill({ result }: { result: AIPick["result"] }) {
 }
 
 function displayHitRate(val: number): string {
-  const pct = val <= 1 ? Math.round(val * 100) : Math.round(val);
-  return `${pct}%`;
+  const pct = Math.abs(val) <= 1 ? val * 100 : val;
+  return `${pct.toFixed(1)}%`;
 }
 
 function displayEdge(val: number): string {
-  const pct = Math.abs(val) <= 1 ? Math.round(val * 100) : Math.round(val);
-  return `${pct > 0 ? "+" : ""}${pct}%`;
+  const pct = Math.abs(val) <= 1 ? val * 100 : val;
+  return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+}
+
+function formatAmericanOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
 function PickCard({ pick }: { pick: AIPick }) {
+  const showBookOdds = Boolean(pick.book && pick.book !== "Model Line");
+
   return (
     <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 space-y-2">
       <div className="flex items-center gap-3">
@@ -65,6 +71,11 @@ function PickCard({ pick }: { pick: AIPick }) {
         <span className="text-[10px] bg-accent-blue/10 text-accent-blue rounded-full px-2 py-0.5 font-medium">
           {displayEdge(pick.edge)} edge
         </span>
+        {showBookOdds && (
+          <span className="text-[10px] bg-dark-bg/70 text-gray-300 rounded-full px-2 py-0.5 font-medium">
+            {pick.book} {formatAmericanOdds(pick.odds)}
+          </span>
+        )}
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
       </div>
 
@@ -121,8 +132,22 @@ function computeRecord(picks: AIPick[]) {
 
 export default function PicksPage() {
   const [league, setLeague] = useLeague();
-  const { todayPicks: nhlToday, allPicks: nhlAll, record: nhlRecord, loadingPicks: nhlLoading } = usePicks();
-  const { todayPicks: nbaToday, allPicks: nbaAll, record: nbaRecord, loadingPicks: nbaLoading } = useNBAPicks();
+  const {
+    todayPicks: nhlToday,
+    allPicks: nhlAll,
+    record: nhlRecord,
+    loadingPicks: nhlLoading,
+    stalePickCount: nhlStalePickCount,
+    clearStalePicks: clearNHLStalePicks,
+  } = usePicks();
+  const {
+    todayPicks: nbaToday,
+    allPicks: nbaAll,
+    record: nbaRecord,
+    loadingPicks: nbaLoading,
+    stalePickCount: nbaStalePickCount,
+    clearStalePicks: clearNBAStalePicks,
+  } = useNBAPicks();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
 
   const todayKey = localTodayKey();
@@ -144,6 +169,11 @@ export default function PicksPage() {
 
   const allFlat = Object.values(activeAll).flat();
   const activeRecord = computeRecord(allFlat);
+  const activeStalePickCount = league === "NBA"
+    ? nbaStalePickCount
+    : league === "All"
+      ? nhlStalePickCount + nbaStalePickCount
+      : nhlStalePickCount;
 
   const loading = league === "NBA" ? nbaLoading : league === "All" ? (nhlLoading || nbaLoading) : nhlLoading;
 
@@ -162,6 +192,19 @@ export default function PicksPage() {
     const resolved = picks.filter((p) => p.result !== "pending");
     if (pastFilter === "all") return resolved;
     return resolved.filter((p) => p.result === pastFilter);
+  }
+
+  function handleClearStalePicks() {
+    if (league === "NBA") {
+      clearNBAStalePicks();
+      return;
+    }
+    if (league === "All") {
+      clearNHLStalePicks();
+      clearNBAStalePicks();
+      return;
+    }
+    clearNHLStalePicks();
   }
 
   return (
@@ -233,6 +276,19 @@ export default function PicksPage() {
                 {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
               </span>
             </div>
+          </div>
+        )}
+        {activeStalePickCount > 0 && (
+          <div className="mt-3 pt-3 border-t border-dark-border/40 flex items-center justify-between gap-3">
+            <p className="text-[11px] text-amber-400">
+              {activeStalePickCount} legacy pending pick{activeStalePickCount === 1 ? "" : "s"} missing a valid game ID.
+            </p>
+            <button
+              onClick={handleClearStalePicks}
+              className="text-[10px] font-semibold uppercase px-3 py-1.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10"
+            >
+              Clear stale picks
+            </button>
           </div>
         )}
       </div>

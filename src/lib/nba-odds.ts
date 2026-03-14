@@ -3,8 +3,11 @@ import { findNBATeamAliases } from "./nba-mappings";
 
 const NBA_ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
+const NBA_FEATURED_MARKETS = "h2h,spreads";
+const NBA_PLAYER_PROP_MARKETS = "player_points,player_rebounds,player_assists,player_threes";
 
 let oddsCache: { data: OddsEvent[]; timestamp: number } | null = null;
+const eventOddsCache = new Map<string, { data: OddsEvent | null; timestamp: number }>();
 
 export async function getNBAOdds(): Promise<OddsEvent[]> {
   if (oddsCache && Date.now() - oddsCache.timestamp < CACHE_TTL) {
@@ -17,7 +20,7 @@ export async function getNBAOdds(): Promise<OddsEvent[]> {
   }
 
   try {
-    const url = `${NBA_ODDS_BASE}/sports/basketball_nba/odds?apiKey=${apiKey}&regions=us&markets=h2h,spreads,player_points,player_rebounds,player_assists,player_threes&oddsFormat=american`;
+    const url = `${NBA_ODDS_BASE}/sports/basketball_nba/odds?apiKey=${apiKey}&regions=us&markets=${NBA_FEATURED_MARKETS}&oddsFormat=american`;
     const res = await fetch(url, { next: { revalidate: 900 } });
     if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
     const data: OddsEvent[] = await res.json();
@@ -25,6 +28,32 @@ export async function getNBAOdds(): Promise<OddsEvent[]> {
     return data;
   } catch {
     return [];
+  }
+}
+
+export async function getNBAEventOdds(eventId?: string): Promise<OddsEvent | null> {
+  if (!eventId) return null;
+
+  const cached = eventOddsCache.get(eventId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const apiKey = process.env.ODDS_API_KEY;
+  if (!apiKey || apiKey === "your_key_here") {
+    return null;
+  }
+
+  try {
+    const url = `${NBA_ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${NBA_PLAYER_PROP_MARKETS}&oddsFormat=american`;
+    const res = await fetch(url, { next: { revalidate: 900 } });
+    if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
+    const data: OddsEvent = await res.json();
+    eventOddsCache.set(eventId, { data, timestamp: Date.now() });
+    return data;
+  } catch {
+    eventOddsCache.set(eventId, { data: null, timestamp: Date.now() });
+    return null;
   }
 }
 

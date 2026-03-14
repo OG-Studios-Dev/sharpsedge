@@ -16,6 +16,7 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 
     return {
       ...game,
+      oddsEventId: event.id,
       bestMoneyline: {
         home: homeOdds,
         away: awayOdds,

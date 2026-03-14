@@ -7,8 +7,8 @@ import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 
 function displayHitRate(val: number): string {
-  const pct = val <= 1 ? Math.round(val * 100) : Math.round(val);
-  return `${pct}%`;
+  const pct = Math.abs(val) <= 1 ? val * 100 : val;
+  return `${pct.toFixed(1)}%`;
 }
 
 function ResultPill({ result }: { result: string }) {

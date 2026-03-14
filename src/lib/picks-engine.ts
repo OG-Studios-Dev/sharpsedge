@@ -5,6 +5,11 @@ import { NBA_TEAM_COLORS } from "@/lib/nba-api";
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
 
+function normalizePercentValue(value?: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.abs(value) <= 1 ? value * 100 : value;
+}
+
 function parseTrendLine(line?: string): number | undefined {
   if (!line) return undefined;
   const match = line.match(/([\d.]+)/);
@@ -40,8 +45,8 @@ function buildTeamPickLabel(trend: TeamTrend): string {
 }
 
 function scoreItem(hitRate?: number, edge?: number): number {
-  const hr = hitRate ?? 0;
-  const e = Math.abs(edge ?? 0);
+  const hr = normalizePercentValue(hitRate);
+  const e = Math.abs(normalizePercentValue(edge));
   return (hr / 100) * 0.6 + (e / 100) * 0.4;
 }
 
@@ -60,14 +65,15 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     line: prop.line,
     direction,
     pickLabel: `${prop.playerName} ${direction} ${prop.line} ${prop.propType}`,
-    edge: prop.edge ?? 0,
-    hitRate: prop.hitRate ?? 0,
+    edge: normalizePercentValue(prop.edge),
+    hitRate: normalizePercentValue(prop.hitRate),
     confidence: prop.confidence ?? Math.round(prop._score * 100),
     reasoning: prop.reasoning || prop.summary || "",
     result: "pending",
     units: 1,
     gameId: prop.gameId,
     odds: prop.odds,
+    book: prop.book,
   };
 }
 
@@ -83,15 +89,66 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     betType: trend.betType,
     line: parseTrendLine(trend.line),
     pickLabel: buildTeamPickLabel(trend),
-    edge: trend.edge ?? 0,
-    hitRate: trend.hitRate ?? 0,
+    edge: normalizePercentValue(trend.edge),
+    hitRate: normalizePercentValue(trend.hitRate),
     confidence: Math.round(scoreItem(trend.hitRate, trend.edge) * 100),
     reasoning: trend.splits?.[0]?.label || "",
     result: "pending",
     units: 1,
     gameId: trend.gameId,
     odds: trend.odds,
+    book: trend.book,
   };
+}
+
+function propVarietyBucket(prop: PlayerProp): string {
+  const propType = (prop.propType || "").toLowerCase();
+  if (propType.includes("shot")) return "shots";
+  if (propType.includes("3-pointer") || propType.includes("three")) return "threes";
+  if (propType.includes("point")) return "points";
+  if (propType.includes("rebound")) return "rebounds";
+  if (propType.includes("assist")) return "assists";
+  if (propType.includes("goal")) return "goals";
+  return propType || prop.id;
+}
+
+function normalizePlayerKey(name?: string): string {
+  return (name || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): ScoredPlayerProp[] {
+  const selected: ScoredPlayerProp[] = [];
+  const usedIds = new Set<string>();
+  const usedBuckets = new Set<string>();
+  const usedPlayers = new Set<string>();
+
+  for (const prop of props) {
+    if (selected.length >= count) break;
+    const bucket = propVarietyBucket(prop);
+    const playerKey = normalizePlayerKey(prop.playerName);
+    if (usedBuckets.has(bucket) || (playerKey && usedPlayers.has(playerKey))) continue;
+
+    selected.push(prop);
+    usedIds.add(prop.id);
+    usedBuckets.add(bucket);
+    if (playerKey) usedPlayers.add(playerKey);
+  }
+
+  if (selected.length >= count) return selected;
+
+  for (const prop of props) {
+    if (selected.length >= count) break;
+    if (usedIds.has(prop.id)) continue;
+
+    const playerKey = normalizePlayerKey(prop.playerName);
+    if (playerKey && usedPlayers.has(playerKey)) continue;
+
+    selected.push(prop);
+    usedIds.add(prop.id);
+    if (playerKey) usedPlayers.add(playerKey);
+  }
+
+  return selected;
 }
 
 export function selectTopPicks(
@@ -110,7 +167,7 @@ export function selectTopPicks(
   const picks: AIPick[] = [];
 
   // Try to pick 2 player props + 1 team trend
-  const playerPicks = scoredProps.slice(0, 2);
+  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
   const teamPicks = scoredTrends.slice(0, 1);
 
   for (const p of playerPicks) {
@@ -127,7 +184,7 @@ export function selectTopPicks(
 
     // Fill from whichever pool has more
     const extraProps = scoredProps
-      .slice(playerPicks.length)
+      .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
       .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
     const extraTrends = scoredTrends
       .slice(teamPicks.length)
@@ -164,7 +221,7 @@ export function selectNBATopPicks(
 
   const picks: AIPick[] = [];
 
-  const playerPicks = scoredProps.slice(0, 2);
+  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
   const teamPicks = scoredTrends.slice(0, 1);
 
   for (const p of playerPicks) {
@@ -185,7 +242,7 @@ export function selectNBATopPicks(
     const usedIds = new Set(picks.map((p) => p.id));
 
     const extraProps = scoredProps
-      .slice(playerPicks.length)
+      .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
       .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
     const extraTrends = scoredTrends
       .slice(teamPicks.length)

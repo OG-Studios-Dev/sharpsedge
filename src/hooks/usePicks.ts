@@ -11,10 +11,69 @@ const NBA_RESOLVE_ENDPOINT = "/api/picks/resolve";
 
 type PickStore = Record<string, AIPick[]>;
 
+function normalizeGameId(gameId?: string) {
+  const normalized = String(gameId ?? "").trim();
+  if (!normalized || normalized === "undefined" || normalized === "null") return undefined;
+  return normalized;
+}
+
+function isResolvableGameId(gameId: string | undefined, league?: string) {
+  if (!gameId) return false;
+  if (!/^\d+$/.test(gameId)) return false;
+  if (league === "NBA") return gameId.length >= 8;
+  return gameId.length >= 9;
+}
+
+function normalizePick(pick: AIPick): AIPick {
+  return {
+    ...pick,
+    gameId: normalizeGameId(pick.gameId),
+    book: typeof pick.book === "string" ? pick.book : undefined,
+  };
+}
+
+function normalizeStore(store: PickStore): { store: PickStore; changed: boolean } {
+  let changed = false;
+  const normalizedEntries = Object.entries(store).map(([date, picks]) => {
+    const normalizedPicks = Array.isArray(picks) ? picks.map(normalizePick) : [];
+    if (normalizedPicks.length !== picks.length || normalizedPicks.some((pick, index) => pick.gameId !== picks[index]?.gameId || pick.book !== picks[index]?.book)) {
+      changed = true;
+    }
+    return [date, normalizedPicks] as const;
+  });
+
+  return {
+    store: Object.fromEntries(normalizedEntries),
+    changed,
+  };
+}
+
+function isStalePendingPick(date: string, pick: AIPick): boolean {
+  return pick.result === "pending"
+    && date < todayKey()
+    && !isResolvableGameId(normalizeGameId(pick.gameId), pick.league);
+}
+
+function countStalePendingPicks(store: PickStore) {
+  return Object.entries(store).reduce((count, [date, picks]) => (
+    count + picks.filter((pick) => isStalePendingPick(date, pick)).length
+  ), 0);
+}
+
+function clearStalePendingPicks(store: PickStore): PickStore {
+  const nextEntries = Object.entries(store).map(([date, picks]) => {
+    const filtered = picks.filter((pick) => !isStalePendingPick(date, pick));
+    return [date, filtered] as const;
+  }).filter(([, picks]) => picks.length > 0);
+
+  return Object.fromEntries(nextEntries);
+}
+
 function loadStore(key: string): PickStore {
   try {
     const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : {};
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
   }
@@ -78,17 +137,30 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
     }
   }, [resolveEndpoint, storageKey]);
 
+  const clearStalePicks = useCallback(() => {
+    setAllPicks((current) => {
+      const next = clearStalePendingPicks(current);
+      saveStore(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
+
   const fetchAndStore = useCallback(async () => {
     setLoadingPicks(true);
     try {
-      const store = loadStore(storageKey);
+      const loaded = loadStore(storageKey);
+      const normalized = normalizeStore(loaded);
+      const store = normalized.store;
+      if (normalized.changed) {
+        saveStore(storageKey, store);
+      }
       if (!store[key]?.length) {
         const res = await fetch(`${fetchEndpoint}?date=${key}`);
         const data = await res.json();
         if (data.picks?.length) {
           const date = data.date || key;
           if (!store[date]?.length) {
-            store[date] = data.picks;
+            store[date] = data.picks.map(normalizePick);
             saveStore(storageKey, store);
           }
         }
@@ -104,7 +176,12 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   }, [fetchEndpoint, key, resolvePending, storageKey]);
 
   useEffect(() => {
-    const store = loadStore(storageKey);
+    const loaded = loadStore(storageKey);
+    const normalized = normalizeStore(loaded);
+    const store = normalized.store;
+    if (normalized.changed) {
+      saveStore(storageKey, store);
+    }
     setAllPicks(store);
 
     if (Object.keys(store).length) {
@@ -116,8 +193,9 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   }, [fetchAndStore, key, resolvePending, storageKey]);
 
   const record = computePickRecord(Object.values(allPicks).flat());
+  const stalePickCount = countStalePendingPicks(allPicks);
 
-  return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore };
+  return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
 }
 
 export function usePicks() {

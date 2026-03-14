@@ -1,7 +1,31 @@
 import { getNBASchedule, getRecentNBAGames } from "@/lib/nba-api";
 import { getNBAOdds } from "@/lib/nba-odds";
+import { getBestOdds } from "@/lib/odds-api";
+import { findNBAOddsForGame } from "@/lib/nba-odds";
 import { buildNBAStatsPropFeed } from "@/lib/nba-stats-engine";
 import { buildNBATeamTrends } from "@/lib/nba-team-trends";
+
+function attachLiveOddsToSchedule(
+  games: Awaited<ReturnType<typeof getNBASchedule>>,
+  events: Awaited<ReturnType<typeof getNBAOdds>>
+) {
+  return games.map((game) => {
+    const event = findNBAOddsForGame(events, game.homeTeam.abbreviation, game.awayTeam.abbreviation);
+    if (!event) return game;
+
+    const homeOdds = getBestOdds(event, "h2h", event.home_team);
+    const awayOdds = getBestOdds(event, "h2h", event.away_team);
+
+    return {
+      ...game,
+      oddsEventId: event.id,
+      bestMoneyline: {
+        home: homeOdds,
+        away: awayOdds,
+      },
+    };
+  });
+}
 
 export async function getNBADashboardData() {
   // Fetch schedule + recent games + odds in parallel
@@ -11,21 +35,23 @@ export async function getNBADashboardData() {
     getNBAOdds(),
   ]);
 
+  const gamesWithOdds = attachLiveOddsToSchedule(schedule, odds);
+
   // Pass recentGames in so stats engine doesn't re-fetch
   const [props, teamTrends] = await Promise.all([
-    buildNBAStatsPropFeed(schedule, { maxGames: 3, maxPlayers: 5, recentGames }),
-    buildNBATeamTrends(schedule),
+    buildNBAStatsPropFeed(gamesWithOdds, { maxGames: 3, maxPlayers: 5, recentGames }),
+    buildNBATeamTrends(gamesWithOdds),
   ]);
 
   return {
-    schedule,
+    schedule: gamesWithOdds,
     props,
     teamTrends,
     odds,
     meta: {
       league: "NBA",
       oddsConnected: odds.length > 0,
-      gamesCount: schedule.length,
+      gamesCount: gamesWithOdds.length,
       propsCount: props.length,
       statsSource: "espn",
     },
@@ -39,9 +65,11 @@ export async function getNBATrendData() {
     getNBAOdds(),
   ]);
 
+  const gamesWithOdds = attachLiveOddsToSchedule(schedule, odds);
+
   const [props, teamTrends] = await Promise.all([
-    buildNBAStatsPropFeed(schedule, { maxGames: 2, maxPlayers: 4, recentGames }),
-    buildNBATeamTrends(schedule),
+    buildNBAStatsPropFeed(gamesWithOdds, { maxGames: 2, maxPlayers: 4, recentGames }),
+    buildNBATeamTrends(gamesWithOdds),
   ]);
 
   return {
@@ -50,7 +78,7 @@ export async function getNBATrendData() {
     meta: {
       league: "NBA",
       oddsConnected: odds.length > 0,
-      gamesCount: schedule.length,
+      gamesCount: gamesWithOdds.length,
       propsCount: props.length,
       statsSource: "espn",
     },

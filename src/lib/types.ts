@@ -116,6 +116,7 @@ export type NHLGame = {
   id: number;
   startTimeUTC: string;
   gameState: string;
+  oddsEventId?: string;
   awayTeam: {
     abbrev: string;
     name?: string;
@@ -145,6 +146,7 @@ export type OddsMarket = {
     name: string;
     price: number;
     point?: number;
+    description?: string;
   }[];
 };
 
@@ -182,5 +184,6 @@ export type AIPick = {
   units: 1;
   gameId?: string;
   odds: number;
+  book?: string;
   league?: string; // "NHL", "NBA", etc.
 };

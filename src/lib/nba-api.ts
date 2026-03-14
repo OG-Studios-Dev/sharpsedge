@@ -46,6 +46,7 @@ export type NBAGame = {
   date: string;               // YYYY-MM-DD
   status: string;             // "Final" | "Live" | "7:30 PM ET"
   statusDetail: string;       // "Final" | "Q4 2:35" | "Halftime"
+  oddsEventId?: string;
   homeTeam: { id: string; abbreviation: string; fullName: string; record: string };
   awayTeam: { id: string; abbreviation: string; fullName: string; record: string };
   homeScore: number | null;
@@ -54,6 +55,10 @@ export type NBAGame = {
   overUnder?: number;         // 224.5
   homeML?: number;            // American odds
   awayML?: number;
+  bestMoneyline?: {
+    home?: { odds: number; book: string } | null;
+    away?: { odds: number; book: string } | null;
+  };
 };
 
 export type NBAPlayerGameLog = {
@@ -231,41 +236,44 @@ export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxsco
     for (const team of teams) {
       const abbrev = team.team?.abbreviation ?? "";
       const isHome = team.homeAway === "home";
-      const statsGroup: any = team.statistics?.[0] ?? {};
-      const labels: string[] = statsGroup.labels ?? [];
-      const athletes: any[] = statsGroup.athletes ?? [];
+      const statGroups: any[] = team.statistics ?? [];
 
-      const getIdx = (label: string) => labels.indexOf(label);
-      const ptIdx = getIdx("PTS");
-      const rebIdx = getIdx("REB");
-      const astIdx = getIdx("AST");
-      const stlIdx = getIdx("STL");
-      const blkIdx = getIdx("BLK");
-      const fgIdx = getIdx("FG");
-      const tpIdx = getIdx("3PT");
-      const minIdx = getIdx("MIN");
-      const pmIdx = getIdx("+/-");
+      for (const statsGroup of statGroups) {
+        const labels: string[] = statsGroup.labels ?? [];
+        const athletes: any[] = statsGroup.athletes ?? [];
 
-      for (const a of athletes) {
-        const stats: string[] = a.stats ?? [];
-        if (!stats.length) continue;
-        const player: NBABoxscorePlayer = {
-          id: a.athlete?.id ?? "",
-          name: a.athlete?.displayName ?? "",
-          teamAbbrev: abbrev,
-          position: a.athlete?.position?.abbreviation ?? "",
-          minutes: minIdx >= 0 ? stats[minIdx] : "0",
-          points: ptIdx >= 0 ? parseInt(stats[ptIdx]) || 0 : 0,
-          rebounds: rebIdx >= 0 ? parseInt(stats[rebIdx]) || 0 : 0,
-          assists: astIdx >= 0 ? parseInt(stats[astIdx]) || 0 : 0,
-          steals: stlIdx >= 0 ? parseInt(stats[stlIdx]) || 0 : 0,
-          blocks: blkIdx >= 0 ? parseInt(stats[blkIdx]) || 0 : 0,
-          fieldGoals: fgIdx >= 0 ? stats[fgIdx] : "0-0",
-          threePointers: tpIdx >= 0 ? stats[tpIdx] : "0-0",
-          plusMinus: pmIdx >= 0 ? stats[pmIdx] : "0",
-        };
-        if (isHome) result.home.push(player);
-        else result.away.push(player);
+        const getIdx = (label: string) => labels.indexOf(label);
+        const ptIdx = getIdx("PTS");
+        const rebIdx = getIdx("REB");
+        const astIdx = getIdx("AST");
+        const stlIdx = getIdx("STL");
+        const blkIdx = getIdx("BLK");
+        const fgIdx = getIdx("FG");
+        const tpIdx = getIdx("3PT");
+        const minIdx = getIdx("MIN");
+        const pmIdx = getIdx("+/-");
+
+        for (const a of athletes) {
+          const stats: string[] = a.stats ?? [];
+          if (!stats.length) continue;
+          const player: NBABoxscorePlayer = {
+            id: a.athlete?.id ?? "",
+            name: a.athlete?.displayName ?? "",
+            teamAbbrev: abbrev,
+            position: a.athlete?.position?.abbreviation ?? "",
+            minutes: minIdx >= 0 ? stats[minIdx] : "0",
+            points: ptIdx >= 0 ? parseInt(stats[ptIdx], 10) || 0 : 0,
+            rebounds: rebIdx >= 0 ? parseInt(stats[rebIdx], 10) || 0 : 0,
+            assists: astIdx >= 0 ? parseInt(stats[astIdx], 10) || 0 : 0,
+            steals: stlIdx >= 0 ? parseInt(stats[stlIdx], 10) || 0 : 0,
+            blocks: blkIdx >= 0 ? parseInt(stats[blkIdx], 10) || 0 : 0,
+            fieldGoals: fgIdx >= 0 ? stats[fgIdx] : "0-0",
+            threePointers: tpIdx >= 0 ? stats[tpIdx] : "0-0",
+            plusMinus: pmIdx >= 0 ? stats[pmIdx] : "0",
+          };
+          if (isHome) result.home.push(player);
+          else result.away.push(player);
+        }
       }
     }
     return result;
@@ -291,7 +299,7 @@ export async function getNBAPlayerGameLog(playerName: string, teamAbbrev: string
       const player = players.find((p) =>
         p.name.toLowerCase().includes(playerName.split(" ").pop()?.toLowerCase() ?? "")
       );
-      if (player && player.points > 0) {
+      if (player) {
         const mins = parseFloat(player.minutes) || 0;
         if (mins < 15) continue; // skip DNP/garbage time
         logs.push({
