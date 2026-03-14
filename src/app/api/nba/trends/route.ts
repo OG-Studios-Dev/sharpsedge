@@ -3,7 +3,7 @@ import { getNBATrendData } from "@/lib/nba-live-data";
 import { TeamTrend } from "@/lib/types";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 
-const TEAM_THRESHOLD = 58; // Team win% — 58%+ is a real edge (matches NHL threshold)
+const TEAM_THRESHOLD = 50; // Show any team trend above coin flip
 
 function teamQualifies(t: TeamTrend): boolean {
   return typeof t.hitRate === "number" && t.hitRate >= TEAM_THRESHOLD;

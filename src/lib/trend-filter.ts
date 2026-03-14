@@ -1,8 +1,8 @@
 import { PlayerProp } from "@/lib/types";
 
-const L10_THRESHOLD = 60;  // 60%+ in last 10
+const L10_THRESHOLD = 50;  // 50%+ in last 10 (above coin flip)
 const L5_MIN_HITS   = 3;   // 3/5 in last 5
-const STREAK_MIN    = 3;   // 3+ consecutive
+const STREAK_MIN    = 2;   // 2+ consecutive
 
 /**
  * Returns true if a prop qualifies as a "trend" by ANY of:

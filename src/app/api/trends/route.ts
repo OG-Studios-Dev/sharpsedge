@@ -3,8 +3,7 @@ import { getLiveTrendData } from "@/lib/live-data";
 import { TeamTrend } from "@/lib/types";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 
-const L10_THRESHOLD = 60;
-const TEAM_THRESHOLD = 58; // Season win % — 70% is too strict, 58%+ is a real edge
+const TEAM_THRESHOLD = 50; // Show any team trend above coin flip
 
 function teamQualifies(t: TeamTrend): boolean {
   return typeof t.hitRate === "number" && t.hitRate >= TEAM_THRESHOLD;
