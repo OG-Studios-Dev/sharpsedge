@@ -211,8 +211,8 @@ function makeProps(
     const avg10 = rollingAvg(logs, def.key, 10);
     if (avg5 === null || avg10 === null) continue;
 
-    const modelLine = roundToHalf(avg5);
-    if (modelLine < 0.5) continue;
+    // Floor-half below average for natural over bias
+    const modelLine = Math.max(Math.floor(avg5 * 2) / 2, 0.5);
 
     // Backup goalie boost: +10% edge for Goals and Shots
     const isGoalieBoosted = opposingGoalie?.isBackup === true && (def.key === "goals" || def.key === "shots");
@@ -224,7 +224,7 @@ function makeProps(
       getPlayerPropOdds(oddsEvent, def.market, player.name, "Over")
     );
 
-    if (!bestMarket || bestMarket.edge <= 0) continue;
+    if (!bestMarket || bestMarket.edge < -0.05) continue;
 
     const direction: "Over" = "Over";
     const bestEdge = bestMarket.edge;

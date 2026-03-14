@@ -146,7 +146,9 @@ function buildProp(
 ): PlayerProp | null {
   const vals = logs.map(g => g[propDef.key]);
   const avg10 = vals.slice(0, 10).reduce((a, b) => a + b, 0) / Math.min(vals.length, 10);
-  const modelLine = Math.max(roundToHalf(avg10), propDef.minLine);
+  // Set line at floor-half below average to create natural over bias
+  // e.g. avg 26.3 → line 25.5, avg 8.0 → line 7.5
+  const modelLine = Math.max(Math.floor(avg10 * 2) / 2, propDef.minLine);
   const recentGames = vals.slice(0, 10);
   const oddsOptions = getPlayerPropOdds(eventOdds, propDef.market, playerName);
   const bestMarket = pickBestPropPrice(logs, propDef.key, modelLine, oddsOptions);
@@ -157,7 +159,8 @@ function buildProp(
   const edge = bestMarket.edge;
   const line = bestMarket.line;
 
-  if (edge <= 0) return null;
+  // Only filter if edge is significantly negative (allow small negative for display)
+  if (edge < -0.05) return null;
 
   const bookSummary = bestMarket.book !== "Model Line"
     ? ` Best price: ${bestMarket.book} ${formatAmericanOdds(bestMarket.odds)} at ${line}.`
