@@ -109,7 +109,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-bold text-white tracking-tight">🪿 TODAY'S GOOSE AI PICKS</h3>
+          <h3 className="text-sm font-bold text-white tracking-tight">TODAY&apos;S TOP PICKS</h3>
           <p className="text-[10px] text-gray-500 mt-0.5">
             {league === "All" ? "All Sports" : league} · 3 picks/day · 1 unit each
           </p>

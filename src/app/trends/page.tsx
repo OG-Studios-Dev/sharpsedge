@@ -1,170 +1,116 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
-import { PlayerProp, TeamTrend } from "@/lib/types";
+import { useSportsDashboards } from "@/hooks/useSportsDashboards";
+import { normalizeSportsLeague } from "@/lib/insights";
+import { qualifiesAsTrend } from "@/lib/trend-filter";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
-import LeagueSelector from "@/components/LeagueSelector";
+import LeagueSwitcher from "@/components/LeagueSwitcher";
 import EmptyStateCard from "@/components/EmptyStateCard";
 
 type Tab = "All" | "Player" | "Team";
 
+const TEAM_THRESHOLD = 50;
+
 export default function TrendsPage() {
   const [league, setLeague] = useLeague();
+  const sportLeague = normalizeSportsLeague(league);
   const [tab, setTab] = useState<Tab>("All");
-  const [propsData, setPropsData] = useState<PlayerProp[]>([]);
-  const [teamTrendsData, setTeamTrendsData] = useState<TeamTrend[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dashboards = useSportsDashboards(sportLeague);
 
-  const [usingFallback, setUsingFallback] = useState(false);
-
-  const isNBA = league === "NBA";
-  const sportIcon = isNBA ? "\u{1F3C0}" : "\u{1F3D2}";
-  const sportLabel = isNBA ? "NBA" : "NHL";
-
-  useEffect(() => {
-    setLoading(true);
-    const trendsEndpoint = isNBA ? "/api/nba/trends" : "/api/trends";
-    const propsEndpoint = isNBA ? "/api/nba/dashboard" : "/api/props";
-    fetch(trendsEndpoint)
-      .then(r => r.json())
-      .then(async (json) => {
-        const trendProps = Array.isArray(json?.props) ? json.props : [];
-        if (Array.isArray(json?.teamTrends)) setTeamTrendsData(json.teamTrends);
-
-        if (trendProps.length > 0) {
-          setPropsData(trendProps);
-          setUsingFallback(false);
-        } else {
-          const fallback = await fetch(propsEndpoint).then(r => r.json()).catch(() => []);
-          const allProps = Array.isArray(fallback) ? fallback : (Array.isArray(fallback?.props) ? fallback.props : []);
-          setPropsData(allProps);
-          setUsingFallback(allProps.length > 0);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [league, isNBA]);
-
-  const filteredProps = propsData.filter((p) => p.league === league);
-  const filteredTeams = teamTrendsData.filter((t) => t.league === league);
+  const filteredProps = useMemo(
+    () => dashboards.props.filter(qualifiesAsTrend),
+    [dashboards.props],
+  );
+  const filteredTeams = useMemo(
+    () => dashboards.teamTrends.filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD),
+    [dashboards.teamTrends],
+  );
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
-
-  const TABS: Tab[] = ["All", "Player", "Team"];
+  const title = sportLeague === "All" ? "NHL + NBA Trends" : `${sportLeague} Trends`;
 
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
-            <h1 className="text-xl font-bold text-white">{sportIcon} {sportLabel} Trends</h1>
-            <p className="text-xs text-gray-500 mt-0.5">60%+ L10 &middot; 3/5 L5 &middot; 3-game streak</p>
+            <h1 className="text-xl font-bold text-white">{title}</h1>
+            <p className="text-xs text-gray-500 mt-0.5">60%+ L10 · 3/5 L5 · current streaks</p>
           </div>
-          <LeagueSelector selected={league} onSelect={setLeague} />
+          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
 
         <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
-          {TABS.map((t) => (
+          {(["All", "Player", "Team"] as Tab[]).map((item) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 min-w-[64px] py-3 text-sm font-medium text-center transition-colors relative flex items-center justify-center gap-1 ${
-                tab === t ? "text-white" : "text-gray-500"
+              key={item}
+              onClick={() => setTab(item)}
+              className={`flex-1 min-w-[64px] py-3 text-sm font-medium text-center transition-colors relative ${
+                tab === item ? "text-white" : "text-gray-500"
               }`}
             >
-              {t}
-              {tab === t && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-blue" />}
+              {item}
+              {tab === item && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent-blue" />}
             </button>
           ))}
         </div>
       </header>
 
-      <div>
-        {tab === "All" && (
-          loading ? (
-            <EmptyStateCard
-              eyebrow="Loading trends"
-              title="Computing hot streaks"
-              body={`Pulling ${sportLabel} player game logs and team records. Takes a few seconds.`}
-            />
-          ) : allEmpty ? (
-            <EmptyStateCard
-              eyebrow="No trends yet"
-              title={`No ${sportLabel} trends hitting 60%+ right now`}
-              body="Check back once recent games are logged. The model needs at least 5 games of data per player."
-            />
-          ) : (
-            <>
-              {usingFallback && (
-                <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
-                  Games in progress — showing all today&apos;s props. 60%+ trends appear after games complete.
+      {dashboards.loading ? (
+        <EmptyStateCard
+          eyebrow="Loading trends"
+          title="Computing the hottest current streaks"
+          body="Pulling live props, recent hit rates, and team trends across the active slate."
+        />
+      ) : tab === "All" ? (
+        allEmpty ? (
+          <EmptyStateCard
+            eyebrow="No trends yet"
+            title="No player or team trends cleared the filter"
+            body="Check back once more live props are available. Trends appear as soon as game logs and current lines line up."
+          />
+        ) : (
+          <>
+            {filteredTeams.length > 0 && (
+              <>
+                <div className="px-4 pt-4 pb-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Team Trends</p>
                 </div>
-              )}
-              {filteredTeams.length > 0 && (
-                <>
-                  <div className="px-4 pt-4 pb-1">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{sportIcon} Team Trends</p>
-                  </div>
-                  {filteredTeams.map((t) => <TeamTrendCard key={t.id} trend={t} />)}
-                </>
-              )}
-              {filteredProps.length > 0 && (
-                <>
-                  <div className="px-4 pt-4 pb-1">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{sportIcon} Player Props</p>
-                  </div>
-                  {filteredProps.map((p) => <PropCard key={p.id} prop={p} />)}
-                </>
-              )}
-            </>
-          )
-        )}
-
-        {tab === "Player" && (
-          loading ? (
-            <EmptyStateCard
-              eyebrow="Loading player trends"
-              title="Pulling player game logs"
-              body={`Computing rolling hit rates from recent ${sportLabel} games.`}
-            />
-          ) : filteredProps.length > 0 ? (
-            <>
-              {usingFallback && (
-                <div className="mx-4 mt-3 mb-1 px-3 py-2 rounded-xl bg-accent-blue/5 border border-accent-blue/20 text-xs text-accent-blue">
-                  Games in progress — showing all today&apos;s props. 60%+ trends appear after games complete.
+                {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+              </>
+            )}
+            {filteredProps.length > 0 && (
+              <>
+                <div className="px-4 pt-4 pb-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Player Props</p>
                 </div>
-              )}
-              {filteredProps.map((p) => <PropCard key={p.id} prop={p} />)}
-            </>
-          ) : (
-            <EmptyStateCard
-              eyebrow="Player trends"
-              title={`No ${sportLabel} player props right now`}
-              body="Check back once today&apos;s slate is posted. Props appear as soon as games are scheduled."
-            />
-          )
-        )}
-
-        {tab === "Team" && (
-          loading ? (
-            <EmptyStateCard
-              eyebrow="Loading team trends"
-              title="Pulling team records"
-              body={`Computing home/road records, ${isNBA ? "points" : "goals"} O/U, and current streaks.`}
-            />
-          ) : filteredTeams.length > 0 ? (
-            filteredTeams.map((t) => <TeamTrendCard key={t.id} trend={t} />)
-          ) : (
-            <EmptyStateCard
-              eyebrow="Team trends"
-              title={`No ${sportLabel} team trends at 60%+ right now`}
-              body="Check back closer to game time."
-            />
-          )
-        )}
-      </div>
+                {filteredProps.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+              </>
+            )}
+          </>
+        )
+      ) : tab === "Player" ? (
+        filteredProps.length > 0 ? (
+          filteredProps.map((prop) => <PropCard key={prop.id} prop={prop} />)
+        ) : (
+          <EmptyStateCard
+            eyebrow="Player trends"
+            title="No player props qualify right now"
+            body="Check back once more live markets are posted. The page will populate automatically."
+          />
+        )
+      ) : filteredTeams.length > 0 ? (
+        filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)
+      ) : (
+        <EmptyStateCard
+          eyebrow="Team trends"
+          title="No team trends qualify right now"
+          body="Team trend cards appear once current schedules and standings create a live edge."
+        />
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLeague } from "@/hooks/useLeague";
+import { normalizeSportsLeague } from "@/lib/insights";
 import LeagueSwitcher from "./LeagueSwitcher";
 import ScheduleBoard from "./ScheduleBoard";
 import NBAScheduleBoard from "./NBAScheduleBoard";
@@ -188,12 +189,13 @@ const VIEW_TABS = ["Schedule", "Standings"] as const;
 
 export default function ScheduleStandingsContent() {
   const [league, setLeague] = useLeague();
+  const sportLeague = normalizeSportsLeague(league);
   const [view, setView] = useState<"Schedule" | "Standings">("Schedule");
 
   return (
     <div className="px-4 py-5 space-y-4">
       {/* League Switcher */}
-      <LeagueSwitcher active={league} onChange={setLeague} />
+      <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 
       {/* Schedule / Standings tabs */}
       <div className="flex rounded-xl bg-dark-surface border border-dark-border p-1">
@@ -207,7 +209,7 @@ export default function ScheduleStandingsContent() {
 
       {/* Content */}
       {view === "Schedule" ? (
-        league === "All" ? (
+        sportLeague === "All" ? (
           <div className="space-y-6">
             <div>
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏒</span> NHL</p>
@@ -218,14 +220,14 @@ export default function ScheduleStandingsContent() {
               <NBAScheduleBoard />
             </div>
           </div>
-        ) : league === "NBA" ? (
+        ) : sportLeague === "NBA" ? (
           <NBAScheduleBoard />
         ) : (
           <ScheduleBoard />
         )
       ) : (
         // Standings
-        league === "All" ? (
+        sportLeague === "All" ? (
           <div className="space-y-8">
             <div>
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏒</span> NHL</p>
@@ -236,7 +238,7 @@ export default function ScheduleStandingsContent() {
               <NBAStandings />
             </div>
           </div>
-        ) : league === "NBA" ? (
+        ) : sportLeague === "NBA" ? (
           <NBAStandings />
         ) : (
           <NHLStandings />

@@ -9,6 +9,7 @@ export async function GET() {
     return NextResponse.json({
       schedule: { games: [], date: new Date().toISOString().slice(0, 10) },
       props: [],
+      teamTrends: [],
       meta: { oddsConnected: false, gamesCount: 0, propsCount: 0, liveOnly: true },
     });
   }

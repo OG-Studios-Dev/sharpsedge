@@ -95,7 +95,7 @@ function GoalieInfo({ goalie }: { goalie: GoalieStarter | null }) {
   );
 }
 
-export default function ScheduleBoard({ compact = false }: { compact?: boolean }) {
+export default function ScheduleBoard({ compact = false, showHeader = true }: { compact?: boolean; showHeader?: boolean }) {
   const [data, setData] = useState<GamesResponse>({ games: [], date: "" });
   const [loading, setLoading] = useState(true);
   const [goalieMap, setGoalieMap] = useState<Record<number, GameGoalies>>({});
@@ -159,19 +159,21 @@ export default function ScheduleBoard({ compact = false }: { compact?: boolean }
 
   return (
     <section className="rounded-3xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <div>
-          <h2 className="text-white font-semibold text-lg">NHL Schedule</h2>
-          <p className="text-xs text-gray-500 mt-1">{compact ? "Today, tomorrow, and next up" : "Today, tomorrow, and the rest of the week"}</p>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <div>
+            <h2 className="text-white font-semibold text-lg">NHL Schedule</h2>
+            <p className="text-xs text-gray-500 mt-1">{compact ? "Today, tomorrow, and next up" : "Today, tomorrow, and the rest of the week"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {data.meta?.oddsConnected ? (
+              <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Live odds connected</span>
+            ) : (
+              <span className="text-[10px] px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-300 border border-yellow-500/20">Schedule only</span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {data.meta?.oddsConnected ? (
-            <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Live odds connected</span>
-          ) : (
-            <span className="text-[10px] px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-300 border border-yellow-500/20">Schedule only</span>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Filters */}
       {!compact && (

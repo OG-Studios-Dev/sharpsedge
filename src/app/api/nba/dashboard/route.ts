@@ -3,12 +3,8 @@ import { getNBADashboardData } from "@/lib/nba-live-data";
 
 export async function GET() {
   try {
-    const key = process.env.BALLDONTLIE_API_KEY;
-    if (!key) {
-      console.warn("BALLDONTLIE_API_KEY not set — NBA data will be empty");
-    }
     const data = await getNBADashboardData();
-    return NextResponse.json({ ...data, apiKeyMissing: !key });
+    return NextResponse.json(data);
   } catch {
     return NextResponse.json({
       schedule: [],

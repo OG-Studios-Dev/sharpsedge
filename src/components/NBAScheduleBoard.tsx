@@ -26,9 +26,9 @@ function sectionTitleFor(dateStr: string) {
   return target.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
-interface Props { compact?: boolean }
+interface Props { compact?: boolean; showHeader?: boolean }
 
-export default function NBAScheduleBoard({ compact }: Props) {
+export default function NBAScheduleBoard({ compact, showHeader = true }: Props) {
   const [games, setGames] = useState<NBAGame[]>([]);
   const [oddsEvents, setOddsEvents] = useState<OddsEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,12 +71,14 @@ export default function NBAScheduleBoard({ compact }: Props) {
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-semibold text-white">NBA Schedule</h3>
-          <p className="text-[11px] text-gray-500 mt-0.5">Today, tomorrow, and next up</p>
+      {showHeader && (
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-white">NBA Schedule</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">Today, tomorrow, and next up</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-2 gap-3">

@@ -88,11 +88,17 @@ export type ParlayLeg = {
   playerName: string;
   team: string;
   teamColor: string;
+  opponent?: string;
   propType: string;
   line: number;
   overUnder: "Over" | "Under";
   odds: number;
   book?: string;
+  hitRate?: number;
+  hits?: number;
+  total?: number;
+  league?: League;
+  gameId?: string;
 };
 
 export type Parlay = {
@@ -110,6 +116,9 @@ export type SGP = {
   splits: TrendSplit[];
   indicators?: TrendIndicator[];
   league: League;
+  gameId?: string;
+  combinedHitRate?: number;
+  legCount?: number;
 };
 
 export type NHLGame = {
