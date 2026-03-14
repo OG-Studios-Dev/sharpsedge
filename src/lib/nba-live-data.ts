@@ -59,6 +59,12 @@ export async function getNBADashboardData() {
       gamesCount: gamesWithOdds.length,
       propsCount: props.length,
       statsSource: "espn",
+      _debug: {
+        totalSchedule: schedule.length,
+        activeGames: gamesWithOdds.length,
+        recentGamesCount: recentGames.length,
+        recentTeams: Array.from(new Set(recentGames.flatMap(g => [g.homeTeam.abbreviation, g.awayTeam.abbreviation]))).length,
+      },
     },
   };
 }

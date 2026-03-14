@@ -214,9 +214,12 @@ export async function buildNBAStatsPropFeed(
   const recentGames: NBAGame[] = opts.recentGames ?? [];
   const allProps: PlayerProp[] = [];
 
+  console.log(`[nba-stats] input: ${games.length} games, ${recentGames.length} recentGames, maxGames=${maxGames}, maxPlayers=${maxPlayers}`);
+
   // Only process non-completed games
   const activeGames = games.filter(g => g.status !== "Final");
   const targetGames = (activeGames.length > 0 ? activeGames : games).slice(0, maxGames);
+  console.log(`[nba-stats] activeGames: ${activeGames.length}, targetGames: ${targetGames.length}`);
 
   // Pre-fetch all discovery boxscores in parallel (1 per team, not 3)
   const allTeamAbbrevs = new Set<string>();
@@ -234,6 +237,7 @@ export async function buildNBAStatsPropFeed(
     );
     if (teamGame) discoveryGameMap.set(abbrev, teamGame);
   }
+  console.log(`[nba-stats] teams: ${Array.from(allTeamAbbrevs).join(',')}, discoveryGames: ${discoveryGameMap.size}`);
 
   // Parallel-fetch all discovery boxscores (one per team)
   const discoveryIds = Array.from(new Set(Array.from(discoveryGameMap.values()).map(g => g.id)));
@@ -278,6 +282,8 @@ export async function buildNBAStatsPropFeed(
       playerTasks.push({ name, team: game.awayTeam.abbreviation, opp: game.homeTeam.abbreviation, isAway: true, matchup, gameId: game.id, oddsEventId: game.oddsEventId });
     }
   }
+
+  console.log(`[nba-stats] playerTasks: ${playerTasks.length} players across ${new Set(playerTasks.map(t=>t.team)).size} teams`);
 
   // Pre-fetch all needed stat boxscores in parallel
   // Find all recent games relevant to any player's team
@@ -355,16 +361,21 @@ export async function buildNBAStatsPropFeed(
   );
 
   // Generate props (no more async — everything is cached)
+  let skippedLowLogs = 0;
+  let skippedNoEdge = 0;
+  let generated = 0;
   for (const task of playerTasks) {
     const logs = getPlayerStatsCached(task.name, task.team);
-    if (logs.length < 3) continue;
+    if (logs.length < 3) { skippedLowLogs++; continue; }
     const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
     const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
     for (const propDef of NBA_PROP_DEFS) {
       const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, task.matchup, task.gameId, eventOdds);
-      if (prop) allProps.push(prop);
+      if (prop) { allProps.push(prop); generated++; }
+      else { skippedNoEdge++; }
     }
   }
+  console.log(`[nba-stats] result: ${generated} props generated, ${skippedLowLogs} players skipped (low logs), ${skippedNoEdge} props skipped (no edge)`);
 
   return allProps.sort((a, b) => (b.edgePct ?? 0) - (a.edgePct ?? 0));
 }
