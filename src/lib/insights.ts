@@ -33,6 +33,8 @@ export type QuickHitterRow = TrendRow & { paceLabel: "1P" | "1Q" | "BAT" | "ARM"
 const MAIN_TEAM_BET_TYPES = new Set([
   "Team Goals O/U",
   "Team Points O/U",
+  "Total Runs O/U",
+  "Run Line",
   "Team Win ML",
   "ML Home Win",
   "ML Road Win",

@@ -51,7 +51,7 @@ async function getFallbackSlate() {
     };
   }
 
-  const latestDate = [...completed].sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null;
+  const latestDate = [...completed].sort((a: MLBGame, b: MLBGame) => b.date.localeCompare(a.date))[0]?.date ?? null;
   if (!latestDate) {
     return {
       season: previousSeason,

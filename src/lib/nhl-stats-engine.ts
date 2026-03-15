@@ -106,13 +106,13 @@ export async function getGameLog(playerId: number): Promise<GameLog[]> {
 // ──────────────────────────────────────────────────────────────────────
 
 type StatKey = "points" | "shots" | "assists" | "goals";
-type PropDef = { key: StatKey; label: string; market: string };
+type PropDef = { key: StatKey; label: string; market: string; minLine: number };
 
 const NHL_PROP_DEFS: PropDef[] = [
-  { key: "points", label: "Points", market: "player_points" },
-  { key: "shots", label: "Shots on Goal", market: "player_shots_on_goal" },
-  { key: "goals", label: "Goals", market: "player_goals" },
-  { key: "assists", label: "Assists", market: "player_assists" },
+  { key: "points", label: "Points", market: "player_points", minLine: 1.5 },
+  { key: "shots", label: "Shots on Goal", market: "player_shots_on_goal", minLine: 2.5 },
+  { key: "goals", label: "Goals", market: "player_goals", minLine: 0.5 },
+  { key: "assists", label: "Assists", market: "player_assists", minLine: 0.5 },
 ];
 
 function rollingAvg(logs: GameLog[], key: StatKey, n: number): number | null {
@@ -215,7 +215,7 @@ function makeProps(
   const trendLogs = logs.slice(0, 20);
   const recent5 = logs.slice(0, 5);
   const avgToi = avgTOI(logs, 10);
-  if (avgToi < 5 * 60) return []; // skip players with <5min avg TOI (scratches, 4th-liners)
+  if (avgToi < 10 * 60) return []; // skip players with <10min avg TOI (scratches, IR, 4th-liners)
 
   const props: PlayerProp[] = [];
 
@@ -224,8 +224,8 @@ function makeProps(
     const avg10 = rollingAvg(logs, def.key, 10);
     if (avg5 === null || avg10 === null) continue;
 
-    // Floor-half below average for natural over bias
-    const modelLine = Math.max(Math.floor(avg5 * 2) / 2, 0.5);
+    // Floor-half below average for natural over bias, enforce minimum per prop type
+    const modelLine = Math.max(Math.floor(avg5 * 2) / 2, def.minLine);
 
     // Backup goalie boost: +10% edge for Goals and Shots
     const isGoalieBoosted = opposingGoalie?.isBackup === true && (def.key === "goals" || def.key === "shots");

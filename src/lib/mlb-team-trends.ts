@@ -37,7 +37,7 @@ function buildRecentGamesMap(games: MLBGame[]) {
   const map = new Map<string, TeamRecentGame[]>();
   const completed = games
     .filter((game) => game.status === "Final")
-    .sort((a, b) => new Date(b.startTimeUTC).getTime() - new Date(a.startTimeUTC).getTime());
+    .sort((a: MLBGame, b: MLBGame) => new Date(b.startTimeUTC).getTime() - new Date(a.startTimeUTC).getTime());
 
   for (const game of completed) {
     const pairs = [
@@ -100,7 +100,7 @@ function buildIterationList(games: MLBGame[], standings: MLBTeamStanding[]) {
   }
 
   const topTeams = [...standings]
-    .sort((a, b) => b.winPct - a.winPct || b.wins - a.wins)
+    .sort((a: MLBTeamStanding, b: MLBTeamStanding) => b.winPct - a.winPct || b.wins - a.wins)
     .slice(0, 12)
     .map((team) => team.teamAbbrev);
 
@@ -399,7 +399,7 @@ export async function buildMLBTeamTrends(
     }
   }
 
-  return trends.sort((a, b) => (
+  return trends.sort((a: TeamTrend, b: TeamTrend) => (
     (b.edge ?? 0) - (a.edge ?? 0)
     || (b.hitRate ?? 0) - (a.hitRate ?? 0)
   ));

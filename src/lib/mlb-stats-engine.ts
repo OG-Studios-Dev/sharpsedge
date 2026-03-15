@@ -251,7 +251,7 @@ function buildProp(
 function getStarterFromBoxscore(players: MLBBoxscorePlayer[]) {
   return [...players]
     .filter((player) => player.isPitcher && player.inningsPitched > 0)
-    .sort((a, b) => (
+    .sort((a: MLBBoxscorePlayer, b: MLBBoxscorePlayer) => (
       b.inningsPitched - a.inningsPitched
       || b.pitchCount - a.pitchCount
       || (a.earnedRuns - b.earnedRuns)
@@ -261,7 +261,7 @@ function getStarterFromBoxscore(players: MLBBoxscorePlayer[]) {
 function getTopHitters(players: MLBBoxscorePlayer[], maxHitters: number) {
   return [...players]
     .filter((player) => !player.isPitcher && (player.atBats > 0 || player.battingOrder))
-    .sort((a, b) => (
+    .sort((a: MLBBoxscorePlayer, b: MLBBoxscorePlayer) => (
       (b.ops ?? 0) - (a.ops ?? 0)
       || (b.avg ?? 0) - (a.avg ?? 0)
       || b.totalBases - a.totalBases
@@ -496,7 +496,7 @@ export async function buildMLBStatsPropFeed(
     }
   }
 
-  return props.sort((a, b) => (
+  return props.sort((a: PlayerProp, b: PlayerProp) => (
     (b.edgePct ?? 0) - (a.edgePct ?? 0)
     || (b.hitRate ?? 0) - (a.hitRate ?? 0)
   ));

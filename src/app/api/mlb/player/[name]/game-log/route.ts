@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       context.params.name,
       req.nextUrl.searchParams.get("playerName"),
     );
-    const team = req.nextUrl.searchParams.get("team") || "";
+    const team = (req.nextUrl.searchParams.get("team") || "").toUpperCase();
     const propType = req.nextUrl.searchParams.get("propType") || "Hits";
     const playerIdParam = req.nextUrl.searchParams.get("playerId");
     const season = Number(req.nextUrl.searchParams.get("season")) || getCurrentMLBSeason();
@@ -65,7 +65,10 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
     }
 
     const group = isPitcherProp(propType) ? "pitching" : "hitting";
-    const logs = await getMLBPlayerGameLog(playerId, season, group);
+    let logs = await getMLBPlayerGameLog(playerId, season, group);
+    if (logs.length === 0 && season > 2000) {
+      logs = await getMLBPlayerGameLog(playerId, season - 1, group);
+    }
 
     return NextResponse.json({
       league: "MLB",

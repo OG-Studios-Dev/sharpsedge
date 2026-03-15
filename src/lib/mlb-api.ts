@@ -5,6 +5,7 @@ import type { MLBGame } from "@/lib/types";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const CACHE_TTL = 15 * 60 * 1000;
 export const MLB_TIME_ZONE = "America/New_York";
+export type { MLBGame };
 
 type CacheEntry<T> = { data: T; timestamp: number };
 const cache = new Map<string, CacheEntry<unknown>>();
@@ -300,7 +301,7 @@ export async function getMLBSchedule(daysAhead = 2): Promise<MLBGame[]> {
       .flatMap((payload) => payload?.dates ?? [])
       .flatMap((dateEntry: any) => dateEntry?.games ?? [])
       .map(parseScheduleGame)
-      .sort((a, b) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
+      .sort((a: MLBGame, b: MLBGame) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
   } catch (error) {
     console.warn("[mlb-api] getMLBSchedule failed:", error);
     return [];
@@ -314,7 +315,7 @@ export async function getMLBScheduleRange(startDate: string, endDate: string): P
     return (data?.dates ?? [])
       .flatMap((entry: any) => entry?.games ?? [])
       .map(parseScheduleGame)
-      .sort((a, b) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
+      .sort((a: MLBGame, b: MLBGame) => new Date(a.startTimeUTC).getTime() - new Date(b.startTimeUTC).getTime());
   } catch (error) {
     console.warn("[mlb-api] getMLBScheduleRange failed:", error);
     return [];
@@ -341,7 +342,7 @@ export async function getRecentMLBGames(daysBack = 10): Promise<MLBGame[]> {
       .flatMap((dateEntry: any) => dateEntry?.games ?? [])
       .map(parseScheduleGame)
       .filter((game) => game.status === "Final")
-      .sort((a, b) => new Date(b.startTimeUTC).getTime() - new Date(a.startTimeUTC).getTime());
+      .sort((a: MLBGame, b: MLBGame) => new Date(b.startTimeUTC).getTime() - new Date(a.startTimeUTC).getTime());
 
     cache.set(cacheKey, { data: games, timestamp: Date.now() });
     return games;
@@ -413,7 +414,7 @@ export async function getMLBStandings(season = new Date().getFullYear()): Promis
       });
     });
 
-    return standings.sort((a, b) => (
+    return standings.sort((a: MLBTeamStanding, b: MLBTeamStanding) => (
       a.league.localeCompare(b.league)
       || a.division.localeCompare(b.division)
       || b.wins - a.wins
