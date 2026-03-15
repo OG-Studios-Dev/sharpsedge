@@ -38,5 +38,6 @@ export function getScheduleDaysAhead(timeZone = APP_TIME_ZONE): number {
     hour12: false,
   }).format(new Date());
   const hour = parseInt(hourStr, 10);
-  return hour >= 23 ? 1 : 0;
+  // After 11 PM or before 6 AM (late night), show tomorrow's games too
+  return (hour >= 23 || hour < 6) ? 1 : 0;
 }
