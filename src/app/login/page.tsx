@@ -82,8 +82,8 @@ function LoginForm() {
   return (
     <main className="min-h-screen bg-dark-bg px-4 py-12 flex items-start justify-center">
       <div className="mx-auto max-w-md w-full space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Goosalytics</h1>
+        <div className="text-center space-y-3">
+          <img src="/logo.jpg" alt="Goosalytics" className="w-48 h-auto mx-auto rounded-2xl" />
           <p className="text-sm text-gray-400">Pickin&apos; Sports Smarter</p>
         </div>
 

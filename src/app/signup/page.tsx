@@ -49,13 +49,11 @@ export default function SignupPage() {
   return (
     <main className="min-h-screen bg-dark-bg px-4 py-8">
       <div className="mx-auto max-w-md space-y-6">
-        <div className="space-y-2">
-          <Link href="/" className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-blue">
-            Goosalytics
-          </Link>
-          <h1 className="text-3xl font-bold text-white">Create account</h1>
+        <div className="text-center space-y-3">
+          <img src="/logo.jpg" alt="Goosalytics" className="w-36 h-auto mx-auto rounded-2xl" />
+          <h1 className="text-2xl font-bold text-white">Create account</h1>
           <p className="text-sm text-gray-400">
-            New accounts are created in Supabase Auth and synced into the `profiles` table.
+            Join Goosalytics — AI-powered sports picks and trends.
           </p>
         </div>
 
