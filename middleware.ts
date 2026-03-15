@@ -8,6 +8,7 @@ const AUTH_ROUTES = new Set(["/login", "/signup"]);
 function isAssetPath(pathname: string) {
   return pathname.startsWith("/_next")
     || pathname.startsWith("/api")
+    || pathname.startsWith("/auth")
     || pathname === "/favicon.ico"
     || pathname === "/manifest.json"
     || pathname.startsWith("/icon-");
