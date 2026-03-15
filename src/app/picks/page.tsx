@@ -10,6 +10,8 @@ import { computePickRecord } from "@/lib/pick-record";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import BookBadge from "@/components/BookBadge";
+import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
 import { getPlayerTrendHrefFromPick } from "@/lib/player-trend";
 
 function ResultPill({ result }: { result: AIPick["result"] }) {
@@ -43,6 +45,19 @@ function formatAmericanOdds(odds: number): string {
 }
 
 function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
+  const bookOdds = sortBookOddsForDisplay(pick.bookOdds || [], pick.line);
+  const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
+    book: pick.book,
+    odds: pick.odds,
+    line: pick.line,
+  });
+  const savings = describeBookSavings(bookOdds, {
+    book: selectedBookOdds?.book ?? pick.book,
+    odds: selectedBookOdds?.odds ?? pick.odds,
+    line: selectedBookOdds?.line ?? pick.line,
+  });
+  const topBooks = bookOdds.slice(0, 3);
+  const showOddsLine = hasAlternateBookLines(bookOdds);
   const showBookOdds = Boolean(pick.book && pick.book !== "Model Line");
   const trendHref = getPlayerTrendHrefFromPick(pick);
   const cardTone = isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border";
@@ -124,6 +139,59 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
               </p>
             </div>
           )}
+
+          <div className="rounded-xl border border-dark-border/40 bg-dark-bg/40 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue">Best Price</p>
+                {selectedBookOdds ? (
+                  <p className="mt-1 text-xs text-gray-300">
+                    {selectedBookOdds.book} {formatAmericanOdds(selectedBookOdds.odds)}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">No live book pricing available</p>
+                )}
+              </div>
+              {selectedBookOdds && (
+                <BookBadge
+                  book={selectedBookOdds.book}
+                  odds={selectedBookOdds.odds}
+                  line={selectedBookOdds.line}
+                  highlight
+                  showLine={showOddsLine}
+                />
+              )}
+            </div>
+
+            {topBooks.length > 0 && (
+              <div className="mt-3 overflow-x-auto pb-1 scrollbar-hide">
+                <div className="flex w-max gap-2">
+                  {topBooks.map((offer) => {
+                    const isBest = selectedBookOdds
+                      ? offer.book === selectedBookOdds.book && offer.odds === selectedBookOdds.odds && offer.line === selectedBookOdds.line
+                      : false;
+
+                    return (
+                      <BookBadge
+                        key={`${offer.book}-${offer.line}-${offer.odds}`}
+                        book={offer.book}
+                        odds={offer.odds}
+                        line={offer.line}
+                        highlight={isBest}
+                        showLine={showOddsLine}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {savings && (
+              <p className="mt-2 text-[11px] text-emerald-300">
+                {savings.best.book} saves you {savings.centsPerDollar}c per dollar vs {savings.comparison.book}
+              </p>
+            )}
+          </div>
 
           {/* Key Stats Grid */}
           <div className="grid grid-cols-3 gap-2">

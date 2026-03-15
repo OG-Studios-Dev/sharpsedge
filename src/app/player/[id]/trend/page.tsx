@@ -2,8 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import BookBadge from "@/components/BookBadge";
 import TeamLogo from "@/components/TeamLogo";
-import { TrendSplit } from "@/lib/types";
+import { BookOdds, TrendSplit } from "@/lib/types";
+import {
+  describeBookSavings,
+  formatAmericanOdds,
+  formatOddsLine,
+  hasAlternateBookLines,
+  resolveSelectedBookOdds,
+  sortBookOddsForDisplay,
+} from "@/lib/book-odds";
 import {
   PlayerTrendGame,
   SupportedTrendLeague,
@@ -21,6 +30,7 @@ type TrendApiResponse = {
   team?: string;
   teamColor?: string;
   headshot?: string | null;
+  oddsComparison?: BookOdds[];
   games: PlayerTrendGame[];
 };
 
@@ -146,6 +156,7 @@ export default function PlayerTrendPage() {
   const queryTeamColor = searchParams.get("teamColor") || "";
   const odds = searchParams.get("odds");
   const book = searchParams.get("book");
+  const oddsEventId = searchParams.get("oddsEventId");
 
   useEffect(() => {
     let cancelled = false;
@@ -157,9 +168,12 @@ export default function PlayerTrendPage() {
       const query = new URLSearchParams();
       if (playerName) query.set("playerName", playerName);
       if (queryTeam) query.set("team", queryTeam);
+      if (opponent) query.set("opponent", opponent);
       const playerId = searchParams.get("playerId");
       if (playerId) query.set("playerId", playerId);
       if (propType) query.set("propType", propType);
+      if (overUnder) query.set("overUnder", overUnder);
+      if (oddsEventId) query.set("oddsEventId", oddsEventId);
       const endpoint = league === "NBA"
         ? `/api/nba/player/${encodeURIComponent(id)}/game-log?${query.toString()}`
         : league === "MLB"
@@ -199,6 +213,24 @@ export default function PlayerTrendPage() {
   const displayTeam = data?.team || queryTeam;
   const matchup = displayTeam && opponent ? `${displayTeam} ${isAway ? "@" : "vs"} ${opponent}` : displayTeam || opponent;
   const formattedOdds = formatTrendOdds(odds ? Number(odds) : null);
+  const oddsComparison = useMemo(() => (
+    sortBookOddsForDisplay(data?.oddsComparison || [], line)
+  ), [data?.oddsComparison, line]);
+  const selectedBookOdds = useMemo(() => (
+    resolveSelectedBookOdds(oddsComparison, {
+      book: book || undefined,
+      odds: odds ? Number(odds) : undefined,
+      line,
+    })
+  ), [book, line, odds, oddsComparison]);
+  const savings = useMemo(() => (
+    describeBookSavings(oddsComparison, {
+      book: selectedBookOdds?.book ?? book ?? undefined,
+      odds: selectedBookOdds?.odds ?? (odds ? Number(odds) : undefined),
+      line: selectedBookOdds?.line ?? line,
+    })
+  ), [book, line, odds, oddsComparison, selectedBookOdds]);
+  const showOddsLine = hasAlternateBookLines(oddsComparison);
 
   const splits = useMemo(() => (
     buildPlayerSplits({
@@ -323,6 +355,73 @@ export default function PlayerTrendPage() {
                   description={signalDescription(split, opponent, isAway)}
                 />
               ))}
+            </section>
+
+            <section className="overflow-hidden rounded-[28px] border border-dark-border bg-dark-surface/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <div className="border-b border-dark-border/80 px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Odds Comparison</p>
+                    <h2 className="mt-1 text-lg font-semibold text-white">{overUnder} {line} {propType}</h2>
+                  </div>
+                  {selectedBookOdds && (
+                    <BookBadge
+                      book={selectedBookOdds.book}
+                      odds={selectedBookOdds.odds}
+                      line={selectedBookOdds.line}
+                      highlight
+                      showLine={showOddsLine}
+                    />
+                  )}
+                </div>
+                {savings && (
+                  <p className="mt-3 text-xs text-emerald-300">
+                    {savings.best.book} saves you {savings.centsPerDollar}c per dollar vs {savings.comparison.book}
+                  </p>
+                )}
+              </div>
+
+              {oddsComparison.length === 0 ? (
+                <div className="px-4 py-10 text-center">
+                  <p className="text-sm font-medium text-white">No odds available</p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    The Odds API does not have a live book price for this prop right now.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="bg-dark-bg/60 text-[11px] uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Book</th>
+                        <th className="px-4 py-3 font-medium">Line</th>
+                        <th className="px-4 py-3 font-medium">Odds</th>
+                        <th className="px-4 py-3 font-medium">Implied Prob</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-dark-border/60">
+                      {oddsComparison.map((offer) => {
+                        const isBest = selectedBookOdds
+                          ? offer.book === selectedBookOdds.book && offer.odds === selectedBookOdds.odds && offer.line === selectedBookOdds.line
+                          : false;
+
+                        return (
+                          <tr key={`${offer.book}-${offer.line}-${offer.odds}`} className={isBest ? "bg-emerald-500/8" : ""}>
+                            <td className="px-4 py-3">
+                              <BookBadge book={offer.book} showOdds={false} />
+                            </td>
+                            <td className="px-4 py-3 text-gray-300">{formatOddsLine(offer.line)}</td>
+                            <td className={`px-4 py-3 font-semibold ${isBest ? "text-emerald-300" : "text-white"}`}>
+                              {formatAmericanOdds(offer.odds)}
+                            </td>
+                            <td className="px-4 py-3 text-gray-300">{(offer.impliedProbability * 100).toFixed(1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <section className="overflow-hidden rounded-[28px] border border-dark-border bg-dark-surface/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">

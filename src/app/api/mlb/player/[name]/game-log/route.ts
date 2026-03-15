@@ -6,6 +6,10 @@ import {
   getMLBPlayerGameLog,
   getMLBTeamRoster,
 } from "@/lib/mlb-api";
+import { getAllPlayerPropOdds } from "@/lib/odds-api";
+import { findMLBOddsForGame, getMLBEventOdds, getMLBOdds } from "@/lib/mlb-odds";
+import { resolvePlayerPropMarket } from "@/lib/player-prop-odds";
+import { BookOdds } from "@/lib/types";
 
 function decodePlayerName(slug: string, fallback?: string | null) {
   if (fallback) return fallback;
@@ -31,17 +35,37 @@ function resolveHeadshot(playerId: number) {
 
 export async function GET(req: NextRequest, context: { params: { name: string } }) {
   try {
+    const searchParams = req.nextUrl.searchParams;
     const playerName = decodePlayerName(
       context.params.name,
-      req.nextUrl.searchParams.get("playerName"),
+      searchParams.get("playerName"),
     );
-    const team = (req.nextUrl.searchParams.get("team") || "").toUpperCase();
-    const propType = req.nextUrl.searchParams.get("propType") || "Hits";
-    const playerIdParam = req.nextUrl.searchParams.get("playerId");
-    const season = Number(req.nextUrl.searchParams.get("season")) || getCurrentMLBSeason();
+    const team = (searchParams.get("team") || "").toUpperCase();
+    const opponent = (searchParams.get("opponent") || "").toUpperCase();
+    const propType = searchParams.get("propType") || "Hits";
+    const overUnder = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
+    const playerIdParam = searchParams.get("playerId");
+    const season = Number(searchParams.get("season")) || getCurrentMLBSeason();
+    const market = resolvePlayerPropMarket("MLB", propType);
 
     if (!playerName || !team) {
       return NextResponse.json({ error: "Missing playerName or team" }, { status: 400 });
+    }
+
+    let oddsComparison: BookOdds[] = [];
+    if (market) {
+      let oddsEventId = searchParams.get("oddsEventId") || "";
+
+      if (!oddsEventId && opponent) {
+        const featuredOdds = await getMLBOdds();
+        const event = findMLBOddsForGame(featuredOdds, team, opponent);
+        oddsEventId = event?.id || "";
+      }
+
+      if (oddsEventId) {
+        const eventOdds = await getMLBEventOdds(oddsEventId);
+        oddsComparison = getAllPlayerPropOdds(eventOdds, market, playerName, overUnder);
+      }
     }
 
     let playerId = Number(playerIdParam) || 0;
@@ -77,6 +101,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       team,
       teamColor: MLB_TEAM_COLORS[team] || "#4a9eff",
       headshot: resolveHeadshot(playerId),
+      oddsComparison,
       games: logs.map((log) => ({
         gameId: log.gameId,
         date: log.gameDate,

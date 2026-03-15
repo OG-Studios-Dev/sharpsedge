@@ -229,12 +229,13 @@ function makeProps(
 
     // Backup goalie boost: +10% edge for Goals and Shots
     const isGoalieBoosted = opposingGoalie?.isBackup === true && (def.key === "goals" || def.key === "shots");
+    const oddsOptions = getPlayerPropOdds(oddsEvent, def.market, player.name, "Over");
     const bestMarket = pickBestPropPrice(
       recentLogs,
       def.key,
       modelLine,
       isGoalieBoosted,
-      getPlayerPropOdds(oddsEvent, def.market, player.name, "Over")
+      oddsOptions
     );
 
     if (!bestMarket || bestMarket.edge < -0.05) continue;
@@ -273,6 +274,7 @@ function makeProps(
       overUnder: direction,
       odds,
       book,
+      bookOdds: oddsOptions,
       league: "NHL",
       matchup,
       recommendation: `${direction} ${line} ${def.label}`,
@@ -317,6 +319,7 @@ function makeProps(
       fairOdds: null,
       edgePct: bestEdge,
       gameId,
+      oddsEventId: oddsEvent?.id,
     });
   }
 

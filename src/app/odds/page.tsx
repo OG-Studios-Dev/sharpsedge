@@ -132,8 +132,7 @@ export default function OddsPage() {
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
-            <h1 className="text-xl font-bold text-white">Lines & Odds</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Best prices, movement & sharp signals</p>
+            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>

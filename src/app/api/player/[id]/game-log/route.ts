@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { NHL_TEAM_COLORS, getTeamRoster } from "@/lib/nhl-api";
+import { getAllPlayerPropOdds, getNHLEventOdds, getNHLOdds, findOddsForGame } from "@/lib/odds-api";
 import { getGameLog } from "@/lib/nhl-stats-engine";
 import { PlayerTrendGame } from "@/lib/player-trend";
+import { resolvePlayerPropMarket } from "@/lib/player-prop-odds";
+import { BookOdds } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -104,6 +107,10 @@ export async function GET(req: Request, context: { params: { id: string } }) {
     const { searchParams } = new URL(req.url);
     const fallbackName = searchParams.get("playerName") || context.params.id.replace(/-/g, " ");
     const fallbackTeam = searchParams.get("team") || "";
+    const opponent = searchParams.get("opponent") || "";
+    const propType = searchParams.get("propType") || "Points";
+    const overUnder = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
+    const market = resolvePlayerPropMarket("NHL", propType);
     const numericId = Number(context.params.id);
     const playerId = Number.isFinite(numericId)
       ? numericId
@@ -113,6 +120,22 @@ export async function GET(req: Request, context: { params: { id: string } }) {
 
     if (!playerId) {
       return NextResponse.json({ error: "Invalid player id" }, { status: 400 });
+    }
+
+    let oddsComparison: BookOdds[] = [];
+    if (market) {
+      let oddsEventId = searchParams.get("oddsEventId") || "";
+
+      if (!oddsEventId && fallbackTeam && opponent) {
+        const featuredOdds = await getNHLOdds();
+        const event = findOddsForGame(featuredOdds, fallbackTeam, opponent);
+        oddsEventId = event?.id || "";
+      }
+
+      if (oddsEventId) {
+        const eventOdds = await getNHLEventOdds(oddsEventId);
+        oddsComparison = getAllPlayerPropOdds(eventOdds, market, fallbackName, overUnder);
+      }
     }
 
     const [landing, logs] = await Promise.all([
@@ -165,6 +188,7 @@ export async function GET(req: Request, context: { params: { id: string } }) {
       team: getTeamAbbrev(landing),
       teamColor: NHL_TEAM_COLORS[getTeamAbbrev(landing)] || "#4a9eff",
       headshot: landing?.headshot || null,
+      oddsComparison,
       games,
     });
   } catch {

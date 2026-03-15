@@ -219,6 +219,7 @@ function buildProp(
     overUnder: "Over",
     odds: bestMarket.odds,
     book: bestMarket.book,
+    bookOdds: oddsOptions,
     impliedProb: Number((bestMarket.impliedProbability * 100).toFixed(1)),
     hitRate,
     edgePct: Number((edge * 100).toFixed(1)),
@@ -226,6 +227,7 @@ function buildProp(
     fairProbability: bestMarket.hitRate,
     fairOdds: null,
     gameId: task.gameId,
+    oddsEventId: eventOdds?.id,
     league: "MLB",
     recentGames,
     splits: buildPlayerSplits({

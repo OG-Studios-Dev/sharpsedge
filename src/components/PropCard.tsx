@@ -5,10 +5,11 @@ import Link from "next/link";
 import { PlayerProp } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import SavePickButton from "./SavePickButton";
-import TrendBadge, { computeBadgeLevel } from "./TrendBadge";
 import { formatOdds } from "@/lib/edge-engine";
 import { getPlayerTrendHrefFromProp } from "@/lib/player-trend";
 import TrendIndicators from "./TrendIndicators";
+import BookBadge from "./BookBadge";
+import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
 
 function EdgeBadge({ edgePct }: { edgePct: number | null | undefined }) {
   if (!edgePct) return null;
@@ -28,6 +29,18 @@ function displayHitRate(val?: number | null): string {
 export default function PropCard({ prop }: { prop: PlayerProp }) {
   const [expanded, setExpanded] = useState(false);
   const hitRate = displayHitRate(prop.hitRate ?? prop.fairProbability);
+  const bookOdds = sortBookOddsForDisplay(prop.bookOdds || [], prop.line);
+  const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
+    book: prop.book,
+    odds: prop.odds,
+    line: prop.line,
+  });
+  const savings = describeBookSavings(bookOdds, {
+    book: selectedBookOdds?.book ?? prop.book,
+    odds: selectedBookOdds?.odds ?? prop.odds,
+    line: selectedBookOdds?.line ?? prop.line,
+  });
+  const showOddsLine = hasAlternateBookLines(bookOdds);
 
   return (
     <div className="mx-3 my-1.5 rounded-2xl border border-dark-border bg-dark-surface/70 overflow-hidden">
@@ -101,6 +114,57 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
           </div>
 
           {/* Splits */}
+          <div className="rounded-xl border border-dark-border/50 bg-dark-bg/35 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-500">Best Lines</p>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  {bookOdds.length > 0 ? "Available books for this prop" : "Live book comparison unavailable"}
+                </p>
+              </div>
+              {selectedBookOdds && (
+                <BookBadge
+                  book={selectedBookOdds.book}
+                  odds={selectedBookOdds.odds}
+                  line={selectedBookOdds.line}
+                  highlight
+                  showLine={showOddsLine}
+                />
+              )}
+            </div>
+
+            {bookOdds.length > 0 && (
+              <>
+                <div className="mt-3 overflow-x-auto pb-1 scrollbar-hide">
+                  <div className="flex w-max gap-2">
+                    {bookOdds.map((offer) => {
+                      const isBest = selectedBookOdds
+                        ? offer.book === selectedBookOdds.book && offer.odds === selectedBookOdds.odds && offer.line === selectedBookOdds.line
+                        : false;
+
+                      return (
+                        <BookBadge
+                          key={`${offer.book}-${offer.line}-${offer.odds}`}
+                          book={offer.book}
+                          odds={offer.odds}
+                          line={offer.line}
+                          highlight={isBest}
+                          showLine={showOddsLine}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {savings && (
+                  <p className="mt-2 text-[11px] text-emerald-300">
+                    {savings.best.book} saves you {savings.centsPerDollar}c per dollar vs {savings.comparison.book}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           {prop.splits.length > 0 && (
             <div className="space-y-0.5">
               {prop.splits.map((split, i) => (

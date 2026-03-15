@@ -192,6 +192,7 @@ function buildProp(
     overUnder: "Over",
     odds: bestMarket.odds,
     book: bestMarket.book,
+    bookOdds: oddsOptions,
     impliedProb: Number((bestMarket.impliedProbability * 100).toFixed(1)),
     hitRate,
     recentGames,
@@ -200,6 +201,7 @@ function buildProp(
     fairProbability: hitRate / 100,
     fairOdds: null,
     gameId,
+    oddsEventId: eventOdds?.id,
     splits: buildPlayerSplits({
       games: trendLogs,
       didHit: (game) => game[propDef.key] > line,

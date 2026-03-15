@@ -1,6 +1,7 @@
 import { PlayerProp, TeamTrend, AIPick } from "@/lib/types";
 import { NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { MLB_TEAM_COLORS } from "@/lib/mlb-api";
+import { formatAmericanOdds, resolveSelectedBookOdds } from "@/lib/book-odds";
 
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
@@ -65,6 +66,13 @@ function buildPlayerReasoning(prop: ScoredPlayerProp): string {
   const last3 = recentGames.slice(0, 3);
   const direction = prop.direction || prop.overUnder || "Over";
   const matchup = prop.isAway ? `@ ${prop.opponent}` : `vs ${prop.opponent}`;
+  const bestBookOdds = resolveSelectedBookOdds(prop.bookOdds || [], {
+    book: prop.book,
+    odds: prop.odds,
+    line: prop.line,
+  });
+  const displayBook = bestBookOdds?.book ?? prop.book;
+  const displayOdds = bestBookOdds?.odds ?? prop.odds;
 
   const parts: string[] = [];
   parts.push(`${prop.playerName} has hit ${direction} ${prop.line} ${prop.propType} in ${hr.toFixed(0)}% of recent games.`);
@@ -81,8 +89,8 @@ function buildPlayerReasoning(prop: ScoredPlayerProp): string {
     parts.push(`Model edge: +${edge.toFixed(1)}% over implied odds.`);
   }
 
-  if (prop.book && prop.book !== "Model Line") {
-    parts.push(`Best price: ${prop.book} ${prop.odds > 0 ? "+" : ""}${prop.odds}.`);
+  if (displayBook && displayBook !== "Model Line" && typeof displayOdds === "number") {
+    parts.push(`Best price: ${displayBook} ${formatAmericanOdds(displayOdds)}.`);
   }
 
   parts.push(`${matchup} today.`);
@@ -94,6 +102,12 @@ function buildTeamReasoning(trend: ScoredTeamTrend): string {
   const edge = normalizePercentValue(trend.edge);
   const matchup = trend.isAway ? `@ ${trend.opponent}` : `vs ${trend.opponent}`;
   const splits = trend.splits || [];
+  const bestBookOdds = resolveSelectedBookOdds(trend.bookOdds || [], {
+    book: trend.book,
+    odds: trend.odds,
+  });
+  const displayBook = bestBookOdds?.book ?? trend.book;
+  const displayOdds = bestBookOdds?.odds ?? trend.odds;
 
   const parts: string[] = [];
   parts.push(`${trend.team} ${trend.betType}: ${hr.toFixed(0)}% hit rate.`);
@@ -104,6 +118,10 @@ function buildTeamReasoning(trend: ScoredTeamTrend): string {
 
   if (edge > 0) {
     parts.push(`Edge: +${edge.toFixed(1)}% over implied.`);
+  }
+
+  if (displayBook && displayBook !== "Model Line" && typeof displayOdds === "number") {
+    parts.push(`Best price: ${displayBook} ${formatAmericanOdds(displayOdds)}.`);
   }
 
   parts.push(`${matchup} today.`);
@@ -118,6 +136,12 @@ function isPickableOdds(odds?: number): boolean {
 
 function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
   const direction = prop.direction || prop.overUnder;
+  const bestBookOdds = resolveSelectedBookOdds(prop.bookOdds || [], {
+    book: prop.book,
+    odds: prop.odds,
+    line: prop.line,
+  });
+
   return {
     id: `pick-${prop.id}-${date}`,
     date,
@@ -139,13 +163,20 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     result: "pending",
     units: 1,
     gameId: prop.gameId,
-    odds: prop.odds,
-    book: prop.book,
+    oddsEventId: prop.oddsEventId,
+    odds: bestBookOdds?.odds ?? prop.odds,
+    book: bestBookOdds?.book ?? prop.book,
+    bookOdds: prop.bookOdds,
     league: prop.league,
   };
 }
 
 function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
+  const bestBookOdds = resolveSelectedBookOdds(trend.bookOdds || [], {
+    book: trend.book,
+    odds: trend.odds,
+  });
+
   return {
     id: `pick-${trend.id}-${date}`,
     date,
@@ -164,8 +195,9 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     result: "pending",
     units: 1,
     gameId: trend.gameId,
-    odds: trend.odds,
-    book: trend.book,
+    odds: bestBookOdds?.odds ?? trend.odds,
+    book: bestBookOdds?.book ?? trend.book,
+    bookOdds: trend.bookOdds,
     league: trend.league,
   };
 }

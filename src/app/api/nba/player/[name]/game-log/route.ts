@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNBAPlayerGameLog, getRecentNBAGames, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { getAllPlayerPropOdds } from "@/lib/odds-api";
+import { findNBAOddsForGame, getNBAEventOdds, getNBAOdds } from "@/lib/nba-odds";
+import { resolvePlayerPropMarket } from "@/lib/player-prop-odds";
+import { BookOdds } from "@/lib/types";
 
 function decodePlayerName(slug: string, fallback?: string | null) {
   if (fallback) return fallback;
@@ -15,14 +19,35 @@ function formatMinutesPlayed(minutesPlayed: number) {
 
 export async function GET(req: NextRequest, context: { params: { name: string } }) {
   try {
+    const searchParams = req.nextUrl.searchParams;
     const playerName = decodePlayerName(
       context.params.name,
-      req.nextUrl.searchParams.get("playerName")
+      searchParams.get("playerName")
     );
-    const team = req.nextUrl.searchParams.get("team") || "";
+    const team = searchParams.get("team") || "";
+    const opponent = searchParams.get("opponent") || "";
+    const propType = searchParams.get("propType") || "Points";
+    const overUnder = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
+    const market = resolvePlayerPropMarket("NBA", propType);
 
     if (!playerName || !team) {
       return NextResponse.json({ error: "Missing playerName or team" }, { status: 400 });
+    }
+
+    let oddsComparison: BookOdds[] = [];
+    if (market) {
+      let oddsEventId = searchParams.get("oddsEventId") || "";
+
+      if (!oddsEventId && opponent) {
+        const featuredOdds = await getNBAOdds();
+        const event = findNBAOddsForGame(featuredOdds, team, opponent);
+        oddsEventId = event?.id || "";
+      }
+
+      if (oddsEventId) {
+        const eventOdds = await getNBAEventOdds(oddsEventId);
+        oddsComparison = getAllPlayerPropOdds(eventOdds, market, playerName, overUnder);
+      }
     }
 
     const recentGames = await getRecentNBAGames(40);
@@ -33,6 +58,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       playerName: logs[0]?.playerName || playerName,
       team,
       teamColor: NBA_TEAM_COLORS[team] || "#4a9eff",
+      oddsComparison,
       games: logs.map((log) => ({
         gameId: log.gameId,
         date: log.gameDate,

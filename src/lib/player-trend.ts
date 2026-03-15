@@ -41,6 +41,7 @@ type PlayerTrendLinkInput = {
   league?: string;
   line?: number;
   odds?: number;
+  oddsEventId?: string;
   opponent?: string;
   overUnder?: "Over" | "Under";
   playerId?: number;
@@ -94,6 +95,7 @@ export function buildPlayerTrendHref(input: PlayerTrendLinkInput): string {
   setIfDefined(params, "book", input.book);
   setIfDefined(params, "isAway", input.isAway);
   setIfDefined(params, "gameId", input.gameId);
+  setIfDefined(params, "oddsEventId", input.oddsEventId);
   setIfDefined(params, "playerId", input.playerId);
 
   const query = params.toString();
@@ -108,6 +110,7 @@ export function getPlayerTrendHrefFromProp(prop: PlayerProp): string {
     league: prop.league,
     line: prop.line,
     odds: prop.odds,
+    oddsEventId: prop.oddsEventId,
     opponent: prop.opponent,
     overUnder: prop.direction || prop.overUnder,
     playerId: prop.playerId,
@@ -133,6 +136,7 @@ export function getPlayerTrendHrefFromPick(pick: AIPick): string | null {
     league: pick.league,
     line: pick.line,
     odds: pick.odds,
+    oddsEventId: pick.oddsEventId,
     opponent: pick.opponent,
     overUnder: pick.direction,
     playerId: pick.playerId,
