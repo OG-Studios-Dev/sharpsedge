@@ -64,7 +64,9 @@ export async function getTodaySchedule(): Promise<ScheduleResponse> {
 
 export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleResponse> {
   try {
-    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
+    // Use date-specific endpoint for reliability (schedule/now can be slow)
+    const today = getDateKey();
+    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/${today}`);
     const gameWeek = Array.isArray(data.gameWeek) ? data.gameWeek.slice(0, days) : [];
     const games: NHLGame[] = gameWeek
       .flatMap((day: any) => day.games || [])
@@ -74,7 +76,7 @@ export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleRes
 
     return {
       games,
-      date: gameWeek[0]?.date || getDateKey(),
+      date: gameWeek[0]?.date || today,
     };
   } catch {
     return { games: [], date: getDateKey() };
@@ -84,7 +86,8 @@ export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleRes
 // Returns recent + upcoming games including completed ones — used for Trends (always has data)
 export async function getBroadSchedule(days: number = 4): Promise<ScheduleResponse> {
   try {
-    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
+    const today = getDateKey();
+    const data = await cachedFetch<any>(`${NHL_BASE}/schedule/${today}`);
     const gameWeek = Array.isArray(data.gameWeek) ? data.gameWeek.slice(0, days) : [];
     const games: NHLGame[] = gameWeek
       .flatMap((day: any) => day.games || [])
