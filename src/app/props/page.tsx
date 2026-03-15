@@ -12,6 +12,10 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 import FilterBar from "@/components/FilterBar";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TrendRow from "@/components/TrendRow";
+import PageHeader from "@/components/PageHeader";
+import LockedFeature from "@/components/LockedFeature";
+import { PropCardSkeleton, TeamTrendCardSkeleton, TrendRowSkeleton } from "@/components/LoadingSkeleton";
+import { getStaggerStyle } from "@/lib/stagger-style";
 
 type ViewType = "Players" | "Team" | "100% Club";
 type SegmentFilter = "full_game" | "first_quarter" | "first_period";
@@ -259,18 +263,6 @@ export default function PropsPage() {
       : []),
   ];
 
-  const loadingTitle = view === "100% Club"
-    ? "Scanning the elite trend board"
-    : view === "Players"
-      ? "Pulling current prop markets"
-      : "Loading team analytics";
-
-  const loadingBody = view === "100% Club"
-    ? "Goosalytics is ranking perfect and near-perfect trends across the live leagues."
-    : view === "Players"
-      ? "Goosalytics is fetching live player markets and scoring today’s slate."
-      : "Goosalytics is pulling live team trends and matchup context.";
-
   const comingSoon = view === "Players" && segment !== "full_game" ? buildComingSoonCopy(segment) : null;
   const isEmpty = view === "Players"
     ? filteredPlayers.length === 0
@@ -281,13 +273,11 @@ export default function PropsPage() {
   if (sportLeague === "PGA") {
     return (
       <div className="mx-auto max-w-6xl">
-        <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-          <div className="flex items-center justify-between px-4 py-3">
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-            <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-          </div>
-          <p className="text-center text-sm font-semibold text-gray-300 pb-1">Props</p>
-        </header>
+        <PageHeader
+          title="Props"
+          subtitle="Player and team market analytics."
+          right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        />
 
         <EmptyStateCard
           eyebrow="PGA"
@@ -302,23 +292,24 @@ export default function PropsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-        </div>
-        <p className="text-center text-sm font-semibold text-gray-300 pb-1">Props</p>
-        <div className="px-4 pb-3">
+      <PageHeader
+        title="Props"
+        subtitle="Player and team market analytics."
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      >
+        <div className="pb-1">
           <FilterBar filters={filters} />
         </div>
-      </header>
+      </PageHeader>
 
       {dashboards.loading ? (
-        <EmptyStateCard
-          eyebrow="Loading live slate"
-          title={loadingTitle}
-          body={loadingBody}
-        />
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="stagger-in" style={getStaggerStyle(index)}>
+              {view === "Players" ? <PropCardSkeleton /> : view === "Team" ? <TeamTrendCardSkeleton /> : <TrendRowSkeleton />}
+            </div>
+          ))}
+        </div>
       ) : comingSoon ? (
         <EmptyStateCard
           eyebrow={comingSoon.eyebrow}
@@ -344,17 +335,31 @@ export default function PropsPage() {
           }
         />
       ) : view === "Players" ? (
-        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
-          {filteredPlayers.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+          {filteredPlayers.map((prop, index) => (
+            <div key={prop.id} className="stagger-in" style={getStaggerStyle(index)}>
+              <PropCard prop={prop} />
+            </div>
+          ))}
         </div>
       ) : view === "Team" ? (
-        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
-          {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+          {filteredTeams.map((trend, index) => (
+            <div key={trend.id} className="stagger-in" style={getStaggerStyle(index)}>
+              <TeamTrendCard trend={trend} />
+            </div>
+          ))}
         </div>
       ) : (
-        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
-          {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
-        </div>
+        <LockedFeature feature="club_100">
+          <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+            {clubRows.map((row, index) => (
+              <div key={row.id} className="stagger-in" style={getStaggerStyle(index)}>
+                <TrendRow row={row} />
+              </div>
+            ))}
+          </div>
+        </LockedFeature>
       )}
     </div>
   );

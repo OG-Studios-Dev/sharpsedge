@@ -13,9 +13,14 @@ import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import BookBadge from "@/components/BookBadge";
+import PageHeader from "@/components/PageHeader";
+import { PickCardSkeleton } from "@/components/LoadingSkeleton";
 import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
 import { getPlayerTrendHrefFromPick } from "@/lib/player-trend";
 import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/date-utils";
+import { useAppChrome } from "@/components/AppChromeProvider";
+import { createDraftFromAIPick } from "@/lib/my-picks";
+import { getStaggerStyle } from "@/lib/stagger-style";
 
 function ResultPill({ result }: { result: AIPick["result"] }) {
   const styles: Record<AIPick["result"], string> = {
@@ -48,6 +53,7 @@ function formatAmericanOdds(odds: number): string {
 }
 
 function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
+  const { openAddPickModal } = useAppChrome();
   const bookOdds = sortBookOddsForDisplay(pick.bookOdds || [], pick.line);
   const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
     book: pick.book,
@@ -119,7 +125,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
   );
 
   return (
-    <div className={`rounded-2xl border bg-dark-surface p-4 space-y-3 transition-all ${cardTone}`}>
+    <div className={`tap-card rounded-2xl border bg-dark-surface p-4 space-y-3 transition-all ${cardTone}`}>
       <div className="flex items-start gap-3">
         <div
           onClick={onToggle}
@@ -138,13 +144,23 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
 
         <div className="flex flex-col items-end gap-2">
           <ResultPill result={pick.result} />
-          <button
-            onClick={onToggle}
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300"
-          >
-            AI
-            <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openAddPickModal(createDraftFromAIPick(pick))}
+              className="tap-button inline-flex h-10 w-10 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
+              aria-label={`Add ${pick.pickLabel} to My Picks`}
+            >
+              +
+            </button>
+            <button
+              onClick={onToggle}
+              className="tap-button inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300"
+            >
+              AI
+              <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -154,7 +170,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           {/* AI Reasoning */}
           {pick.reasoning && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue mb-1.5">🤖 AI Analysis</p>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-accent-blue">AI Analysis</p>
               <p className="text-gray-300 text-xs leading-relaxed">
                 {pick.reasoning}
               </p>
@@ -164,7 +180,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           <div className="rounded-xl border border-dark-border/40 bg-dark-bg/40 p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue">Best Price</p>
+              <p className="meta-label text-accent-blue">Best Price</p>
                 {selectedBookOdds ? (
                   <p className="mt-1 text-xs text-gray-300">
                     {selectedBookOdds.book} {formatAmericanOdds(selectedBookOdds.odds)}
@@ -217,15 +233,15 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           {/* Key Stats Grid */}
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Hit Rate</p>
+              <p className="meta-label">Hit Rate</p>
               <p className="text-accent-green font-bold text-sm mt-0.5">{displayHitRate(pick.hitRate)}</p>
             </div>
             <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Edge</p>
+              <p className="meta-label">Edge</p>
               <p className="text-accent-blue font-bold text-sm mt-0.5">{displayEdge(pick.edge)}</p>
             </div>
             <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Odds</p>
+              <p className="meta-label">Odds</p>
               <p className="text-white font-bold text-sm mt-0.5">{formatAmericanOdds(pick.odds)}</p>
             </div>
           </div>
@@ -233,7 +249,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           {/* Confidence Bar */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Confidence</p>
+              <p className="meta-label">Confidence</p>
               <p className="text-[10px] text-gray-400 font-semibold">{pick.confidence ?? Math.round(pick.hitRate)}%</p>
             </div>
             <div className="h-1.5 bg-dark-bg rounded-full overflow-hidden">
@@ -250,45 +266,26 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           {/* Pick Details */}
           <div className="flex items-center gap-2 flex-wrap">
             {pick.type === "player" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+              <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
                 Player Prop
               </span>
             )}
             {pick.type === "team" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
+              <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
                 Team Trend
               </span>
             )}
             {(selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-                📖 {selectedBookOdds?.book ?? pick.book}
+              <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
+                {selectedBookOdds?.book ?? pick.book}
               </span>
             )}
-            <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-              🎯 1 unit
+            <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
+              1 unit
             </span>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 space-y-3 animate-pulse">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-dark-border" />
-        <div className="flex-1 space-y-1.5">
-          <div className="h-3.5 bg-dark-border rounded w-28" />
-          <div className="h-3 bg-dark-border rounded w-20" />
-        </div>
-      </div>
-      <div className="h-3.5 bg-dark-border rounded w-40" />
-      <div className="flex gap-2">
-        <div className="h-4 bg-dark-border rounded-full w-16" />
-        <div className="h-4 bg-dark-border rounded-full w-16" />
-      </div>
     </div>
   );
 }
@@ -547,20 +544,18 @@ export default function PicksPage() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg px-4 pb-24 pt-6 lg:px-0">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
-        <div className="flex items-center justify-between">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-        </div>
-      </div>
+    <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24 lg:px-0">
+      <PageHeader
+        title="AI Picks"
+        subtitle="Pull to refresh picks"
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      />
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+      <div className="mb-6 grid gap-4 px-4 pt-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-0">
         <Link href="/picks/history">
-          <div className="cursor-pointer rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
+          <div className="tap-card cursor-pointer rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">
+              <p className="section-heading">
                 {sportLeague === "All" ? "Combined" : sportLeague} Season Record
               </p>
               <span className="text-[10px] font-medium text-accent-blue">View History →</span>
@@ -633,7 +628,7 @@ export default function PicksPage() {
                 </p>
                 <button
                   onClick={handleClearStalePicks}
-                  className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase text-amber-300"
+                  className="tap-button rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase text-amber-300"
                 >
                   Clear stale picks
                 </button>
@@ -643,8 +638,17 @@ export default function PicksPage() {
         </Link>
 
         <div>
+          <div className="mb-3 rounded-2xl border border-accent-blue/20 bg-accent-blue/10 p-3">
+            <p className="section-heading text-accent-blue">
+              {sportLeague === "PGA" ? "Tournament board" : "Access"}
+            </p>
+            <p className="mt-1 text-sm text-gray-300">
+              Free users see delayed AI picks. Pro and Sharp unlock the real-time board and live refresh.
+            </p>
+          </div>
+
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-white text-sm font-bold uppercase tracking-wide">
+            <p className="section-heading">
               Today&apos;s AI Picks
             </p>
             <span className="text-[10px] text-gray-500">
@@ -654,9 +658,9 @@ export default function PicksPage() {
 
           {loading ? (
             <div className="space-y-3">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+              <PickCardSkeleton />
+              <PickCardSkeleton />
+              <PickCardSkeleton />
             </div>
           ) : activeToday.length === 0 ? (
             <EmptyStateCard
@@ -668,13 +672,14 @@ export default function PicksPage() {
             />
           ) : (
             <div className="space-y-3">
-              {activeToday.map((pick) => (
-                <PickCard
-                  key={pick.id}
-                  pick={pick}
-                  isExpanded={expandedPickId === pick.id}
-                  onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
-                />
+              {activeToday.map((pick, index) => (
+                <div key={pick.id} className="stagger-in" style={getStaggerStyle(index)}>
+                  <PickCard
+                    pick={pick}
+                    isExpanded={expandedPickId === pick.id}
+                    onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -685,7 +690,7 @@ export default function PicksPage() {
       {allHistoryPicks.length > 0 && (
         <>
           <div className="flex items-center justify-between mb-3 mt-4">
-            <p className="text-white text-sm font-bold uppercase tracking-wide">
+            <p className="section-heading">
               Pick History
             </p>
             <div className="flex gap-1">
@@ -693,7 +698,7 @@ export default function PicksPage() {
                 <button
                   key={f}
                   onClick={() => setPastFilter(f)}
-                  className={`text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full border transition-colors ${
+                  className={`tap-button text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full border transition-colors ${
                     pastFilter === f
                       ? f === "win"
                         ? "bg-accent-green/20 border-accent-green text-accent-green"
@@ -713,7 +718,7 @@ export default function PicksPage() {
 
           {/* Daily grouped history */}
           <div className="space-y-3">
-            {pastDates.map((date) => {
+            {pastDates.map((date, index) => {
               const dayPicks = historyByDate[date] || [];
               const filtered = filterHistoryPicks(dayPicks);
               if (!filtered.length) return null;
@@ -724,7 +729,7 @@ export default function PicksPage() {
               const dailyUnits = dailyRecord.profitUnits;
               const runningUnits = runningUnitsByDate[date] ?? dailyUnits;
               return (
-                <div key={date} className="rounded-2xl border border-dark-border/70 bg-dark-surface/40 overflow-hidden">
+                <div key={date} className="stagger-in overflow-hidden rounded-2xl border border-dark-border/70 bg-dark-surface/40" style={getStaggerStyle(index)}>
                   {/* Day header */}
                   <div className="flex items-center justify-between px-4 py-2.5 bg-dark-bg/40 border-b border-dark-border/40">
                     <div>

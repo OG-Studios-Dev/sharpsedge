@@ -182,6 +182,216 @@ function BestLineSummary({ game }: { game: AggregatedOdds }) {
   );
 }
 
+
+function MovementTab({ games }: { games: AggregatedOdds[] }) {
+  // Detect line movement by comparing odds spread across books
+  // When books disagree significantly, it signals line movement
+  const movements = games.flatMap((game) => {
+    const items: Array<{ game: string; market: string; direction: string; detail: string; severity: "high" | "medium" | "low" }> = [];
+    const books = game.books || [];
+    if (books.length < 2) return items;
+
+    // Check ML spread between books
+    const awayMLs = books.map(b => b.awayML).filter((v): v is number => v != null);
+    const homeMLs = books.map(b => b.homeML).filter((v): v is number => v != null);
+
+    if (awayMLs.length >= 2) {
+      const spread = Math.max(...awayMLs) - Math.min(...awayMLs);
+      if (spread >= 15) {
+        const bestBook = books.find(b => b.awayML === Math.max(...awayMLs));
+        const worstBook = books.find(b => b.awayML === Math.min(...awayMLs));
+        items.push({
+          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+          market: `${game.awayAbbrev} ML`,
+          direction: spread >= 30 ? "📈 Big Move" : "↗️ Moving",
+          detail: `${formatOdds(Math.min(...awayMLs))} → ${formatOdds(Math.max(...awayMLs))} (${spread}¢ spread across books)`,
+          severity: spread >= 30 ? "high" : spread >= 20 ? "medium" : "low",
+        });
+      }
+    }
+
+    if (homeMLs.length >= 2) {
+      const spread = Math.max(...homeMLs) - Math.min(...homeMLs);
+      if (spread >= 15) {
+        items.push({
+          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+          market: `${game.homeAbbrev} ML`,
+          direction: spread >= 30 ? "📈 Big Move" : "↗️ Moving",
+          detail: `${formatOdds(Math.min(...homeMLs))} → ${formatOdds(Math.max(...homeMLs))} (${spread}¢ spread across books)`,
+          severity: spread >= 30 ? "high" : spread >= 20 ? "medium" : "low",
+        });
+      }
+    }
+
+    // Check total spread
+    const totals = books.map(b => b.total).filter((v): v is number => v != null);
+    if (totals.length >= 2) {
+      const unique = Array.from(new Set(totals));
+      if (unique.length > 1) {
+        items.push({
+          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+          market: "Total",
+          direction: "↕️ Split",
+          detail: `Books disagree: ${unique.sort().join(" vs ")}`,
+          severity: "medium",
+        });
+      }
+    }
+
+    return items;
+  }).sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 };
+    return order[a.severity] - order[b.severity];
+  });
+
+  if (movements.length === 0) {
+    return (
+      <EmptyStateCard
+        eyebrow="Movement"
+        title="No significant line movement detected"
+        body="Line movement alerts appear when odds shift significantly across sportsbooks. Check back closer to game time."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Odds discrepancies across books — potential movement signals</p>
+      {movements.map((m, i) => (
+        <div key={i} className={`rounded-xl border px-4 py-3 ${
+          m.severity === "high" ? "border-accent-red/30 bg-accent-red/5" :
+          m.severity === "medium" ? "border-accent-yellow/30 bg-accent-yellow/5" :
+          "border-dark-border bg-dark-surface/70"
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-white">{m.game}</span>
+            <span className={`text-[10px] font-bold uppercase ${
+              m.severity === "high" ? "text-accent-red" : m.severity === "medium" ? "text-accent-yellow" : "text-gray-400"
+            }`}>{m.direction}</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">{m.market}: {m.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SharpTab({ games }: { games: AggregatedOdds[] }) {
+  // Detect sharp signals: when Pinnacle (sharpest book) disagrees with soft books
+  const signals = games.flatMap((game) => {
+    const items: Array<{ game: string; signal: string; detail: string; confidence: "high" | "medium" }> = [];
+    const books = game.books || [];
+    const pinnacle = books.find(b => b.book.toLowerCase().includes("pinnacle"));
+    const softBooks = books.filter(b => !b.book.toLowerCase().includes("pinnacle"));
+
+    if (!pinnacle || softBooks.length === 0) return items;
+
+    // Compare Pinnacle ML vs average soft book ML
+    if (pinnacle.awayML != null) {
+      const softAwayMLs = softBooks.map(b => b.awayML).filter((v): v is number => v != null);
+      if (softAwayMLs.length > 0) {
+        const avgSoft = softAwayMLs.reduce((a, b) => a + b, 0) / softAwayMLs.length;
+        const diff = pinnacle.awayML - avgSoft;
+        if (Math.abs(diff) >= 15) {
+          items.push({
+            game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+            signal: diff > 0 ? `🧠 Sharp on ${game.awayAbbrev}` : `🧠 Sharp against ${game.awayAbbrev}`,
+            detail: `Pinnacle ${formatOdds(pinnacle.awayML)} vs market avg ${formatOdds(Math.round(avgSoft))} (${Math.abs(Math.round(diff))}¢ edge)`,
+            confidence: Math.abs(diff) >= 25 ? "high" : "medium",
+          });
+        }
+      }
+    }
+
+    if (pinnacle.homeML != null) {
+      const softHomeMLs = softBooks.map(b => b.homeML).filter((v): v is number => v != null);
+      if (softHomeMLs.length > 0) {
+        const avgSoft = softHomeMLs.reduce((a, b) => a + b, 0) / softHomeMLs.length;
+        const diff = pinnacle.homeML - avgSoft;
+        if (Math.abs(diff) >= 15) {
+          items.push({
+            game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+            signal: diff > 0 ? `🧠 Sharp on ${game.homeAbbrev}` : `🧠 Sharp against ${game.homeAbbrev}`,
+            detail: `Pinnacle ${formatOdds(pinnacle.homeML)} vs market avg ${formatOdds(Math.round(avgSoft))} (${Math.abs(Math.round(diff))}¢ edge)`,
+            confidence: Math.abs(diff) >= 25 ? "high" : "medium",
+          });
+        }
+      }
+    }
+
+    return items;
+  }).sort((a, b) => (a.confidence === "high" ? 0 : 1) - (b.confidence === "high" ? 0 : 1));
+
+  // Also show best value plays (biggest difference between best and worst odds)
+  const valuePlays = games.flatMap((game) => {
+    const books = game.books || [];
+    if (books.length < 2) return [];
+    const items: Array<{ game: string; side: string; best: string; worst: string; edge: number }> = [];
+
+    const awayMLs = books.map(b => ({ ml: b.awayML, book: b.book })).filter(b => b.ml != null) as Array<{ ml: number; book: string }>;
+    if (awayMLs.length >= 2) {
+      const best = awayMLs.reduce((a, b) => a.ml > b.ml ? a : b);
+      const worst = awayMLs.reduce((a, b) => a.ml < b.ml ? a : b);
+      const edge = best.ml - worst.ml;
+      if (edge >= 10) {
+        items.push({
+          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+          side: game.awayAbbrev || "Away",
+          best: `${shortBookName(best.book)} ${formatOdds(best.ml)}`,
+          worst: `${shortBookName(worst.book)} ${formatOdds(worst.ml)}`,
+          edge,
+        });
+      }
+    }
+
+    return items;
+  }).sort((a, b) => b.edge - a.edge).slice(0, 10);
+
+  return (
+    <div className="space-y-4">
+      {/* Sharp Signals */}
+      <div>
+        <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1 mb-2">🧠 Sharp Book Signals — Pinnacle vs Market</p>
+        {signals.length === 0 ? (
+          <div className="rounded-xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+            <p className="text-xs text-gray-400">No sharp discrepancies detected. Pinnacle is in line with soft books.</p>
+          </div>
+        ) : signals.map((s, i) => (
+          <div key={i} className={`rounded-xl border px-4 py-3 mb-2 ${
+            s.confidence === "high" ? "border-accent-blue/30 bg-accent-blue/5" : "border-dark-border bg-dark-surface/70"
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-white">{s.game}</span>
+              <span className={`text-[10px] font-bold ${s.confidence === "high" ? "text-accent-blue" : "text-gray-400"}`}>
+                {s.confidence === "high" ? "STRONG" : "LEAN"}
+              </span>
+            </div>
+            <p className="text-xs text-accent-blue mt-1">{s.signal}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{s.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Value Plays */}
+      {valuePlays.length > 0 && (
+        <div>
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1 mb-2">💰 Best Value — Biggest Book Spreads</p>
+          {valuePlays.map((v, i) => (
+            <div key={i} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 mb-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-white">{v.game}</span>
+                <span className="text-[10px] font-bold text-emerald-400">SAVE {v.edge}¢</span>
+              </div>
+              <p className="text-xs text-gray-300 mt-1">{v.side}: Best {v.best} vs Worst {v.worst}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function GolfBoard({ tab, golfData }: { tab: Tab; golfData: GolfDashboardData | null }) {
   if (tab !== "Best Lines") {
     return (
@@ -341,14 +551,10 @@ export default function OddsPage() {
           />
         ) : sportLeague === "PGA" ? (
           <GolfBoard tab={tab} golfData={golfData} />
-        ) : tab !== "Best Lines" ? (
-          <EmptyStateCard
-            eyebrow={tab}
-            title="Coming soon"
-            body={tab === "Movement"
-              ? "Line movement needs historical snapshots. This tab will light up once polling is enabled."
-              : "Sharp screening will layer on top of the multi-book feed once we persist sharper-book deltas over time."}
-          />
+        ) : tab === "Movement" ? (
+          <MovementTab games={displayedGames} />
+        ) : tab === "Sharp" ? (
+          <SharpTab games={displayedGames} />
         ) : displayedGames.length === 0 ? (
           <EmptyStateCard
             eyebrow="Best Lines"

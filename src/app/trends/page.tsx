@@ -12,6 +12,10 @@ import EmptyStateCard from "@/components/EmptyStateCard";
 import { TREND_FILTER_OPTIONS } from "@/components/TrendIndicators";
 import FilterBar from "@/components/FilterBar";
 import { hasIndicator } from "@/lib/player-trend";
+import PageHeader from "@/components/PageHeader";
+import { PropCardSkeleton, TeamTrendCardSkeleton } from "@/components/LoadingSkeleton";
+import { useAppChrome } from "@/components/AppChromeProvider";
+import { getStaggerStyle } from "@/lib/stagger-style";
 
 type Tab = "All" | "Player" | "Team";
 type IndicatorType = "goose_lean" | "hot" | "money" | "lock" | "streak";
@@ -65,6 +69,7 @@ function compareBySort(
 export default function TrendsPage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
+  const { viewer } = useAppChrome();
   const [tab, setTab] = useState<Tab>("All");
   const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorType>>(new Set());
 
@@ -111,9 +116,11 @@ export default function TrendsPage() {
       .filter((trend) => matchesIndicatorFilter(trend.indicators))
       .sort((a, b) => compareBySort(a, b, sortBy));
   }, [dashboards.teamTrends, activeIndicators, sortBy]);
+  const isFreeTier = viewer.tier === "free";
+  const limitedProps = isFreeTier ? filteredProps.slice(0, 5) : filteredProps;
+  const limitedTeams = isFreeTier ? filteredTeams.slice(0, 5) : filteredTeams;
 
-  const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
-  const title = sportLeague === "All" ? "NHL + NBA + MLB Trends" : `${sportLeague} Trends`;
+  const allEmpty = limitedProps.length === 0 && limitedTeams.length === 0;
   const filters = [
     {
       label: "Direction",
@@ -158,13 +165,11 @@ export default function TrendsPage() {
   if (sportLeague === "PGA") {
     return (
       <div className="mx-auto max-w-6xl">
-        <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-          <div className="flex items-center justify-between px-4 py-3">
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-            <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-          </div>
-          <p className="text-center text-sm font-semibold text-gray-300 pb-1">Trends</p>
-        </header>
+        <PageHeader
+          title="Trends"
+          subtitle="Live trend cards and model signals."
+          right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        />
 
         <EmptyStateCard
           eyebrow="PGA"
@@ -179,19 +184,17 @@ export default function TrendsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-        </div>
-        <p className="text-center text-sm font-semibold text-gray-300 pb-1">Trends</p>
-
+      <PageHeader
+        title="Trends"
+        subtitle="Live trend cards and model signals."
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      >
         <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
           {(["All", "Player", "Team"] as Tab[]).map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}
-              className={`flex-1 min-w-[64px] py-3 text-sm font-medium text-center transition-colors relative ${
+              className={`tap-button relative flex-1 min-w-[64px] py-3 text-center text-sm font-medium transition-colors ${
                 tab === item ? "text-white" : "text-gray-500"
               }`}
             >
@@ -210,7 +213,7 @@ export default function TrendsPage() {
             <button
               key={opt.type}
               onClick={() => toggleIndicator(opt.type)}
-              className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              className={`tap-button shrink-0 flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                 isActive
                   ? "bg-accent-blue/15 border-accent-blue/40 text-accent-blue"
                   : "border-dark-border text-gray-500 hover:text-gray-300"
@@ -226,14 +229,25 @@ export default function TrendsPage() {
         <div className="px-4 pb-3">
           <FilterBar filters={filters} />
         </div>
-      </header>
+      </PageHeader>
+
+      {isFreeTier && (filteredProps.length > 5 || filteredTeams.length > 5) && (
+        <div className="mx-4 mt-4 rounded-2xl border border-accent-blue/20 bg-accent-blue/10 p-3 lg:mx-0">
+          <p className="section-heading text-accent-blue">Free tier</p>
+          <p className="mt-1 text-sm text-gray-300">
+            Showing the top 5 trend cards. Upgrade to Pro for the full filtered board.
+          </p>
+        </div>
+      )}
 
       {dashboards.loading ? (
-        <EmptyStateCard
-          eyebrow="Loading trends"
-          title="Computing the hottest current streaks"
-          body="Pulling live props, recent hit rates, and team trends across the active slate."
-        />
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="stagger-in" style={getStaggerStyle(index)}>
+              {tab === "Team" ? <TeamTrendCardSkeleton /> : <PropCardSkeleton />}
+            </div>
+          ))}
+        </div>
       ) : tab === "All" ? (
         allEmpty ? (
           <EmptyStateCard
@@ -243,32 +257,36 @@ export default function TrendsPage() {
           />
         ) : (
           <>
-            {filteredTeams.length > 0 && (
+            {limitedTeams.length > 0 && (
               <>
                 <div className="px-4 pt-4 pb-1">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Team Trends</p>
+                  <p className="section-heading">Team Trends</p>
                 </div>
-                <div className="grid gap-3 px-3 pb-3 lg:grid-cols-2">
-                  {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+                <div className="grid gap-3 px-4 pb-3 lg:grid-cols-2 lg:px-0">
+                  {limitedTeams.map((trend, index) => (
+                    <div key={trend.id} className="stagger-in" style={getStaggerStyle(index)}>
+                      <TeamTrendCard trend={trend} />
+                    </div>
+                  ))}
                 </div>
               </>
             )}
-            {filteredProps.length > 0 && (
+            {limitedProps.length > 0 && (
               <>
                 <div className="px-4 pt-4 pb-1">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Player Props</p>
+                  <p className="section-heading">Player Props</p>
                 </div>
-                <div className="grid gap-3 px-3 pb-3 lg:grid-cols-2">
-                  {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
+                <div className="grid gap-3 px-4 pb-3 lg:grid-cols-2 lg:px-0">
+                  {limitedProps.map((prop, index) => <div key={prop.id} className="stagger-in" style={getStaggerStyle(index)}><TrendPropCard prop={prop} /></div>)}
                 </div>
               </>
             )}
           </>
         )
       ) : tab === "Player" ? (
-        filteredProps.length > 0 ? (
-          <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
-            {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
+        limitedProps.length > 0 ? (
+          <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+            {limitedProps.map((prop, index) => <div key={prop.id} className="stagger-in" style={getStaggerStyle(index)}><TrendPropCard prop={prop} /></div>)}
           </div>
         ) : (
           <EmptyStateCard
@@ -277,9 +295,9 @@ export default function TrendsPage() {
             body="Check back once more live markets are posted. The page will populate automatically."
           />
         )
-      ) : filteredTeams.length > 0 ? (
-        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
-          {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+      ) : limitedTeams.length > 0 ? (
+        <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
+          {limitedTeams.map((trend, index) => <div key={trend.id} className="stagger-in" style={getStaggerStyle(index)}><TeamTrendCard trend={trend} /></div>)}
         </div>
       ) : (
         <EmptyStateCard
