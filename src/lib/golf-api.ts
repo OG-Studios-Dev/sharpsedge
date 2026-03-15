@@ -553,7 +553,7 @@ async function getGolfSchedule(tour: GolfTourKey): Promise<GolfTournament[]> {
   }
 }
 
-async function getGolfPlayerTournamentHistory(playerId: string, tour: GolfTourKey, limit = 5): Promise<GolfPlayerHistoryResult[]> {
+async function getGolfPlayerTournamentHistory(playerId: string, tour: GolfTourKey, limit = HISTORY_SCAN_LIMIT): Promise<GolfPlayerHistoryResult[]> {
   if (!playerId) return [];
 
   const scoreboard = await getGolfScoreboard(tour);
@@ -608,6 +608,6 @@ export async function getPGASchedule() {
   return getGolfSchedule("pga");
 }
 
-export async function getPlayerTournamentHistory(playerId: string) {
-  return getGolfPlayerTournamentHistory(playerId, "pga");
+export async function getPlayerTournamentHistory(playerId: string, limit = HISTORY_SCAN_LIMIT) {
+  return getGolfPlayerTournamentHistory(playerId, "pga", limit);
 }

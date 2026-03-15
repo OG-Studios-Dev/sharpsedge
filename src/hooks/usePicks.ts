@@ -121,7 +121,7 @@ async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<A
   }
 }
 
-function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string, timeZone = APP_TIME_ZONE) {
+function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string | null, timeZone = APP_TIME_ZONE) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
 
@@ -129,6 +129,8 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   const todayPicks = allPicks[key] || [];
 
   const resolvePending = useCallback(async (store: PickStore) => {
+    if (!resolveEndpoint) return;
+
     let changed = false;
     const updated = { ...store };
 
@@ -223,5 +225,5 @@ export function useMLBPicks() {
 }
 
 export function useGolfPicks() {
-  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", NBA_RESOLVE_ENDPOINT, APP_TIME_ZONE);
+  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", null, APP_TIME_ZONE);
 }

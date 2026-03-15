@@ -647,7 +647,9 @@ export default function PicksPage() {
             <p className="text-white text-sm font-bold uppercase tracking-wide">
               Today&apos;s AI Picks
             </p>
-            <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
+            <span className="text-[10px] text-gray-500">
+              {sportLeague === "PGA" ? "12 tournament picks · 1u each" : "3 picks · 1u each"}
+            </span>
           </div>
 
           {loading ? (
@@ -661,7 +663,7 @@ export default function PicksPage() {
               eyebrow="AI Picks"
               title={`No ${sportLeague === "All" ? "" : sportLeague + " "}picks today`}
               body={sportLeague === "PGA"
-                ? "Golf picks are intentionally disabled in this build. The live PGA experience currently focuses on leaderboard position, recent form, course history, and outrights."
+                ? "The PGA picks board populates when ESPN posts a field or live leaderboard for the current event."
                 : "Check back when games are scheduled to see today's top AI picks."}
             />
           ) : (

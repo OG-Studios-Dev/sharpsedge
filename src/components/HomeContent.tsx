@@ -6,10 +6,10 @@ import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { buildClubRows, buildQuickHitters, buildSGPSuggestions, buildTrendingRows, normalizeSportsLeague, type QuickHitterRow } from "@/lib/insights";
 import { formatOdds } from "@/lib/edge-engine";
+import type { GolfHeadToHeadPrediction, GolfPrediction, GolfValuePlay } from "@/lib/types";
 import { createBrowserClient } from "@/lib/supabase-client";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
-import GolfPlayerCard from "@/components/GolfPlayerCard";
 import GolfScheduleBoard from "@/components/GolfScheduleBoard";
 import TeamLogo from "@/components/TeamLogo";
 import HomePicksSection from "./HomePicksSection";
@@ -75,29 +75,130 @@ function HomeSection({
   );
 }
 
-function GolfPicksCard({ loading, oddsConnected }: { loading: boolean; oddsConnected: boolean }) {
+function formatProbability(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatSignedProbability(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  const percent = value * 100;
+  return `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`;
+}
+
+function formatAmericanOdds(odds?: number | null) {
+  if (typeof odds !== "number" || !Number.isFinite(odds)) return "—";
+  return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function GolfPredictionBoard({ players }: { players: GolfPrediction[] }) {
   return (
-    <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-      <SectionHeader title="Top Picks" subtitle="Tournament picks lock before round one and are disabled in this build." />
-      {loading ? (
-        <div className="mt-4 h-32 animate-pulse rounded-2xl bg-dark-border/40" />
-      ) : (
-        <div className="mt-4 rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
-          <p className="text-sm font-semibold text-white">PGA picks are disabled for now</p>
-          <p className="mt-2 text-sm text-gray-400">
-            The golf model is running leaderboard, recent-form, course-history, and outright pricing support. Tournament-level picks stay off until lock handling is promoted.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${oddsConnected ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"}`}>
-              {oddsConnected ? "Outrights connected" : "Odds unavailable"}
-            </span>
-            <span className="rounded-full border border-dark-border px-2.5 py-1 text-[11px] font-semibold text-gray-400">
-              Tournament mode only
-            </span>
+    <div className="space-y-2">
+      {players.slice(0, 10).map((player, index) => (
+        <div key={player.id} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-blue/10 text-sm font-semibold text-accent-blue">
+              {index + 1}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-white">{player.name}</p>
+                {player.position && (
+                  <span className="rounded-full border border-dark-border px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                    {player.position}
+                  </span>
+                )}
+                {typeof player.bookOdds === "number" && (
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                    {formatAmericanOdds(player.bookOdds)}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Win {formatProbability(player.modelProb)}</span>
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Top 10 {formatProbability(player.top10Prob)}</span>
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Course Fit {Math.round(player.courseFitScore)}/100</span>
+                <span className={`rounded-full px-2 py-1 font-semibold ${(player.edge ?? 0) > 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-dark-bg/70 text-gray-400"}`}>
+                  Edge {formatSignedProbability(player.edge)}
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Model</p>
+              <p className="mt-1 text-lg font-semibold text-white">{player.combinedScore.toFixed(1)}</p>
+            </div>
           </div>
         </div>
-      )}
-    </section>
+      ))}
+    </div>
+  );
+}
+
+function GolfValueBoard({ valuePicks }: { valuePicks: GolfValuePlay[] }) {
+  return (
+    <div className="space-y-2">
+      {valuePicks.slice(0, 6).map((play) => (
+        <div key={`${play.player.id}-${play.market}`} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{play.player.name}</p>
+              <p className="mt-1 text-xs text-gray-400">{play.market}</p>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Model {formatProbability(play.modelProb)}</span>
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Book {formatProbability(play.bookProb)}</span>
+                <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Fit {Math.round(play.player.courseFitScore)}/100</span>
+              </div>
+            </div>
+            <div className="shrink-0 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-right">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-200/70">Edge</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-300">{formatSignedProbability(play.edge)}</p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GolfMatchupBoard({ matchups }: { matchups: GolfHeadToHeadPrediction[] }) {
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {matchups.slice(0, 6).map((matchup) => (
+        <div key={`${matchup.matchup}-${matchup.book}`} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-white">{matchup.matchup}</p>
+              <p className="mt-1 text-[11px] text-gray-500">{matchup.book}</p>
+            </div>
+            {matchup.disagreement && (
+              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">
+                Model disagreement
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className={`rounded-xl border px-3 py-2 ${matchup.modelPick === matchup.playerA ? "border-emerald-500/30 bg-emerald-500/10" : "border-dark-border/50 bg-dark-bg/50"}`}>
+              <p className="truncate text-[11px] text-gray-400">{matchup.playerA}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{formatAmericanOdds(matchup.playerAOdds)}</p>
+              <p className="mt-1 text-[10px] text-gray-400">Model {formatProbability(matchup.modelProbA)}</p>
+            </div>
+            <div className={`rounded-xl border px-3 py-2 ${matchup.modelPick === matchup.playerB ? "border-emerald-500/30 bg-emerald-500/10" : "border-dark-border/50 bg-dark-bg/50"}`}>
+              <p className="truncate text-[11px] text-gray-400">{matchup.playerB}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{formatAmericanOdds(matchup.playerBOdds)}</p>
+              <p className="mt-1 text-[10px] text-gray-400">Model {formatProbability(matchup.modelProbB)}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded-full bg-dark-bg/70 px-2 py-1 text-gray-300">Pick {matchup.modelPick ?? "Coin flip"}</span>
+            {matchup.valueSide && (
+              <span className="rounded-full bg-emerald-500/10 px-2 py-1 font-semibold text-emerald-300">Value {matchup.valueSide}</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -178,37 +279,75 @@ export default function HomeContent() {
               <GolfLeaderboardCard leaderboard={golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
 
               <HomeSection
-                title="Contender Board"
-                subtitle="Recent form, course history, season profile, and outright prices for the top PGA names on the board."
+                title="Tournament Predictions"
+                subtitle="Model-ranked PGA players using recent form, course history, season profile, live position, and outright context."
               >
                 {dashboards.loading ? (
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-3">
                     {[0, 1, 2, 3].map((item) => (
-                      <div key={item} className="h-72 animate-pulse rounded-2xl bg-dark-border/40" />
+                      <div key={item} className="h-20 animate-pulse rounded-2xl bg-dark-border/40" />
                     ))}
                   </div>
-                ) : (golfDashboard?.playerInsights.length ?? 0) === 0 ? (
+                ) : (golfDashboard?.predictions?.players.length ?? 0) === 0 ? (
                   <EmptyStateCard
-                    eyebrow="Contenders"
-                    title="No player insights loaded yet"
-                    body="Player cards appear once the leaderboard or posted field is available for the current PGA event."
+                    eyebrow="Predictions"
+                    title="No prediction board loaded yet"
+                    body="The model will populate once ESPN posts a field or a live PGA leaderboard for the current event."
                     className="mx-0 mt-0"
                   />
                 ) : (
-                  <div className="grid gap-2">
-                    {golfDashboard?.playerInsights
-                      .filter((p) => p.position !== "CUT" && p.position !== "MC")
-                      .slice(0, 10)
-                      .map((player) => (
-                        <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
+                  <GolfPredictionBoard players={golfDashboard?.predictions?.players ?? []} />
+                )}
+              </HomeSection>
+
+              <HomeSection
+                title="H2H Matchups"
+                subtitle="Available head-to-head markets from books with the model pick and disagreement flags."
+              >
+                {dashboards.loading ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[0, 1].map((item) => (
+                      <div key={item} className="h-40 animate-pulse rounded-2xl bg-dark-border/40" />
                     ))}
                   </div>
+                ) : (golfDashboard?.predictions?.h2hMatchups.length ?? 0) === 0 ? (
+                  <EmptyStateCard
+                    eyebrow="H2H"
+                    title="No matchups on the board"
+                    body="This section populates when The Odds API has PGA head-to-head prices for the current event."
+                    className="mx-0 mt-0"
+                  />
+                ) : (
+                  <GolfMatchupBoard matchups={golfDashboard?.predictions?.h2hMatchups ?? []} />
                 )}
               </HomeSection>
             </div>
 
             <div className="space-y-5">
-              <GolfPicksCard loading={dashboards.loading} oddsConnected={Boolean(golfDashboard?.meta.oddsConnected)} />
+              <HomePicksSection league="PGA" />
+
+              <HomeSection
+                title="Best Value Picks"
+                subtitle="Highest positive edges on free-data outright and placement proxies."
+              >
+                {dashboards.loading ? (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((item) => (
+                      <div key={item} className="h-24 animate-pulse rounded-2xl bg-dark-border/40" />
+                    ))}
+                  </div>
+                ) : (golfDashboard?.predictions?.bestValuePicks.length ?? 0) === 0 ? (
+                  <EmptyStateCard
+                    eyebrow="Value"
+                    title="No positive edges yet"
+                    body="Value picks appear when the model outruns the current outright board or the derived placement baseline."
+                    className="mx-0 mt-0"
+                  />
+                ) : (
+                  <GolfValueBoard valuePicks={golfDashboard?.predictions?.bestValuePicks ?? []} />
+                )}
+              </HomeSection>
+
               <GolfScheduleBoard tournaments={golfDashboard?.schedule ?? []} loading={dashboards.loading} showHeader />
             </div>
           </div>

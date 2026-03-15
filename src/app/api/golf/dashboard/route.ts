@@ -13,6 +13,7 @@ export async function GET() {
       schedule: [],
       playerInsights: [],
       odds: null,
+      predictions: null,
       meta: {
         league: "PGA",
         oddsConnected: false,

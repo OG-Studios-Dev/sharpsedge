@@ -149,7 +149,9 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
         <div>
           <h3 className="text-sm font-bold text-white tracking-tight">TODAY&apos;S TOP PICKS</h3>
           <p className="text-[10px] text-gray-500 mt-0.5">
-            {league === "All" ? "All Sports" : league} · 3 picks/day · 1 unit each
+            {league === "PGA"
+              ? "PGA · 12 tournament picks · 1 unit each"
+              : `${league === "All" ? "All Sports" : league} · 3 picks/day · 1 unit each`}
           </p>
         </div>
         <Link href="/picks" className="text-xs text-accent-blue font-medium">View all →</Link>
@@ -198,15 +200,16 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
               <div key={i} className="h-12 rounded-xl bg-dark-border/40 animate-pulse" />
             ))}
           </div>
-        ) : league === "PGA" ? (
-          <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-4 py-4 text-center">
-            <p className="text-sm font-medium text-white">Tournament picks are disabled</p>
-            <p className="mt-1 text-xs text-gray-500">Golf picks lock before round one. This build ships leaderboard, form, and outright support first.</p>
-          </div>
         ) : displayPicks.length === 0 ? (
           <div className="text-center py-4">
-            <p className="text-gray-400 text-sm font-medium">Picks loading for today's slate</p>
-            <p className="text-gray-600 text-xs mt-1">Check back once games are posted</p>
+            <p className="text-gray-400 text-sm font-medium">
+              {league === "PGA" ? "No PGA tournament picks available" : "Picks loading for today's slate"}
+            </p>
+            <p className="text-gray-600 text-xs mt-1">
+              {league === "PGA"
+                ? "The board will populate when ESPN posts a PGA field or live leaderboard for the current event."
+                : "Check back once games are posted"}
+            </p>
           </div>
         ) : (
           <div className="space-y-0">
