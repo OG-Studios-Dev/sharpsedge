@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 
-const NHL_STORAGE_KEY = "goosalytics_ai_picks_v9";
-const NBA_STORAGE_KEY = "goosalytics_nba_picks_v9";
+const NHL_STORAGE_KEY = "goosalytics_ai_picks_v10";
+const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
 const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
 
 // Nuclear clear: wipe ALL old pick keys from localStorage
@@ -13,7 +13,7 @@ if (typeof window !== "undefined") {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("goosalytics_") && key.includes("picks") && !key.endsWith("_v9")) {
+    if (key && key.startsWith("goosalytics_") && key.includes("picks") && !key.endsWith("_v10")) {
       keysToRemove.push(key);
     }
   }

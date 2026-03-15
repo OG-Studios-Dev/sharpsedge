@@ -24,8 +24,8 @@ function buildSeedTeamTrendPayload(): TeamTrend[] {
 
     return {
       ...trend,
-      id: trend.id || `seed-team-${index}`,
-      gameId: trend.gameId || `seed-${trend.team}-${trend.opponent}`,
+      id: trend.id || `trend-${trend.team}-${trend.opponent}-${index}`,
+      gameId: trend.gameId, // never fake a gameId — picks need real IDs to resolve
       hitRate,
       edge: trend.edge ?? Math.round(hitRate - 52.4),
       indicators,
