@@ -1,9 +1,9 @@
 import { BookOdds, OddsEvent } from "./types";
 import { findTeamAliases } from "./nhl-mappings";
+import { getAggregatedOddsEvents, isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
-const NHL_FEATURED_MARKETS = "h2h,spreads";
 const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assists,player_goals";
 
 let oddsCache: { data: OddsEvent[]; timestamp: number } | null = null;
@@ -37,16 +37,8 @@ export async function getNHLOdds(): Promise<OddsEvent[]> {
     return oddsCache.data;
   }
 
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") {
-    return [];
-  }
-
   try {
-    const url = `${ODDS_BASE}/sports/icehockey_nhl/odds?apiKey=${apiKey}&regions=us&markets=${NHL_FEATURED_MARKETS}&oddsFormat=american`;
-    const res = await fetch(url, { next: { revalidate: 900 } });
-    if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
-    const data: OddsEvent[] = await res.json();
+    const data = await getAggregatedOddsEvents("NHL");
     oddsCache = { data, timestamp: Date.now() };
     return data;
   } catch {
@@ -56,6 +48,7 @@ export async function getNHLOdds(): Promise<OddsEvent[]> {
 
 export async function getNHLEventOdds(eventId?: string): Promise<OddsEvent | null> {
   if (!eventId) return null;
+  if (isSyntheticAggregatedEventId(eventId)) return null;
 
   const cached = eventOddsCache.get(eventId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {

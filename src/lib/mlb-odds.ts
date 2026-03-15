@@ -1,9 +1,9 @@
 import { OddsEvent } from "@/lib/types";
 import { findMLBTeamAliases } from "@/lib/mlb-mappings";
+import { getAggregatedOddsEvents, isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
-const MLB_FEATURED_MARKETS = "h2h,spreads,totals";
 const MLB_PLAYER_PROP_MARKETS = [
   "pitcher_strikeouts",
   "batter_hits",
@@ -19,16 +19,8 @@ export async function getMLBOdds(): Promise<OddsEvent[]> {
     return oddsCache.data;
   }
 
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") {
-    return [];
-  }
-
   try {
-    const url = `${ODDS_BASE}/sports/baseball_mlb/odds?apiKey=${apiKey}&regions=us&markets=${MLB_FEATURED_MARKETS}&oddsFormat=american`;
-    const res = await fetch(url, { next: { revalidate: 900 } });
-    if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
-    const data: OddsEvent[] = await res.json();
+    const data = await getAggregatedOddsEvents("MLB");
     oddsCache = { data, timestamp: Date.now() };
     return data;
   } catch {
@@ -38,6 +30,7 @@ export async function getMLBOdds(): Promise<OddsEvent[]> {
 
 export async function getMLBEventOdds(eventId?: string): Promise<OddsEvent | null> {
   if (!eventId) return null;
+  if (isSyntheticAggregatedEventId(eventId)) return null;
 
   const cached = eventOddsCache.get(eventId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {

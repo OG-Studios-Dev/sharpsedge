@@ -100,3 +100,33 @@ if (failures >= 3 in last 5 min) {
 4. Nightly data snapshots (30 min)
 5. Multi-source score verification (2 hours)
 6. Health monitoring via heartbeat (1 hour)
+
+## Odds Aggregation Sources (Updated Mar 15, 2026)
+
+### Active (No Key Required)
+| Source | Endpoint | Sports |
+|---|---|---|
+| Bovada | bovada.lv/services/sports/event/coupon/events/A/description | NHL NBA MLB NFL Golf UFC |
+| Kambi (Unibet/BetRivers) | eu-offering-api.kambicdn.com/offering/v2018/ub/listView | NHL NBA MLB Golf |
+| PointsBet | api.pointsbet.com/api/v2/competitions | NBA MLB |
+| ESPN (DraftKings) | site.api.espn.com scoreboard embed | NHL NBA MLB Golf |
+
+### Ready to Activate (Need Account)
+| Source | API Base | Auth | Cost |
+|---|---|---|---|
+| Betfair Exchange | developer.betfair.com | App key (free) | Free |
+| Matchbook | api.matchbook.com | Username/password → session token (6hr) | Free (<1M req/mo) |
+| SX Bet | sx.bet | Crypto wallet | Free (0% commission) |
+
+### Matchbook Integration Notes
+- Login: POST https://api.matchbook.com/bpapi/rest/security/session
+- Body: {"username":"xxx","password":"xxx"}
+- Returns: session-token (valid 6 hours)
+- Use session-token as cookie or header on all subsequent requests
+- Rate limit: fair use (<1M GET/month)
+- Odds format: supports US odds (set odds-type to "US" in account)
+
+### Action Items for Marco
+1. Create Matchbook account → send username/password
+2. Create Betfair account → get app key → send it
+3. Both are free, instant activation
