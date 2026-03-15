@@ -205,9 +205,18 @@ function parseThru(competitor: any, tournamentStatus: GolfTournamentStatus) {
     competitor?.thru,
   );
 
-  if (direct) return direct.toUpperCase();
+  if (direct) {
+    const upper = direct.toUpperCase();
+    // Filter out ISO dates — thru should be "F", "CUT", a hole number, or time
+    if (upper.includes("2026-") || upper.includes("2025-") || upper.includes("T") && upper.includes(":")) {
+      // It's a tee time, not a thru value
+      if (tournamentStatus === "completed") return "F";
+      return formatTeeTime(direct) || "—";
+    }
+    return upper;
+  }
   if (tournamentStatus === "completed") return "F";
-  return "";
+  return "—";
 }
 
 function getCoursePar(event: any) {

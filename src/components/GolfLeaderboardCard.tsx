@@ -48,7 +48,7 @@ export default function GolfLeaderboardCard({
     );
   }
 
-  const players = leaderboard.players.slice(0, 10);
+  const players = leaderboard.players.slice(0, 30);
   const tournament = leaderboard.tournament;
 
   return (
@@ -80,10 +80,10 @@ export default function GolfLeaderboardCard({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl border border-dark-border bg-dark-surface/70">
-        <div className="grid grid-cols-[52px_minmax(0,1fr)_68px_58px_56px] gap-2 border-b border-dark-border/50 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-gray-500">
+        <div className="grid grid-cols-[40px_minmax(0,1fr)_50px_50px_40px] gap-1 border-b border-dark-border/50 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-gray-500">
           <div>Pos</div>
           <div>Player</div>
-          <div className="text-right">To Par</div>
+          <div className="text-right">Par</div>
           <div className="text-right">Today</div>
           <div className="text-right">Thru</div>
         </div>
@@ -93,12 +93,12 @@ export default function GolfLeaderboardCard({
           </div>
         ) : players.map((player) => (
           <details key={`${player.id}-${player.name}`} className="group border-b border-dark-border/30 last:border-b-0">
-            <summary className="grid cursor-pointer list-none grid-cols-[52px_minmax(0,1fr)_68px_58px_56px] gap-2 px-3 py-3 text-sm">
+            <summary className="grid cursor-pointer list-none grid-cols-[40px_minmax(0,1fr)_50px_50px_40px] gap-1 px-3 py-2 text-xs">
               <div className={`font-semibold ${player.position === "CUT" ? "text-red-400" : "text-white"}`}>{player.position || "—"}</div>
-              <div className="truncate text-white">{player.name}</div>
+              <div className="text-white">{player.name}</div>
               <div className={`text-right font-semibold ${scoreTone(player.score)}`}>{player.score}</div>
-              <div className={`text-right text-xs ${todayTone(player.todayScore)}`}>{player.todayScore}</div>
-              <div className="text-right text-xs text-gray-400">{player.thru || player.teeTime || "—"}</div>
+              <div className={`text-right ${todayTone(player.todayScore)}`}>{player.todayScore}</div>
+              <div className="text-right text-gray-400">{player.thru || "—"}</div>
             </summary>
             {player.roundScores && player.roundScores.length > 0 && (
               <div className="border-t border-dark-border/30 bg-dark-bg/40 px-3 py-2">
