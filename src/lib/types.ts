@@ -292,6 +292,16 @@ export type GolfPlayer = {
   outrightOdds?: number | null;
   outrightBook?: string | null;
   compositeScore?: number | null;
+  formScore?: number | null;
+  courseHistoryScore?: number | null;
+  courseFitScore?: number | null;
+  combinedScore?: number | null;
+  modelProb?: number | null;
+  bookProb?: number | null;
+  edge?: number | null;
+  top5Prob?: number | null;
+  top10Prob?: number | null;
+  top20Prob?: number | null;
 };
 
 export type GolfLeaderboard = {
@@ -325,11 +335,61 @@ export type GolfOddsBoard = {
   h2h: GolfHeadToHeadOdds[];
 };
 
+export type GolfPredictionMarket = "Tournament Winner" | "Top 5 Finish" | "Top 10 Finish" | "Top 20 Finish";
+
+export type GolfPrediction = GolfPlayer & {
+  formScore: number;
+  courseHistoryScore: number;
+  courseFitScore: number;
+  combinedScore: number;
+  modelProb: number;
+  bookProb: number | null;
+  edge: number | null;
+  bookOdds: number | null;
+  top5Prob: number;
+  top10Prob: number;
+  top20Prob: number;
+};
+
+export type GolfValuePlay = {
+  market: GolfPredictionMarket;
+  modelProb: number;
+  bookProb: number | null;
+  edge: number | null;
+  player: GolfPrediction;
+};
+
+export type GolfHeadToHeadPrediction = {
+  matchup: string;
+  playerA: string;
+  playerB: string;
+  playerAOdds: number;
+  playerBOdds: number;
+  book: string;
+  bookProbA: number;
+  bookProbB: number;
+  modelProbA: number;
+  modelProbB: number;
+  modelPick: string | null;
+  bookFavorite: string | null;
+  valueSide: string | null;
+  disagreement: boolean;
+};
+
+export type GolfPredictionBoard = {
+  tournament: GolfTournament | null;
+  generatedAt: string;
+  players: GolfPrediction[];
+  bestValuePicks: GolfValuePlay[];
+  h2hMatchups: GolfHeadToHeadPrediction[];
+};
+
 export type GolfDashboardData = {
   leaderboard: GolfLeaderboard | null;
   schedule: GolfTournament[];
   playerInsights: GolfPlayer[];
   odds: GolfOddsBoard | null;
+  predictions: GolfPredictionBoard | null;
   meta: {
     league: "PGA" | "LIV";
     oddsConnected: boolean;

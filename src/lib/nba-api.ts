@@ -145,10 +145,13 @@ function parseESPNGame(event: any): NBAGame {
     : "TBD";
   const statusDetail = status?.shortDetail ?? statusText;
 
-  // Odds
-  const odds = comp.odds?.[0] ?? {};
-  const spread = odds.details as string | undefined;
-  const overUnder = odds.overUnder as number | undefined;
+  // Odds (from ESPN embedded DraftKings data — free, no API key)
+  const oddsData = comp.odds?.[0] ?? {};
+  const spread = oddsData.details as string | undefined;
+  const overUnder = oddsData.overUnder as number | undefined;
+  const espnHomeML = oddsData.homeTeamOdds?.moneyLine as number | undefined;
+  const espnAwayML = oddsData.awayTeamOdds?.moneyLine as number | undefined;
+  const espnBook = oddsData.provider?.name as string | undefined;
 
   return {
     id: event.id,
@@ -171,6 +174,13 @@ function parseESPNGame(event: any): NBAGame {
     awayScore: away.score != null ? parseInt(away.score) : null,
     spread,
     overUnder,
+    homeML: espnHomeML,
+    awayML: espnAwayML,
+    // ESPN embeds DraftKings odds — use as fallback when Odds API quota exhausted
+    bestMoneyline: (espnHomeML || espnAwayML) ? {
+      home: espnHomeML ? { odds: espnHomeML, book: espnBook || "DraftKings" } : null,
+      away: espnAwayML ? { odds: espnAwayML, book: espnBook || "DraftKings" } : null,
+    } : undefined,
   };
 }
 
@@ -482,4 +492,18 @@ export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
   const games = results.flat().slice(0, 80);
   cache.set(cacheKey, { data: games, timestamp: Date.now() });
   return games;
+}
+
+// ESPN embedded odds fallback (DraftKings, no API key needed)
+export function parseESPNOdds(event: any): { spread?: string; overUnder?: number; homeML?: number; awayML?: number; book?: string } | null {
+  const odds = event?.competitions?.[0]?.odds;
+  if (!odds || !Array.isArray(odds) || odds.length === 0) return null;
+  const primary = odds[0];
+  return {
+    spread: primary.details || undefined,
+    overUnder: typeof primary.overUnder === "number" ? primary.overUnder : undefined,
+    homeML: primary.homeTeamOdds?.moneyLine || undefined,
+    awayML: primary.awayTeamOdds?.moneyLine || undefined,
+    book: primary.provider?.name || "DraftKings",
+  };
 }
