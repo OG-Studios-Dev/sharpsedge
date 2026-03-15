@@ -326,7 +326,9 @@ function parseLeaderboardPlayers(competitors: any[], tournament: GolfTournament)
       id: playerId,
       name: firstString(athlete?.displayName, athlete?.fullName, competitor?.displayName, "Unknown Player"),
       position: normalizePosition(
-        competitor?.score?.position?.displayValue
+        competitor?.status?.position?.displayName
+          ?? competitor?.status?.position?.shortDisplayName
+          ?? competitor?.score?.position?.displayValue
           ?? competitor?.score?.position?.shortDisplayName
           ?? competitor?.position?.displayValue
           ?? competitor?.rankDisplay
@@ -356,8 +358,18 @@ function parseLeaderboardPlayers(competitors: any[], tournament: GolfTournament)
     };
 
     if (player.position === "MC") player.position = "CUT";
+    // Store sortOrder for proper leaderboard sorting
+    (player as any)._sortOrder = typeof competitor?.sortOrder === "number" ? competitor.sortOrder : 9999;
     return player;
   });
+
+  // Sort by API's sortOrder (most accurate), then fall back to score parsing
+  players.sort((a, b) => ((a as any)._sortOrder || 9999) - ((b as any)._sortOrder || 9999));
+
+  // Re-compute positions from sorted order if the API provided sortOrder
+  if (players.some((p) => (p as any)._sortOrder < 9999)) {
+    return players;
+  }
 
   return tournament.status === "upcoming" ? players : computePositions(players);
 }
