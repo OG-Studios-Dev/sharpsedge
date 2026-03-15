@@ -591,7 +591,7 @@ export default function PicksPage() {
                   }`}
                 >
                   {activeRecord.profitUnits > 0 ? "+" : ""}
-                  {activeRecord.profitUnits}u
+                  {activeRecord.profitUnits.toFixed(2)}u
                 </p>
                 <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
               </div>
@@ -603,7 +603,7 @@ export default function PicksPage() {
                   <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
                   <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
                   <span className={`ml-auto text-[11px] font-bold ${nhlRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits}u
+                    {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits.toFixed(2)}u
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
@@ -611,7 +611,7 @@ export default function PicksPage() {
                   <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
                   <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
                   <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
+                    {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits.toFixed(2)}u
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
@@ -619,7 +619,7 @@ export default function PicksPage() {
                   <span className="text-emerald-400 text-[11px] font-bold">{mlbRec.wins}W</span>
                   <span className="text-red-400 text-[11px] font-bold">{mlbRec.losses}L</span>
                   <span className={`ml-auto text-[11px] font-bold ${mlbRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {mlbRec.profitUnits >= 0 ? "+" : ""}{mlbRec.profitUnits}u
+                    {mlbRec.profitUnits >= 0 ? "+" : ""}{mlbRec.profitUnits.toFixed(2)}u
                   </span>
                 </div>
               </div>
