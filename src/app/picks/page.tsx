@@ -504,7 +504,7 @@ export default function PicksPage() {
   }
 
   return (
-    <main className="min-h-screen bg-dark-bg pb-24 pt-6 px-4 max-w-2xl mx-auto">
+    <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg px-4 pb-24 pt-6 lg:px-0">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
         <div className="flex items-center justify-between">
@@ -514,126 +514,126 @@ export default function PicksPage() {
         <p className="text-center text-sm font-semibold text-gray-300 pt-1">Picks</p>
       </div>
 
-      {/* Record Card — tappable to drill down */}
-      <Link href="/picks/history">
-      <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4 cursor-pointer hover:border-accent-blue/30 transition-colors">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">
-            {sportLeague === "All" ? "Combined" : sportLeague} Season Record
-          </p>
-          <span className="text-[10px] text-accent-blue font-medium">View History →</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-center">
-            <p className="text-accent-green font-bold text-lg">{activeRecord.wins}</p>
-            <p className="text-gray-500 text-[10px] uppercase">W</p>
-          </div>
-          <div className="text-center">
-            <p className="text-accent-red font-bold text-lg">{activeRecord.losses}</p>
-            <p className="text-gray-500 text-[10px] uppercase">L</p>
-          </div>
-          <div className="text-center">
-            <p className="text-accent-yellow font-bold text-lg">{activeRecord.pushes}</p>
-            <p className="text-gray-500 text-[10px] uppercase">Push</p>
-          </div>
-          <div className="text-center">
-            <p className="text-gray-400 font-bold text-lg">{activeRecord.pending}</p>
-            <p className="text-gray-500 text-[10px] uppercase">Pending</p>
-          </div>
-          <div className="ml-auto text-right">
-            <p
-              className={`font-bold text-lg ${
-                activeRecord.profitUnits > 0
-                  ? "text-accent-green"
-                  : activeRecord.profitUnits < 0
-                    ? "text-accent-red"
-                    : "text-gray-400"
-              }`}
-            >
-              {activeRecord.profitUnits > 0 ? "+" : ""}
-              {activeRecord.profitUnits}u
-            </p>
-            <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
-          </div>
-        </div>
-        {sportLeague === "All" && (
-          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-dark-border/40">
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">🏒 NHL</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${nhlRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits}u
-              </span>
+      <div className="mb-6 grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+        <Link href="/picks/history">
+          <div className="cursor-pointer rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-gray-400 text-xs font-medium uppercase tracking-wide">
+                {sportLeague === "All" ? "Combined" : sportLeague} Season Record
+              </p>
+              <span className="text-[10px] font-medium text-accent-blue">View History →</span>
             </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">🏀 NBA</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
-              </span>
+            <div className="flex items-center gap-6">
+              <div className="text-center">
+                <p className="text-accent-green font-bold text-lg">{activeRecord.wins}</p>
+                <p className="text-gray-500 text-[10px] uppercase">W</p>
+              </div>
+              <div className="text-center">
+                <p className="text-accent-red font-bold text-lg">{activeRecord.losses}</p>
+                <p className="text-gray-500 text-[10px] uppercase">L</p>
+              </div>
+              <div className="text-center">
+                <p className="text-accent-yellow font-bold text-lg">{activeRecord.pushes}</p>
+                <p className="text-gray-500 text-[10px] uppercase">Push</p>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400 font-bold text-lg">{activeRecord.pending}</p>
+                <p className="text-gray-500 text-[10px] uppercase">Pending</p>
+              </div>
+              <div className="ml-auto text-right">
+                <p
+                  className={`font-bold text-lg ${
+                    activeRecord.profitUnits > 0
+                      ? "text-accent-green"
+                      : activeRecord.profitUnits < 0
+                        ? "text-accent-red"
+                        : "text-gray-400"
+                  }`}
+                >
+                  {activeRecord.profitUnits > 0 ? "+" : ""}
+                  {activeRecord.profitUnits}u
+                </p>
+                <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
+              </div>
             </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">⚾ MLB</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{mlbRec.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{mlbRec.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${mlbRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {mlbRec.profitUnits >= 0 ? "+" : ""}{mlbRec.profitUnits}u
-              </span>
-            </div>
+            {sportLeague === "All" && (
+              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-dark-border/40 pt-3">
+                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
+                  <span className="text-[10px] font-semibold text-gray-500">🏒 NHL</span>
+                  <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
+                  <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
+                  <span className={`ml-auto text-[11px] font-bold ${nhlRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits}u
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
+                  <span className="text-[10px] font-semibold text-gray-500">🏀 NBA</span>
+                  <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
+                  <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
+                  <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
+                  <span className="text-[10px] font-semibold text-gray-500">⚾ MLB</span>
+                  <span className="text-emerald-400 text-[11px] font-bold">{mlbRec.wins}W</span>
+                  <span className="text-red-400 text-[11px] font-bold">{mlbRec.losses}L</span>
+                  <span className={`ml-auto text-[11px] font-bold ${mlbRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {mlbRec.profitUnits >= 0 ? "+" : ""}{mlbRec.profitUnits}u
+                  </span>
+                </div>
+              </div>
+            )}
+            {activeStalePickCount > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-dark-border/40 pt-3">
+                <p className="text-[11px] text-amber-400">
+                  {activeStalePickCount} legacy pending pick{activeStalePickCount === 1 ? "" : "s"} missing a valid game ID.
+                </p>
+                <button
+                  onClick={handleClearStalePicks}
+                  className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase text-amber-300"
+                >
+                  Clear stale picks
+                </button>
+              </div>
+            )}
           </div>
-        )}
-        {activeStalePickCount > 0 && (
-          <div className="mt-3 pt-3 border-t border-dark-border/40 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-amber-400">
-              {activeStalePickCount} legacy pending pick{activeStalePickCount === 1 ? "" : "s"} missing a valid game ID.
-            </p>
-            <button
-              onClick={handleClearStalePicks}
-              className="text-[10px] font-semibold uppercase px-3 py-1.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10"
-            >
-              Clear stale picks
-            </button>
-          </div>
-        )}
-      </div>
-      </Link>
+        </Link>
 
-      {/* Today's Picks */}
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-white text-sm font-bold uppercase tracking-wide">
-          Today&apos;s AI Picks
-        </p>
-        <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
-      </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-white text-sm font-bold uppercase tracking-wide">
+              Today&apos;s AI Picks
+            </p>
+            <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
+          </div>
 
-      {loading ? (
-        <div className="space-y-3 mb-6">
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </div>
-      ) : activeToday.length === 0 ? (
-        <div className="mb-6">
-          <EmptyStateCard
-            eyebrow="AI Picks"
-            title={`No ${sportLeague === "All" ? "" : sportLeague + " "}picks today`}
-            body="Check back when games are scheduled to see today's top AI picks."
-          />
-        </div>
-      ) : (
-        <div className="space-y-3 mb-6">
-          {activeToday.map((pick) => (
-            <PickCard
-              key={pick.id}
-              pick={pick}
-              isExpanded={expandedPickId === pick.id}
-              onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
+          {loading ? (
+            <div className="space-y-3">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : activeToday.length === 0 ? (
+            <EmptyStateCard
+              eyebrow="AI Picks"
+              title={`No ${sportLeague === "All" ? "" : sportLeague + " "}picks today`}
+              body="Check back when games are scheduled to see today's top AI picks."
             />
-          ))}
+          ) : (
+            <div className="space-y-3">
+              {activeToday.map((pick) => (
+                <PickCard
+                  key={pick.id}
+                  pick={pick}
+                  isExpanded={expandedPickId === pick.id}
+                  onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Pick History */}
       {allHistoryPicks.length > 0 && (

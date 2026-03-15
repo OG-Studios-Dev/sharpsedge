@@ -128,7 +128,7 @@ export default function OddsPage() {
   }, [props]);
 
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
           <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
@@ -155,7 +155,7 @@ export default function OddsPage() {
         </div>
       </header>
 
-      <div className="px-3 py-4">
+      <div className="px-3 py-4 lg:px-0">
         {loading ? (
           <EmptyStateCard
             eyebrow="Loading odds"
@@ -164,7 +164,7 @@ export default function OddsPage() {
           />
         ) : tab === "Best Lines" ? (
           propsWithOdds.length > 0 ? (
-            <div className="space-y-2">
+            <div className="grid gap-3 lg:grid-cols-2">
               {propsWithOdds.map((prop, i) => (
                 <div key={i} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
                   <div className="flex items-center gap-3">

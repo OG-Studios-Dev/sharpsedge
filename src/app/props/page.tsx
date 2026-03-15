@@ -279,7 +279,7 @@ export default function PropsPage() {
       : clubRows.length === 0;
 
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
           <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
@@ -322,15 +322,15 @@ export default function PropsPage() {
           }
         />
       ) : view === "Players" ? (
-        <div>
+        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
           {filteredPlayers.map((prop) => <PropCard key={prop.id} prop={prop} />)}
         </div>
       ) : view === "Team" ? (
-        <div>
+        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
           {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
         </div>
       ) : (
-        <div className="px-3 py-3 space-y-3">
+        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
           {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
         </div>
       )}

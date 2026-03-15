@@ -43,7 +43,7 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
   const showOddsLine = hasAlternateBookLines(bookOdds);
 
   return (
-    <div className="mx-3 my-1.5 rounded-2xl border border-dark-border bg-dark-surface/70 overflow-hidden">
+    <div className="mx-3 my-1.5 h-full rounded-2xl border border-dark-border bg-dark-surface/70 overflow-hidden lg:mx-0 lg:my-0">
       {/* Compact view — always visible */}
       <div
         className="px-4 py-3 cursor-pointer"

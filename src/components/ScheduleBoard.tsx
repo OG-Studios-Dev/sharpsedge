@@ -226,7 +226,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
                 <h3 className="text-sm font-semibold text-white">{section.title}</h3>
                 <span className="text-[11px] text-gray-500">{section.games.length} game{section.games.length === 1 ? "" : "s"}</span>
               </div>
-              <div className="grid gap-3">
+              <div className="grid gap-3 xl:grid-cols-2">
                 {section.games.map((game) => (
                   <Link key={game.id} href={`/matchup/${game.id}`} className="block">
                     <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 hover:border-gray-600 transition-colors">

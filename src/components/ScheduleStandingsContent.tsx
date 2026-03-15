@@ -303,7 +303,7 @@ export default function ScheduleStandingsContent() {
   const [view, setView] = useState<"Schedule" | "Standings">("Schedule");
 
   return (
-    <div className="px-4 py-5 space-y-4">
+    <div className="mx-auto max-w-6xl px-4 py-5 space-y-4 lg:px-0">
       {/* League Switcher */}
       <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 

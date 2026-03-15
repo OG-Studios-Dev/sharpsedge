@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
-import DesktopShell from "@/components/DesktopShell";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Goosalytics - Sports Betting Edge",
@@ -41,11 +41,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body className="bg-dark-bg text-white antialiased">
-        <main className="max-w-lg lg:max-w-5xl mx-auto px-0 lg:px-6 pb-20 lg:pb-8 min-h-screen">
-          <DesktopShell>
-            {children}
-          </DesktopShell>
-        </main>
+        <AppShell>{children}</AppShell>
         <BottomNav />
       </body>
     </html>

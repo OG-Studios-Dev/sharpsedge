@@ -118,7 +118,7 @@ export default function HomeContent() {
 
   return (
     <main className="min-h-screen bg-dark-bg pb-24">
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
+      <div className="mx-auto max-w-6xl px-4 py-5 space-y-5 lg:px-0 lg:py-1">
         <header className="flex items-center justify-between">
           <div>
             <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl" />
@@ -141,106 +141,112 @@ export default function HomeContent() {
 
         <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 
-        <HomePicksSection league={sportLeague} />
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
+          <div className="space-y-5">
+            <HomePicksSection league={sportLeague} />
 
-        <HomeSection
-          title="100% Club"
-          subtitle="Perfect and near-perfect player props plus team trends with at least five samples."
-          href="/props"
-        >
-          {dashboards.loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
-              ))}
-            </div>
-          ) : clubRows.length === 0 ? (
-            <EmptyStateCard
-              eyebrow="100% Club"
-              title="No elite trends on the board yet"
-              body="This section populates once props or team trends hit an 80% rate with a five-game sample."
-              className="mx-0 mt-0"
-            />
-          ) : (
-            <div className="space-y-3">
-              {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
-            </div>
-          )}
-        </HomeSection>
+            <HomeSection
+              title="100% Club"
+              subtitle="Perfect and near-perfect player props plus team trends with at least five samples."
+              href="/props"
+            >
+              {dashboards.loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                  ))}
+                </div>
+              ) : clubRows.length === 0 ? (
+                <EmptyStateCard
+                  eyebrow="100% Club"
+                  title="No elite trends on the board yet"
+                  body="This section populates once props or team trends hit an 80% rate with a five-game sample."
+                  className="mx-0 mt-0"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
+                </div>
+              )}
+            </HomeSection>
 
-        <HomeSection
-          title="Quick Hitters"
-          subtitle="Low-line props with high hit rates. Easy money, quick cash."
-        >
-          {dashboards.loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
-              ))}
-            </div>
-          ) : quickHitters.length === 0 ? (
-            <EmptyStateCard
-              eyebrow="Quick Hitters"
-              title="No low-line heaters cleared the bar"
-              body="This section populates when short-line props hit at least a 55% rate."
-              className="mx-0 mt-0"
-            />
-          ) : (
-            <div className="space-y-3">
-              {quickHitters.map((row) => <QuickHitterCard key={row.id} row={row} />)}
-            </div>
-          )}
-        </HomeSection>
+            <HomeSection
+              title="Quick Hitters"
+              subtitle="Low-line props with high hit rates. Easy money, quick cash."
+            >
+              {dashboards.loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                  ))}
+                </div>
+              ) : quickHitters.length === 0 ? (
+                <EmptyStateCard
+                  eyebrow="Quick Hitters"
+                  title="No low-line heaters cleared the bar"
+                  body="This section populates when short-line props hit at least a 55% rate."
+                  className="mx-0 mt-0"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {quickHitters.map((row) => <QuickHitterCard key={row.id} row={row} />)}
+                </div>
+              )}
+            </HomeSection>
+          </div>
 
-        <HomeSection
-          title="Same-Game Parlays"
-          subtitle="Today’s strongest same-game combinations ranked by multiplied hit probability."
-          href="/parlays"
-        >
-          {dashboards.loading ? (
-            <div className="space-y-3">
-              {[0, 1].map((item) => (
-                <div key={item} className="h-48 rounded-2xl bg-dark-border/40 animate-pulse" />
-              ))}
-            </div>
-          ) : sgps.length === 0 ? (
-            <EmptyStateCard
-              eyebrow="Parlays"
-              title="No same-game builds cleared the bar"
-              body="SGP cards appear when at least two high-trend props line up in the same matchup."
-              className="mx-0 mt-0"
-            />
-          ) : (
-            <div className="space-y-3">
-              {sgps.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)}
-            </div>
-          )}
-        </HomeSection>
+          <div className="space-y-5">
+            <HomeSection
+              title="Same-Game Parlays"
+              subtitle="Today’s strongest same-game combinations ranked by multiplied hit probability."
+              href="/parlays"
+            >
+              {dashboards.loading ? (
+                <div className="space-y-3">
+                  {[0, 1].map((item) => (
+                    <div key={item} className="h-48 rounded-2xl bg-dark-border/40 animate-pulse" />
+                  ))}
+                </div>
+              ) : sgps.length === 0 ? (
+                <EmptyStateCard
+                  eyebrow="Parlays"
+                  title="No same-game builds cleared the bar"
+                  body="SGP cards appear when at least two high-trend props line up in the same matchup."
+                  className="mx-0 mt-0"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {sgps.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)}
+                </div>
+              )}
+            </HomeSection>
 
-        <HomeSection
-          title="Trending Now"
-          subtitle="The hottest live props across NHL, NBA, and MLB, ranked by hit rate, sample, and edge."
-          href="/trends"
-        >
-          {dashboards.loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
-              ))}
-            </div>
-          ) : trendingRows.length === 0 ? (
-            <EmptyStateCard
-              eyebrow="Trending"
-              title="No live props qualify right now"
-              body="Once current slates post, the hottest props across both leagues will appear here automatically."
-              className="mx-0 mt-0"
-            />
-          ) : (
-            <div className="space-y-3">
-              {trendingRows.map((row) => <TrendRow key={row.id} row={row} />)}
-            </div>
-          )}
-        </HomeSection>
+            <HomeSection
+              title="Trending Now"
+              subtitle="The hottest live props across NHL, NBA, and MLB, ranked by hit rate, sample, and edge."
+              href="/trends"
+            >
+              {dashboards.loading ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((item) => (
+                    <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                  ))}
+                </div>
+              ) : trendingRows.length === 0 ? (
+                <EmptyStateCard
+                  eyebrow="Trending"
+                  title="No live props qualify right now"
+                  body="Once current slates post, the hottest props across both leagues will appear here automatically."
+                  className="mx-0 mt-0"
+                />
+              ) : (
+                <div className="space-y-3">
+                  {trendingRows.map((row) => <TrendRow key={row.id} row={row} />)}
+                </div>
+              )}
+            </HomeSection>
+          </div>
+        </div>
       </div>
     </main>
   );

@@ -156,7 +156,7 @@ export default function TrendsPage() {
   ];
 
   return (
-    <div>
+    <div className="mx-auto max-w-6xl">
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
           <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
@@ -226,7 +226,9 @@ export default function TrendsPage() {
                 <div className="px-4 pt-4 pb-1">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Team Trends</p>
                 </div>
-                {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+                <div className="grid gap-3 px-3 pb-3 lg:grid-cols-2">
+                  {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+                </div>
               </>
             )}
             {filteredProps.length > 0 && (
@@ -234,14 +236,18 @@ export default function TrendsPage() {
                 <div className="px-4 pt-4 pb-1">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Player Props</p>
                 </div>
-                {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
+                <div className="grid gap-3 px-3 pb-3 lg:grid-cols-2">
+                  {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
+                </div>
               </>
             )}
           </>
         )
       ) : tab === "Player" ? (
         filteredProps.length > 0 ? (
-          filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)
+          <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
+            {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
+          </div>
         ) : (
           <EmptyStateCard
             eyebrow="Player trends"
@@ -250,7 +256,9 @@ export default function TrendsPage() {
           />
         )
       ) : filteredTeams.length > 0 ? (
-        filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)
+        <div className="grid gap-3 px-3 py-3 lg:grid-cols-2">
+          {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
+        </div>
       ) : (
         <EmptyStateCard
           eyebrow="Team trends"
