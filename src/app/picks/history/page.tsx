@@ -99,7 +99,7 @@ export default function PickHistoryPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <Link href="/picks" className="text-accent-blue text-xs font-medium mb-1 block">← Back to Picks</Link>
-          <h1 className="text-white text-xl font-bold tracking-wide">Pick History</h1>
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <p className="text-gray-500 text-xs mt-0.5">All-time AI pick performance</p>
         </div>
       </div>

@@ -43,8 +43,7 @@ export default function ParlaysPage() {
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            <h1 className="text-lg font-bold text-white">Same-Game Parlays</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Grouped by matchup, ranked by combined hit probability.</p>
+            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>

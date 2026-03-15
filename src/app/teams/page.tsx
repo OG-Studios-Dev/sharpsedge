@@ -109,7 +109,7 @@ export default function TeamsPage() {
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-white">Teams</h1>
+            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
             <p className="text-xs text-gray-500 mt-0.5">League directory with direct links into each team page.</p>
           </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
