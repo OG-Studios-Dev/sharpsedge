@@ -5,7 +5,7 @@ import DesktopShell from "@/components/DesktopShell";
 
 export const metadata: Metadata = {
   title: "Goosalytics - Sports Betting Edge",
-  description: "Find player props and team trends that have been consistently hitting.",
+  description: "Pickin' Sports Smarter",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#0a0a0f",
+  themeColor: "#0d1118",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -31,6 +31,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="theme-color" content="#0d1118" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      </head>
       <body className="bg-dark-bg text-white antialiased">
         <main className="max-w-lg lg:max-w-5xl mx-auto px-0 lg:px-6 pb-20 lg:pb-8 min-h-screen">
           <DesktopShell>

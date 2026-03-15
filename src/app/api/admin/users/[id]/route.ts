@@ -4,14 +4,14 @@ import { createServerClient } from "@/lib/supabase-server";
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: { params: { id: string } },
 ) {
   const viewer = await getCurrentViewer();
   if (!viewer || viewer.profile?.role !== "admin") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
-  const { id } = await context.params;
+  const { id } = context.params;
   if (!id) {
     return NextResponse.json({ error: "Missing user id" }, { status: 400 });
   }

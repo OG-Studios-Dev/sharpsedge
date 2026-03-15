@@ -72,7 +72,6 @@ export default function HomeContent() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
-  const supabase = createBrowserClient();
   const [viewerName, setViewerName] = useState<string | null>(null);
   const [viewerInitial, setViewerInitial] = useState("G");
 
@@ -97,6 +96,7 @@ export default function HomeContent() {
     let cancelled = false;
 
     async function loadSession() {
+      const supabase = createBrowserClient();
       const result = await supabase.auth.getSession();
       if (cancelled) return;
 
@@ -110,7 +110,7 @@ export default function HomeContent() {
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, []);
 
   return (
     <main className="min-h-screen bg-dark-bg pb-24">

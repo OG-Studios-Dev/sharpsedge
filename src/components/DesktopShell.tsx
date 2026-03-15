@@ -3,6 +3,12 @@ import { usePathname } from "next/navigation";
 
 export default function DesktopShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const hideShell = pathname === "/login" || pathname === "/signup" || pathname.startsWith("/admin");
+
+  if (hideShell) {
+    return <div className="min-w-0">{children}</div>;
+  }
+
   return (
     <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-6 lg:pt-6">
       <aside className="hidden lg:block">

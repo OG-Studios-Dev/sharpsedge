@@ -93,13 +93,27 @@ export default function PropsPage() {
   const [segment, setSegment] = useState<SegmentFilter>("full_game");
   const [clubLineType, setClubLineType] = useState<ClubLineFilter>("all");
   const [venue, setVenue] = useState<VenueFilter>("all");
+  const [gameFilter, setGameFilter] = useState("all");
   const dashboards = useSportsDashboards(sportLeague);
+
+  // Build game options from available props
+  const gameOptions = useMemo(() => {
+    const games = new Map<string, string>();
+    for (const prop of dashboards.props) {
+      if (prop.gameId && prop.opponent) {
+        const label = prop.isAway ? `${prop.team} @ ${prop.opponent}` : `${prop.opponent} @ ${prop.team}`;
+        games.set(prop.gameId, label);
+      }
+    }
+    return Array.from(games.entries()).map(([id, label]) => ({ label, value: id }));
+  }, [dashboards.props]);
 
   useEffect(() => {
     setMetric("all");
     setSegment("full_game");
     setClubLineType("all");
     setVenue("all");
+    setGameFilter("all");
   }, [sportLeague, view]);
 
   const playerMetricOptions = useMemo(() => (
@@ -141,12 +155,13 @@ export default function PropsPage() {
   const filteredPlayers = useMemo(() => {
     return dashboards.props.filter((prop: PlayerProp) => {
       if (!qualifiesAsTrend(prop)) return false;
+      if (gameFilter !== "all" && prop.gameId !== gameFilter) return false;
       if (metric === "all") return true;
       if (metric === "over") return prop.overUnder === "Over";
       if (metric === "under") return prop.overUnder === "Under";
       return prop.propType === metric;
     });
-  }, [dashboards.props, metric]);
+  }, [dashboards.props, metric, gameFilter]);
 
   const filteredTeams = useMemo(() => {
     return dashboards.teamTrends.filter((trend: TeamTrend) => {
@@ -207,6 +222,14 @@ export default function PropsPage() {
           onChange: (nextSegment: string) => setSegment(nextSegment as SegmentFilter),
           options: segmentOptions,
         },
+    ...(view === "Players" && gameOptions.length > 1
+      ? [{
+          label: "Game",
+          value: gameFilter,
+          onChange: setGameFilter,
+          options: [{ label: "All Games", value: "all" }, ...gameOptions],
+        }]
+      : []),
   ];
 
   const loadingTitle = view === "100% Club"

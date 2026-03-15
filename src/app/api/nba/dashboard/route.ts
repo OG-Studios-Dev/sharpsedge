@@ -3,6 +3,8 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
 
+export const dynamic = "force-dynamic";
+
 function readBuiltFallback() {
   try {
     const fallbackPath = path.join(process.cwd(), ".next", "server", "app", "api", "nba", "dashboard.body");
