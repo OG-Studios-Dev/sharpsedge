@@ -61,6 +61,9 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
                 {prop.overUnder} {prop.line} {prop.propType}
               </span>
               <span className="text-gray-500 text-xs">{formatOdds(prop.odds)}</span>
+              {prop.book && prop.book !== "Model Line" && (
+                <span className="text-[9px] text-gray-600 bg-dark-bg/60 rounded px-1 py-0.5">{prop.book}</span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">

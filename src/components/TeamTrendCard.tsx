@@ -45,9 +45,11 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
                   <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
                     {trend.betType}
                   </span>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                    {trend.odds === -110 ? "Model" : formatOdds(trend.odds)}
-                  </span>
+                  {typeof trend.odds === "number" && (
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                      {formatOdds(trend.odds)}
+                    </span>
+                  )}
                   {selectedBookOdds ? (
                     <BookBadge
                       book={selectedBookOdds.book}
@@ -56,11 +58,15 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
                       highlight
                       showLine={showOddsLine}
                     />
-                  ) : trend.book ? (
+                  ) : trend.book && trend.book !== "Model Line" ? (
                     <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] text-gray-400">
                       {trend.book}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[10px] text-gray-500">
+                      Model
+                    </span>
+                  )}
                 </div>
               </div>
 
