@@ -1,30 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const league = req.nextUrl.searchParams.get("league");
-  const limitParam = Number(req.nextUrl.searchParams.get("limit"));
-  const limit = Number.isFinite(limitParam) ? limitParam : 1000;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    return NextResponse.json({ picks: [], error: "Supabase not configured" });
+  }
 
   try {
-    const supabase = createServerClient();
-    const picks = await supabase.pickHistory.list(limit);
+    const response = await fetch(
+      `${url}/rest/v1/pick_history?select=*&order=created_at.desc&limit=1000`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      return NextResponse.json({ picks: [], error: `Supabase ${response.status}: ${errText.slice(0, 200)}` });
+    }
+
+    const rows = await response.json();
+    const picks = Array.isArray(rows) ? rows : [];
     const filtered = league && league !== "all"
-      ? picks.filter((pick) => pick.league === league)
+      ? picks.filter((pick: any) => pick.league === league)
       : picks;
 
-    return NextResponse.json({ picks: filtered, _debug: { total: picks.length, filtered: filtered.length, hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY } });
+    return NextResponse.json({ picks: filtered });
   } catch (error) {
-    return NextResponse.json(
-      {
-        picks: [],
-        error: error instanceof Error ? error.message : "Failed to load pick history",
-        _stack: error instanceof Error ? error.stack?.slice(0, 200) : undefined,
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      picks: [],
+      error: error instanceof Error ? error.message : "Failed to load pick history",
+    });
   }
 }
-// rebuild 1773585967

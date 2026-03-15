@@ -166,8 +166,14 @@ async function listPickHistory(limit: number = 500) {
     const rows = await postgrest<any[]>(
       `/rest/v1/pick_history?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 2000))}`,
     );
-    return rows as PickHistoryRecord[];
-  } catch {
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows as PickHistoryRecord[];
+    }
+    // If Supabase returns empty, try fallback
+    const fallback = await readPicks().catch(() => []);
+    return fallback.map(mapSavedPick);
+  } catch (err) {
+    console.warn("[supabase] listPickHistory failed:", err);
     const fallback = await readPicks().catch(() => []);
     return fallback.map(mapSavedPick);
   }
