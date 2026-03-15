@@ -4,16 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 
-const NHL_STORAGE_KEY = "goosalytics_ai_picks_v7";
-const NBA_STORAGE_KEY = "goosalytics_nba_picks_v7";
+const NHL_STORAGE_KEY = "goosalytics_ai_picks_v8";
+const NBA_STORAGE_KEY = "goosalytics_nba_picks_v8";
 
-// One-time migration: clear ALL old keys
+// Nuclear clear: wipe ALL old pick keys from localStorage
 if (typeof window !== "undefined") {
-  const OLD_KEYS = ["v2", "v3", "v4", "v5", "v6"];
-  for (const v of OLD_KEYS) {
-    localStorage.removeItem(`goosalytics_ai_picks_${v}`);
-    localStorage.removeItem(`goosalytics_nba_picks_${v}`);
+  const keysToRemove: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("goosalytics_") && key.includes("picks") && !key.endsWith("_v8")) {
+      keysToRemove.push(key);
+    }
   }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
 }
 const NHL_RESOLVE_ENDPOINT = "/api/picks/resolve";
 const NBA_RESOLVE_ENDPOINT = "/api/picks/resolve";
