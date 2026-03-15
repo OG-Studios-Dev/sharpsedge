@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
+import { usePickHistory } from "@/hooks/usePickHistory";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
+import { computePickHistorySummary } from "@/lib/pick-history";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -82,16 +84,31 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
   const nhl = usePicks();
   const nba = useNBAPicks();
   const mlb = useMLBPicks();
+  const { picks: historyPicks } = usePickHistory();
 
   const allNHLPicks = Object.values(nhl.allPicks).flat();
   const allNBAPicks = Object.values(nba.allPicks).flat();
   const allMLBPicks = Object.values(mlb.allPicks).flat();
   const allPicks = [...allNHLPicks, ...allNBAPicks, ...allMLBPicks];
 
-  const nhlRecord = computeRecord(allNHLPicks);
-  const nbaRecord = computeRecord(allNBAPicks);
-  const mlbRecord = computeRecord(allMLBPicks);
-  const allRecord = computeRecord(allPicks);
+  const localNhlRecord = computeRecord(allNHLPicks);
+  const localNbaRecord = computeRecord(allNBAPicks);
+  const localMlbRecord = computeRecord(allMLBPicks);
+  const localAllRecord = computeRecord(allPicks);
+  const hasRemoteHistory = historyPicks.length > 0;
+
+  const nhlRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "NHL"))
+    : localNhlRecord;
+  const nbaRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "NBA"))
+    : localNbaRecord;
+  const mlbRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "MLB"))
+    : localMlbRecord;
+  const allRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks)
+    : localAllRecord;
 
   // Which today picks to show
   const displayPicks =

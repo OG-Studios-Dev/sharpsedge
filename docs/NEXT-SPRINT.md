@@ -159,3 +159,29 @@ Example: "WSH allows THE MOST 3-Pointers Made to SF | Rupert"
 8. **Date + matchup labels** on each bar
 9. **Range slider** — filter by stat range (e.g., rebound chances 7-17)
 10. **Trending filters** — quick filter chips for related stats
+
+## Master Menu / Navigation Overhaul
+
+### Concept: "Every Cheat Sheet in One Place"
+Slide-out menu with full app navigation, organized by category.
+Users can favorite items (⭐) as Quick Shortcuts (max 5).
+
+### Sections
+**Quick Shortcuts** — user's pinned favorites (stored in Supabase profile)
+**Research** — Upcoming Games, DVP, Players, Teams, Games, Props & Odds, H2H
+**Cheat Sheets (Premium)** — Best Bets Today, Game Cards, First Scorer, Mismatches, 100% Club, Quick Hitters
+**Tools** — Parlay Builder, My Picks, Line Shopping, Sharp Signals
+**Account** — Settings, Admin (if role=admin)
+
+### UI
+- Hamburger icon in top-right (or user avatar opens menu)
+- Slide-out from right, full height, dark overlay
+- Close button (X) top right
+- Each item: icon + label + ⭐ favorite toggle
+- Quick shortcuts shown as horizontal pills at top (removable with X)
+- Premium items show 💎 badge (locked for free tier)
+
+### Bottom nav stays
+- Keep bottom nav for top 5 most-used: Home, Schedule, Props, Picks, Trends
+- Menu adds access to everything else
+- Lines tab could move to menu since it's less frequent
