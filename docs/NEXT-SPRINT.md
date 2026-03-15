@@ -145,3 +145,17 @@ Example: "WSH allows THE MOST 3-Pointers Made to SF | Rupert"
 ### Priority
 - High for NBA + NFL
 - Medium for NHL + MLB
+
+## Player Page V2 — LineMate-Level Research (from Marco's reference)
+
+### Components to build
+1. **DVP matchup header** — "SA allows 5th most Rebounds to PF (Last 7)"
+2. **Mismatch Edge gauge** — circular badge with edge score + "MISMATCH" label
+3. **Stat tabs** — PTS / REB / AST / Pts+Reb+Ast / 3PM (clickable, switches prop view)
+4. **Filter pills** — League / Team / Home|Away / Stat type
+5. **Player info row** — name, position, team, #, opponent, DEF RANK, game time
+6. **Hit rate timeline** — L5 / L10 / L20 / Season / vs Opponent percentages
+7. **Bar chart per game** — green (hit) / red (miss) bars with prop line drawn across
+8. **Date + matchup labels** on each bar
+9. **Range slider** — filter by stat range (e.g., rebound chances 7-17)
+10. **Trending filters** — quick filter chips for related stats

@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase-server";
 import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
@@ -494,6 +495,26 @@ async function resolvePick(pick: AIPick): Promise<AIPick> {
   }
 }
 
+async function persistResolvedPickResults(previous: AIPick[], resolved: AIPick[]) {
+  const updates = resolved.filter((pick, index) => {
+    const before = previous[index];
+    return Boolean(before && pick.id === before.id && pick.result !== before.result && pick.result !== "pending");
+  });
+
+  if (!updates.length) return;
+
+  try {
+    const supabase = createServerClient();
+    await Promise.all(
+      updates.map((pick) => supabase.pickHistory.updateResult(pick.id, pick.result).catch(() => null)),
+    );
+  } catch (error) {
+    console.warn("[picks-resolve] failed to persist resolved results", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function POST(req: NextRequest) {
   let picks: AIPick[] = [];
 
@@ -504,6 +525,7 @@ export async function POST(req: NextRequest) {
     if (!picks.some((pick) => pick.result === "pending")) return NextResponse.json({ picks });
 
     const resolved = await Promise.all(picks.map(resolvePick));
+    await persistResolvedPickResults(picks, resolved);
     return NextResponse.json({ picks: resolved });
   } catch (error) {
     console.warn("[picks-resolve] request failed", { error: error instanceof Error ? error.message : String(error) });

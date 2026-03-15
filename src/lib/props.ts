@@ -26,7 +26,6 @@ export function buildPropsPayload(): PlayerProp[] {
     return {
       ...prop,
       matchup: `${prop.team} ${prop.isAway ? '@' : 'vs'} ${prop.opponent}`,
-      gameId: prop.gameId || `seed-${prop.team}-${prop.opponent}`,
       splits,
       impliedProb: Math.round(implied * 100),
       hitRate: Math.round(avgHitRate * 100),

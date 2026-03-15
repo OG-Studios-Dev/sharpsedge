@@ -63,7 +63,7 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     homeBookOdds?: TeamTrend["bookOdds"];
     awayBookOdds?: TeamTrend["bookOdds"];
     matchup: string;
-    gameId: number;
+    gameId?: number;
   }> =
     games.length > 0
       ? games
@@ -97,7 +97,6 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
               homeBookOdds: [],
               awayBookOdds: [],
               matchup: `${opp} @ ${abbrev}`,
-              gameId: 0,
             });
           }
           return acc;

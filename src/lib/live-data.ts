@@ -110,8 +110,12 @@ export async function getLiveDashboardData() {
     getNHLOdds(),
   ]);
 
+  const targetDate = schedule.date || getDateKey();
+
   // Only keep active games (not finished)
-  const activeGames = schedule.games.filter((g) => ACTIVE_STATES.includes(g.gameState));
+  const activeGames = schedule.games.filter((g) => (
+    ACTIVE_STATES.includes(g.gameState) && getDateKey(new Date(g.startTimeUTC)) === targetDate
+  ));
   const gamesWithOdds = attachLiveOddsToSchedule(activeGames, odds);
 
   // Build prop feed + team trends in parallel
@@ -125,7 +129,7 @@ export async function getLiveDashboardData() {
     schedule: {
       ...schedule,
       games: gamesWithOdds,
-      date: schedule.date || getDateKey(),
+      date: targetDate,
     },
     props: fallback.props,
     teamTrends: fallback.teamTrends,
