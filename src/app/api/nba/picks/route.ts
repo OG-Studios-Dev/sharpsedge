@@ -73,3 +73,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ picks: [], date });
   }
 }
+// force redeploy 1773534840
