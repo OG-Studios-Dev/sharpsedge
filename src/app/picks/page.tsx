@@ -424,6 +424,7 @@ export default function PicksPage() {
           <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
+        <p className="text-center text-sm font-semibold text-gray-300 pt-1">Picks</p>
       </div>
 
       {/* Record Card — tappable to drill down */}

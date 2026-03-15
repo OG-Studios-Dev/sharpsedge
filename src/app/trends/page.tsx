@@ -158,12 +158,11 @@ export default function TrendsPage() {
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          </div>
+        <div className="flex items-center justify-between px-4 py-3">
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
+        <p className="text-center text-sm font-semibold text-gray-300 pb-1">Trends</p>
 
         <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
           {(["All", "Player", "Team"] as Tab[]).map((item) => (

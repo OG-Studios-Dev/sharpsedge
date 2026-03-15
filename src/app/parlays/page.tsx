@@ -42,11 +42,10 @@ export default function ParlaysPage() {
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
         <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          </div>
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
+        <p className="text-center text-sm font-semibold text-gray-300 pb-2">Parlays</p>
       </header>
 
       {dashboards.loading ? (
