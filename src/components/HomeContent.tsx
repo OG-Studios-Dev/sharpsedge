@@ -25,8 +25,12 @@ function QuickHitterCard({ row }: { row: QuickHitterRow }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="truncate text-sm font-semibold text-white">{row.title}</p>
-            <span className="rounded-full border border-accent-blue/20 bg-accent-blue/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-blue">
-              {row.paceLabel}
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+              row.paceLabel === "LOW" 
+                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                : "border-accent-blue/20 bg-accent-blue/10 text-accent-blue"
+            }`}>
+              {row.paceLabel === "LOW" ? "EZ" : row.paceLabel}
             </span>
             <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
           </div>
@@ -166,7 +170,7 @@ export default function HomeContent() {
 
         <HomeSection
           title="Quick Hitters"
-          subtitle="Small-number markets that profile like first-period NHL or first-quarter NBA punches."
+          subtitle="Low-line props with high hit rates. Easy money, quick cash."
         >
           {dashboards.loading ? (
             <div className="space-y-3">

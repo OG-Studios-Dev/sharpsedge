@@ -28,7 +28,7 @@ export type TrendRow = {
   score: number;
 };
 
-export type QuickHitterRow = TrendRow & { paceLabel: "1P" | "1Q" | "BAT" | "ARM" };
+export type QuickHitterRow = TrendRow & { paceLabel: "1P" | "1Q" | "BAT" | "ARM" | "LOW" };
 
 const MAIN_TEAM_BET_TYPES = new Set([
   "Team Goals O/U",
@@ -189,8 +189,8 @@ export function buildTrendingRows(props: PlayerProp[], count = 5): TrendRow[] {
   return sortRows(rows).slice(0, count);
 }
 
-function getQuickHitterPace(prop: PlayerProp): "1P" | "1Q" | "BAT" | "ARM" | null {
-  if (prop.league === "NHL") return "1P";
+function getQuickHitterPace(prop: PlayerProp): "1P" | "1Q" | "BAT" | "ARM" | "LOW" | null {
+  if (prop.league === "NHL") return "LOW"; // Low-line full game props (1P player props don't exist on books)
   if (prop.league === "NBA") return "1Q";
   if (prop.league === "MLB") {
     const market = prop.propType.toLowerCase();

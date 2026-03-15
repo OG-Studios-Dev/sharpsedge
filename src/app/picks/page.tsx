@@ -58,7 +58,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
   });
   const topBooks = bookOdds.slice(0, 3);
   const showOddsLine = hasAlternateBookLines(bookOdds);
-  const showBookOdds = Boolean(pick.book && pick.book !== "Model Line");
+  const showBookOdds = Boolean((selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line");
   const trendHref = getPlayerTrendHrefFromPick(pick);
   const cardTone = isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border";
 
@@ -92,7 +92,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
         </span>
         {showBookOdds && (
           <span className="text-[10px] bg-dark-bg/70 text-gray-300 rounded-full px-2 py-0.5 font-medium">
-            {pick.book} {formatAmericanOdds(pick.odds)}
+            {selectedBookOdds?.book ?? pick.book} {formatAmericanOdds(selectedBookOdds?.odds ?? pick.odds)}
           </span>
         )}
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
@@ -238,9 +238,9 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
                 Team Trend
               </span>
             )}
-            {pick.book && pick.book !== "Model Line" && (
+            {(selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line" && (
               <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-                📖 {pick.book}
+                📖 {selectedBookOdds?.book ?? pick.book}
               </span>
             )}
             <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">

@@ -51,7 +51,7 @@ export function resolveSelectedBookOdds(
   const matched = sorted.find((offer) => (
     offer.book === selected?.book
     && offer.odds === selected?.odds
-    && sameLine(offer.line, selected?.line)
+    && (typeof selected?.line !== "number" || sameLine(offer.line, selected.line))
   ));
 
   return matched || sorted[0] || null;
