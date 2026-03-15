@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase-server";
-import { clearSessionCookies, setSessionCookies } from "@/lib/session-cookies";
+import { clearSessionCookies, setProfileCookies, setSessionCookies } from "@/lib/session-cookies";
 import {
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
@@ -45,6 +45,7 @@ export async function GET(request: Request) {
     });
 
     setSessionCookies(response, session);
+    setProfileCookies(response, profile);
     return response;
   } catch (error) {
     const response = NextResponse.json(

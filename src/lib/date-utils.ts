@@ -22,6 +22,30 @@ export function getDateKeyWithOffset(offsetDays: number, timeZone = APP_TIME_ZON
   return getDateKey(date, timeZone);
 }
 
+function getHourInTimeZone(date: Date, timeZone: string) {
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    hour12: false,
+  }).format(date);
+  return parseInt(hourStr, 10);
+}
+
+export function shouldIncludeTomorrowGames(date: Date = new Date(), timeZone = APP_TIME_ZONE) {
+  return getHourInTimeZone(date, timeZone) >= 23;
+}
+
+export function getPickDateKeys(date: Date = new Date(), timeZone = APP_TIME_ZONE) {
+  const today = getDateKey(date, timeZone);
+  if (!shouldIncludeTomorrowGames(date, timeZone)) {
+    return [today];
+  }
+
+  const tomorrowDate = new Date(date);
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  return [today, getDateKey(tomorrowDate, timeZone)];
+}
+
 export function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(year, (month || 1) - 1, day || 1, 12, 0, 0, 0);
@@ -33,12 +57,5 @@ export function parseDateKey(dateKey: string) {
  * After 11 PM ET: show today + tomorrow (1 day ahead).
  */
 export function getScheduleDaysAhead(timeZone = APP_TIME_ZONE): number {
-  const hourStr = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    hour12: false,
-  }).format(new Date());
-  const hour = parseInt(hourStr, 10);
-  // After 11 PM or before 6 AM (late night), show tomorrow's games too
-  return (hour >= 23 || hour < 6) ? 1 : 0;
+  return shouldIncludeTomorrowGames(new Date(), timeZone) ? 1 : 0;
 }

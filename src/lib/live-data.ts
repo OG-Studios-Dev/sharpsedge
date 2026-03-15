@@ -1,5 +1,5 @@
 import { getUpcomingSchedule, getBroadSchedule } from "@/lib/nhl-api";
-import { getScheduleDaysAhead } from "@/lib/date-utils";
+import { getPickDateKeys, getScheduleDaysAhead } from "@/lib/date-utils";
 import { findOddsForGame, getAllOdds, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { getAggregatedOddsEvents } from "@/lib/odds-aggregator";
 import { NHLGame } from "@/lib/types";
@@ -75,11 +75,12 @@ export async function getLiveDashboardData() {
     getNHLOdds(),
   ]);
 
+  const targetDates = new Set(getPickDateKeys());
   const targetDate = schedule.date || getDateKey();
 
   // Only keep active games (not finished)
   const activeGames = schedule.games.filter((g) => (
-    ACTIVE_STATES.includes(g.gameState) && getDateKey(new Date(g.startTimeUTC)) === targetDate
+    ACTIVE_STATES.includes(g.gameState) && targetDates.has(getDateKey(new Date(g.startTimeUTC)))
   ));
   const gamesWithOdds = attachLiveOddsToSchedule(activeGames, odds);
 

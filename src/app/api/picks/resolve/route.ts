@@ -6,19 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-server";
+import { findBestFuzzyNameMatch } from "@/lib/name-match";
+import { persistPicksToSupabase } from "@/lib/persist-picks";
 import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
-const NHL_PENDING_STATES = new Set(["PRE", "FUT", "LIVE", "CRIT"]);
-const NHL_FINAL_STATES = new Set(["OFF", "FINAL", "OVER"]);
-
-function normalizeName(value: string) {
-  return value.toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
-}
-
 function normalizeTeam(value?: string) {
   return (value || "").trim().toUpperCase();
 }
@@ -43,32 +37,6 @@ function logResolverIssue(pick: AIPick, message: string, extra?: Record<string, 
     gameId: pick.gameId ?? null,
     ...extra,
   });
-}
-
-function findPlayerByName<T>(players: T[], targetName: string, getName: (player: T) => string): T | undefined {
-  const normalizedTarget = normalizeName(targetName);
-  if (!normalizedTarget) return undefined;
-
-  const exact = players.find((player) => normalizeName(getName(player)) === normalizedTarget);
-  if (exact) return exact;
-
-  const targetParts = normalizedTarget.split(" ");
-  const targetLast = targetParts[targetParts.length - 1];
-  const targetFirst = targetParts[0];
-  if (!targetLast) return undefined;
-
-  const partialMatches = players.filter((player) => {
-    const normalizedPlayer = normalizeName(getName(player));
-    if (!normalizedPlayer) return false;
-    if (normalizedPlayer.includes(normalizedTarget)) return true;
-
-    const playerParts = normalizedPlayer.split(" ");
-    const playerFirst = playerParts[0];
-    const playerLast = playerParts[playerParts.length - 1];
-    return playerLast === targetLast && (!!targetFirst && (playerFirst === targetFirst || playerFirst.startsWith(targetFirst) || targetFirst.startsWith(playerFirst)));
-  });
-
-  return partialMatches.length === 1 ? partialMatches[0] : undefined;
 }
 
 function parseNumericStat(raw: unknown): number {
@@ -96,18 +64,7 @@ function parseBaseballInnings(value: unknown) {
 
 function isNHLGameComplete(boxscore: any): boolean {
   const state = String(boxscore?.gameState ?? "").toUpperCase();
-  if (NHL_PENDING_STATES.has(state)) return false;
-  if (NHL_FINAL_STATES.has(state)) return true;
-
-  const homeScore = boxscore?.homeTeam?.score;
-  const awayScore = boxscore?.awayTeam?.score;
-  const periodType = String(boxscore?.periodDescriptor?.periodType ?? "").toUpperCase();
-  const clockRunning = Boolean(boxscore?.clock?.running);
-
-  return typeof homeScore === "number"
-    && typeof awayScore === "number"
-    && !clockRunning
-    && ["REG", "OT", "SO"].includes(periodType);
+  return state === "OFF" || state === "FINAL";
 }
 
 function getNBACompetition(summary: any) {
@@ -117,15 +74,51 @@ function getNBACompetition(summary: any) {
 function isNBACompetitionComplete(summary: any): boolean {
   const competition = getNBACompetition(summary);
   const statusType = competition?.status?.type ?? summary?.status?.type ?? {};
-  const name = String(statusType?.name ?? statusType?.description ?? "").toUpperCase();
-  const detail = String(statusType?.detail ?? statusType?.shortDetail ?? "").toUpperCase();
-  const state = String(statusType?.state ?? "").toLowerCase();
-  return Boolean(statusType?.completed || state === "post" || name.includes("FINAL") || detail.includes("FINAL"));
+  return statusType?.completed === true;
 }
 
 function parseMLBLine(line?: number | null) {
   if (typeof line !== "number" || !Number.isFinite(line)) return undefined;
   return line;
+}
+
+function parseTeamSpreadLine(pick: AIPick) {
+  const betType = String(pick.betType || "").toLowerCase();
+  const label = String(pick.pickLabel || "");
+  const isSpreadBet = (
+    betType.includes("spread")
+    || betType.includes("puck line")
+    || (betType.includes("line") && !betType.includes("total"))
+    || /\b[+-]\d+(?:\.\d+)?\b/.test(label)
+  );
+
+  if (!isSpreadBet) return undefined;
+  if (typeof pick.line === "number" && Number.isFinite(pick.line)) return pick.line;
+
+  const match = label.match(/([+-]\d+(?:\.\d+)?)/);
+  if (!match) return undefined;
+
+  const parsed = parseFloat(match[1]);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function resolveByLine(actual: number, line: number, direction?: AIPick["direction"]): AIPick["result"] {
+  if (direction === "Under") {
+    if (actual < line) return "win";
+    if (actual > line) return "loss";
+    return "push";
+  }
+
+  if (actual > line) return "win";
+  if (actual < line) return "loss";
+  return "push";
+}
+
+function resolveSpreadResult(teamScore: number, opponentScore: number, spreadLine: number): AIPick["result"] {
+  const adjustedMargin = (teamScore - opponentScore) + spreadLine;
+  if (adjustedMargin > 0) return "win";
+  if (adjustedMargin < 0) return "loss";
+  return "push";
 }
 
 async function fetchMLBScheduleGame(gameId: string, date: string) {
@@ -179,7 +172,7 @@ async function resolveNHLPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
 
   const teamStats = boxscore.playerByGameStats?.[side] || {};
   const skaters = [...(teamStats.forwards || []), ...(teamStats.defense || [])];
-  const player = findPlayerByName(skaters, pick.playerName || "", (entry: any) => entry.name?.default || "");
+  const player = findBestFuzzyNameMatch(skaters, pick.playerName || "", (entry: any) => entry.name?.default || "");
   if (!player) {
     logResolverIssue(pick, "nhl_player_not_found", { playerName: pick.playerName || "" });
     return "pending";
@@ -188,7 +181,7 @@ async function resolveNHLPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
   const propKey = (pick.propType || "").toLowerCase();
   let actual: number | null = null;
 
-  if (propKey.includes("shot")) actual = player.shots ?? null;
+  if (propKey.includes("shot") || propKey.includes("sog")) actual = player.shots ?? player.sog ?? null;
   else if (propKey.includes("assist")) actual = player.assists ?? null;
   else if (propKey === "goals" || propKey === "goal") actual = player.goals ?? null;
   else if (propKey.includes("point")) actual = (player.goals ?? 0) + (player.assists ?? 0);
@@ -198,14 +191,7 @@ async function resolveNHLPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     return "pending";
   }
 
-  if (pick.direction === "Under") {
-    if (actual < pick.line) return "win";
-    if (actual > pick.line) return "loss";
-    return "push";
-  }
-  if (actual > pick.line) return "win";
-  if (actual < pick.line) return "loss";
-  return "push";
+  return resolveByLine(actual, pick.line, pick.direction);
 }
 
 async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]> {
@@ -248,6 +234,11 @@ async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]> {
     return "push";
   }
 
+  const spreadLine = parseTeamSpreadLine(pick);
+  if (spreadLine !== undefined) {
+    return resolveSpreadResult(teamScore, oppScore, spreadLine);
+  }
+
   return "pending";
 }
 
@@ -279,9 +270,14 @@ async function resolveNBAPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     })
   );
 
-  const player = findPlayerByName(players, pick.playerName || "", (entry: any) => entry.name || "");
-  if (!player || pick.line === undefined) {
+  const player = findBestFuzzyNameMatch(players, pick.playerName || "", (entry: any) => entry.name || "");
+  if (!player) {
     logResolverIssue(pick, "nba_player_not_found", { playerName: pick.playerName || "" });
+    return "pending";
+  }
+
+  if (pick.line === undefined) {
+    logResolverIssue(pick, "nba_player_line_missing", { propType: pick.propType ?? "" });
     return "pending";
   }
 
@@ -297,14 +293,7 @@ async function resolveNBAPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     return "pending";
   }
 
-  if (pick.direction === "Under") {
-    if (actual < pick.line) return "win";
-    if (actual > pick.line) return "loss";
-    return "push";
-  }
-  if (actual > pick.line) return "win";
-  if (actual < pick.line) return "loss";
-  return "push";
+  return resolveByLine(actual, pick.line, pick.direction);
 }
 
 async function resolveNBATeamPick(pick: AIPick): Promise<AIPick["result"]> {
@@ -346,6 +335,11 @@ async function resolveNBATeamPick(pick: AIPick): Promise<AIPick["result"]> {
     return "push";
   }
 
+  const spreadLine = parseTeamSpreadLine(pick);
+  if (spreadLine !== undefined) {
+    return resolveSpreadResult(teamScore, oppScore, spreadLine);
+  }
+
   return "pending";
 }
 
@@ -374,9 +368,14 @@ async function resolveMLBPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
         : "home";
 
   const players = Object.values<any>(boxscore?.teams?.[side]?.players ?? {});
-  const player = findPlayerByName(players, pick.playerName || "", (entry: any) => entry?.person?.fullName || "");
-  if (!player || pick.line === undefined) {
+  const player = findBestFuzzyNameMatch(players, pick.playerName || "", (entry: any) => entry?.person?.fullName || "");
+  if (!player) {
     logResolverIssue(pick, "mlb_player_not_found", { playerName: pick.playerName || "" });
+    return "pending";
+  }
+
+  if (pick.line === undefined) {
+    logResolverIssue(pick, "mlb_player_line_missing", { propType: pick.propType ?? "" });
     return "pending";
   }
 
@@ -401,14 +400,7 @@ async function resolveMLBPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
     return "pending";
   }
 
-  if (pick.direction === "Under") {
-    if (actual < pick.line) return "win";
-    if (actual > pick.line) return "loss";
-    return "push";
-  }
-  if (actual > pick.line) return "win";
-  if (actual < pick.line) return "loss";
-  return "push";
+  return resolveByLine(actual, pick.line, pick.direction);
 }
 
 async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]> {
@@ -498,16 +490,18 @@ async function resolvePick(pick: AIPick): Promise<AIPick> {
 async function persistResolvedPickResults(previous: AIPick[], resolved: AIPick[]) {
   const updates = resolved.filter((pick, index) => {
     const before = previous[index];
-    return Boolean(before && pick.id === before.id && pick.result !== before.result && pick.result !== "pending");
+    return Boolean(
+      before
+      && pick.id === before.id
+      && before.result === "pending"
+      && pick.result !== "pending",
+    );
   });
 
   if (!updates.length) return;
 
   try {
-    const supabase = createServerClient();
-    await Promise.all(
-      updates.map((pick) => supabase.pickHistory.updateResult(pick.id, pick.result).catch(() => null)),
-    );
+    await persistPicksToSupabase(updates);
   } catch (error) {
     console.warn("[picks-resolve] failed to persist resolved results", {
       error: error instanceof Error ? error.message : String(error),

@@ -15,9 +15,10 @@
 import { OddsEvent, PlayerProp } from "@/lib/types";
 import { NBAGame, getNBABoxscore, getNBATeamRosterEntries, NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
-import { getNBAEventOdds } from "@/lib/nba-odds";
 import { assignIndicators } from "@/lib/trend-indicators";
 import { buildPlayerSplits } from "@/lib/player-trend";
+import { findBestFuzzyNameMatch } from "@/lib/name-match";
+import { getDailyPlayerPropOddsEvents } from "@/lib/props-cache";
 
 const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210;
@@ -73,11 +74,7 @@ async function getPlayerRecentStats(
       const box = await getNBABoxscore(game.id);
       const isHome = game.homeTeam.abbreviation === teamAbbrev;
       const teamPlayers = isHome ? box.home : box.away;
-      const nameLower = playerName.toLowerCase();
-      const p = teamPlayers.find(pl =>
-        pl.name.toLowerCase().includes(nameLower.split(" ").pop() ?? "") &&
-        pl.name.toLowerCase().includes(nameLower.split(" ")[0] ?? "")
-      );
+      const p = findBestFuzzyNameMatch(teamPlayers, playerName, (player) => player.name);
       if (!p) continue;
       const mins = parseFloat(p.minutes) || 0;
       if (mins < 15) continue;
@@ -162,6 +159,7 @@ function buildProp(
   propDef: typeof NBA_PROP_DEFS[number],
   matchup: string,
   gameId: string,
+  gameDate: string,
   eventOdds?: OddsEvent | null
 ): PlayerProp | null {
   const vals = logs.map(g => g[propDef.key]);
@@ -211,6 +209,7 @@ function buildProp(
     fairProbability: hitRate / 100,
     fairOdds: null,
     gameId,
+    gameDate,
     oddsEventId: eventOdds?.id,
     splits: buildPlayerSplits({
       games: trendLogs,
@@ -364,19 +363,12 @@ export async function buildNBAStatsPropFeed(
       .filter(g => g.status === "Final" && (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev))
       .slice(0, 10);
 
-    const nameLower = playerName.toLowerCase();
-    const lastName = nameLower.split(" ").pop() ?? "";
-    const firstName = nameLower.split(" ")[0] ?? "";
-
     for (const game of teamGames) {
       const box = boxscoreCache.get(game.id);
       if (!box) continue;
       const isHome = game.homeTeam.abbreviation === teamAbbrev;
       const teamPlayers = isHome ? box.home : box.away;
-      const p = teamPlayers.find(pl =>
-        pl.name.toLowerCase().includes(lastName) &&
-        pl.name.toLowerCase().includes(firstName)
-      );
+      const p = findBestFuzzyNameMatch(teamPlayers, playerName, (player) => player.name);
       if (!p) continue;
       const mins = parseFloat(p.minutes) || 0;
       if (mins < 15) continue;
@@ -397,17 +389,11 @@ export async function buildNBAStatsPropFeed(
   };
 
   // Fetch event odds in parallel per unique oddsEventId
-  const oddsMap = new Map<string, OddsEvent | null>();
   const uniqueOddsIds = Array.from(new Set(playerTasks.map(t => t.oddsEventId).filter(Boolean))) as string[];
-  await Promise.all(
-    uniqueOddsIds.map(async (id) => {
-      try {
-        const odds = await getNBAEventOdds(id);
-        oddsMap.set(id, odds);
-      } catch {
-        oddsMap.set(id, null);
-      }
-    })
+  const propOdds = await getDailyPlayerPropOddsEvents("NBA", uniqueOddsIds);
+  const oddsMap = propOdds.events;
+  console.log(
+    `[nba-stats] player prop odds source=${propOdds.source} requested=${propOdds.requestedCount} available=${propOdds.availableCount}`,
   );
 
   // Generate props (no more async — everything is cached)
@@ -420,7 +406,10 @@ export async function buildNBAStatsPropFeed(
     const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
     const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
     for (const propDef of NBA_PROP_DEFS) {
-      const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, task.matchup, task.gameId, eventOdds);
+      const gameDate = recentGames.find((game) => game.id === task.gameId)?.date
+        || games.find((game) => game.id === task.gameId)?.date
+        || "";
+      const prop = buildProp(task.name, task.team, task.opp, task.isAway, color, logs, propDef, task.matchup, task.gameId, gameDate, eventOdds);
       if (prop) { allProps.push(prop); generated++; }
       else { skippedNoEdge++; }
     }

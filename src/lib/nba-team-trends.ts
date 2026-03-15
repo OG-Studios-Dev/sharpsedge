@@ -61,6 +61,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
     awayBookOdds?: TeamTrend["bookOdds"];
     matchup: string;
     gameId?: string;
+    gameDate?: string;
   }> =
     games.length > 0
       ? games
@@ -81,8 +82,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
             awayBookOdds: g.moneylineBookOdds?.away ?? [],
             matchup: `${g.awayTeam.abbreviation} @ ${g.homeTeam.abbreviation}`,
             gameId: g.id,
+            gameDate: g.date,
           }))
-      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; homeBookOdds?: TeamTrend["bookOdds"]; awayBookOdds?: TeamTrend["bookOdds"]; matchup: string; gameId?: string }>>((acc, abbrev, i) => {
+      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; homeBookOdds?: TeamTrend["bookOdds"]; awayBookOdds?: TeamTrend["bookOdds"]; matchup: string; gameId?: string; gameDate?: string }>>((acc, abbrev, i) => {
           if (i % 2 === 0) {
             const opp = abbrevs[i + 1] || "TBD";
             acc.push({
@@ -107,8 +109,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
     homeBook,
     awayBook,
     homeBookOdds,
-    awayBookOdds,
-    gameId,
+            awayBookOdds,
+            gameId,
+            gameDate,
   } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
@@ -136,6 +139,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         edge: Math.round(edge * 100),
         league: "NBA",
         gameId,
+        gameDate,
         splits: [
           {
             label: `Home: ${hw}-${hl}`,
@@ -174,6 +178,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         edge: Math.round(edge * 100),
         league: "NBA",
         gameId,
+        gameDate,
         splits: [
           {
             label: `Road: ${rw}-${rl}`,
@@ -215,6 +220,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           edge: Math.round((data.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NBA",
           gameId,
+          gameDate,
           splits: [
             {
               label: `Active ${streak.count}-game win streak`,
@@ -255,6 +261,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           edge,
           league: "NBA",
           gameId,
+          gameDate,
           splits: [
             {
               label: `Season avg: ~${estimatedPPG.toFixed(0)} PPG (est.)`,
@@ -295,6 +302,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           edge: overRate - Math.round(STANDARD_IMPLIED_PROB * 100),
           league: "NBA",
           gameId,
+          gameDate,
           splits: [
             {
               label: `Combined win rate: ${(combinedStrength * 100).toFixed(0)}%`,

@@ -9,7 +9,7 @@ export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
   return (
     <Link
       href={getPlayerTrendHrefFromProp(prop)}
-      className="mx-3 my-3 block h-full overflow-hidden rounded-[26px] border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] shadow-[0_14px_40px_rgba(0,0,0,0.22)] transition-transform duration-200 hover:-translate-y-0.5 hover:border-gray-600 lg:mx-0 lg:my-0"
+      className="tap-card block h-full overflow-hidden rounded-2xl border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] shadow-[0_14px_40px_rgba(0,0,0,0.22)] transition-transform duration-200 hover:-translate-y-0.5 hover:border-gray-600"
     >
       <div className="h-1 w-full" style={{ background: prop.teamColor }} />
       <div className="p-4">
@@ -18,8 +18,8 @@ export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="truncate text-[15px] font-semibold text-white">{prop.playerName}</div>
-                <div className="mt-1 text-[12px] text-gray-500">
+                <div className="card-title truncate">{prop.playerName}</div>
+                <div className="mt-1 text-xs text-gray-500">
                   {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">

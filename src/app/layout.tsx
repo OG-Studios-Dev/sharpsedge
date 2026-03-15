@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import AppShell from "@/components/AppShell";
+import { AppChromeProvider } from "@/components/AppChromeProvider";
+import SlideMenu from "@/components/SlideMenu";
+import AddPickModal from "@/components/AddPickModal";
 
 export const metadata: Metadata = {
   title: "Goosalytics - Sports Betting Edge",
@@ -41,8 +44,12 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body className="bg-dark-bg text-white antialiased">
-        <AppShell>{children}</AppShell>
-        <BottomNav />
+        <AppChromeProvider>
+          <AppShell>{children}</AppShell>
+          <BottomNav />
+          <SlideMenu />
+          <AddPickModal />
+        </AppChromeProvider>
       </body>
     </html>
   );

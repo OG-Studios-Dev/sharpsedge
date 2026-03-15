@@ -3,7 +3,7 @@ import { savePick } from "@/lib/picks-store";
 import { createServerClient } from "@/lib/supabase-server";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
-import { getDateKey } from "@/lib/date-utils";
+import { getDateKey, getPickDateKeys } from "@/lib/date-utils";
 import { persistPicksToSupabase } from "@/lib/persist-picks";
 
 function normalizeGameId(value?: string | number | null) {
@@ -19,9 +19,11 @@ function isRealNHLGameId(gameId?: string) {
 export async function GET(req: NextRequest) {
   try {
     const data = await getLiveDashboardData();
-    const date = req.nextUrl.searchParams.get("date") || data.schedule?.date || getDateKey();
+    const requestedDate = req.nextUrl.searchParams.get("date");
+    const allowedDates = new Set(requestedDate ? [requestedDate] : getPickDateKeys());
+    const date = requestedDate || data.schedule?.date || getDateKey();
     const scheduledGames = (data.schedule?.games || []).filter((game) => (
-      getDateKey(new Date(game.startTimeUTC)) === date
+      allowedDates.has(getDateKey(new Date(game.startTimeUTC)))
     ));
     const scheduledGameIds = new Set(
       scheduledGames

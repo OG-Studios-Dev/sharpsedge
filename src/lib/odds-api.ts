@@ -1,35 +1,17 @@
 import { BookOdds, OddsEvent } from "./types";
 import { findTeamAliases } from "./nhl-mappings";
 import { getAggregatedOddsEvents, isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
+import { isFuzzyNameMatch } from "@/lib/name-match";
+import { getDailyPlayerPropOddsEvent } from "@/lib/props-cache";
 
-const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
-const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assists,player_goals";
 
 let oddsCache: { data: OddsEvent[]; timestamp: number } | null = null;
-const eventOddsCache = new Map<string, { data: OddsEvent | null; timestamp: number }>();
 
 export type PlayerPropOdds = BookOdds;
 
-function normalizeName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-}
-
 function matchesPlayerName(targetName: string, outcomeName?: string) {
-  const normalizedTarget = normalizeName(targetName);
-  const normalizedOutcome = normalizeName(outcomeName || "");
-  if (!normalizedTarget || !normalizedOutcome) return false;
-  if (normalizedTarget === normalizedOutcome) return true;
-
-  const targetParts = normalizedTarget.split(" ").filter(Boolean);
-  const outcomeParts = normalizedOutcome.split(" ").filter(Boolean);
-  const targetLast = targetParts[targetParts.length - 1];
-  const outcomeLast = outcomeParts[outcomeParts.length - 1];
-  if (!targetLast || !outcomeLast || targetLast !== outcomeLast) return false;
-
-  const targetFirst = targetParts[0] || "";
-  const outcomeFirst = outcomeParts[0] || "";
-  return targetFirst === outcomeFirst || targetFirst.startsWith(outcomeFirst) || outcomeFirst.startsWith(targetFirst);
+  return isFuzzyNameMatch(targetName, outcomeName || "");
 }
 
 export async function getNHLOdds(): Promise<OddsEvent[]> {
@@ -49,28 +31,7 @@ export async function getNHLOdds(): Promise<OddsEvent[]> {
 export async function getNHLEventOdds(eventId?: string): Promise<OddsEvent | null> {
   if (!eventId) return null;
   if (isSyntheticAggregatedEventId(eventId)) return null;
-
-  const cached = eventOddsCache.get(eventId);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data;
-  }
-
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") {
-    return null;
-  }
-
-  try {
-    const url = `${ODDS_BASE}/sports/icehockey_nhl/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${NHL_PLAYER_PROP_MARKETS}&oddsFormat=american`;
-    const res = await fetch(url, { next: { revalidate: 900 } });
-    if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
-    const data: OddsEvent = await res.json();
-    eventOddsCache.set(eventId, { data, timestamp: Date.now() });
-    return data;
-  } catch {
-    eventOddsCache.set(eventId, { data: null, timestamp: Date.now() });
-    return null;
-  }
+  return getDailyPlayerPropOddsEvent("NHL", eventId);
 }
 
 export function findOddsForGame(

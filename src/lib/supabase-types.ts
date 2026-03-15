@@ -1,10 +1,22 @@
 export type ProfileRole = "user" | "admin";
+export type ProfileTier = "free" | "pro" | "sharp" | "beta";
+export type SubscriptionStatus =
+  | "none"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "coming_soon";
 
 export type ProfileRecord = {
   id: string;
   name: string;
   username: string | null;
   role: ProfileRole;
+  tier: ProfileTier;
+  stripe_customer_id: string | null;
+  subscription_status: SubscriptionStatus;
   created_at: string;
   last_login_at: string | null;
   email?: string | null;

@@ -4,13 +4,69 @@
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background: #0a0a0f;
+  --background: #0d1118;
+  --card-surface: #141a23;
+  --card-surface-muted: #111720;
+  --card-border: #202834;
 }
 
+html,
 body {
   color: rgb(var(--foreground-rgb));
   background: var(--background);
   font-family: "SF Pro Display", "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+}
+
+@layer components {
+  .page-enter {
+    animation: page-fade-in 200ms ease-out both;
+  }
+
+  .stagger-in {
+    opacity: 0;
+    animation: stagger-fade-in 220ms ease-out both;
+    animation-delay: calc(var(--stagger-index, 0) * 50ms);
+  }
+
+  .tap-card {
+    @apply transition-transform duration-150 active:scale-[0.98];
+  }
+
+  .tap-button {
+    @apply transition-opacity duration-150 active:opacity-80;
+  }
+
+  .page-heading {
+    @apply text-base font-semibold text-white;
+  }
+
+  .section-heading {
+    @apply text-sm font-semibold uppercase tracking-wide text-gray-400;
+  }
+
+  .card-title {
+    @apply text-sm font-semibold text-white;
+  }
+
+  .stat-value {
+    @apply text-sm font-bold text-white;
+  }
+
+  .meta-label {
+    @apply text-[10px] uppercase tracking-wide text-gray-500;
+  }
+
+  .skeleton-surface {
+    @apply animate-pulse rounded-2xl border border-dark-border bg-dark-surface/70;
+  }
 }
 
 @layer utilities {
@@ -20,6 +76,26 @@ body {
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

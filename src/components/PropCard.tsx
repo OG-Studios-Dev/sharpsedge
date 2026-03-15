@@ -10,6 +10,8 @@ import { getPlayerTrendHrefFromProp } from "@/lib/player-trend";
 import TrendIndicators from "./TrendIndicators";
 import BookBadge from "./BookBadge";
 import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
+import { useAppChrome } from "@/components/AppChromeProvider";
+import { createDraftFromProp } from "@/lib/my-picks";
 
 function EdgeBadge({ edgePct }: { edgePct: number | null | undefined }) {
   if (!edgePct) return null;
@@ -28,6 +30,7 @@ function displayHitRate(val?: number | null): string {
 
 export default function PropCard({ prop }: { prop: PlayerProp }) {
   const [expanded, setExpanded] = useState(false);
+  const { openAddPickModal } = useAppChrome();
   const hitRate = displayHitRate(prop.hitRate ?? prop.fairProbability);
   const bookOdds = sortBookOddsForDisplay(prop.bookOdds || [], prop.line);
   const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
@@ -43,17 +46,17 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
   const showOddsLine = hasAlternateBookLines(bookOdds);
 
   return (
-    <div className="mx-3 my-1.5 h-full rounded-2xl border border-dark-border bg-dark-surface/70 overflow-hidden lg:mx-0 lg:my-0">
+    <div className="tap-card h-full overflow-hidden rounded-2xl border border-dark-border bg-dark-surface/70">
       {/* Compact view — always visible */}
       <div
-        className="px-4 py-3 cursor-pointer"
+        className="cursor-pointer p-4"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <TeamLogo team={prop.team} color={prop.teamColor} size={28} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-white font-semibold text-sm truncate">{prop.playerName}</span>
+              <span className="card-title truncate">{prop.playerName}</span>
               <span className="text-[9px] text-gray-600 uppercase">{prop.league}</span>
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -67,6 +70,17 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openAddPickModal(createDraftFromProp(prop));
+              }}
+              className="tap-button inline-flex h-9 w-9 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
+              aria-label={`Add ${prop.playerName} to My Picks`}
+            >
+              +
+            </button>
             <EdgeBadge edgePct={prop.edgePct} />
             <span className={`text-sm font-bold ${
               (prop.hitRate ?? 0) >= 70 ? "text-emerald-400" : (prop.hitRate ?? 0) >= 50 ? "text-white" : "text-gray-400"
@@ -79,7 +93,7 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
 
         {/* Mini info row */}
         <div className="flex items-center gap-2 mt-1.5 ml-10">
-          <span className="text-[10px] text-gray-500">
+          <span className="meta-label normal-case tracking-normal">
             {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
           </span>
           {prop.recentGames && prop.recentGames.length > 0 && (
@@ -99,20 +113,20 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
 
       {/* Expanded view */}
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-dark-border/40 space-y-3">
+        <div className="space-y-3 border-t border-dark-border/40 px-4 pb-4 pt-1">
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="bg-dark-bg/60 rounded-lg px-2 py-1.5 text-center">
-              <div className="text-[9px] uppercase text-gray-500">L5 avg</div>
-              <div className="text-white text-xs font-semibold">{prop.rollingAverages?.last5?.toFixed(1) ?? "-"}</div>
+            <div className="rounded-xl bg-dark-bg/60 px-2 py-2 text-center">
+              <div className="meta-label">L5 Avg</div>
+              <div className="mt-0.5 text-xs font-bold text-white">{prop.rollingAverages?.last5?.toFixed(1) ?? "-"}</div>
             </div>
-            <div className="bg-dark-bg/60 rounded-lg px-2 py-1.5 text-center">
-              <div className="text-[9px] uppercase text-gray-500">L10 avg</div>
-              <div className="text-white text-xs font-semibold">{prop.rollingAverages?.last10?.toFixed(1) ?? "-"}</div>
+            <div className="rounded-xl bg-dark-bg/60 px-2 py-2 text-center">
+              <div className="meta-label">L10 Avg</div>
+              <div className="mt-0.5 text-xs font-bold text-white">{prop.rollingAverages?.last10?.toFixed(1) ?? "-"}</div>
             </div>
-            <div className="bg-dark-bg/60 rounded-lg px-2 py-1.5 text-center">
-              <div className="text-[9px] uppercase text-gray-500">Hit rate</div>
-              <div className="text-emerald-400 text-xs font-semibold">{hitRate}</div>
+            <div className="rounded-xl bg-dark-bg/60 px-2 py-2 text-center">
+              <div className="meta-label">Hit Rate</div>
+              <div className="mt-0.5 text-xs font-bold text-emerald-400">{hitRate}</div>
             </div>
           </div>
 
@@ -190,7 +204,7 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
 
           {/* Actions */}
           <div className="flex items-center justify-between">
-            <Link href={getPlayerTrendHrefFromProp(prop)} className="text-[11px] text-accent-blue font-medium">
+            <Link href={getPlayerTrendHrefFromProp(prop)} className="tap-button text-[11px] text-accent-blue font-medium">
               Full analysis →
             </Link>
             <SavePickButton prop={prop} />

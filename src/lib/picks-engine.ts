@@ -73,6 +73,7 @@ function buildPlayerReasoning(prop: ScoredPlayerProp): string {
   });
   const displayBook = bestBookOdds?.book ?? prop.book;
   const displayOdds = bestBookOdds?.odds ?? prop.odds;
+  const splitLabels = (prop.splits || []).map((split) => split.label).filter(Boolean).slice(0, 2);
 
   const parts: string[] = [];
   parts.push(`${prop.playerName} has hit ${direction} ${prop.line} ${prop.propType} in ${hr.toFixed(0)}% of recent games.`);
@@ -81,8 +82,17 @@ function buildPlayerReasoning(prop: ScoredPlayerProp): string {
     parts.push(`L10 avg: ${avg10.toFixed(1)}${avg5 != null ? `, L5 avg: ${avg5.toFixed(1)}` : ""}.`);
   }
 
+  if (avg10 != null) {
+    const cushion = direction === "Under" ? prop.line - avg10 : avg10 - prop.line;
+    parts.push(`Model cushion vs line: ${cushion >= 0 ? "+" : ""}${cushion.toFixed(1)}.`);
+  }
+
   if (last3.length >= 3) {
     parts.push(`Last 3 games: ${last3.join(", ")}.`);
+  }
+
+  if (splitLabels.length > 0) {
+    parts.push(splitLabels.map((label) => `${label}.`).join(" "));
   }
 
   if (edge > 0) {
@@ -144,7 +154,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
 
   return {
     id: `pick-${prop.id}-${date}`,
-    date,
+    date: prop.gameDate || date,
     type: "player",
     playerId: prop.playerId,
     playerName: prop.playerName,
@@ -179,7 +189,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
 
   return {
     id: `pick-${trend.id}-${date}`,
-    date,
+    date: trend.gameDate || date,
     type: "team",
     team: trend.team,
     teamColor: trend.teamColor || "#4a9eff",
@@ -219,6 +229,37 @@ function propVarietyBucket(prop: PlayerProp): string {
 
 function normalizePlayerKey(name?: string): string {
   return (name || "").toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function teamTrendConflictKey(trend: TeamTrend): string {
+  const betType = (trend.betType || "").toLowerCase();
+  const marketFamily = betType.includes("ml")
+    ? "ml"
+    : betType.includes("1q")
+      ? "1q"
+      : betType.includes("1p")
+        ? "1p"
+        : betType.includes("total")
+          ? "total"
+          : betType;
+  const matchupKey = trend.gameId || [trend.team, trend.opponent].sort().join(":");
+  return `${trend.league || "NHL"}:${matchupKey}:${marketFamily}`;
+}
+
+function selectDistinctTeamPicks(trends: ScoredTeamTrend[], count: number): ScoredTeamTrend[] {
+  const selected: ScoredTeamTrend[] = [];
+  const usedKeys = new Set<string>();
+
+  for (const trend of trends) {
+    if (selected.length >= count) break;
+    const conflictKey = teamTrendConflictKey(trend);
+    if (usedKeys.has(conflictKey)) continue;
+
+    selected.push(trend);
+    usedKeys.add(conflictKey);
+  }
+
+  return selected;
 }
 
 function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): ScoredPlayerProp[] {
@@ -275,7 +316,7 @@ export function selectTopPicks(
 
   // Try to pick 2 player props + 1 team trend
   const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
-  const teamPicks = scoredTrends.slice(0, 1);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, 1);
 
   for (const p of playerPicks) {
     picks.push(playerPickToAIPick(p, date));
@@ -288,24 +329,39 @@ export function selectTopPicks(
   if (picks.length < 3) {
     const remaining = 3 - picks.length;
     const usedIds = new Set(picks.map((p) => p.id));
+    const usedBuckets = new Set(playerPicks.map((pick) => propVarietyBucket(pick)));
+    const usedTrendKeys = new Set(teamPicks.map((trend) => teamTrendConflictKey(trend)));
 
-    // Fill from whichever pool has more
+    const extraTrends = scoredTrends
+      .slice(teamPicks.length)
+      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`))
+      .filter((t) => !usedTrendKeys.has(teamTrendConflictKey(t)));
     const extraProps = scoredProps
       .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
       .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
-    const extraTrends = scoredTrends
-      .slice(teamPicks.length)
-      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`));
 
     let filled = 0;
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      picks.push(playerPickToAIPick(p, date));
-      filled++;
-    }
     for (const t of extraTrends) {
       if (filled >= remaining) break;
       picks.push(teamTrendToAIPick(t, date));
+      usedIds.add(`pick-${t.id}-${date}`);
+      usedTrendKeys.add(teamTrendConflictKey(t));
+      filled++;
+    }
+    for (const p of extraProps) {
+      if (filled >= remaining) break;
+      const bucket = propVarietyBucket(p);
+      if (usedBuckets.has(bucket)) continue;
+      picks.push(playerPickToAIPick(p, date));
+      usedIds.add(`pick-${p.id}-${date}`);
+      usedBuckets.add(bucket);
+      filled++;
+    }
+    for (const p of extraProps) {
+      if (filled >= remaining) break;
+      if (usedIds.has(`pick-${p.id}-${date}`)) continue;
+      picks.push(playerPickToAIPick(p, date));
+      usedIds.add(`pick-${p.id}-${date}`);
       filled++;
     }
   }
@@ -331,7 +387,7 @@ export function selectNBATopPicks(
   const picks: AIPick[] = [];
 
   const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
-  const teamPicks = scoredTrends.slice(0, 1);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, 1);
 
   for (const p of playerPicks) {
     const pick = playerPickToAIPick(p, date);
@@ -347,27 +403,45 @@ export function selectNBATopPicks(
   if (picks.length < 3) {
     const remaining = 3 - picks.length;
     const usedIds = new Set(picks.map((p) => p.id));
+    const usedBuckets = new Set(playerPicks.map((pick) => propVarietyBucket(pick)));
+    const usedTrendKeys = new Set(teamPicks.map((trend) => teamTrendConflictKey(trend)));
 
+    const extraTrends = scoredTrends
+      .slice(teamPicks.length)
+      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`))
+      .filter((t) => !usedTrendKeys.has(teamTrendConflictKey(t)));
     const extraProps = scoredProps
       .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
       .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
-    const extraTrends = scoredTrends
-      .slice(teamPicks.length)
-      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`));
 
     let filled = 0;
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      const pick = playerPickToAIPick(p, date);
-      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
-      picks.push(pick);
-      filled++;
-    }
     for (const t of extraTrends) {
       if (filled >= remaining) break;
       const pick = teamTrendToAIPick(t, date);
       pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
       picks.push(pick);
+      usedIds.add(`pick-${t.id}-${date}`);
+      usedTrendKeys.add(teamTrendConflictKey(t));
+      filled++;
+    }
+    for (const p of extraProps) {
+      if (filled >= remaining) break;
+      const bucket = propVarietyBucket(p);
+      if (usedBuckets.has(bucket)) continue;
+      const pick = playerPickToAIPick(p, date);
+      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
+      picks.push(pick);
+      usedIds.add(`pick-${p.id}-${date}`);
+      usedBuckets.add(bucket);
+      filled++;
+    }
+    for (const p of extraProps) {
+      if (filled >= remaining) break;
+      if (usedIds.has(`pick-${p.id}-${date}`)) continue;
+      const pick = playerPickToAIPick(p, date);
+      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
+      picks.push(pick);
+      usedIds.add(`pick-${p.id}-${date}`);
       filled++;
     }
   }

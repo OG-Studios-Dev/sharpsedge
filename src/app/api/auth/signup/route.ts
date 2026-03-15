@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase-server";
-import { setSessionCookies } from "@/lib/session-cookies";
+import { setProfileCookies, setSessionCookies } from "@/lib/session-cookies";
 import {
   deriveName,
   normalizeBrowserSession,
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
     if (session) {
       setSessionCookies(response, session);
     }
+    setProfileCookies(response, profile);
 
     return response;
   } catch (error) {

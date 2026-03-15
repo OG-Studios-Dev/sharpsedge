@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase-server";
-import { setSessionCookies } from "@/lib/session-cookies";
+import { setProfileCookies, setSessionCookies } from "@/lib/session-cookies";
 import { normalizeBrowserSession, signInWithPassword, toErrorMessage } from "@/lib/supabase-shared";
 
 export async function POST(request: Request) {
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
           error: null,
         });
         setSessionCookies(response, session);
+        setProfileCookies(response, profile);
         return response;
       }
     }
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
     });
 
     setSessionCookies(response, session);
+    setProfileCookies(response, profile);
     return response;
   } catch (error) {
     return NextResponse.json(

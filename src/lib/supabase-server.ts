@@ -19,6 +19,9 @@ type ProfileUpsert = {
   name: string;
   username?: string | null;
   role?: "user" | "admin";
+  tier?: "free" | "pro" | "sharp" | "beta";
+  stripe_customer_id?: string | null;
+  subscription_status?: "none" | "trialing" | "active" | "past_due" | "canceled" | "incomplete" | "coming_soon";
   created_at?: string;
   last_login_at?: string | null;
 };
@@ -65,6 +68,9 @@ function sanitizeProfile(raw: any): ProfileRecord {
     name: typeof raw?.name === "string" ? raw.name : "Goosalytics User",
     username: typeof raw?.username === "string" ? raw.username : null,
     role: raw?.role === "admin" ? "admin" : "user",
+    tier: raw?.tier === "pro" || raw?.tier === "sharp" || raw?.tier === "beta" ? raw.tier : "free",
+    stripe_customer_id: typeof raw?.stripe_customer_id === "string" ? raw.stripe_customer_id : null,
+    subscription_status: typeof raw?.subscription_status === "string" ? raw.subscription_status : "none",
     created_at: typeof raw?.created_at === "string" ? raw.created_at : new Date(0).toISOString(),
     last_login_at: typeof raw?.last_login_at === "string" ? raw.last_login_at : null,
     email: typeof raw?.email === "string" ? raw.email : null,
@@ -121,6 +127,9 @@ async function upsertProfile(input: ProfileUpsert) {
         name: input.name,
         username: input.username ?? null,
         role: input.role ?? "user",
+        tier: input.tier ?? "free",
+        stripe_customer_id: input.stripe_customer_id ?? null,
+        subscription_status: input.subscription_status ?? "none",
         created_at: input.created_at,
         last_login_at: input.last_login_at ?? null,
       }),
@@ -244,6 +253,9 @@ async function ensureProfileForUser(user: AuthUser, overrides: Partial<ProfileUp
         name: existing.name || name,
         username: existing.username ?? username,
         role: existing.role,
+        tier: existing.tier,
+        stripe_customer_id: existing.stripe_customer_id,
+        subscription_status: existing.subscription_status,
         last_login_at: overrides.last_login_at ?? existing.last_login_at,
       });
     }
@@ -253,6 +265,9 @@ async function ensureProfileForUser(user: AuthUser, overrides: Partial<ProfileUp
       name,
       username,
       role: overrides.role ?? "user",
+      tier: overrides.tier ?? "free",
+      stripe_customer_id: overrides.stripe_customer_id ?? null,
+      subscription_status: overrides.subscription_status ?? "none",
       last_login_at: overrides.last_login_at ?? null,
     });
   } catch (error) {

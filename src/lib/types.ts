@@ -75,6 +75,7 @@ export type PlayerProp = {
   saved?: boolean;
   savedAt?: string;
   playerId?: number;
+  gameDate?: string;
   projection?: number | null;
   fairOdds?: number | null;
   fairProbability?: number | null;
@@ -93,6 +94,7 @@ export type TeamTrend = {
   betType: string;
   line: string;
   gameId?: string;
+  gameDate?: string;
   odds: number;
   book?: string;
   bookOdds?: BookOdds[];

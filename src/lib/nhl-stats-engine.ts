@@ -15,9 +15,11 @@
 import { NHLGame, OddsEvent, PlayerProp } from "@/lib/types";
 import { NHL_TEAM_COLORS, getGameGoalies } from "@/lib/nhl-api";
 import type { GoalieStarter } from "@/lib/nhl-api";
-import { getNHLEventOdds, getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
+import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 import { assignIndicators } from "@/lib/trend-indicators";
 import { buildPlayerSplits } from "@/lib/player-trend";
+import { getDateKey } from "@/lib/date-utils";
+import { getDailyPlayerPropOddsEvents } from "@/lib/props-cache";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -206,10 +208,11 @@ function makeProps(
   isAway: boolean,
   matchup: string,
   gameId: string,
+  gameDate: string,
   oddsEvent?: OddsEvent | null,
   opposingGoalie?: GoalieStarter | null
 ): PlayerProp[] {
-  if (logs.length < 5) return [];
+  if (logs.length < 3) return [];
 
   const recentLogs = logs.slice(0, 10); // last 10 for hit rate
   const trendLogs = logs.slice(0, 20);
@@ -319,6 +322,7 @@ function makeProps(
       fairOdds: null,
       edgePct: bestEdge,
       gameId,
+      gameDate,
       oddsEventId: oddsEvent?.id,
     });
   }
@@ -342,17 +346,23 @@ export async function buildNHLStatsPropFeed(
   const allProps: PlayerProp[] = [];
 
   const targetGames = games.slice(0, maxGames);
+  const oddsIds = targetGames.map((game) => game.oddsEventId);
+  const propOdds = await getDailyPlayerPropOddsEvents("NHL", oddsIds);
+  console.log(
+    `[nhl-stats] player prop odds source=${propOdds.source} requested=${propOdds.requestedCount} available=${propOdds.availableCount}`,
+  );
 
   await Promise.all(
     targetGames.map(async (game) => {
-      const [homeRoster, awayRoster, goalies, oddsEvent] = await Promise.all([
+      const [homeRoster, awayRoster, goalies] = await Promise.all([
         getRosterSkaters(game.homeTeam.abbrev),
         getRosterSkaters(game.awayTeam.abbrev),
         getGameGoalies(game.id).catch(() => ({ gameId: game.id, home: null, away: null })),
-        getNHLEventOdds(game.oddsEventId).catch(() => null),
       ]);
+      const oddsEvent = game.oddsEventId ? (propOdds.events.get(game.oddsEventId) ?? null) : null;
 
       const matchup = `${game.awayTeam.abbrev} @ ${game.homeTeam.abbrev}`;
+      const gameDate = getDateKey(new Date(game.startTimeUTC));
 
       const pickPlayers = (roster: SkaterRow[]) => {
         const forwards = roster.filter((p) => p.positionCode !== "D").slice(0, maxForwards);
@@ -377,7 +387,7 @@ export async function buildNHLStatsPropFeed(
             const logs = await getGameLog(player.id);
             const props = makeProps(
               player, logs, team, opponent,
-              isAway, matchup, String(game.id), oddsEvent,
+              isAway, matchup, String(game.id), gameDate, oddsEvent,
               opposingGoalie
             );
             allProps.push(...props);

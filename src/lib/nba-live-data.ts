@@ -1,5 +1,5 @@
 import { getNBASchedule, getRecentNBAGames } from "@/lib/nba-api";
-import { getScheduleDaysAhead } from "@/lib/date-utils";
+import { getPickDateKeys, getScheduleDaysAhead } from "@/lib/date-utils";
 import { getNBAOdds } from "@/lib/nba-odds";
 import { getAggregatedOddsEvents } from "@/lib/odds-aggregator";
 import { getAllOdds, getBestOdds } from "@/lib/odds-api";
@@ -41,10 +41,13 @@ export async function getNBADashboardData() {
     getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
   ]);
 
+  const targetDates = new Set(getPickDateKeys(new Date(), "America/New_York"));
+  const scheduledGames = schedule.filter((game) => targetDates.has(game.date));
+
   // Filter out completed games — only keep upcoming/live games for picks & trends
-  const activeGames = schedule.filter((g) => g.status !== "Final");
+  const activeGames = scheduledGames.filter((g) => g.status !== "Final");
   const gamesWithOdds = attachLiveOddsToSchedule(
-    activeGames.length > 0 ? activeGames : schedule,
+    activeGames,
     odds
   );
 
@@ -55,7 +58,7 @@ export async function getNBADashboardData() {
   ]);
 
   return {
-    schedule: attachLiveOddsToSchedule(schedule, odds), // full schedule for display
+    schedule: attachLiveOddsToSchedule(scheduledGames, odds),
     props,
     teamTrends,
     odds,
@@ -66,7 +69,7 @@ export async function getNBADashboardData() {
       propsCount: props.length,
       statsSource: "espn",
       _debug: {
-        totalSchedule: schedule.length,
+        totalSchedule: scheduledGames.length,
         activeGames: gamesWithOdds.length,
         recentGamesCount: recentGames.length,
         recentTeams: Array.from(new Set(recentGames.flatMap(g => [g.homeTeam.abbreviation, g.awayTeam.abbreviation]))).length,
@@ -82,8 +85,11 @@ export async function getNBATrendData() {
     getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
   ]);
 
+  const targetDates = new Set(getPickDateKeys(new Date(), "America/New_York"));
+  const scheduledGames = schedule.filter((game) => targetDates.has(game.date));
+
   // For trends, include recent completed games so trend data is populated
-  const gamesWithOdds = attachLiveOddsToSchedule(schedule, odds);
+  const gamesWithOdds = attachLiveOddsToSchedule(scheduledGames, odds);
 
   const [props, teamTrends] = await Promise.all([
     buildNBAStatsPropFeed(gamesWithOdds, { maxGames: 2, maxPlayers: 4, recentGames }),

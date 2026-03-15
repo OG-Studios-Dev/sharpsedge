@@ -3,9 +3,16 @@ create table if not exists public.profiles (
   name text not null,
   username text unique,
   role text not null default 'user' check (role in ('user', 'admin')),
+  tier text not null default 'free' check (tier in ('free', 'pro', 'sharp', 'beta')),
+  stripe_customer_id text,
+  subscription_status text not null default 'none',
   created_at timestamptz not null default now(),
   last_login_at timestamptz
 );
+
+alter table public.profiles add column if not exists tier text not null default 'free';
+alter table public.profiles add column if not exists stripe_customer_id text;
+alter table public.profiles add column if not exists subscription_status text not null default 'none';
 
 alter table public.profiles enable row level security;
 

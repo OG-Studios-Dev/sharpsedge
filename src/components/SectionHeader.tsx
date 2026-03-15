@@ -11,13 +11,13 @@ export default function SectionHeader({ title, subtitle, href, actionLabel = "Se
   return (
     <div className="flex items-start justify-between gap-3">
       <div>
-        <h2 className="text-white text-base font-semibold tracking-tight">{title}</h2>
+        <h2 className="page-heading tracking-tight">{title}</h2>
         {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
       </div>
       {href && (
         <Link
           href={href}
-          className="shrink-0 text-xs font-semibold text-accent-blue hover:text-blue-300 transition-colors"
+          className="tap-button shrink-0 text-xs font-semibold text-accent-blue hover:text-blue-300 transition-colors"
         >
           {actionLabel} →
         </Link>
