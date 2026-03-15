@@ -52,14 +52,11 @@ const tabs = [
     ),
   },
   {
-    label: "Leagues",
-    href: "/leagues",
+    label: "Lines",
+    href: "/odds",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-        <path d="M6 9H4.5a2.5 2.5 0 010-5C7 4 7 7 7 7M18 9h1.5a2.5 2.5 0 000-5C17 4 17 7 17 7" />
-        <path d="M4 22h16" />
-        <path d="M10 22V8a5 5 0 0110 0v14" />
-        <path d="M4 8a5 5 0 0110 0" />
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
       </svg>
     ),
   },
