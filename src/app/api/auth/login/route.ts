@@ -8,6 +8,37 @@ export async function POST(request: Request) {
     const body = await request.json();
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
+    const accessToken = typeof body?.access_token === "string" ? body.access_token : "";
+    const refreshToken = typeof body?.refresh_token === "string" ? body.refresh_token : "";
+
+    // OAuth flow: tokens provided directly from client-side Supabase
+    if (accessToken && refreshToken) {
+      const { normalizeAuthSession, getAuthUser } = await import("@/lib/supabase-shared");
+      const user = await getAuthUser(accessToken);
+      const session = normalizeAuthSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        user,
+      });
+
+      if (session) {
+        const supabase = createServerClient();
+        const profile = await supabase.profiles.ensureForUser(session.user, {
+          last_login_at: new Date().toISOString(),
+        });
+
+        const response = NextResponse.json({
+          data: {
+            session: normalizeBrowserSession(session),
+            user: session.user,
+            profile,
+          },
+          error: null,
+        });
+        setSessionCookies(response, session);
+        return response;
+      }
+    }
 
     if (!email || !password) {
       return NextResponse.json(
