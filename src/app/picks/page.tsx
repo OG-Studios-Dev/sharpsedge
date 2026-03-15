@@ -10,6 +10,7 @@ import { computePickRecord } from "@/lib/pick-record";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import { getPlayerTrendHrefFromPick } from "@/lib/player-trend";
 
 function ResultPill({ result }: { result: AIPick["result"] }) {
   const styles: Record<AIPick["result"], string> = {
@@ -43,14 +44,11 @@ function formatAmericanOdds(odds: number): string {
 
 function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
   const showBookOdds = Boolean(pick.book && pick.book !== "Model Line");
+  const trendHref = getPlayerTrendHrefFromPick(pick);
+  const cardTone = isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border";
 
-  return (
-    <div
-      className={`rounded-2xl border bg-dark-surface p-4 space-y-2 cursor-pointer transition-all ${
-        isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border"
-      }`}
-      onClick={onToggle}
-    >
+  const summaryContent = (
+    <>
       <div className="flex items-center gap-3">
         <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
         <div className="flex-1 min-w-0">
@@ -66,15 +64,11 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
             {pick.isAway ? "@" : "vs"} {pick.opponent}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <ResultPill result={pick.result} />
-          <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-        </div>
       </div>
 
-      <p className="text-accent-blue font-medium text-sm">{pick.pickLabel}</p>
+      <p className="mt-3 text-accent-blue font-medium text-sm">{pick.pickLabel}</p>
 
-      <div className="flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
         <span className="text-[10px] bg-accent-green/10 text-accent-green rounded-full px-2 py-0.5 font-medium">
           {displayHitRate(pick.hitRate)} hit
         </span>
@@ -87,6 +81,35 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           </span>
         )}
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`rounded-2xl border bg-dark-surface p-4 space-y-3 transition-all ${cardTone}`}>
+      <div className="flex items-start gap-3">
+        {trendHref ? (
+          <Link href={trendHref} className="block flex-1 min-w-0 rounded-xl transition-colors hover:bg-dark-bg/20">
+            {summaryContent}
+            <p className="mt-3 text-gray-600 text-[10px]">Tap card to open player trend →</p>
+          </Link>
+        ) : (
+          <button onClick={onToggle} className="flex-1 min-w-0 text-left">
+            {summaryContent}
+            <p className="mt-3 text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
+          </button>
+        )}
+
+        <div className="flex flex-col items-end gap-2">
+          <ResultPill result={pick.result} />
+          <button
+            onClick={onToggle}
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300"
+          >
+            AI
+            <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+          </button>
+        </div>
       </div>
 
       {/* Expanded AI Analysis */}
@@ -157,11 +180,6 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
             </span>
           </div>
         </div>
-      )}
-
-      {/* Collapsed hint */}
-      {!isExpanded && pick.reasoning && (
-        <p className="text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
       )}
     </div>
   );

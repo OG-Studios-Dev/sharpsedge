@@ -5,20 +5,49 @@ import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
-import PropCard from "@/components/PropCard";
+import TrendPropCard from "@/components/TrendPropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import { TREND_FILTER_OPTIONS } from "@/components/TrendIndicators";
+import FilterBar from "@/components/FilterBar";
+import { hasIndicator } from "@/lib/player-trend";
 
 type Tab = "All" | "Player" | "Team";
 type IndicatorFilter = "all" | "goose_lean" | "hot" | "money" | "lock" | "streak";
+type DirectionFilter = "all" | "over" | "under";
+type PropTypeFilter = "all" | "Points" | "Rebounds" | "Assists" | "Shots" | "Goals" | "3PM";
+type SortFilter = "hit_rate" | "edge" | "odds";
 
 const TEAM_THRESHOLD = 50;
 
-function hasIndicator(indicators: { type: string; active: boolean }[] | undefined, type: string): boolean {
-  if (!indicators) return false;
-  return indicators.some((ind) => ind.type === type && ind.active);
+function matchesPropType(propType: string, filter: PropTypeFilter) {
+  if (filter === "all") return true;
+  if (filter === "3PM") return propType === "3-Pointers Made";
+  if (filter === "Shots") return propType === "Shots on Goal" || propType === "Shots";
+  return propType === filter;
+}
+
+function toPercent(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.abs(value) <= 1 ? value * 100 : value;
+}
+
+function compareBySort(
+  a: { hitRate?: number | null; edge?: number | null; odds?: number | null },
+  b: { hitRate?: number | null; edge?: number | null; odds?: number | null },
+  sortBy: SortFilter,
+) {
+  if (sortBy === "edge") {
+    return toPercent(b.edge) - toPercent(a.edge)
+      || toPercent(b.hitRate) - toPercent(a.hitRate);
+  }
+  if (sortBy === "odds") {
+    return (b.odds ?? -9999) - (a.odds ?? -9999)
+      || toPercent(b.hitRate) - toPercent(a.hitRate);
+  }
+  return toPercent(b.hitRate) - toPercent(a.hitRate)
+    || toPercent(b.edge) - toPercent(a.edge);
 }
 
 export default function TrendsPage() {
@@ -26,22 +55,67 @@ export default function TrendsPage() {
   const sportLeague = normalizeSportsLeague(league);
   const [tab, setTab] = useState<Tab>("All");
   const [indicatorFilter, setIndicatorFilter] = useState<IndicatorFilter>("all");
+  const [directionFilter, setDirectionFilter] = useState<DirectionFilter>("all");
+  const [propTypeFilter, setPropTypeFilter] = useState<PropTypeFilter>("all");
+  const [sortBy, setSortBy] = useState<SortFilter>("hit_rate");
   const dashboards = useSportsDashboards(sportLeague);
 
   const filteredProps = useMemo(() => {
-    const qualified = dashboards.props.filter(qualifiesAsTrend);
-    if (indicatorFilter === "all") return qualified;
-    return qualified.filter((p) => hasIndicator(p.indicators, indicatorFilter));
-  }, [dashboards.props, indicatorFilter]);
+    const qualified = dashboards.props
+      .filter(qualifiesAsTrend)
+      .filter((prop) => indicatorFilter === "all" || hasIndicator(prop.indicators, indicatorFilter))
+      .filter((prop) => directionFilter === "all" || prop.overUnder.toLowerCase() === directionFilter)
+      .filter((prop) => matchesPropType(prop.propType, propTypeFilter))
+      .sort((a, b) => compareBySort(a, b, sortBy));
+
+    return qualified;
+  }, [dashboards.props, directionFilter, indicatorFilter, propTypeFilter, sortBy]);
 
   const filteredTeams = useMemo(() => {
-    const qualified = dashboards.teamTrends.filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD);
-    if (indicatorFilter === "all") return qualified;
-    return qualified.filter((t) => hasIndicator(t.indicators, indicatorFilter));
-  }, [dashboards.teamTrends, indicatorFilter]);
+    return dashboards.teamTrends
+      .filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD)
+      .filter((trend) => indicatorFilter === "all" || hasIndicator(trend.indicators, indicatorFilter))
+      .sort((a, b) => compareBySort(a, b, sortBy));
+  }, [dashboards.teamTrends, indicatorFilter, sortBy]);
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
   const title = sportLeague === "All" ? "NHL + NBA Trends" : `${sportLeague} Trends`;
+  const filters = [
+    {
+      label: "Direction",
+      value: directionFilter,
+      onChange: (value: string) => setDirectionFilter(value as DirectionFilter),
+      options: [
+        { label: "All", value: "all" },
+        { label: "Over", value: "over" },
+        { label: "Under", value: "under" },
+      ],
+    },
+    {
+      label: "Prop Type",
+      value: propTypeFilter,
+      onChange: (value: string) => setPropTypeFilter(value as PropTypeFilter),
+      options: [
+        { label: "All", value: "all" },
+        { label: "Points", value: "Points" },
+        { label: "Rebounds", value: "Rebounds" },
+        { label: "Assists", value: "Assists" },
+        { label: "Shots", value: "Shots" },
+        { label: "Goals", value: "Goals" },
+        { label: "3PM", value: "3PM" },
+      ],
+    },
+    {
+      label: "Sort",
+      value: sortBy,
+      onChange: (value: string) => setSortBy(value as SortFilter),
+      options: [
+        { label: "Hit Rate", value: "hit_rate" },
+        { label: "Edge", value: "edge" },
+        { label: "Odds", value: "odds" },
+      ],
+    },
+  ];
 
   return (
     <div>
@@ -86,6 +160,10 @@ export default function TrendsPage() {
             </button>
           ))}
         </div>
+
+        <div className="px-4 pb-3">
+          <FilterBar filters={filters} />
+        </div>
       </header>
 
       {dashboards.loading ? (
@@ -116,14 +194,14 @@ export default function TrendsPage() {
                 <div className="px-4 pt-4 pb-1">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Player Props</p>
                 </div>
-                {filteredProps.map((prop) => <PropCard key={prop.id} prop={prop} />)}
+                {filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)}
               </>
             )}
           </>
         )
       ) : tab === "Player" ? (
         filteredProps.length > 0 ? (
-          filteredProps.map((prop) => <PropCard key={prop.id} prop={prop} />)
+          filteredProps.map((prop) => <TrendPropCard key={prop.id} prop={prop} />)
         ) : (
           <EmptyStateCard
             eyebrow="Player trends"

@@ -10,6 +10,7 @@
 body {
   color: rgb(var(--foreground-rgb));
   background: var(--background);
+  font-family: "SF Pro Display", "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
 }
 
 @layer utilities {

@@ -17,6 +17,7 @@ import { NHL_TEAM_COLORS, getGameGoalies } from "@/lib/nhl-api";
 import type { GoalieStarter } from "@/lib/nhl-api";
 import { getNHLEventOdds, getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 import { assignIndicators } from "@/lib/trend-indicators";
+import { buildPlayerSplits } from "@/lib/player-trend";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
@@ -25,8 +26,13 @@ const SEASON = "20252026";
 // Types
 // ──────────────────────────────────────────────────────────────────────
 
-type GameLog = {
+export type GameLog = {
+  gameId: string;
   gameDate: string;
+  opponentAbbrev: string;
+  homeRoadFlag: "H" | "R";
+  isHome: boolean;
+  teamAbbrev?: string;
   points: number;
   goals: number;
   assists: number;
@@ -72,13 +78,18 @@ async function getRosterSkaters(teamAbbrev: string): Promise<SkaterRow[]> {
   }
 }
 
-async function getGameLog(playerId: number): Promise<GameLog[]> {
+export async function getGameLog(playerId: number): Promise<GameLog[]> {
   try {
     const data = await fetchJSON<any>(
       `${NHL_BASE}/player/${playerId}/game-log/${SEASON}/2`
     );
     return (data.gameLog || []).map((g: any) => ({
+      gameId: String(g.gameId || g.id || ""),
       gameDate: g.gameDate || "",
+      opponentAbbrev: g.opponentAbbrev || g.opponentTeamAbbrev?.default || g.opponentTeamAbbrev || "",
+      homeRoadFlag: g.homeRoadFlag === "H" ? "H" : "R",
+      isHome: g.homeRoadFlag === "H",
+      teamAbbrev: g.teamAbbrev?.default || g.teamAbbrev || undefined,
       points: Number(g.points) || 0,
       goals: Number(g.goals) || 0,
       assists: Number(g.assists) || 0,
@@ -201,6 +212,7 @@ function makeProps(
   if (logs.length < 5) return [];
 
   const recentLogs = logs.slice(0, 10); // last 10 for hit rate
+  const trendLogs = logs.slice(0, 20);
   const recent5 = logs.slice(0, 5);
   const avgToi = avgTOI(logs, 10);
   if (avgToi < 5 * 60) return []; // skip players with <5min avg TOI (scratches, 4th-liners)
@@ -285,15 +297,13 @@ function makeProps(
       edge: bestEdge,
       score: Math.abs(bestEdge) * confidence,
       statsSource: "live-nhl",
-      splits: [
-        {
-          label: `Hit ${direction} ${line} in ${hitRatePct.toFixed(1)}% of last ${Math.min(recentLogs.length, 10)} games`,
-          hitRate: hitRatePct,
-          hits: Math.round(bestRate * Math.min(recentLogs.length, 10)),
-          total: Math.min(recentLogs.length, 10),
-          type: "last_n",
-        },
-      ],
+      splits: buildPlayerSplits({
+        games: trendLogs,
+        didHit: (game) => direction === "Over" ? game[def.key] > line : game[def.key] < line,
+        isAway,
+        opponent,
+        lastN: 10,
+      }),
       indicators: assignIndicators({
         hitRate: hitRatePct,
         edge: bestEdge,

@@ -116,6 +116,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     id: `pick-${prop.id}-${date}`,
     date,
     type: "player",
+    playerId: prop.playerId,
     playerName: prop.playerName,
     team: prop.team,
     teamColor: prop.teamColor || NHL_TEAM_COLORS[prop.team] || "#4a9eff",
@@ -134,6 +135,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     gameId: prop.gameId,
     odds: prop.odds,
     book: prop.book,
+    league: prop.league,
   };
 }
 
@@ -158,6 +160,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     gameId: trend.gameId,
     odds: trend.odds,
     book: trend.book,
+    league: trend.league,
   };
 }
 
@@ -290,13 +293,11 @@ export function selectNBATopPicks(
 
   for (const p of playerPicks) {
     const pick = playerPickToAIPick(p, date);
-    pick.league = "NBA";
     pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
     picks.push(pick);
   }
   for (const t of teamPicks) {
     const pick = teamTrendToAIPick(t, date);
-    pick.league = "NBA";
     pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
     picks.push(pick);
   }
@@ -316,7 +317,6 @@ export function selectNBATopPicks(
     for (const p of extraProps) {
       if (filled >= remaining) break;
       const pick = playerPickToAIPick(p, date);
-      pick.league = "NBA";
       pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
       picks.push(pick);
       filled++;
@@ -324,7 +324,6 @@ export function selectNBATopPicks(
     for (const t of extraTrends) {
       if (filled >= remaining) break;
       const pick = teamTrendToAIPick(t, date);
-      pick.league = "NBA";
       pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
       picks.push(pick);
       filled++;

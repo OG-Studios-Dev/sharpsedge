@@ -26,6 +26,7 @@ export function buildPropsPayload(): PlayerProp[] {
     return {
       ...prop,
       matchup: `${prop.team} ${prop.isAway ? '@' : 'vs'} ${prop.opponent}`,
+      gameId: prop.gameId || `seed-${prop.team}-${prop.opponent}`,
       splits,
       impliedProb: Math.round(implied * 100),
       hitRate: Math.round(avgHitRate * 100),
@@ -49,6 +50,7 @@ export function buildPropsPayload(): PlayerProp[] {
       reasoning: splits.slice(0, 2).map((s) => s.label).join(". "),
       summary: `${prop.playerName} has a ${Math.round(avgHitRate * 100)}% trend hit rate across the strongest supporting splits.`,
       saved: false,
+      statsSource: "seed",
     } satisfies PlayerProp;
   });
 

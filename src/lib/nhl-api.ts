@@ -1,4 +1,5 @@
 import { NHLGame, ScheduleResponse } from "./types";
+import { getDateKey } from "@/lib/date-utils";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
@@ -51,13 +52,13 @@ export async function getTodaySchedule(): Promise<ScheduleResponse> {
     const data = await cachedFetch<any>(`${NHL_BASE}/schedule/now`);
     const gameWeek = data.gameWeek || [];
     const today = gameWeek[0];
-    if (!today) return { games: [], date: new Date().toISOString().slice(0, 10) };
+    if (!today) return { games: [], date: getDateKey() };
 
     const games: NHLGame[] = (today.games || []).map(mapGame);
 
     return { games, date: today.date };
   } catch {
-    return { games: [], date: new Date().toISOString().slice(0, 10) };
+    return { games: [], date: getDateKey() };
   }
 }
 
@@ -73,10 +74,10 @@ export async function getUpcomingSchedule(days: number = 3): Promise<ScheduleRes
 
     return {
       games,
-      date: gameWeek[0]?.date || new Date().toISOString().slice(0, 10),
+      date: gameWeek[0]?.date || getDateKey(),
     };
   } catch {
-    return { games: [], date: new Date().toISOString().slice(0, 10) };
+    return { games: [], date: getDateKey() };
   }
 }
 
@@ -92,10 +93,10 @@ export async function getBroadSchedule(days: number = 4): Promise<ScheduleRespon
 
     return {
       games,
-      date: gameWeek[0]?.date || new Date().toISOString().slice(0, 10),
+      date: gameWeek[0]?.date || getDateKey(),
     };
   } catch {
-    return { games: [], date: new Date().toISOString().slice(0, 10) };
+    return { games: [], date: getDateKey() };
   }
 }
 

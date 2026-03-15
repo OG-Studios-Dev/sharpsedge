@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import NBAGameCard from "./NBAGameCard";
 import type { OddsEvent } from "@/lib/types";
+import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE, parseDateKey } from "@/lib/date-utils";
 
 type NBAGame = {
   id: string;
@@ -15,14 +16,11 @@ type NBAGame = {
 };
 
 function sectionTitleFor(dateStr: string) {
-  const now = new Date();
-  const target = new Date(dateStr);
-  const nowDay = now.toISOString().slice(0, 10);
-  const targetDay = target.toISOString().slice(0, 10);
+  const target = parseDateKey(dateStr);
+  const nowDay = getDateKey(new Date(), NBA_TIME_ZONE);
+  const targetDay = getDateKey(target, NBA_TIME_ZONE);
   if (targetDay === nowDay) return "Today";
-  const tom = new Date(now);
-  tom.setDate(now.getDate() + 1);
-  if (targetDay === tom.toISOString().slice(0, 10)) return "Tomorrow";
+  if (targetDay === getDateKeyWithOffset(1, NBA_TIME_ZONE)) return "Tomorrow";
   return target.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 

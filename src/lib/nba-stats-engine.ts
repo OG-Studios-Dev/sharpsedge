@@ -17,6 +17,7 @@ import { NBAGame, getNBABoxscore, NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 import { getNBAEventOdds } from "@/lib/nba-odds";
 import { assignIndicators } from "@/lib/trend-indicators";
+import { buildPlayerSplits } from "@/lib/player-trend";
 
 const STANDARD_JUICE = -110;
 const STANDARD_IMPLIED_PROB = 110 / 210;
@@ -35,6 +36,10 @@ const NBA_PROP_DEFS = [
 type StatKey = typeof NBA_PROP_DEFS[number]["key"];
 
 type GameStat = {
+  gameId: string;
+  gameDate: string;
+  opponentAbbrev: string;
+  isHome: boolean;
   points: number;
   rebounds: number;
   assists: number;
@@ -67,6 +72,10 @@ async function getPlayerRecentStats(
       const mins = parseFloat(p.minutes) || 0;
       if (mins < 15) continue;
       logs.push({
+        gameId: game.id,
+        gameDate: game.date,
+        opponentAbbrev: isHome ? game.awayTeam.abbreviation : game.homeTeam.abbreviation,
+        isHome,
         points: p.points,
         rebounds: p.rebounds,
         assists: p.assists,
@@ -151,6 +160,7 @@ function buildProp(
   // e.g. avg 26.3 → line 25.5, avg 8.0 → line 7.5
   const modelLine = Math.max(Math.floor(avg10 * 2) / 2, propDef.minLine);
   const recentGames = vals.slice(0, 10);
+  const trendLogs = logs.slice(0, 20);
   const oddsOptions = getPlayerPropOdds(eventOdds, propDef.market, playerName);
   const bestMarket = pickBestPropPrice(logs, propDef.key, modelLine, oddsOptions);
 
@@ -190,15 +200,13 @@ function buildProp(
     fairProbability: hitRate / 100,
     fairOdds: null,
     gameId,
-    splits: [
-      {
-        label: `L${Math.min(logs.length, 10)}: ${logs.slice(0, 10).filter(g => g[propDef.key] > line).length}/${Math.min(logs.length, 10)} over ${line}`,
-        hitRate,
-        hits: logs.slice(0, 10).filter(g => g[propDef.key] > line).length,
-        total: Math.min(logs.length, 10),
-        type: "last_n",
-      },
-    ],
+    splits: buildPlayerSplits({
+      games: trendLogs,
+      didHit: (game) => game[propDef.key] > line,
+      isAway,
+      opponent,
+      lastN: 10,
+    }),
     indicators: assignIndicators({
       hitRate,
       edge,
@@ -343,6 +351,10 @@ export async function buildNBAStatsPropFeed(
       const mins = parseFloat(p.minutes) || 0;
       if (mins < 15) continue;
       logs.push({
+        gameId: game.id,
+        gameDate: game.date,
+        opponentAbbrev: isHome ? game.awayTeam.abbreviation : game.homeTeam.abbreviation,
+        isHome,
         points: p.points,
         rebounds: p.rebounds,
         assists: p.assists,

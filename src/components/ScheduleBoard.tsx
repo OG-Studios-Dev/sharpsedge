@@ -5,6 +5,7 @@ import Link from "next/link";
 import { NHLGame } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import { computeWinProb } from "@/components/WinProbability";
+import { getDateKey, parseDateKey } from "@/lib/date-utils";
 
 type GoalieStarter = {
   playerId: number;
@@ -54,7 +55,7 @@ function formatGameTime(startTimeUTC: string) {
 }
 
 function dayKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return getDateKey(date);
 }
 
 function startOfDay(date: Date) {
@@ -152,7 +153,7 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
 
     return Array.from(grouped.entries()).map(([key, games]) => ({
       key,
-      title: sectionTitleFor(new Date(key)),
+      title: sectionTitleFor(parseDateKey(key)),
       games,
     }));
   }, [data.games, teamFilter]);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLiveDashboardData } from "@/lib/live-data";
+import { getDateKey } from "@/lib/date-utils";
 
 export async function GET() {
   try {
@@ -7,7 +8,7 @@ export async function GET() {
     return NextResponse.json(data);
   } catch {
     return NextResponse.json({
-      schedule: { games: [], date: new Date().toISOString().slice(0, 10) },
+      schedule: { games: [], date: getDateKey() },
       props: [],
       teamTrends: [],
       meta: { oddsConnected: false, gamesCount: 0, propsCount: 0, liveOnly: true },

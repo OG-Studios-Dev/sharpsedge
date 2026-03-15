@@ -175,6 +175,7 @@ export type AIPick = {
   id: string;
   date: string;
   type: "player" | "team";
+  playerId?: number;
   playerName?: string;
   team: string;
   teamColor: string;

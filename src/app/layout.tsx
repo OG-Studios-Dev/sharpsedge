@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import DesktopShell from "@/components/DesktopShell";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Goosalytics - Sports Betting Edge",
@@ -34,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-dark-bg text-white antialiased`}>
+      <body className="bg-dark-bg text-white antialiased">
         <main className="max-w-lg lg:max-w-5xl mx-auto px-0 lg:px-6 pb-20 lg:pb-8 min-h-screen">
           <DesktopShell>
             {children}

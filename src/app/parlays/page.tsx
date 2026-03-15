@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { buildSGPSuggestions, normalizeSportsLeague } from "@/lib/insights";
@@ -13,6 +13,30 @@ export default function ParlaysPage() {
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
   const sgps = useMemo(() => buildSGPSuggestions(dashboards.props, 8), [dashboards.props]);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sgps.length) {
+      setActiveGameId(null);
+      return;
+    }
+
+    setActiveGameId((current) => current && sgps.some((sgp) => sgp.gameId === current)
+      ? current
+      : sgps[0].gameId || sgps[0].id);
+  }, [sgps]);
+
+  const games = useMemo(() => {
+    const seen = new Set<string>();
+    return sgps.filter((sgp) => {
+      const key = sgp.gameId || sgp.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [sgps]);
+
+  const activeSuggestions = sgps.filter((sgp) => (sgp.gameId || sgp.id) === activeGameId);
 
   return (
     <div>
@@ -39,8 +63,30 @@ export default function ParlaysPage() {
           body="This page only shows parlays when at least two strong props exist in the same game. Check back as more lines post."
         />
       ) : (
-        <div className="px-4 py-4 space-y-3">
-          {sgps.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)}
+        <div className="px-4 py-4 space-y-4">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {games.map((sgp) => {
+              const key = sgp.gameId || sgp.id;
+              const active = key === activeGameId;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveGameId(key)}
+                  className={`min-h-[44px] shrink-0 rounded-full border px-4 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-accent-blue/40 bg-accent-blue/15 text-accent-blue"
+                      : "border-dark-border bg-dark-surface text-gray-400"
+                  }`}
+                >
+                  {sgp.matchup}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-3">
+            {activeSuggestions.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)}
+          </div>
         </div>
       )}
     </div>

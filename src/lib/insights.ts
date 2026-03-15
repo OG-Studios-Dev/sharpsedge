@@ -207,6 +207,29 @@ function computeCombinedHitRate(legs: PlayerProp[]) {
   return legs.reduce((acc, leg) => acc * (normalizePercent(leg.hitRate) / 100), 1);
 }
 
+function computeTrackedParlaySample(legs: PlayerProp[]) {
+  const sampleSize = Math.min(...legs.map((leg) => leg.recentGames?.length ?? 0));
+  if (!Number.isFinite(sampleSize) || sampleSize <= 0) {
+    return { hits: 0, total: 0 };
+  }
+
+  let hits = 0;
+  for (let index = 0; index < sampleSize; index++) {
+    const allLegsHit = legs.every((leg) => {
+      const value = leg.recentGames?.[index];
+      if (typeof value !== "number") return false;
+      return leg.overUnder === "Under" ? value < leg.line : value > leg.line;
+    });
+
+    if (allLegsHit) hits++;
+  }
+
+  return {
+    hits,
+    total: sampleSize,
+  };
+}
+
 function buildSGPMatchup(legs: PlayerProp[]) {
   const topLeg = legs[0];
   return topLeg.isAway
@@ -245,6 +268,7 @@ export function buildSGPSuggestions(props: PlayerProp[], limit = 6): SGP[] {
       : baseLegs;
 
     const combinedHitRate = computeCombinedHitRate(legs);
+    const trackedParlaySample = computeTrackedParlaySample(legs);
     const matchup = buildSGPMatchup(legs);
     const league = legs[0].league === "NBA" ? "NBA" : "NHL";
 
@@ -258,10 +282,14 @@ export function buildSGPSuggestions(props: PlayerProp[], limit = 6): SGP[] {
       indicators: [{ type: "hot", active: true }],
       splits: [
         {
-          label: `${legs.length}-leg SGP`,
-          hitRate: Number((combinedHitRate * 100).toFixed(1)),
-          hits: 0,
-          total: 0,
+          label: trackedParlaySample.total > 0
+            ? `Parlay hit in ${trackedParlaySample.hits} of ${trackedParlaySample.total} tracked games`
+            : `${legs.length}-leg SGP`,
+          hitRate: trackedParlaySample.total > 0
+            ? Number(((trackedParlaySample.hits / trackedParlaySample.total) * 100).toFixed(1))
+            : Number((combinedHitRate * 100).toFixed(1)),
+          hits: trackedParlaySample.hits,
+          total: trackedParlaySample.total,
           type: "last_n",
         },
       ],

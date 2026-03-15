@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { savePick } from "@/lib/picks-store";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
+import { getDateKey } from "@/lib/date-utils";
 
 export async function GET(req: NextRequest) {
   try {
     const data = await getLiveDashboardData();
-    const date = req.nextUrl.searchParams.get("date") || new Date().toISOString().slice(0, 10);
+    const date = req.nextUrl.searchParams.get("date") || getDateKey();
     const picks = selectTopPicks(data.props || [], data.teamTrends || [], date);
     return NextResponse.json({ picks, date });
   } catch {
-    return NextResponse.json({ picks: [], date: new Date().toISOString().slice(0, 10) });
+    return NextResponse.json({ picks: [], date: getDateKey() });
   }
 }
 

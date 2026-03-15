@@ -21,6 +21,8 @@
  *   Standings:    site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
  */
 
+import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE } from "@/lib/date-utils";
+
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const ESPN_BASE_V2 = "https://site.api.espn.com/apis/v2/sports/basketball/nba";
 const BDL_BASE = "https://api.balldontlie.io/v1";
@@ -64,7 +66,14 @@ export type NBAGame = {
 export type NBAPlayerGameLog = {
   playerId: string;
   playerName: string;
+  team: string;
+  gameId: string;
   gameDate: string;
+  opponent: string;
+  opponentAbbrev: string;
+  isHome: boolean;
+  result: "W" | "L" | null;
+  score: string;
   points: number;
   rebounds: number;
   assists: number;
@@ -127,7 +136,7 @@ function parseESPNGame(event: any): NBAGame {
 
   return {
     id: event.id,
-    date: event.date ? event.date.slice(0, 10) : "",
+    date: event.date ? getDateKey(new Date(event.date), NBA_TIME_ZONE) : "",
     status: statusText,
     statusDetail,
     homeTeam: {
@@ -154,9 +163,7 @@ export async function getNBASchedule(daysAhead = 2): Promise<NBAGame[]> {
     const games: NBAGame[] = [];
     const dates: string[] = [];
     for (let i = 0; i <= daysAhead; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      dates.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
+      dates.push(getDateKeyWithOffset(i, NBA_TIME_ZONE).replace(/-/g, ""));
     }
 
     for (const dateStr of dates) {
@@ -289,11 +296,16 @@ export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxsco
 
 // ── Player game log (derived from recent boxscores) ───────────────────────────
 
-export async function getNBAPlayerGameLog(playerName: string, teamAbbrev: string, recentGames: NBAGame[]): Promise<NBAPlayerGameLog[]> {
+export async function getNBAPlayerGameLog(
+  playerName: string,
+  teamAbbrev: string,
+  recentGames: NBAGame[],
+  limit = 20
+): Promise<NBAPlayerGameLog[]> {
   const logs: NBAPlayerGameLog[] = [];
   const completedGames = recentGames
     .filter((g) => g.status === "Final" && (g.homeTeam.abbreviation === teamAbbrev || g.awayTeam.abbreviation === teamAbbrev))
-    .slice(0, 10);
+    .slice(0, limit * 2);
 
   for (const game of completedGames) {
     try {
@@ -306,10 +318,19 @@ export async function getNBAPlayerGameLog(playerName: string, teamAbbrev: string
       if (player) {
         const mins = parseFloat(player.minutes) || 0;
         if (mins < 15) continue; // skip DNP/garbage time
+        const teamScore = isHome ? game.homeScore : game.awayScore;
+        const opponentScore = isHome ? game.awayScore : game.homeScore;
         logs.push({
           playerId: player.id,
           playerName: player.name,
+          team: teamAbbrev,
+          gameId: game.id,
           gameDate: game.date,
+          opponent: isHome ? game.awayTeam.fullName : game.homeTeam.fullName,
+          opponentAbbrev: isHome ? game.awayTeam.abbreviation : game.homeTeam.abbreviation,
+          isHome,
+          result: teamScore != null && opponentScore != null ? (teamScore > opponentScore ? "W" : "L") : null,
+          score: teamScore != null && opponentScore != null ? `${teamScore}-${opponentScore}` : "Final",
           points: player.points,
           rebounds: player.rebounds,
           assists: player.assists,
@@ -322,6 +343,7 @@ export async function getNBAPlayerGameLog(playerName: string, teamAbbrev: string
     } catch {
       // skip failed game
     }
+    if (logs.length >= limit) break;
   }
   return logs;
 }
@@ -384,9 +406,7 @@ export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
   // Fetch all days in parallel for speed
   const dateStrings: string[] = [];
   for (let i = 1; i <= daysBack; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dateStrings.push(d.toISOString().slice(0, 10).replace(/-/g, ""));
+    dateStrings.push(getDateKeyWithOffset(-i, NBA_TIME_ZONE).replace(/-/g, ""));
   }
 
   const results = await Promise.all(
