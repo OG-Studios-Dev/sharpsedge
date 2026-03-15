@@ -84,7 +84,7 @@ export default function HomeContent() {
     [dashboards.props, dashboards.teamTrends],
   );
   const quickHitters = useMemo(
-    () => buildQuickHitters(dashboards.props, 5),
+    () => buildQuickHitters(dashboards.props, 5, dashboards.teamTrends),
     [dashboards.props],
   );
   const sgps = useMemo(

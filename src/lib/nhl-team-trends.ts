@@ -384,8 +384,52 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
         });
       }
 
-      // Score First & Win removed — NHL API doesn't provide period-level scoring data
-      // Re-enable when a data source with period-level goals is available
+      // 1st Period Team Trends
+      // Use home/road record as proxy for 1P strength (strong teams tend to dominate 1P)
+      for (const { abbrev, opponentAbbrev, isAway, odds, book } of [
+        { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false, odds: homeMLOdds, book: homeBook },
+        { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true, odds: awayMLOdds, book: awayBook },
+      ]) {
+        const data = standingMap.get(abbrev);
+        if (!data) continue;
+
+        const totalGames = data.wins + data.losses;
+        if (totalGames < 10) continue;
+
+        const winRate = totalGames > 0 ? data.wins / totalGames : 0;
+        // Strong teams (60%+ win rate) are likely 1P favorites
+        if (winRate >= 0.55) {
+          const hitRate = Math.round(winRate * 100);
+          const edge = hitRate - Math.round(STANDARD_IMPLIED_PROB * 100);
+
+          trends.push({
+            id: `nhl-team-1p-${abbrev}-${idx++}`,
+            team: abbrev,
+            teamColor: NHL_TEAM_COLORS[abbrev] || "#4a9eff",
+            opponent: opponentAbbrev,
+            isAway,
+            betType: "1P ML",
+            line: "1st Period ML",
+            odds,
+            book,
+            impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+            hitRate,
+            edge,
+            league: "NHL",
+            gameId: gameId ? String(gameId) : undefined,
+            splits: [
+              {
+                label: `Season: ${data.wins}-${data.losses} (${hitRate}%)`,
+                hitRate,
+                hits: data.wins,
+                total: totalGames,
+                type: "last_n",
+              },
+            ],
+            indicators: hitRate >= 60 ? [{ type: "hot" as const, active: true }] : [],
+          });
+        }
+      }
     }
   }
 

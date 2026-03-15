@@ -236,19 +236,30 @@ function qualifiesAsQuickHitter(prop: PlayerProp) {
   );
 }
 
-export function buildQuickHitters(props: PlayerProp[], count = 5): QuickHitterRow[] {
-  return props
+export function buildQuickHitters(props: PlayerProp[], count = 5, teamTrends: TeamTrend[] = []): QuickHitterRow[] {
+  // Player props quick hitters
+  const playerRows = props
     .filter(qualifiesAsQuickHitter)
     .map((prop) => {
       const row = propToTrendRow(prop);
       const paceLabel = getQuickHitterPace(prop);
       if (!row || !paceLabel) return null;
-      return {
-        ...row,
-        paceLabel,
-      };
+      return { ...row, paceLabel };
     })
-    .filter((row): row is QuickHitterRow => Boolean(row))
+    .filter(Boolean) as QuickHitterRow[];
+
+  // Team 1P/1Q trends as quick hitters
+  const teamRows = teamTrends
+    .filter((t) => t.betType === "1P ML" || t.betType === "1Q ML")
+    .map((t) => {
+      const row = teamTrendToTrendRow(t);
+      if (!row) return null;
+      const paceLabel = t.league === "NHL" ? "1P" as const : "1Q" as const;
+      return { ...row, paceLabel };
+    })
+    .filter(Boolean) as QuickHitterRow[];
+
+  return [...playerRows, ...teamRows]
     .sort((a, b) => (
       b.hitRate - a.hitRate
       || b.score - a.score
