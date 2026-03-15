@@ -1,6 +1,6 @@
 import { getUpcomingSchedule, getBroadSchedule } from "@/lib/nhl-api";
 import { getScheduleDaysAhead } from "@/lib/date-utils";
-import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
+import { findOddsForGame, getAllOdds, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { NHLGame, TeamTrend } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
 import { buildLiveTeamTrends } from "@/lib/nhl-team-trends";
@@ -57,6 +57,10 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
       bestMoneyline: {
         home: homeOdds,
         away: awayOdds,
+      },
+      moneylineBookOdds: {
+        home: getAllOdds(event, "h2h", event.home_team),
+        away: getAllOdds(event, "h2h", event.away_team),
       },
     };
   });

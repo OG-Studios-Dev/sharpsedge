@@ -21,6 +21,7 @@
  *   Standings:    site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
  */
 
+import { BookOddsBySide } from "@/lib/types";
 import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE } from "@/lib/date-utils";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -61,6 +62,7 @@ export type NBAGame = {
     home?: { odds: number; book: string } | null;
     away?: { odds: number; book: string } | null;
   };
+  moneylineBookOdds?: BookOddsBySide;
 };
 
 export type NBAPlayerGameLog = {

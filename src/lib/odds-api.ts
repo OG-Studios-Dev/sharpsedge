@@ -1,4 +1,4 @@
-import { OddsEvent } from "./types";
+import { BookOdds, OddsEvent } from "./types";
 import { findTeamAliases } from "./nhl-mappings";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
@@ -9,12 +9,7 @@ const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assis
 let oddsCache: { data: OddsEvent[]; timestamp: number } | null = null;
 const eventOddsCache = new Map<string, { data: OddsEvent | null; timestamp: number }>();
 
-export type PlayerPropOdds = {
-  odds: number;
-  book: string;
-  line: number;
-  impliedProbability: number;
-};
+export type PlayerPropOdds = BookOdds;
 
 function normalizeName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
@@ -107,21 +102,10 @@ export function getBestOdds(
   outcome: string,
   point?: number
 ): { odds: number; book: string } | null {
-  let best: { odds: number; book: string } | null = null;
+  const best = getAllOdds(event, market, outcome, point)[0];
+  if (!best) return null;
 
-  for (const bm of event.bookmakers) {
-    const mkt = bm.markets.find((m) => m.key === market);
-    if (!mkt) continue;
-    for (const o of mkt.outcomes) {
-      if (o.name !== outcome) continue;
-      if (point !== undefined && o.point !== point) continue;
-      if (!best || o.price > best.odds) {
-        best = { odds: o.price, book: bm.title };
-      }
-    }
-  }
-
-  return best;
+  return { odds: best.odds, book: best.book };
 }
 
 export function americanOddsToImpliedProbability(odds?: number | null): number {
@@ -142,9 +126,54 @@ export function getPlayerPropOdds(
   playerName: string,
   direction: "Over" | "Under" = "Over"
 ): PlayerPropOdds[] {
+  return getAllPlayerPropOdds(event, market, playerName, direction);
+}
+
+export function getAllOdds(
+  event: OddsEvent | null | undefined,
+  market: string,
+  outcome: string,
+  point?: number,
+): BookOdds[] {
   if (!event) return [];
 
-  const matches: PlayerPropOdds[] = [];
+  const matches: BookOdds[] = [];
+
+  for (const bookmaker of event.bookmakers || []) {
+    const marketEntry = bookmaker.markets.find((entry) => entry.key === market);
+    if (!marketEntry) continue;
+
+    for (const marketOutcome of marketEntry.outcomes || []) {
+      if (marketOutcome.name !== outcome) continue;
+      if (point !== undefined && marketOutcome.point !== point) continue;
+
+      matches.push({
+        odds: marketOutcome.price,
+        book: bookmaker.title,
+        line: typeof marketOutcome.point === "number" && Number.isFinite(marketOutcome.point)
+          ? marketOutcome.point
+          : point ?? 0,
+        impliedProbability: americanOddsToImpliedProbability(marketOutcome.price),
+      });
+    }
+  }
+
+  return matches.sort((left, right) => (
+    right.odds - left.odds
+    || left.impliedProbability - right.impliedProbability
+    || left.book.localeCompare(right.book)
+  ));
+}
+
+export function getAllPlayerPropOdds(
+  event: OddsEvent | null | undefined,
+  market: string,
+  playerName: string,
+  direction: "Over" | "Under" = "Over",
+): BookOdds[] {
+  if (!event) return [];
+
+  const matches: BookOdds[] = [];
 
   for (const bookmaker of event.bookmakers || []) {
     const marketEntry = bookmaker.markets.find((entry) => entry.key === market);
@@ -165,5 +194,9 @@ export function getPlayerPropOdds(
     }
   }
 
-  return matches;
+  return matches.sort((left, right) => (
+    right.odds - left.odds
+    || left.impliedProbability - right.impliedProbability
+    || left.book.localeCompare(right.book)
+  ));
 }

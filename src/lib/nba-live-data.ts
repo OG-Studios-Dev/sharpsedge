@@ -1,7 +1,7 @@
 import { getNBASchedule, getRecentNBAGames } from "@/lib/nba-api";
 import { getScheduleDaysAhead } from "@/lib/date-utils";
 import { getNBAOdds } from "@/lib/nba-odds";
-import { getBestOdds } from "@/lib/odds-api";
+import { getAllOdds, getBestOdds } from "@/lib/odds-api";
 import { findNBAOddsForGame } from "@/lib/nba-odds";
 import { buildNBAStatsPropFeed } from "@/lib/nba-stats-engine";
 import { buildNBATeamTrends } from "@/lib/nba-team-trends";
@@ -23,6 +23,10 @@ function attachLiveOddsToSchedule(
       bestMoneyline: {
         home: homeOdds,
         away: awayOdds,
+      },
+      moneylineBookOdds: {
+        home: getAllOdds(event, "h2h", event.home_team),
+        away: getAllOdds(event, "h2h", event.away_team),
       },
     };
   });

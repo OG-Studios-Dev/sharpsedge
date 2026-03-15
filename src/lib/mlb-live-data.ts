@@ -1,5 +1,5 @@
 import { getDateKey, getScheduleDaysAhead } from "@/lib/date-utils";
-import { getBestOdds } from "@/lib/odds-api";
+import { getAllOdds, getBestOdds } from "@/lib/odds-api";
 import {
   MLBGame,
   getCurrentMLBSeason,
@@ -29,11 +29,25 @@ function attachLiveOddsToSchedule(games: MLBGame[], events: Awaited<ReturnType<t
         home: homeOdds,
         away: awayOdds,
       },
+      moneylineBookOdds: {
+        home: getAllOdds(event, "h2h", event.home_team),
+        away: getAllOdds(event, "h2h", event.away_team),
+      },
       bestRunLine: {
         home: homeRunLine,
         away: awayRunLine,
       },
+      runLineBookOdds: {
+        home: homeRunLine ? getAllOdds(event, "spreads", event.home_team, homeRunLine.line) : [],
+        away: awayRunLine ? getAllOdds(event, "spreads", event.away_team, awayRunLine.line) : [],
+      },
       bestTotal: total,
+      totalBookOdds: total
+        ? {
+            over: getAllOdds(event, "totals", "Over", total.line),
+            under: getAllOdds(event, "totals", "Under", total.line),
+          }
+        : null,
     };
   });
 }

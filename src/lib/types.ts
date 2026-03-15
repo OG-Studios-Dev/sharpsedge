@@ -18,6 +18,23 @@ export type TrendIndicator = {
   active: boolean;
 };
 
+export type BookOdds = {
+  book: string;
+  odds: number;
+  line: number;
+  impliedProbability: number;
+};
+
+export type BookOddsBySide = {
+  home?: BookOdds[] | null;
+  away?: BookOdds[] | null;
+};
+
+export type BookOddsByTotal = {
+  over?: BookOdds[] | null;
+  under?: BookOdds[] | null;
+};
+
 export type PlayerProp = {
   id: string;
   playerName: string;
@@ -30,6 +47,7 @@ export type PlayerProp = {
   overUnder: "Over" | "Under";
   odds: number;
   book?: string;
+  bookOdds?: BookOdds[];
   impliedProb?: number;
   hitRate?: number;
   edge?: number;
@@ -63,6 +81,7 @@ export type PlayerProp = {
   edgePct?: number | null;
   statsSource?: "live-nhl" | "live-nba" | "seed";
   gameId?: string;
+  oddsEventId?: string;
 };
 
 export type TeamTrend = {
@@ -76,12 +95,14 @@ export type TeamTrend = {
   gameId?: string;
   odds: number;
   book?: string;
+  bookOdds?: BookOdds[];
   impliedProb?: number;
   hitRate?: number;
   edge?: number;
   splits: TrendSplit[];
   indicators?: TrendIndicator[];
   league: League;
+  oddsEventId?: string;
 };
 
 export type ParlayLeg = {
@@ -142,6 +163,7 @@ export type NHLGame = {
     home?: { odds: number; book: string } | null;
     away?: { odds: number; book: string } | null;
   };
+  moneylineBookOdds?: BookOddsBySide;
 };
 
 export type MLBProbablePitcher = {
@@ -195,11 +217,14 @@ export type MLBGame = {
     home?: MLBGameOddsSide | null;
     away?: MLBGameOddsSide | null;
   };
+  moneylineBookOdds?: BookOddsBySide;
   bestRunLine?: {
     home?: MLBGameOddsSide | null;
     away?: MLBGameOddsSide | null;
   };
+  runLineBookOdds?: BookOddsBySide;
   bestTotal?: MLBGameTotalOdds | null;
+  totalBookOdds?: BookOddsByTotal | null;
 };
 
 export type ScheduleResponse = {
@@ -251,7 +276,9 @@ export type AIPick = {
   result: "pending" | "win" | "loss" | "push";
   units: 1;
   gameId?: string;
+  oddsEventId?: string;
   odds: number;
   book?: string;
+  bookOdds?: BookOdds[];
   league?: string; // "NHL", "NBA", etc.
 };
