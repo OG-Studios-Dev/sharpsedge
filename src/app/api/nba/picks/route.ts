@@ -5,6 +5,9 @@ import { getNBADashboardData } from "@/lib/nba-live-data";
 import { selectNBATopPicks } from "@/lib/picks-engine";
 import { getDateKey, NBA_TIME_ZONE } from "@/lib/date-utils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Today's upcoming/live game IDs (filter out completed + future days)
 function getTodayActiveGameIds(schedule: any[]): Set<string> {
   const today = getDateKey(new Date(), NBA_TIME_ZONE);
