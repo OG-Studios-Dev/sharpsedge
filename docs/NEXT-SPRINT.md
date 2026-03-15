@@ -106,3 +106,42 @@ Components:
 - 9 AM → game time: show picks with 🔓 UNLOCKED
 - Game started: 🔒 LOCKED
 - Game finished: ✅ W / ❌ L / ⏸️ Push
+
+## Defense vs Position (DVP) — NEW FEATURE
+
+### What it is
+Shows which teams allow the MOST or LEAST stats to each position.
+Example: "WSH allows THE MOST 3-Pointers Made to SF | Rupert"
+
+### Two views
+- **Most Allowed (Favorable)** — soft matchups, target these players
+- **Least Allowed (Tough)** — hard matchups, avoid or fade
+
+### Per sport
+- **NBA**: Points, Rebounds, Assists, 3PM allowed by position (PG/SG/SF/PF/C)
+- **NHL**: Goals, Assists, Shots allowed by position (C/LW/RW/D)
+- **NFL**: Passing yards, rushing yards, receiving yards, TDs allowed by position (QB/RB/WR/TE)
+- **MLB**: Hits, HRs, RBIs allowed to lineup position (1-9) or batter handedness (L/R)
+
+### Data sources
+- NBA: ESPN boxscores — aggregate opponent stats by position over season
+- NHL: NHL API game logs — aggregate by position
+- NFL: ESPN/NFL API — by position group
+- MLB: statsapi — pitcher vs batter splits
+
+### UI
+- Page: /dvp or section within /props
+- League tabs: NBA / NHL / NFL / MLB
+- Toggle: Most Allowed / Least Allowed
+- Per game: show matchup, then list of DVP advantages
+- Season stats + Last 7 games breakdown
+- Link from DVP row to player prop page
+
+### Integration with AI Picks
+- DVP data should BOOST pick confidence when player has favorable matchup
+- "WSH allows most 3PM to SF" + "Player is SF" + "Player hits 70% of 3PM prop" = STRONG pick
+- Add DVP factor to picks-engine scoring
+
+### Priority
+- High for NBA + NFL
+- Medium for NHL + MLB

@@ -6,14 +6,46 @@ import { selectTopPicks } from "@/lib/picks-engine";
 import { getDateKey } from "@/lib/date-utils";
 import { persistPicksToSupabase } from "@/lib/persist-picks";
 
+function normalizeGameId(value?: string | number | null) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized || normalized === "undefined" || normalized === "null") return undefined;
+  return normalized;
+}
+
+function isRealNHLGameId(gameId?: string) {
+  return Boolean(gameId && /^\d{10}$/.test(gameId));
+}
+
 export async function GET(req: NextRequest) {
   try {
     const data = await getLiveDashboardData();
-    const date = req.nextUrl.searchParams.get("date") || getDateKey();
-    const picks = selectTopPicks(data.props || [], data.teamTrends || [], date);
+    const date = req.nextUrl.searchParams.get("date") || data.schedule?.date || getDateKey();
+    const scheduledGames = (data.schedule?.games || []).filter((game) => (
+      getDateKey(new Date(game.startTimeUTC)) === date
+    ));
+    const scheduledGameIds = new Set(
+      scheduledGames
+        .map((game) => normalizeGameId(game.id))
+        .filter(isRealNHLGameId),
+    );
 
-    // Persist to Supabase (non-blocking)
-    persistPicksToSupabase(picks.map(p => ({ ...p, league: p.league ?? "NHL" }))).catch(() => {});
+    const props = (data.props || []).filter((prop) => {
+      const gameId = normalizeGameId(prop.gameId);
+      return prop.statsSource === "live-nhl" && isRealNHLGameId(gameId) && scheduledGameIds.has(gameId!);
+    });
+    const teamTrends = (data.teamTrends || []).filter((trend) => {
+      const gameId = normalizeGameId(trend.gameId);
+      return isRealNHLGameId(gameId) && scheduledGameIds.has(gameId!);
+    });
+    const picks = selectTopPicks(props, teamTrends, date);
+
+    try {
+      await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: pick.league ?? "NHL" })));
+    } catch (error) {
+      console.warn("[api/picks] failed to persist picks", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return NextResponse.json({ picks, date });
   } catch {

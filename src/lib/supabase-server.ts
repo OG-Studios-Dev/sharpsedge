@@ -161,10 +161,10 @@ async function deleteProfileById(id: string) {
   }
 }
 
-async function listPickHistory() {
+async function listPickHistory(limit: number = 500) {
   try {
     const rows = await postgrest<any[]>(
-      "/rest/v1/pick_history?select=*&order=created_at.desc&limit=200",
+      `/rest/v1/pick_history?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 2000))}`,
     );
     return rows as PickHistoryRecord[];
   } catch {
@@ -182,6 +182,21 @@ async function insertPickHistory(pick: Omit<PickHistoryRecord, "created_at">) {
         Prefer: "return=representation",
       },
       body: JSON.stringify(pick),
+    },
+  );
+
+  return rows[0] ?? null;
+}
+
+async function updatePickHistoryResult(id: string, result: PickHistoryRecord["result"]) {
+  const rows = await postgrest<PickHistoryRecord[]>(
+    `/rest/v1/pick_history?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ result }),
     },
   );
 
@@ -271,6 +286,7 @@ export function createServerClient() {
     pickHistory: {
       list: listPickHistory,
       insert: insertPickHistory,
+      updateResult: updatePickHistoryResult,
     },
   };
 }

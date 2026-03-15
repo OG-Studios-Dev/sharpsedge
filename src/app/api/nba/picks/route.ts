@@ -67,7 +67,15 @@ export async function GET(req: NextRequest) {
       const fallback = buildFallbackPicks(date);
       if (fallback) return NextResponse.json(fallback);
     }
-    persistPicksToSupabase(picks.map(p => ({ ...p, league: p.league ?? "NBA" }))).catch(() => {});
+
+    try {
+      await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: pick.league ?? "NBA" })));
+    } catch (error) {
+      console.warn("[api/nba/picks] failed to persist picks", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     return NextResponse.json({ picks, date });
   } catch {
     const fallback = buildFallbackPicks(date);

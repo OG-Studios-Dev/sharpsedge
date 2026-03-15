@@ -32,19 +32,19 @@ export async function persistPicksToSupabase(picks: AIPick[]): Promise<void> {
     units: pick.units || 1,
   }));
 
-  try {
-    await fetch(`${url}/rest/v1/pick_history`, {
-      method: "POST",
-      headers: {
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates",
-      },
-      body: JSON.stringify(rows),
-      cache: "no-store",
-    });
-  } catch (err) {
-    console.warn("[persist-picks] failed to write to Supabase:", err);
+  const response = await fetch(`${url}/rest/v1/pick_history`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify(rows),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase pick_history write failed (${response.status})`);
   }
 }
