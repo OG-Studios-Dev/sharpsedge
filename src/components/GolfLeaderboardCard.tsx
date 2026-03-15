@@ -5,16 +5,9 @@ import { GolfLeaderboard } from "@/lib/types";
 function scoreTone(score: string) {
   if (score === "CUT") return "text-red-400";
   if (score === "E") return "text-white";
-  if (score.startsWith("-")) return "text-emerald-400";
-  if (score.startsWith("+")) return "text-red-400";
+  if (score.startsWith("-")) return "text-red-500";
+  if (score.startsWith("+")) return "text-gray-400";
   return "text-white";
-}
-
-function todayTone(score: string) {
-  if (score === "E") return "text-gray-200";
-  if (score.startsWith("-")) return "text-emerald-300";
-  if (score.startsWith("+")) return "text-red-300";
-  return "text-gray-300";
 }
 
 export default function GolfLeaderboardCard({
@@ -26,15 +19,11 @@ export default function GolfLeaderboardCard({
 }) {
   if (loading) {
     return (
-      <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4">
-        <div className="space-y-3">
-          <div className="h-6 w-48 animate-pulse rounded-xl bg-dark-border/40" />
-          <div className="h-4 w-72 animate-pulse rounded-xl bg-dark-border/40" />
-          <div className="grid gap-2">
-            {[0, 1, 2, 3, 4].map((item) => (
-              <div key={item} className="h-12 animate-pulse rounded-2xl bg-dark-border/40" />
-            ))}
-          </div>
+      <section className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded-lg bg-dark-border/40" />
+          ))}
         </div>
       </section>
     );
@@ -42,80 +31,98 @@ export default function GolfLeaderboardCard({
 
   if (!leaderboard) {
     return (
-      <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4">
-        <p className="text-sm text-gray-400">No tournament leaderboard is available right now.</p>
+      <section className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+        <p className="text-sm text-gray-400">No tournament leaderboard available.</p>
       </section>
     );
   }
 
-  const players = leaderboard.players.slice(0, 30);
+  const players = leaderboard.players;
   const tournament = leaderboard.tournament;
+  const activePlayers = players.filter((p) => p.position !== "CUT");
+  const cutPlayers = players.filter((p) => p.position === "CUT");
 
   return (
-    <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-gray-500">Leaderboard</div>
-          <h2 className="mt-1 text-xl font-semibold text-white">{tournament.name}</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            {tournament.course}
-            {tournament.location ? ` • ${tournament.location}` : ""}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {tournament.dates}
-            {tournament.purse !== "TBD" ? ` • Purse ${tournament.purse}` : ""}
-            {typeof tournament.coursePar === "number" ? ` • Par ${tournament.coursePar}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-            {leaderboard.statusBadge ?? "Tournament"}
+    <section className="space-y-3">
+      {/* Tournament Header */}
+      <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-white">{tournament.name}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {tournament.course !== "TBD" ? tournament.course : ""}
+              {tournament.location ? ` · ${tournament.location}` : ""}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {tournament.dates}
+              {typeof tournament.coursePar === "number" ? ` · Par ${tournament.coursePar}` : ""}
+            </p>
+          </div>
+          <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white">
+            {leaderboard.statusBadge ?? "R4"}
           </span>
-          {leaderboard.cutLine && (
-            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-[10px] font-semibold text-red-300">
-              Cut line {leaderboard.cutLine}
-            </span>
-          )}
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-2xl border border-dark-border bg-dark-surface/70">
-        <div className="grid grid-cols-[40px_minmax(0,1fr)_50px_50px_40px] gap-1 border-b border-dark-border/50 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-gray-500">
+      {/* Leaderboard */}
+      <div className="rounded-2xl border border-dark-border bg-dark-surface/70 overflow-hidden">
+        {/* Header row */}
+        <div className="grid grid-cols-[36px_minmax(0,1fr)_50px_70px] gap-1 px-4 py-2 border-b border-dark-border/50 text-[10px] uppercase tracking-wider text-gray-500">
           <div>Pos</div>
           <div>Player</div>
-          <div className="text-right">Par</div>
-          <div className="text-right">Today</div>
+          <div className="text-right">Tot</div>
           <div className="text-right">Thru</div>
         </div>
-        {players.length === 0 ? (
-          <div className="px-3 py-6 text-center text-sm text-gray-400">
-            Field and scoring data have not posted for this tournament yet.
+
+        {/* Active players */}
+        {activePlayers.length === 0 ? (
+          <div className="px-4 py-6 text-center text-sm text-gray-400">
+            Field not posted yet.
           </div>
-        ) : players.map((player) => (
-          <details key={`${player.id}-${player.name}`} className="group border-b border-dark-border/30 last:border-b-0">
-            <summary className="grid cursor-pointer list-none grid-cols-[40px_minmax(0,1fr)_50px_50px_40px] gap-1 px-3 py-2 text-xs">
-              <div className={`font-semibold ${player.position === "CUT" ? "text-red-400" : "text-white"}`}>{player.position || "—"}</div>
-              <div className="text-white">{player.name}</div>
-              <div className={`text-right font-semibold ${scoreTone(player.score)}`}>{player.score}</div>
-              <div className={`text-right ${todayTone(player.todayScore)}`}>{player.todayScore}</div>
-              <div className="text-right text-gray-400">{player.thru || "—"}</div>
-            </summary>
-            {player.roundScores && player.roundScores.length > 0 && (
-              <div className="border-t border-dark-border/30 bg-dark-bg/40 px-3 py-2">
-                <div className="flex flex-wrap gap-2">
-                  {player.roundScores.map((roundScore, index) => (
-                    <span
-                      key={`${player.id}-round-${index + 1}`}
-                      className="rounded-full border border-dark-border/50 bg-dark-surface px-2.5 py-1 text-[11px] text-gray-300"
-                    >
-                      R{index + 1} {roundScore}
-                    </span>
-                  ))}
-                </div>
+        ) : (
+          activePlayers.map((player, i) => (
+            <div
+              key={`${player.id}-${i}`}
+              className={`grid grid-cols-[36px_minmax(0,1fr)_50px_70px] gap-1 px-4 py-2.5 border-b border-dark-border/20 ${
+                i === 0 ? "bg-accent-blue/5" : ""
+              }`}
+            >
+              <div className="text-sm font-semibold text-white">{player.position || "—"}</div>
+              <div className="text-sm text-white truncate">{player.name}</div>
+              <div className={`text-sm text-right font-bold ${scoreTone(player.score)}`}>{player.score}</div>
+              <div className="text-sm text-right text-gray-400">{player.thru || player.teeTime || "—"}</div>
+            </div>
+          ))
+        )}
+
+        {/* Cut line separator */}
+        {cutPlayers.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/5 border-y border-red-500/20">
+              <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Missed Cut</span>
+              <div className="flex-1 h-px bg-red-500/20" />
+              {leaderboard.cutLine && (
+                <span className="text-[10px] text-red-400">Cut: {leaderboard.cutLine}</span>
+              )}
+            </div>
+            {cutPlayers.slice(0, 5).map((player, i) => (
+              <div
+                key={`cut-${player.id}-${i}`}
+                className="grid grid-cols-[36px_minmax(0,1fr)_50px_70px] gap-1 px-4 py-2 border-b border-dark-border/20 opacity-50"
+              >
+                <div className="text-xs text-red-400">CUT</div>
+                <div className="text-xs text-gray-400 truncate">{player.name}</div>
+                <div className="text-xs text-right text-red-400">{player.score}</div>
+                <div className="text-xs text-right text-gray-500">—</div>
+              </div>
+            ))}
+            {cutPlayers.length > 5 && (
+              <div className="px-4 py-2 text-[10px] text-gray-500 text-center">
+                +{cutPlayers.length - 5} more missed cut
               </div>
             )}
-          </details>
-        ))}
+          </>
+        )}
       </div>
     </section>
   );
