@@ -244,8 +244,8 @@ export function buildQuickHitters(_props: PlayerProp[], count = 5, teamTrends: T
     .filter((t) => {
       const hr = typeof t.hitRate === "number" ? t.hitRate : 0;
       if (t.betType === "1P ML" || t.betType === "1Q ML") return hr >= 55;
+      if (t.betType === "1P Total" || t.betType === "1Q Total") return hr >= 55;
       if (t.betType === "Team Goals O/U" || t.betType === "Team Points O/U") return hr >= 60;
-      if (t.betType === "ML Home Win" || t.betType === "ML Road Win") return hr >= 65;
       return false;
     })
     .map((t) => {

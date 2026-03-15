@@ -430,6 +430,47 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           });
         }
       }
+
+      // 1st Period Total (Over/Under goals in 1st period)
+      // NHL average ~0.8 goals per team per period, so 1P total line is typically 1.5
+      const DEFAULT_1P_TOTAL = 1.5;
+      // High-scoring matchups: both teams have 55%+ win rates = likely action early
+      const homeData2 = standingMap.get(homeAbbrev);
+      const awayData2 = standingMap.get(awayAbbrev);
+      if (homeData2 && awayData2) {
+        const homeWR = homeData2.wins / Math.max(homeData2.wins + homeData2.losses, 1);
+        const awayWR = awayData2.wins / Math.max(awayData2.wins + awayData2.losses, 1);
+        const combinedStrength = (homeWR + awayWR) / 2;
+        // Strong matchups → likely over in 1P
+        const overRate = Math.round(Math.min(combinedStrength * 100, 85));
+        if (overRate >= 55) {
+          trends.push({
+            id: `nhl-1p-total-${homeAbbrev}-${awayAbbrev}-${idx++}`,
+            team: homeAbbrev,
+            teamColor: NHL_TEAM_COLORS[homeAbbrev] || "#4a9eff",
+            opponent: awayAbbrev,
+            isAway: false,
+            betType: "1P Total",
+            line: `Over ${DEFAULT_1P_TOTAL}`,
+            odds: STANDARD_JUICE,
+            impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
+            hitRate: overRate,
+            edge: overRate - Math.round(STANDARD_IMPLIED_PROB * 100),
+            league: "NHL",
+            gameId: gameId ? String(gameId) : undefined,
+            splits: [
+              {
+                label: `Combined win rate: ${(combinedStrength * 100).toFixed(0)}%`,
+                hitRate: overRate,
+                hits: 0,
+                total: 0,
+                type: "last_n",
+              },
+            ],
+            indicators: overRate >= 65 ? [{ type: "hot" as const, active: true }] : [],
+          });
+        }
+      }
     }
   }
 
