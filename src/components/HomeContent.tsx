@@ -195,9 +195,12 @@ export default function HomeContent() {
                     className="mx-0 mt-0"
                   />
                 ) : (
-                  <div className="grid gap-3 xl:grid-cols-2">
-                    {golfDashboard?.playerInsights.slice(0, 6).map((player) => (
-                      <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
+                  <div className="grid gap-2">
+                    {golfDashboard?.playerInsights
+                      .filter((p) => p.position !== "CUT" && p.position !== "MC")
+                      .slice(0, 10)
+                      .map((player) => (
+                        <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
                     ))}
                   </div>
                 )}
