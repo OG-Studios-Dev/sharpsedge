@@ -14,7 +14,7 @@ import FilterBar from "@/components/FilterBar";
 import { hasIndicator } from "@/lib/player-trend";
 
 type Tab = "All" | "Player" | "Team";
-type IndicatorFilter = "all" | "goose_lean" | "hot" | "money" | "lock" | "streak";
+type IndicatorType = "goose_lean" | "hot" | "money" | "lock" | "streak";
 type DirectionFilter = "all" | "over" | "under";
 type PropTypeFilter = "all" | "Points" | "Rebounds" | "Assists" | "Shots" | "Goals" | "3PM";
 type SortFilter = "hit_rate" | "edge" | "odds";
@@ -54,7 +54,29 @@ export default function TrendsPage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const [tab, setTab] = useState<Tab>("All");
-  const [indicatorFilter, setIndicatorFilter] = useState<IndicatorFilter>("all");
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorType>>(new Set());
+
+  function toggleIndicator(type: string) {
+    if (type === "all") {
+      setActiveIndicators(new Set());
+      return;
+    }
+    setActiveIndicators((prev) => {
+      const next = new Set(prev);
+      if (next.has(type as IndicatorType)) {
+        next.delete(type as IndicatorType);
+      } else {
+        next.add(type as IndicatorType);
+      }
+      return next;
+    });
+  }
+
+  function matchesIndicatorFilter(indicators: any[] | undefined): boolean {
+    if (activeIndicators.size === 0) return true;
+    const activeTypes = Array.from(activeIndicators);
+    return activeTypes.every((type) => hasIndicator(indicators, type));
+  }
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>("all");
   const [propTypeFilter, setPropTypeFilter] = useState<PropTypeFilter>("all");
   const [sortBy, setSortBy] = useState<SortFilter>("hit_rate");
@@ -63,20 +85,20 @@ export default function TrendsPage() {
   const filteredProps = useMemo(() => {
     const qualified = dashboards.props
       .filter(qualifiesAsTrend)
-      .filter((prop) => indicatorFilter === "all" || hasIndicator(prop.indicators, indicatorFilter))
+      .filter((prop) => matchesIndicatorFilter(prop.indicators))
       .filter((prop) => directionFilter === "all" || prop.overUnder.toLowerCase() === directionFilter)
       .filter((prop) => matchesPropType(prop.propType, propTypeFilter))
       .sort((a, b) => compareBySort(a, b, sortBy));
 
     return qualified;
-  }, [dashboards.props, directionFilter, indicatorFilter, propTypeFilter, sortBy]);
+  }, [dashboards.props, directionFilter, activeIndicators, propTypeFilter, sortBy]);
 
   const filteredTeams = useMemo(() => {
     return dashboards.teamTrends
       .filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD)
-      .filter((trend) => indicatorFilter === "all" || hasIndicator(trend.indicators, indicatorFilter))
+      .filter((trend) => matchesIndicatorFilter(trend.indicators))
       .sort((a, b) => compareBySort(a, b, sortBy));
-  }, [dashboards.teamTrends, indicatorFilter, sortBy]);
+  }, [dashboards.teamTrends, activeIndicators, sortBy]);
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
   const title = sportLeague === "All" ? "NHL + NBA Trends" : `${sportLeague} Trends`;
@@ -143,14 +165,17 @@ export default function TrendsPage() {
           ))}
         </div>
 
-        {/* Trend Indicator Filters */}
+        {/* Trend Indicator Filters (multi-select) */}
         <div className="flex gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-hide">
-          {TREND_FILTER_OPTIONS.map((opt) => (
+          {TREND_FILTER_OPTIONS.map((opt) => {
+            const isAll = opt.type === "all";
+            const isActive = isAll ? activeIndicators.size === 0 : activeIndicators.has(opt.type as IndicatorType);
+            return (
             <button
               key={opt.type}
-              onClick={() => setIndicatorFilter(opt.type as IndicatorFilter)}
+              onClick={() => toggleIndicator(opt.type)}
               className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                indicatorFilter === opt.type
+                isActive
                   ? "bg-accent-blue/15 border-accent-blue/40 text-accent-blue"
                   : "border-dark-border text-gray-500 hover:text-gray-300"
               }`}
@@ -158,7 +183,8 @@ export default function TrendsPage() {
               <span>{opt.icon}</span>
               <span>{opt.label}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
 
         <div className="px-4 pb-3">
