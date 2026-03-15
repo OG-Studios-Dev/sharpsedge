@@ -14,21 +14,7 @@ import BookBadge from "@/components/BookBadge";
 import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
 import { getPlayerTrendHrefFromPick } from "@/lib/player-trend";
 
-function ResultPill({ result }: { result: AIPick["result"] }) {
-  const styles: Record<AIPick["result"], string> = {
-    pending: "border-gray-500 text-gray-400",
-    win: "border-accent-green text-accent-green bg-accent-green/10",
-    loss: "border-accent-red text-accent-red bg-accent-red/10",
-    push: "border-accent-yellow text-accent-yellow bg-accent-yellow/10",
-  };
-  return (
-    <span
-      className={`text-[10px] font-semibold uppercase tracking-wide border rounded-full px-2 py-0.5 ${styles[result]}`}
-    >
-      {result}
-    </span>
-  );
-}
+import PickCard from "@/components/PickCard";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -40,218 +26,6 @@ function displayEdge(val: number): string {
   return `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
 }
 
-function formatAmericanOdds(odds: number): string {
-  return odds > 0 ? `+${odds}` : `${odds}`;
-}
-
-function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
-  const bookOdds = sortBookOddsForDisplay(pick.bookOdds || [], pick.line);
-  const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
-    book: pick.book,
-    odds: pick.odds,
-    line: pick.line,
-  });
-  const savings = describeBookSavings(bookOdds, {
-    book: selectedBookOdds?.book ?? pick.book,
-    odds: selectedBookOdds?.odds ?? pick.odds,
-    line: selectedBookOdds?.line ?? pick.line,
-  });
-  const topBooks = bookOdds.slice(0, 3);
-  const showOddsLine = hasAlternateBookLines(bookOdds);
-  const showBookOdds = Boolean((selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line");
-  const trendHref = getPlayerTrendHrefFromPick(pick);
-  const cardTone = isExpanded ? "border-accent-blue/40 ring-1 ring-accent-blue/20" : "border-dark-border";
-
-  const summaryContent = (
-    <>
-      <div className="flex items-center gap-3">
-        <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-white font-semibold text-sm truncate">
-              {pick.type === "player" ? pick.playerName : pick.team}
-            </p>
-            {pick.league && (
-              <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-            )}
-          </div>
-          <p className="text-gray-500 text-xs">
-            {pick.isAway ? "@" : "vs"} {pick.opponent}
-          </p>
-        </div>
-      </div>
-
-      <p className="mt-3 text-accent-blue font-medium text-sm">{pick.pickLabel}</p>
-
-      <div className="mt-2 flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] bg-accent-green/10 text-accent-green rounded-full px-2 py-0.5 font-medium">
-          {displayHitRate(pick.hitRate)} hit
-        </span>
-        <span className="text-[10px] bg-accent-blue/10 text-accent-blue rounded-full px-2 py-0.5 font-medium">
-          {displayEdge(pick.edge)} edge
-        </span>
-        {showBookOdds && (
-          <span className="text-[10px] bg-dark-bg/70 text-gray-300 rounded-full px-2 py-0.5 font-medium">
-            {selectedBookOdds?.book ?? pick.book} {formatAmericanOdds(selectedBookOdds?.odds ?? pick.odds)}
-          </span>
-        )}
-        <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
-      </div>
-    </>
-  );
-
-  return (
-    <div className={`rounded-2xl border bg-dark-surface p-4 space-y-3 transition-all ${cardTone}`}>
-      <div className="flex items-start gap-3">
-        {trendHref ? (
-          <Link href={trendHref} className="block flex-1 min-w-0 rounded-xl transition-colors hover:bg-dark-bg/20">
-            {summaryContent}
-            <p className="mt-3 text-gray-600 text-[10px]">Tap card to open player trend →</p>
-          </Link>
-        ) : (
-          <button onClick={onToggle} className="flex-1 min-w-0 text-left">
-            {summaryContent}
-            <p className="mt-3 text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
-          </button>
-        )}
-
-        <div className="flex flex-col items-end gap-2">
-          <ResultPill result={pick.result} />
-          <button
-            onClick={onToggle}
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300"
-          >
-            AI
-            <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded AI Analysis */}
-      {isExpanded && (
-        <div className="mt-3 pt-3 border-t border-dark-border/50 space-y-3">
-          {/* AI Reasoning */}
-          {pick.reasoning && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue mb-1.5">🤖 AI Analysis</p>
-              <p className="text-gray-300 text-xs leading-relaxed">
-                {pick.reasoning}
-              </p>
-            </div>
-          )}
-
-          <div className="rounded-xl border border-dark-border/40 bg-dark-bg/40 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-blue">Best Price</p>
-                {selectedBookOdds ? (
-                  <p className="mt-1 text-xs text-gray-300">
-                    {selectedBookOdds.book} {formatAmericanOdds(selectedBookOdds.odds)}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-gray-500">No live book pricing available</p>
-                )}
-              </div>
-              {selectedBookOdds && (
-                <BookBadge
-                  book={selectedBookOdds.book}
-                  odds={selectedBookOdds.odds}
-                  line={selectedBookOdds.line}
-                  highlight
-                  showLine={showOddsLine}
-                />
-              )}
-            </div>
-
-            {topBooks.length > 0 && (
-              <div className="mt-3 overflow-x-auto pb-1 scrollbar-hide">
-                <div className="flex w-max gap-2">
-                  {topBooks.map((offer) => {
-                    const isBest = selectedBookOdds
-                      ? offer.book === selectedBookOdds.book && offer.odds === selectedBookOdds.odds && offer.line === selectedBookOdds.line
-                      : false;
-
-                    return (
-                      <BookBadge
-                        key={`${offer.book}-${offer.line}-${offer.odds}`}
-                        book={offer.book}
-                        odds={offer.odds}
-                        line={offer.line}
-                        highlight={isBest}
-                        showLine={showOddsLine}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {savings && (
-              <p className="mt-2 text-[11px] text-emerald-300">
-                {savings.best.book} saves you {savings.centsPerDollar}c per dollar vs {savings.comparison.book}
-              </p>
-            )}
-          </div>
-
-          {/* Key Stats Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Hit Rate</p>
-              <p className="text-accent-green font-bold text-sm mt-0.5">{displayHitRate(pick.hitRate)}</p>
-            </div>
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Edge</p>
-              <p className="text-accent-blue font-bold text-sm mt-0.5">{displayEdge(pick.edge)}</p>
-            </div>
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wide">Odds</p>
-              <p className="text-white font-bold text-sm mt-0.5">{formatAmericanOdds(pick.odds)}</p>
-            </div>
-          </div>
-
-          {/* Confidence Bar */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Confidence</p>
-              <p className="text-[10px] text-gray-400 font-semibold">{pick.confidence ?? Math.round(pick.hitRate)}%</p>
-            </div>
-            <div className="h-1.5 bg-dark-bg rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  (pick.confidence ?? pick.hitRate) >= 80 ? "bg-accent-green" :
-                  (pick.confidence ?? pick.hitRate) >= 60 ? "bg-accent-blue" : "bg-accent-yellow"
-                }`}
-                style={{ width: `${Math.min(pick.confidence ?? pick.hitRate, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Pick Details */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {pick.type === "player" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-                Player Prop
-              </span>
-            )}
-            {pick.type === "team" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-                Team Trend
-              </span>
-            )}
-            {(selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line" && (
-              <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-                📖 {selectedBookOdds?.book ?? pick.book}
-              </span>
-            )}
-            <span className="text-[9px] bg-dark-bg/60 border border-dark-border/40 text-gray-400 rounded-full px-2 py-0.5">
-              🎯 1 unit
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function SkeletonCard() {
   return (
@@ -417,14 +191,16 @@ export default function PicksPage() {
   }
 
   return (
-    <main className="min-h-screen bg-dark-bg pb-24 pt-6 px-4 max-w-2xl mx-auto">
+    <main className="min-h-screen bg-dark-bg pb-32 pt-6 px-4 md:px-6 max-w-3xl mx-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
+      <div className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm pb-4 -mx-4 md:-mx-6 px-4 md:px-6 pt-2 border-b border-dark-border/40 mb-6">
         <div className="flex items-center justify-between">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
+          <div>
+            <h1 className="text-text-platinum text-2xl font-black font-heading tracking-tight uppercase">GOOSE AI PICKS</h1>
+            <p className="text-text-platinum/50 text-xs mt-0.5 font-mono">{formatDate(todayKey)}</p>
+          </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
-        <p className="text-center text-sm font-semibold text-gray-300 pt-1">Picks</p>
       </div>
 
       {/* Record Card — tappable to drill down */}
@@ -538,12 +314,7 @@ export default function PicksPage() {
       ) : (
         <div className="space-y-3 mb-6">
           {activeToday.map((pick) => (
-            <PickCard
-              key={pick.id}
-              pick={pick}
-              isExpanded={expandedPickId === pick.id}
-              onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)}
-            />
+            <PickCard key={pick.id} pick={pick} />
           ))}
         </div>
       )}

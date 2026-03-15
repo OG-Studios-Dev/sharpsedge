@@ -25,16 +25,18 @@ export async function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get(REFRESH_COOKIE_NAME)?.value ?? null;
   const session = await restoreSession(accessToken, refreshToken);
 
-  if (AUTH_ROUTES.has(pathname) && session) {
-    const response = NextResponse.redirect(new URL("/", request.url));
-    setSessionCookies(response, session);
-    return response;
-  }
-
-  if (!PUBLIC_ROUTES.has(pathname) && !session) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+  if (session) {
+    if (pathname === "/" || AUTH_ROUTES.has(pathname)) {
+      const response = NextResponse.redirect(new URL("/dashboard", request.url));
+      setSessionCookies(response, session);
+      return response;
+    }
+  } else {
+    if (!PUBLIC_ROUTES.has(pathname)) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   const response = NextResponse.next();

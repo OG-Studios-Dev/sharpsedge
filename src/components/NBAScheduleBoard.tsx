@@ -42,7 +42,6 @@ export default function NBAScheduleBoard({ compact, showHeader = true }: Props) 
       .catch(() => setLoading(false));
   }, []);
 
-  // Group by day
   const sections: Array<{ label: string; games: NBAGame[] }> = [];
   const seen = new Map<string, NBAGame[]>();
   for (const g of games) {
@@ -68,34 +67,34 @@ export default function NBAScheduleBoard({ compact, showHeader = true }: Props) 
   }
 
   return (
-    <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
+    <section className="rounded-3xl bg-dark-card border border-dark-border/80 p-5 lg:p-6 shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)]">
       {showHeader && (
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap border-b border-dark-border/40 pb-4">
           <div>
-            <h3 className="text-sm font-semibold text-white">NBA Schedule</h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">Today, tomorrow, and next up</p>
+            <h2 className="text-text-platinum font-heading font-black text-2xl tracking-tight">NBA Schedule</h2>
+            <p className="text-xs text-text-platinum/50 font-sans mt-1">Today, tomorrow, and next up</p>
           </div>
         </div>
       )}
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-2xl bg-dark-border/40 animate-pulse" />)}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-48 rounded-2xl bg-dark-border/40 animate-pulse border border-dark-border/50" />)}
         </div>
       ) : displaySections.length === 0 ? (
-        <div className="text-center py-6">
-          <p className="text-gray-400 text-sm">No NBA games scheduled</p>
-          <p className="text-gray-600 text-xs mt-1">Check back on game days</p>
+        <div className="text-center py-10 bg-dark-bg/30 rounded-2xl border border-dark-border/30">
+          <p className="text-text-platinum/60 text-sm font-semibold">No NBA games scheduled</p>
+          <p className="text-text-platinum/40 text-xs mt-1">Check back on game days</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-8">
           {displaySections.map(({ label, games: dayGames }) => (
             <div key={label}>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-gray-300">{label}</p>
-                <p className="text-[10px] text-gray-500">{dayGames.length} game{dayGames.length !== 1 ? "s" : ""}</p>
+              <div className="flex items-end justify-between mb-4 border-b border-dark-border/30 pb-2 pl-1">
+                <h3 className="text-[13px] uppercase font-mono tracking-widest font-bold text-text-platinum/80">{label}</h3>
+                <p className="text-[10px] font-mono text-text-platinum/40">{dayGames.length} game{dayGames.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
                 {dayGames.map((game) => (
                   <NBAGameCard
                     key={game.id}

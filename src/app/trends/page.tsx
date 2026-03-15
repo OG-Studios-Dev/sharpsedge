@@ -156,15 +156,18 @@ export default function TrendsPage() {
   ];
 
   return (
-    <div>
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
+    <main className="min-h-screen bg-dark-bg pb-32">
+      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border/60">
+        <div className="flex items-center justify-between px-4 lg:px-6 py-5 max-w-3xl mx-auto">
+          <div>
+            <h1 className="text-2xl font-black text-text-platinum font-heading tracking-tight">{title}</h1>
+            <p className="text-xs text-text-platinum/50 font-mono mt-1">60%+ L10 · 3/5 L5 · streaks</p>
+          </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
         <p className="text-center text-sm font-semibold text-gray-300 pb-1">Trends</p>
 
-        <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
+        <div className="flex border-b border-dark-border/40 overflow-x-auto scrollbar-hide px-4 lg:px-6 max-w-3xl mx-auto">
           {(["All", "Player", "Team"] as Tab[]).map((item) => (
             <button
               key={item}
@@ -180,7 +183,7 @@ export default function TrendsPage() {
         </div>
 
         {/* Trend Indicator Filters (multi-select) */}
-        <div className="flex gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2 px-4 lg:px-6 py-3 overflow-x-auto scrollbar-hide max-w-3xl mx-auto">
           {TREND_FILTER_OPTIONS.map((opt) => {
             const isAll = opt.type === "all";
             const isActive = isAll ? activeIndicators.size === 0 : activeIndicators.has(opt.type as IndicatorType);
@@ -201,11 +204,11 @@ export default function TrendsPage() {
           })}
         </div>
 
-        <div className="px-4 pb-3">
+        <div className="px-4 lg:px-6 pb-3 max-w-3xl mx-auto">
           <FilterBar filters={filters} />
         </div>
       </header>
-
+      <div className="max-w-3xl mx-auto px-4 lg:px-6 mt-6 space-y-4">
       {dashboards.loading ? (
         <EmptyStateCard
           eyebrow="Loading trends"
@@ -256,8 +259,10 @@ export default function TrendsPage() {
           eyebrow="Team trends"
           title="No team trends qualify right now"
           body="Team trend cards appear once current schedules and standings create a live edge."
+          className="mx-0"
         />
       )}
-    </div>
+      </div>
+    </main>
   );
 }

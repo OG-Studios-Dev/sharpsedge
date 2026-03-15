@@ -52,147 +52,170 @@ export default function TeamPage() {
 
   const streakType = st?.streakCode?.charAt(0);
   const streakColor =
-    streakType === "W" ? "bg-accent-green/20 text-accent-green border-accent-green/30" :
-    streakType === "L" ? "bg-accent-red/20 text-accent-red border-accent-red/30" :
-    "bg-dark-bg text-gray-400 border-dark-border";
+    streakType === "W" ? "bg-accent-green/10 text-accent-green border-accent-green/20 drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]" :
+    streakType === "L" ? "bg-accent-red/10 text-accent-red border-accent-red/20" :
+    "bg-dark-bg/50 text-text-platinum/50 border-dark-border/60";
 
   const skaters = (data?.roster || []).filter((p) => p.positionCode !== "G").slice(0, 10);
 
   return (
-    <div>
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link href="/leagues/nhl" className="text-gray-400 hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <main className="min-h-screen bg-dark-bg pb-32">
+      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border/60 px-4 lg:px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
+          <Link href="/teams" className="flex items-center justify-center w-8 h-8 rounded-full bg-dark-surface border border-dark-border/80 text-text-platinum/50 hover:text-white hover:bg-dark-card transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <h1 className="text-xl font-bold text-white">{st?.teamName || abbrev}</h1>
+          <h1 className="text-xl font-heading font-black text-text-platinum tracking-tight">{st?.teamName || abbrev}</h1>
         </div>
       </header>
 
       {loading ? (
-        <p className="text-sm text-gray-500 text-center py-12">Loading team data...</p>
+        <div className="flex justify-center items-center py-20">
+            <div className="w-8 h-8 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin" />
+        </div>
       ) : !st ? (
-        <p className="text-sm text-gray-500 text-center py-12">Team not found.</p>
+        <div className="flex flex-col items-center justify-center py-20">
+            <div className="text-4xl text-text-platinum/30 mb-4">👻</div>
+            <p className="text-text-platinum font-heading font-bold text-lg">Team not found.</p>
+        </div>
       ) : (
-        <div className="px-4 py-6 space-y-5">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 space-y-6">
           {/* Hero */}
-          <div className="flex items-center gap-4">
-            <TeamLogo team={abbrev} logo={st.logo} size={64} color={color} />
-            <div>
-              <div className="text-white text-2xl font-bold">{st.teamName}</div>
-              <div className="text-sm text-gray-400">{st.conferenceName} &middot; {st.divisionName}</div>
+          <div className="flex items-center gap-5 bg-gradient-to-br from-dark-surface/60 to-dark-bg p-6 rounded-[32px] border border-dark-border/80 shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)] overflow-hidden relative">
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ filter: "url(#noiseFilter)" }} />
+            <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ backgroundColor: color }} />
+            
+            <TeamLogo team={abbrev} logo={st.logo} size={84} color={color} />
+            <div className="relative z-10">
+              <div className="text-white text-3xl font-heading font-black tracking-tight">{st.teamName}</div>
+              <div className="text-sm font-mono text-text-platinum/50 mt-1 uppercase tracking-widest font-bold">
+                {st.conferenceName} &middot; {st.divisionName}
+              </div>
             </div>
           </div>
 
-          {/* Record */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Record</div>
-            <div className="grid grid-cols-5 gap-2 text-center">
-              {[
-                { label: "GP", val: st.gamesPlayed },
-                { label: "W", val: st.wins },
-                { label: "L", val: st.losses },
-                { label: "OTL", val: st.otLosses },
-                { label: "PTS", val: st.points },
-              ].map((s) => (
-                <div key={s.label}>
-                  <div className="text-[10px] text-gray-500 uppercase">{s.label}</div>
-                  <div className="text-lg text-white font-bold">{s.val}</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+              {/* Record */}
+              <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5">
+                <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Record</div>
+                <div className="grid grid-cols-5 gap-2 text-center">
+                  {[
+                    { label: "GP", val: st.gamesPlayed },
+                    { label: "W", val: st.wins, color: "text-accent-green" },
+                    { label: "L", val: st.losses, color: "text-accent-red" },
+                    { label: "OTL", val: st.otLosses },
+                    { label: "PTS", val: st.points, color: "text-accent-blue drop-shadow-[0_0_8px_rgba(74,158,255,0.3)]" },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <div className="text-[10px] text-text-platinum/50 font-mono mb-1">{s.label}</div>
+                      <div className={`text-xl font-mono font-black ${s.color || "text-text-platinum"}`}>{s.val}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Home / Road splits */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Home / Road Splits</div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Home</div>
-                <div className="text-white font-semibold">{st.homeWins}-{st.homeLosses}-{st.homeOtLosses}</div>
               </div>
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Road</div>
-                <div className="text-white font-semibold">{st.roadWins}-{st.roadLosses}-{st.roadOtLosses}</div>
-              </div>
-            </div>
-          </div>
 
-          {/* Streak */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Current Streak</div>
-            <span className={`text-sm px-3 py-1 rounded-full border font-semibold ${streakColor}`}>
-              {st.streakCode || "None"}
-            </span>
-          </div>
-
-          {/* Stats */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Stats</div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Goals / Game</div>
-                <div className="text-white font-semibold">{goalsPerGame}</div>
-              </div>
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Goals Against / Game</div>
-                <div className="text-white font-semibold">{goalsAgainstPerGame}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Last 10 Games */}
-          {data!.recentGames.length > 0 && (
-            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Last {data!.recentGames.length} Games</div>
-              <div className="space-y-2">
-                {data!.recentGames.slice().reverse().map((g, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-dark-border/30 last:border-b-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        g.win ? "bg-accent-green/20 text-accent-green" : "bg-accent-red/20 text-accent-red"
-                      }`}>
-                        {g.win ? "W" : "L"}
-                      </span>
-                      <span className="text-gray-400 text-xs">{g.isHome ? "vs" : "@"}</span>
-                      <span className="text-white text-xs font-medium">{g.opponentAbbrev || "???"}</span>
-                    </div>
-                    <div className="text-xs text-gray-300 font-medium">
-                      {g.goalsFor}-{g.goalsAgainst}
-                    </div>
+              {/* Home / Road splits */}
+              <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5">
+                <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Home / Road Splits</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-dark-bg/50 rounded-xl p-3 border border-dark-border/40 text-center">
+                    <div className="text-text-platinum/40 text-[10px] font-mono uppercase tracking-widest mb-1">Home</div>
+                    <div className="text-text-platinum font-mono font-bold">{st.homeWins}-{st.homeLosses}-{st.homeOtLosses}</div>
                   </div>
-                ))}
+                  <div className="bg-dark-bg/50 rounded-xl p-3 border border-dark-border/40 text-center">
+                    <div className="text-text-platinum/40 text-[10px] font-mono uppercase tracking-widest mb-1">Road</div>
+                    <div className="text-text-platinum font-mono font-bold">{st.roadWins}-{st.roadLosses}-{st.roadOtLosses}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Players */}
-          {skaters.length > 0 && (
-            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-              <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Players</div>
-              <div className="space-y-1">
-                {skaters.map((p) => (
-                  <Link
-                    key={p.id}
-                    href={`/player/${p.id}`}
-                    className="flex items-center justify-between py-2 px-1 rounded-lg hover:bg-dark-bg/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      {p.sweaterNumber && <span className="text-xs text-gray-500 w-5 text-right">#{p.sweaterNumber}</span>}
-                      <span className="text-sm text-white">{p.firstName?.default} {p.lastName?.default}</span>
-                    </div>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${POS_COLORS[p.positionCode] || "bg-dark-bg text-gray-400 border-dark-border"}`}>
-                      {POS_LABELS[p.positionCode] || p.positionCode}
-                    </span>
-                  </Link>
-                ))}
+              {/* Stats */}
+              <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5">
+                <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Stats</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-dark-bg/50 rounded-xl p-3 border border-dark-border/40 text-center flex flex-col justify-center">
+                    <div className="text-text-platinum/40 text-[10px] font-mono uppercase tracking-widest mb-1">Goals/G</div>
+                    <div className="text-text-platinum font-mono font-black text-xl">{goalsPerGame}</div>
+                  </div>
+                  <div className="bg-dark-bg/50 rounded-xl p-3 border border-dark-border/40 text-center flex flex-col justify-center">
+                    <div className="text-text-platinum/40 text-[10px] font-mono uppercase tracking-widest mb-1">Against/G</div>
+                    <div className="text-text-platinum font-mono font-black text-xl">{goalsAgainstPerGame}</div>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+
+              {/* Streak */}
+              <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5 flex flex-col">
+                <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Current Streak</div>
+                <div className="flex-1 flex items-center justify-center">
+                    <span className={`text-xl font-mono px-6 py-2 rounded-xl border-2 font-black tracking-widest ${streakColor}`}>
+                        {st.streakCode || "NONE"}
+                    </span>
+                </div>
+              </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 items-start pt-4">
+              {/* Last 10 Games */}
+              {data!.recentGames.length > 0 && (
+                <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5">
+                  <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Last {data!.recentGames.length} Games</div>
+                  <div className="space-y-2">
+                    {data!.recentGames.slice().reverse().map((g, i) => (
+                      <div key={i} className="flex items-center justify-between text-[13px] py-2 border-b border-dark-border/40 last:border-b-0">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black font-mono tracking-tighter ${
+                            g.win ? "bg-accent-green/10 text-accent-green border border-accent-green/20" : "bg-accent-red/10 text-accent-red border border-accent-red/20"
+                          }`}>
+                            {g.win ? "W" : "L"}
+                          </span>
+                          <span className="text-text-platinum/40 font-mono font-bold tracking-widest uppercase text-[10px]">{g.isHome ? "vs" : "@"}</span>
+                          <span className="text-text-platinum font-heading font-bold">{g.opponentAbbrev || "???"}</span>
+                        </div>
+                        <div className="text-sm text-text-platinum/70 font-mono font-bold">
+                          {g.goalsFor}-{g.goalsAgainst}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Players */}
+              {skaters.length > 0 && (
+                <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5">
+                  <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Players</div>
+                  <div className="space-y-[2px]">
+                    {skaters.map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/player/${p.id}`}
+                        className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-dark-bg/60 border border-transparent hover:border-dark-border/60 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] font-mono font-bold text-text-platinum/30 w-5 text-right">
+                              {p.sweaterNumber ? `#${p.sweaterNumber}` : ""}
+                          </span>
+                          <span className="text-[14px] font-heading font-bold text-text-platinum group-hover:text-white transition-colors">{p.firstName?.default} {p.lastName?.default}</span>
+                        </div>
+                        <span className={`text-[9px] uppercase font-mono font-bold px-2 py-0.5 rounded border ${POS_COLORS[p.positionCode] || "bg-dark-bg text-gray-400 border-dark-border"}`}>
+                          {POS_LABELS[p.positionCode] || p.positionCode}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                  <p className="text-center mt-4">
+                      <Link href={`/roster/${abbrev}`} className="text-[11px] font-mono font-bold uppercase tracking-widest text-accent-blue hover:text-white transition-colors">
+                          View Full Roster &rarr;
+                      </Link>
+                  </p>
+                </div>
+              )}
+          </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

@@ -279,18 +279,20 @@ export default function PropsPage() {
       : clubRows.length === 0;
 
   return (
-    <div>
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
-        <div className="flex items-center justify-between px-4 py-3">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
+    <main className="min-h-screen bg-dark-bg pb-32">
+      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border/60">
+        <div className="flex items-center justify-between px-4 lg:px-6 py-5 max-w-3xl mx-auto">
+          <div>
+            <h1 className="text-2xl font-black text-text-platinum tracking-tight font-heading">Props & Analytics</h1>
+            <p className="text-xs text-text-platinum/50 mt-1 font-mono">Live slate. Real stats only.</p>
+          </div>
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
-        <p className="text-center text-sm font-semibold text-gray-300 pb-1">Props</p>
-        <div className="px-4 pb-3">
+        <div className="px-4 lg:px-6 pb-3 max-w-3xl mx-auto">
           <FilterBar filters={filters} />
         </div>
       </header>
-
+      <div className="max-w-3xl mx-auto px-4 lg:px-6 mt-6 space-y-4">
       {dashboards.loading ? (
         <EmptyStateCard
           eyebrow="Loading live slate"
@@ -330,10 +332,11 @@ export default function PropsPage() {
           {filteredTeams.map((trend) => <TeamTrendCard key={trend.id} trend={trend} />)}
         </div>
       ) : (
-        <div className="px-3 py-3 space-y-3">
+        <div className="space-y-3">
           {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
         </div>
       )}
-    </div>
+      </div>
+    </main>
   );
 }

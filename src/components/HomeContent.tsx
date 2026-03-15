@@ -14,37 +14,34 @@ import LeagueSwitcher from "./LeagueSwitcher";
 import SectionHeader from "./SectionHeader";
 import SGPCard from "./SGPCard";
 import TrendRow from "./TrendRow";
+import { Zap } from "lucide-react";
 
 function QuickHitterCard({ row }: { row: QuickHitterRow }) {
   return (
-    <div className="rounded-2xl border border-dark-border bg-dark-surface/80 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent-blue/10 text-lg text-accent-blue">
-          ϟ
+    <div className="mx-3 my-3 rounded-2xl border border-dark-border/80 bg-gradient-to-br from-dark-surface/60 to-dark-bg p-4 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.5)] transition-all hover:-translate-y-[2px] hover:border-accent-blue/40 group">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-blue/10 border border-accent-blue/20 text-accent-blue shadow-[inset_0_0_15px_rgba(74,158,255,0.1)] group-hover:bg-accent-blue/20 transition-colors">
+          <Zap size={20} className="text-accent-blue" fill="currentColor" fillOpacity={0.2} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="truncate text-sm font-semibold text-white">{row.title}</p>
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-              row.paceLabel === "LOW" 
-                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                : "border-accent-blue/20 bg-accent-blue/10 text-accent-blue"
-            }`}>
-              {row.paceLabel === "LOW" ? "EZ" : row.paceLabel}
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <p className="truncate text-[15px] font-heading font-bold text-text-platinum group-hover:text-white transition-colors">{row.title}</p>
+            <span className="rounded bg-accent-blue/10 border border-accent-blue/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-accent-blue font-mono">
+              {row.paceLabel}
             </span>
-            <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
+            <span className="text-[9px] uppercase tracking-widest text-text-platinum/30 font-mono font-bold">{row.league}</span>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
-            <TeamLogo team={row.team} size={20} color={row.teamColor} />
+          <p className="text-[13px] text-text-platinum/70 leading-snug">{row.marketLabel}</p>
+          <div className="mt-2.5 flex items-center gap-2 text-[11px] font-sans font-semibold text-text-platinum/50 bg-dark-bg/50 border border-dark-border/40 inline-flex px-2 py-1 rounded">
+            <TeamLogo team={row.team} size={16} color={row.teamColor} />
             <span>{row.subtitle}</span>
           </div>
-          <p className="mt-2 text-sm text-gray-200">{row.marketLabel}</p>
         </div>
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 flex flex-col items-end pt-1">
           {typeof row.odds === "number" && (
-            <p className="text-xs font-semibold text-white">{formatOdds(row.odds)}</p>
+            <p className="text-[13px] font-mono font-bold text-text-platinum mb-2">{formatOdds(row.odds)}</p>
           )}
-          <p className="mt-1 rounded-full border border-accent-green/20 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
+          <p className="rounded px-2.5 py-1 font-mono text-sm font-bold text-accent-green leading-none drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]">
             {Math.round(row.hitRate)}%
           </p>
         </div>
@@ -65,9 +62,11 @@ function HomeSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+    <section className="mb-10 last:mb-0">
       <SectionHeader title={title} subtitle={subtitle} href={href} />
-      <div className="mt-4">{children}</div>
+      <div className="mt-4 bg-dark-bg/30 rounded-[32px] py-2">
+        {children}
+      </div>
     </section>
   );
 }
@@ -117,23 +116,23 @@ export default function HomeContent() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-dark-bg pb-24">
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
-        <header className="flex items-center justify-between">
+    <main className="min-h-screen bg-dark-bg pb-32 pt-6">
+      <div className="max-w-3xl mx-auto px-4 lg:px-6 space-y-8">
+        <header className="flex items-center justify-between mb-8">
           <div>
-            <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl" />
+            <img src="/logo.jpg" alt="Goosalytics" className="h-14 w-auto rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.05)]" />
           </div>
 
           {viewerName ? (
             <Link
               href="/settings"
               aria-label="Open settings"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-blue/20 text-sm font-bold text-accent-blue"
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-dark-surface border border-dark-border text-base font-bold font-sans text-text-platinum hover:text-white hover:border-gray-500 hover:bg-dark-card transition-all"
             >
               {viewerInitial}
             </Link>
           ) : (
-            <Link href="/login" className="text-sm font-semibold text-accent-blue">
+            <Link href="/login" className="px-5 py-2.5 rounded-full bg-accent-blue text-sm font-bold text-dark-bg hover:bg-accent-blue/90 hover:shadow-[0_0_15px_rgba(74,158,255,0.4)] transition-all">
               Sign In
             </Link>
           )}
@@ -141,7 +140,9 @@ export default function HomeContent() {
 
         <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 
-        <HomePicksSection league={sportLeague} />
+        <div className="mb-10">
+           <HomePicksSection league={sportLeague} />
+        </div>
 
         <HomeSection
           title="100% Club"
@@ -149,9 +150,9 @@ export default function HomeContent() {
           href="/props"
         >
           {dashboards.loading ? (
-            <div className="space-y-3">
+            <div className="space-y-4 px-3 py-2">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                <div key={item} className="h-24 rounded-2xl bg-dark-surface/50 border border-dark-border/40 animate-pulse" />
               ))}
             </div>
           ) : clubRows.length === 0 ? (
@@ -159,10 +160,9 @@ export default function HomeContent() {
               eyebrow="100% Club"
               title="No elite trends on the board yet"
               body="This section populates once props or team trends hit an 80% rate with a five-game sample."
-              className="mx-0 mt-0"
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
             </div>
           )}
@@ -173,9 +173,9 @@ export default function HomeContent() {
           subtitle="Low-line props with high hit rates. Easy money, quick cash."
         >
           {dashboards.loading ? (
-            <div className="space-y-3">
+            <div className="space-y-4 px-3 py-2">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                <div key={item} className="h-24 rounded-2xl bg-dark-surface/50 border border-dark-border/40 animate-pulse" />
               ))}
             </div>
           ) : quickHitters.length === 0 ? (
@@ -183,10 +183,9 @@ export default function HomeContent() {
               eyebrow="Quick Hitters"
               title="No low-line heaters cleared the bar"
               body="This section populates when short-line props hit at least a 55% rate."
-              className="mx-0 mt-0"
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {quickHitters.map((row) => <QuickHitterCard key={row.id} row={row} />)}
             </div>
           )}
@@ -198,9 +197,9 @@ export default function HomeContent() {
           href="/parlays"
         >
           {dashboards.loading ? (
-            <div className="space-y-3">
+            <div className="space-y-4 px-3 py-2">
               {[0, 1].map((item) => (
-                <div key={item} className="h-48 rounded-2xl bg-dark-border/40 animate-pulse" />
+                <div key={item} className="h-56 rounded-[24px] bg-dark-surface/50 border border-dark-border/40 animate-pulse border-l-[3px] border-l-dark-border" />
               ))}
             </div>
           ) : sgps.length === 0 ? (
@@ -208,10 +207,9 @@ export default function HomeContent() {
               eyebrow="Parlays"
               title="No same-game builds cleared the bar"
               body="SGP cards appear when at least two high-trend props line up in the same matchup."
-              className="mx-0 mt-0"
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {sgps.map((sgp) => <SGPCard key={sgp.id} sgp={sgp} />)}
             </div>
           )}
@@ -223,9 +221,9 @@ export default function HomeContent() {
           href="/trends"
         >
           {dashboards.loading ? (
-            <div className="space-y-3">
+            <div className="space-y-4 px-3 py-2">
               {[0, 1, 2].map((item) => (
-                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+                <div key={item} className="h-24 rounded-2xl bg-dark-surface/50 border border-dark-border/40 animate-pulse" />
               ))}
             </div>
           ) : trendingRows.length === 0 ? (
@@ -233,10 +231,9 @@ export default function HomeContent() {
               eyebrow="Trending"
               title="No live props qualify right now"
               body="Once current slates post, the hottest props across both leagues will appear here automatically."
-              className="mx-0 mt-0"
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-0">
               {trendingRows.map((row) => <TrendRow key={row.id} row={row} />)}
             </div>
           )}

@@ -71,7 +71,6 @@ function extractOdds(oddsEvent: OddsEvent | undefined, homeTeam: string, awayTea
         }
       }
     }
-    // Stop after first bookmaker with data
     if (homeML !== null || awayML !== null) break;
   }
 
@@ -99,49 +98,51 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
   const homeDecimal = homeML !== null ? oddsToDecimal(homeML) : null;
   const awayDecimal = awayML !== null ? oddsToDecimal(awayML) : null;
 
-  // Determine winner for final games
   const homeWon = isFinal && game.homeScore !== null && game.awayScore !== null && game.homeScore > game.awayScore;
   const awayWon = isFinal && game.homeScore !== null && game.awayScore !== null && game.awayScore > game.homeScore;
 
   return (
-    <Link href={`/nba/matchup/${game.id}`} className="block">
+    <Link href={`/nba/matchup/${game.id}`} className="block group h-full">
       <div
-        className="relative rounded-2xl border border-dark-border overflow-hidden hover:border-gray-500 transition-colors"
-        style={{
-          background: `linear-gradient(135deg, ${awayColor}1e 0%, #161923 40%, #161923 60%, ${homeColor}1e 100%)`,
-        }}
+        className="relative flex flex-col h-full rounded-2xl border border-dark-border/80 bg-gradient-to-br from-dark-surface/80 to-dark-bg hover:border-accent-blue/50 hover:shadow-[0_8px_30px_-15px_rgba(74,158,255,0.15)] transition-all duration-300 overflow-hidden"
       >
+        {isLive && (
+          <div className="absolute top-0 right-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
+        )}
+        
         {/* Top: Status */}
-        <div className="px-3 pt-3 pb-1 flex items-center justify-between">
+        <div className="px-5 pt-4 pb-2 flex items-center justify-between border-b border-dark-border/30">
           {isLive ? (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-accent-red uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-red animate-pulse" />
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-accent-green uppercase font-mono tracking-widest">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
               LIVE
             </span>
           ) : isFinal ? (
-            <span className="text-[10px] text-gray-500 font-medium px-2 py-0.5 rounded-full bg-dark-bg/60 border border-dark-border/50">
+            <span className="text-[10px] text-text-platinum/50 font-bold uppercase font-mono tracking-widest">
               Final
             </span>
           ) : (
-            <span className="text-[10px] text-gray-400 font-medium px-2 py-0.5 rounded-full bg-dark-bg/60 border border-dark-border/50">
+            <span className="text-[10px] text-text-platinum/50 font-bold uppercase font-mono tracking-widest">
               {game.status}
             </span>
           )}
-          <span className="text-[10px] text-gray-600">{game.date}</span>
+          <span className="text-[10px] text-text-platinum/30 font-mono">{game.date}</span>
         </div>
 
         {/* Center: Scoreboard */}
-        <div className="px-3 py-3">
-          <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+        <div className="flex-1 px-5 py-5 flex items-center">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-3 w-full items-center">
             {/* Away Team */}
-            <div className="flex flex-col items-center gap-1.5 text-center">
-              <TeamLogo team={awayAbbrev} size={32} color={awayColor} />
-              <span className={`text-sm font-bold ${awayWon ? "text-white" : "text-gray-400"}`}>
-                {awayAbbrev}
-                {awayWon && <span className="ml-1 text-accent-green text-[10px]">◄</span>}
-              </span>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <TeamLogo team={awayAbbrev} size={36} color={awayColor} />
+              <div className="flex flex-col items-center">
+                <span className={`text-[13px] font-heading font-bold ${awayWon ? "text-text-platinum drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-text-platinum/70 group-hover:text-white transition-colors"}`}>
+                  {awayAbbrev}
+                  {awayWon && <span className="ml-1 text-accent-green text-[10px]">◄</span>}
+                </span>
+              </div>
               {(isLive || isFinal) && game.awayScore !== null && (
-                <span className={`text-2xl font-black tabular-nums ${awayWon ? "text-white" : "text-gray-300"}`}>
+                <span className={`text-[28px] font-mono font-black tabular-nums leading-none mt-1 ${awayWon ? "text-text-platinum text-shadow-sm" : "text-text-platinum/50"}`}>
                   {game.awayScore}
                 </span>
               )}
@@ -150,24 +151,23 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
             {/* Middle: Separator */}
             <div className="flex flex-col items-center gap-1 px-1">
               {isScheduled ? (
-                <span className="text-gray-600 text-sm font-light">at</span>
+                 <div className="text-[10px] text-text-platinum/30 font-mono uppercase tracking-widest">VS</div>
               ) : (
-                <span className="text-gray-600 text-xs">–</span>
-              )}
-              {isLive && (
-                <span className="text-[9px] text-accent-red font-bold uppercase">Live</span>
+                 <div className="text-[10px] text-text-platinum/30 font-mono uppercase tracking-widest">VS</div>
               )}
             </div>
 
             {/* Home Team */}
-            <div className="flex flex-col items-center gap-1.5 text-center">
-              <TeamLogo team={homeAbbrev} size={32} color={homeColor} />
-              <span className={`text-sm font-bold ${homeWon ? "text-white" : "text-gray-400"}`}>
-                {homeWon && <span className="mr-1 text-accent-green text-[10px]">►</span>}
-                {homeAbbrev}
-              </span>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <TeamLogo team={homeAbbrev} size={36} color={homeColor} />
+              <div className="flex flex-col items-center">
+                <span className={`text-[13px] font-heading font-bold ${homeWon ? "text-text-platinum drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" : "text-text-platinum/70 group-hover:text-white transition-colors"}`}>
+                  {homeWon && <span className="mr-1 text-accent-green text-[10px]">►</span>}
+                  {homeAbbrev}
+                </span>
+              </div>
               {(isLive || isFinal) && game.homeScore !== null && (
-                <span className={`text-2xl font-black tabular-nums ${homeWon ? "text-white" : "text-gray-300"}`}>
+                <span className={`text-[28px] font-mono font-black tabular-nums leading-none mt-1 ${homeWon ? "text-text-platinum text-shadow-sm" : "text-text-platinum/50"}`}>
                   {game.homeScore}
                 </span>
               )}
@@ -175,39 +175,42 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
           </div>
         </div>
 
-        {/* Win Probability */}
-        {isScheduled && homeProb !== null && awayProb !== null && (
-          <div className="px-3 pb-2">
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase mb-0.5">Win prob</p>
-                <p className="text-xs font-bold text-white">{awayProb}%</p>
-                <p className="text-[9px] text-gray-600">{awayDecimal}x</p>
+        {/* Win Probability & Spread/Total */}
+        {isScheduled && (homeProb !== null || homeSpread !== null) && (
+          <div className="px-4 pb-4 mt-auto">
+            {homeProb !== null && awayProb !== null && (
+              <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-dark-border/40">
+                <div className="flex flex-col text-center">
+                  <span className="text-[9px] text-text-platinum/40 uppercase font-mono tracking-widest mb-1 group-hover:text-text-platinum/60 transition-colors">Away Win Prob</span>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-sm font-mono font-bold text-text-platinum">{awayProb}%</span>
+                    <span className="text-[9px] text-text-platinum/40 font-mono">({awayDecimal}x)</span>
+                  </div>
+                </div>
+                <div className="flex flex-col text-center border-l border-dark-border/50">
+                  <span className="text-[9px] text-text-platinum/40 uppercase font-mono tracking-widest mb-1 group-hover:text-text-platinum/60 transition-colors">Home Win Prob</span>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-sm font-mono font-bold text-text-platinum">{homeProb}%</span>
+                    <span className="text-[9px] text-text-platinum/40 font-mono">({homeDecimal}x)</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-[10px] text-gray-500 uppercase mb-0.5">Win prob</p>
-                <p className="text-xs font-bold text-white">{homeProb}%</p>
-                <p className="text-[9px] text-gray-600">{homeDecimal}x</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Footer: Spread + O/U */}
-        {isScheduled && (homeSpread !== null || total !== null) && (
-          <div className="px-3 pb-3">
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              {homeSpread !== null && (
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-dark-bg/70 border border-dark-border/60 text-gray-400">
-                  {homeAbbrev} {homeSpread > 0 ? "+" : ""}{homeSpread}
-                </span>
-              )}
-              {total !== null && (
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-dark-bg/70 border border-dark-border/60 text-gray-400">
-                  O/U {total}
-                </span>
-              )}
-            </div>
+            )}
+            
+            {(homeSpread !== null || total !== null) && (
+               <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
+                 {homeSpread !== null && (
+                   <span className="text-[10px] px-2 py-0.5 rounded border border-dark-border bg-dark-bg/60 text-text-platinum/60 font-mono font-bold tracking-tight">
+                     {homeAbbrev} {homeSpread > 0 ? "+" : ""}{homeSpread}
+                   </span>
+                 )}
+                 {total !== null && (
+                   <span className="text-[10px] px-2 py-0.5 rounded border border-dark-border bg-dark-bg/60 text-text-platinum/60 font-mono font-bold tracking-tight">
+                     O/U {total}
+                   </span>
+                 )}
+               </div>
+            )}
           </div>
         )}
       </div>

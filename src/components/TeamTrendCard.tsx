@@ -24,50 +24,54 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
   const showOddsLine = hasAlternateBookLines(bookOdds);
 
   return (
-    <div className="mx-3 my-3 overflow-hidden rounded-[26px] border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
-      <div className="h-1 w-full" style={{ background: trend.teamColor }} />
+    <div className="mx-3 my-3 overflow-hidden rounded-[24px] border border-dark-border/80 bg-dark-card shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_-15px_rgba(74,158,255,0.15)] group relative">
+      <div className="absolute top-0 left-0 right-0 h-1 transition-opacity duration-300 opacity-80 group-hover:opacity-100" style={{ background: trend.teamColor }} />
 
       <button
         type="button"
         onClick={() => setExpanded((current) => !current)}
-        className="w-full p-4 text-left"
+        className="w-full text-left"
       >
-        <div className="flex items-start gap-3">
-          <TeamLogo team={trend.team} color={trend.teamColor} size={28} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="truncate text-[15px] font-semibold text-white">{trend.team}</div>
-                <div className="mt-1 text-[12px] text-gray-500">
-                  {trend.team} {trend.isAway ? "@" : "vs"} {trend.opponent}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
-                    {trend.betType}
-                  </span>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                    {trend.odds === -110 ? "Model" : formatOdds(trend.odds)}
-                  </span>
-                  {selectedBookOdds ? (
-                    <BookBadge
-                      book={selectedBookOdds.book}
-                      odds={selectedBookOdds.odds}
-                      line={selectedBookOdds.line}
-                      highlight
-                      showLine={showOddsLine}
-                    />
-                  ) : trend.book ? (
-                    <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] text-gray-400">
-                      {trend.book}
+        <div className="p-5">
+          <div className="flex items-start gap-3 mb-4">
+            <TeamLogo team={trend.team} color={trend.teamColor} size={36} />
+            
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="truncate text-lg font-heading font-bold text-text-platinum group-hover:text-white transition-colors">
+                    {trend.team}
+                  </div>
+                  <div className="mt-0.5 text-[11px] font-sans text-text-platinum/50 font-semibold border border-dark-border/50 px-1.5 rounded inline-block bg-dark-bg/50">
+                    {trend.team} {trend.isAway ? "@" : "vs"} {trend.opponent}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded bg-accent-blue/10 border border-accent-blue/20 text-accent-blue px-2.5 py-0.5 font-mono text-[12px] font-bold shadow-[inset_0_0_10px_rgba(74,158,255,0.05)]">
+                      {trend.betType}
                     </span>
-                  ) : null}
+                    <span className="rounded bg-dark-bg/50 border border-dark-border px-2 py-0.5 font-mono text-[11px] font-semibold text-text-platinum/70">
+                      {trend.odds === -110 ? "Model" : formatOdds(trend.odds)}
+                    </span>
+                    {selectedBookOdds ? (
+                      <BookBadge
+                        book={selectedBookOdds.book}
+                        odds={selectedBookOdds.odds}
+                        line={selectedBookOdds.line}
+                        highlight
+                        showLine={showOddsLine}
+                      />
+                    ) : trend.book ? (
+                      <span className="rounded px-2 py-0.5 text-[10px] font-mono uppercase tracking-widest text-text-platinum/40">
+                        {trend.book}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center gap-2">
-                <TrendIndicatorDots indicators={trend.indicators} size="sm" />
-                <span className={`text-[10px] text-gray-500 transition-transform ${expanded ? "rotate-180" : ""}`}>▼</span>
-              </div>
+            <div className="shrink-0 flex flex-col items-end gap-2">
+              <TrendIndicatorDots indicators={trend.indicators} />
             </div>
           </div>
         </div>
@@ -126,7 +130,9 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
             )}
           </div>
 
-          <TrendSplitBars accentColor={trend.teamColor} splits={trend.splits} />
+          <div className="mt-5 border-t border-dark-border/40 pt-4">
+            <TrendSplitBars accentColor={trend.teamColor} splits={trend.splits} />
+          </div>
         </div>
       )}
     </div>

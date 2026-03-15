@@ -6,6 +6,7 @@ import { NHLGame } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import { computeWinProb } from "@/components/WinProbability";
 import { getDateKey, parseDateKey } from "@/lib/date-utils";
+import { ChevronRight } from "lucide-react";
 
 type GoalieStarter = {
   playerId: number;
@@ -74,24 +75,34 @@ function sectionTitleFor(date: Date) {
 }
 
 function GoalieInfo({ goalie }: { goalie: GoalieStarter | null }) {
-  if (!goalie) return <div className="text-[11px] text-gray-600">TBD</div>;
-  const statusColor =
-    goalie.status === "confirmed" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
-    goalie.status === "probable" ? "text-yellow-400 border-yellow-500/30 bg-yellow-500/10" :
-    "text-gray-400 border-gray-500/30 bg-gray-500/10";
-  const statusLabel = goalie.status === "confirmed" ? "Confirmed ✓" : goalie.status === "probable" ? "Probable" : "TBD";
+  if (!goalie) return <div className="text-[11px] text-text-platinum/40 font-mono tracking-widest">TBD</div>;
+  
+  const isConfirmed = goalie.status === "confirmed";
+  const isProbable = goalie.status === "probable";
+  
+  const statusColor = isConfirmed 
+    ? "text-accent-green border-accent-green/30 bg-accent-green/10" 
+    : isProbable 
+      ? "text-accent-yellow border-accent-yellow/30 bg-accent-yellow/10" 
+      : "text-text-platinum/50 border-dark-border bg-dark-bg text-text-platinum/60";
+      
+  const statusLabel = isConfirmed ? "CONFIRMED" : isProbable ? "PROBABLE" : "TBD";
+  
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-white font-medium">{goalie.name}</span>
+        <span className="text-[12px] text-text-platinum font-bold font-sans">{goalie.name}</span>
         {goalie.isBackup && (
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 font-semibold uppercase tracking-wider">Backup</span>
+          <span className="text-[8px] px-1.5 py-0.5 rounded border border-accent-red/30 bg-accent-red/10 text-accent-red font-bold uppercase tracking-wider font-mono">BACKUP</span>
         )}
       </div>
-      <div className="text-[10px] text-gray-400">
-        SV% {goalie.savePct.toFixed(3)} • GAA {goalie.gaa.toFixed(2)}
+      <div className="text-[10px] text-text-platinum/50 font-mono flex gap-2">
+        <span>SV% {goalie.savePct.toFixed(3)}</span>
+        <span>GAA {goalie.gaa.toFixed(2)}</span>
       </div>
-      <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full border ${statusColor}`}>{statusLabel}</span>
+      <span className={`inline-block text-[9px] px-2 py-0.5 rounded font-mono font-bold tracking-widest border ${statusColor}`}>
+        {statusLabel}
+      </span>
     </div>
   );
 }
@@ -117,7 +128,7 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
               fetch(`/api/goalies?gameId=${g.id}`)
                 .then((r) => r.json())
                 .then((data: GameGoalies) => ({ gameId: g.id, data }))
-            )
+             )
           ).then((results) => {
             const map: Record<number, GameGoalies> = {};
             for (const r of results) {
@@ -159,18 +170,18 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
   }, [data.games, teamFilter]);
 
   return (
-    <section className="rounded-3xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+    <section className="rounded-3xl bg-dark-card border border-dark-border/80 p-5 lg:p-6 shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)]">
       {showHeader && (
-        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <div className="flex items-center justify-between mb-6 gap-3 flex-wrap border-b border-dark-border/40 pb-4">
           <div>
-            <h2 className="text-white font-semibold text-lg">NHL Schedule</h2>
-            <p className="text-xs text-gray-500 mt-1">{compact ? "Today, tomorrow, and next up" : "Today, tomorrow, and the rest of the week"}</p>
+            <h2 className="text-text-platinum font-heading font-black text-2xl tracking-tight">NHL Schedule</h2>
+            <p className="text-xs text-text-platinum/50 font-sans mt-1">{compact ? "Today, tomorrow, and next up" : "Today, tomorrow, and the rest of the week"}</p>
           </div>
           <div className="flex items-center gap-2">
             {data.meta?.oddsConnected ? (
-              <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Live odds connected</span>
+              <span className="text-[10px] px-2 py-1 rounded border border-accent-green/30 bg-accent-green/10 text-accent-green font-mono font-bold tracking-widest uppercase">Live Odds</span>
             ) : (
-              <span className="text-[10px] px-2 py-1 rounded-full bg-yellow-500/10 text-yellow-300 border border-yellow-500/20">Schedule only</span>
+              <span className="text-[10px] px-2 py-1 rounded border border-accent-yellow/30 bg-accent-yellow/10 text-accent-yellow font-mono font-bold tracking-widest uppercase">Schedule Only</span>
             )}
           </div>
         </div>
@@ -178,12 +189,12 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
 
       {/* Filters */}
       {!compact && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
           {/* League filter */}
-          <div className="flex rounded-lg bg-dark-surface border border-dark-border p-0.5">
-            <div className="px-3 py-1.5 text-[11px] font-semibold rounded-md bg-accent-blue text-white">NHL</div>
+          <div className="flex rounded-lg bg-dark-bg/50 border border-dark-border p-1">
+            <div className="px-5 py-1.5 text-xs font-bold font-sans rounded-md bg-accent-blue text-dark-bg shadow-[0_0_10px_-2px_rgba(74,158,255,0.4)]">NHL</div>
             {["NBA", "NFL", "MLB"].map((l) => (
-              <div key={l} className="px-3 py-1.5 text-[11px] text-gray-600 cursor-not-allowed">{l}</div>
+              <div key={l} className="px-5 py-1.5 text-xs font-semibold font-sans text-text-platinum/40 cursor-not-allowed">{l}</div>
             ))}
           </div>
 
@@ -191,18 +202,16 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-surface border border-dark-border text-[11px] font-medium text-gray-300 hover:border-gray-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-[7px] rounded-lg bg-dark-bg/50 border border-dark-border text-xs font-semibold text-text-platinum/80 hover:border-text-platinum/30 hover:text-white transition-colors"
             >
               {teamFilter === "ALL" ? "All Teams" : teamFilter}
-              <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDown size={14} className="text-text-platinum/50" />
             </button>
             {showDropdown && (
-              <div className="absolute z-50 mt-1 w-44 max-h-60 overflow-y-auto rounded-xl bg-dark-surface border border-dark-border shadow-xl">
+              <div className="absolute z-50 mt-2 w-48 max-h-64 overflow-y-auto rounded-xl bg-dark-surface border border-dark-border/80 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] py-1 scrollbar-hide">
                 <button
                   onClick={() => { setTeamFilter("ALL"); setShowDropdown(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === "ALL" ? "text-accent-blue font-semibold" : "text-gray-300"}`}
+                  className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${teamFilter === "ALL" ? "text-accent-blue font-bold bg-accent-blue/10" : "text-text-platinum/70 hover:bg-dark-bg/80 hover:text-white font-semibold"}`}
                 >
                   All Teams
                 </button>
@@ -210,7 +219,7 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
                   <button
                     key={t}
                     onClick={() => { setTeamFilter(t); setShowDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === t ? "text-accent-blue font-semibold" : "text-gray-300"}`}
+                    className={`w-full text-left px-4 py-2.5 text-xs transition-colors ${teamFilter === t ? "text-accent-blue font-bold bg-accent-blue/10" : "text-text-platinum/70 hover:bg-dark-bg/80 hover:text-white font-semibold"}`}
                   >
                     {t}
                   </button>
@@ -222,77 +231,96 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading NHL slate...</p>
+        <div className="space-y-4">
+          <div className="h-6 w-24 bg-dark-border rounded animate-pulse" />
+          <div className="grid gap-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-32 rounded-2xl bg-dark-border/40 animate-pulse border border-dark-border/50" />)}
+          </div>
+        </div>
       ) : sections.length === 0 ? (
-        <p className="text-sm text-gray-500">No upcoming NHL games found{teamFilter !== "ALL" ? ` for ${teamFilter}` : ""}.</p>
+        <div className="text-center py-10 bg-dark-bg/30 rounded-2xl border border-dark-border/30">
+          <p className="text-text-platinum/60 text-sm font-semibold">No upcoming NHL games found{teamFilter !== "ALL" ? ` for ${teamFilter}` : ""}.</p>
+        </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-8">
           {sections.slice(0, compact ? 3 : 7).map((section) => (
             <div key={section.key}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-white">{section.title}</h3>
-                <span className="text-[11px] text-gray-500">{section.games.length} game{section.games.length === 1 ? "" : "s"}</span>
+              <div className="flex items-end justify-between mb-4 border-b border-dark-border/30 pb-2 pl-1">
+                <h3 className="text-[13px] uppercase font-mono tracking-widest font-bold text-text-platinum/80">{section.title}</h3>
+                <span className="text-[10px] font-mono text-text-platinum/40">{section.games.length} game{section.games.length === 1 ? "" : "s"}</span>
               </div>
-              <div className="grid gap-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 {section.games.map((game) => (
-                  <Link key={game.id} href={`/matchup/${game.id}`} className="block">
-                    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 hover:border-gray-600 transition-colors">
-                      <div className="flex items-center justify-between mb-3 gap-3">
-                        <div className="text-xs text-gray-400">{formatGameTime(game.startTimeUTC)}</div>
-                        <div className="text-[11px] px-2 py-1 rounded-full bg-dark-bg text-gray-300 border border-dark-border/60">
-                          {game.gameState}
+                  <Link key={game.id} href={`/matchup/${game.id}`} className="block group">
+                    <div className="rounded-2xl border border-dark-border/80 bg-gradient-to-br from-dark-surface/80 to-dark-bg p-5 hover:border-accent-blue/50 hover:shadow-[0_8px_30px_-15px_rgba(74,158,255,0.15)] transition-all duration-300 relative overflow-hidden">
+                      {game.gameState === "LIVE" && (
+                        <div className="absolute top-0 right-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-accent-green to-transparent opacity-80" />
+                      )}
+                      
+                      <div className="flex items-center justify-between mb-5 gap-3">
+                        <div className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/50 flex items-center gap-2">
+                          {game.gameState === "LIVE" ? (
+                            <span className="flex items-center gap-1.5 text-accent-green font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+                              LIVE
+                            </span>
+                          ) : (
+                            formatGameTime(game.startTimeUTC)
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] font-mono text-accent-blue uppercase tracking-widest font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+                          Matchup <ChevronRight size={12} strokeWidth={3} />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
+                      <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
                         <div className="flex items-center gap-3 min-w-0">
-                          <TeamLogo team={game.awayTeam.abbrev} logo={game.awayTeam.logo} color="#334155" />
+                          <TeamLogo team={game.awayTeam.abbrev} logo={game.awayTeam.logo} size={36} color="#334155" />
                           <div className="min-w-0">
-                            <div className="text-white font-semibold truncate">{game.awayTeam.name || game.awayTeam.abbrev}</div>
-                            <div className="text-xs text-gray-500">{game.awayTeam.abbrev}</div>
+                            <div className="text-text-platinum font-heading font-bold text-lg leading-tight truncate group-hover:text-white transition-colors">{game.awayTeam.name || game.awayTeam.abbrev}</div>
+                            <div className="text-[11px] font-mono text-text-platinum/40 uppercase mt-0.5">{game.awayTeam.abbrev}</div>
                           </div>
                         </div>
 
-                        <div className="text-center">
-                          <div className="text-xs text-gray-500 mb-1">at</div>
-                          <div className="text-[11px] text-gray-400 uppercase tracking-[0.16em]">Matchup</div>
+                        <div className="text-center px-2">
+                          <div className="text-[10px] text-text-platinum/30 font-mono uppercase tracking-widest">VS</div>
                         </div>
 
                         <div className="flex items-center gap-3 min-w-0 justify-end text-right">
                           <div className="min-w-0">
-                            <div className="text-white font-semibold truncate">{game.homeTeam.name || game.homeTeam.abbrev}</div>
-                            <div className="text-xs text-gray-500">{game.homeTeam.abbrev}</div>
+                            <div className="text-text-platinum font-heading font-bold text-lg leading-tight truncate group-hover:text-white transition-colors">{game.homeTeam.name || game.homeTeam.abbrev}</div>
+                            <div className="text-[11px] font-mono text-text-platinum/40 uppercase mt-0.5">{game.homeTeam.abbrev}</div>
                           </div>
-                          <TeamLogo team={game.homeTeam.abbrev} logo={game.homeTeam.logo} color="#334155" />
+                          <TeamLogo team={game.homeTeam.abbrev} logo={game.homeTeam.logo} size={36} color="#334155" />
                         </div>
                       </div>
 
                       {(game.bestMoneyline?.away || game.bestMoneyline?.home) && (
                         <>
-                          <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                            <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
-                              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Away line</div>
-                              <div>{game.awayTeam.abbrev} {game.bestMoneyline?.away?.odds ?? "-"}</div>
+                          <div className="mt-5 grid grid-cols-2 gap-3 text-xs">
+                            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/50 px-4 py-2.5 flex justify-between items-center group/odds hover:border-accent-blue/30 transition-colors">
+                              <span className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 group-hover/odds:text-text-platinum/60 transition-colors">Away ML</span>
+                              <span className="font-mono font-bold text-text-platinum">{game.bestMoneyline?.away?.odds ?? "-"}</span>
                             </div>
-                            <div className="rounded-xl bg-dark-bg border border-dark-border px-3 py-2 text-gray-300">
-                              <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-1">Home line</div>
-                              <div>{game.homeTeam.abbrev} {game.bestMoneyline?.home?.odds ?? "-"}</div>
+                            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/50 px-4 py-2.5 flex justify-between items-center group/odds hover:border-accent-blue/30 transition-colors">
+                              <span className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 group-hover/odds:text-text-platinum/60 transition-colors">Home ML</span>
+                              <span className="font-mono font-bold text-text-platinum">{game.bestMoneyline?.home?.odds ?? "-"}</span>
                             </div>
                           </div>
                           {/* Win Probability */}
-                          <div className="mt-2 flex items-center justify-between text-[10px] px-1">
-                            <span className="text-gray-500">
+                          <div className="mt-2.5 flex items-center justify-between px-1">
+                            <span className="text-[10px] font-mono text-text-platinum/50 flex items-center gap-1.5">
                               {game.awayTeam.abbrev}{" "}
-                              <span className="text-white font-semibold">
+                              <span className="text-text-platinum font-bold">
                                 {game.bestMoneyline?.away?.odds != null
                                   ? `${Math.round(computeWinProb(game.bestMoneyline.away.odds) * 100)}%`
                                   : "—"}
                               </span>
                             </span>
-                            <span className="text-gray-600 uppercase tracking-wider text-[8px]">Win Prob</span>
-                            <span className="text-gray-500">
+                            <span className="text-accent-champagne/80 uppercase tracking-widest font-mono text-[8px] font-bold">Win Prob</span>
+                            <span className="text-[10px] font-mono text-text-platinum/50 flex items-center gap-1.5 flex-row-reverse">
                               {game.homeTeam.abbrev}{" "}
-                              <span className="text-white font-semibold">
+                              <span className="text-text-platinum font-bold">
                                 {game.bestMoneyline?.home?.odds != null
                                   ? `${Math.round(computeWinProb(game.bestMoneyline.home.odds) * 100)}%`
                                   : "—"}
@@ -303,12 +331,12 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
                       )}
 
                       {(goalieMap[game.id]?.away || goalieMap[game.id]?.home) && (
-                        <div className="mt-3 pt-3 border-t border-dark-border/50">
-                          <div className="text-[10px] uppercase tracking-[0.16em] text-gray-500 mb-2">Starting Goalies</div>
+                        <div className="mt-5 pt-4 border-t border-dark-border/40">
+                          <div className="text-[9px] uppercase font-mono tracking-widest text-text-platinum/30 mb-3 text-center">Starting Goalies</div>
                           <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start">
                             <GoalieInfo goalie={goalieMap[game.id]?.away ?? null} />
-                            <div className="text-[10px] text-gray-600 pt-1">vs</div>
-                            <div className="text-right">
+                            <div className="w-[1px] h-full bg-dark-border/30 mx-auto"></div>
+                            <div className="text-right flex flex-col items-end">
                               <GoalieInfo goalie={goalieMap[game.id]?.home ?? null} />
                             </div>
                           </div>
@@ -323,5 +351,13 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
         </div>
       )}
     </section>
+  );
+}
+
+function ChevronDown({ className, size }: { className?: string, size?: number }) {
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m6 9 6 6 6-6"/>
+    </svg>
   );
 }

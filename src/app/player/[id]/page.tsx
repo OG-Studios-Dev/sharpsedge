@@ -49,9 +49,9 @@ const POS_LABEL: Record<string, string> = {
 
 function StatBox({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex flex-col items-center bg-dark-bg/60 rounded-xl px-4 py-3 border border-dark-border/50">
-      <span className="text-white text-xl font-bold">{value}</span>
-      <span className="text-gray-500 text-[10px] uppercase tracking-wider mt-0.5">{label}</span>
+    <div className="flex flex-col items-center bg-dark-bg/60 rounded-[16px] px-2 py-3 border border-dark-border/40">
+      <span className="text-white text-xl font-mono font-black drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]">{value}</span>
+      <span className="text-text-platinum/50 text-[9px] font-mono uppercase tracking-widest mt-1 font-bold">{label}</span>
     </div>
   );
 }
@@ -110,53 +110,61 @@ export default function PlayerPage() {
 
   const name = player
     ? `${player.firstName?.default ?? ""} ${player.lastName?.default ?? ""}`
-    : "Player";
+    : "Loading Identity...";
   const teamAbbrev = player?.teamAbbrev ?? "";
   const pos = player ? (POS_LABEL[player.positionCode] ?? player.positionCode) : "";
   const ss = player?.seasonStats;
 
   return (
-    <div className="min-h-screen bg-dark-bg">
+    <main className="min-h-screen bg-dark-bg pb-32">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Link href={teamAbbrev ? `/team/${teamAbbrev}` : "/"} className="text-gray-400 hover:text-white">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border/60 px-4 lg:px-6 py-4">
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
+          <Link href={teamAbbrev ? `/team/${teamAbbrev}` : "/"} className="flex items-center justify-center w-8 h-8 rounded-full bg-dark-surface border border-dark-border/80 text-text-platinum/50 hover:text-white hover:bg-dark-card transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
-          <h1 className="text-lg font-bold text-white truncate">{name}</h1>
+          <h1 className="text-xl font-heading font-black text-text-platinum tracking-tight truncate">{name}</h1>
         </div>
       </header>
 
       {loading ? (
-        <div className="px-4 py-6 space-y-4">
-          {[0, 1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />)}
+        <div className="flex justify-center items-center py-20">
+            <div className="w-8 h-8 border-2 border-accent-blue/30 border-t-accent-blue rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="px-4 py-5 space-y-4">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-8 space-y-6">
 
-          {/* Player Card */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="flex items-center gap-4">
+          {/* Player Hero Card */}
+          <div className="rounded-[32px] border border-dark-border/80 bg-gradient-to-br from-dark-surface/80 to-dark-bg p-6 shadow-[0_8px_30px_-15px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ filter: "url(#noiseFilter)" }} />
+            <div className="flex items-center gap-6 relative z-10">
               {player?.headshot ? (
-                <img src={player.headshot} alt={name} className="w-16 h-16 rounded-full object-cover border-2 border-dark-border" />
+                <div className="relative">
+                    <img src={player.headshot} alt={name} className="w-24 h-24 rounded-full object-cover border-[3px] border-dark-border/80 bg-dark-bg shadow-xl" />
+                    {teamAbbrev && (
+                        <div className="absolute -bottom-2 -right-2 bg-dark-bg rounded-full p-1 border border-dark-border/60">
+                            <TeamLogo team={teamAbbrev} size={24} />
+                        </div>
+                    )}
+                </div>
               ) : (
-                <TeamLogo team={teamAbbrev} size={56} />
+                <TeamLogo team={teamAbbrev} size={80} />
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="text-white text-lg font-bold truncate">{name}</h2>
+                <h2 className="text-white text-3xl font-heading font-black tracking-tight truncate mb-1">{name}</h2>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {player?.sweaterNumber && (
-                    <span className="text-gray-400 text-sm">#{player.sweaterNumber}</span>
+                    <span className="text-[13px] font-mono font-bold text-text-platinum/60 bg-dark-bg/80 px-2 py-0.5 rounded border border-dark-border/60">#{player.sweaterNumber}</span>
                   )}
-                  <span className="text-gray-400 text-sm">{pos}</span>
+                  <span className="text-[11px] uppercase font-mono tracking-widest font-bold text-text-platinum/80">{pos}</span>
                   {teamAbbrev && (
-                    <span className="text-accent-blue text-sm font-medium">{teamAbbrev}</span>
+                    <span className="text-[10px] font-mono tracking-widest font-bold px-2 py-0.5 rounded uppercase border bg-accent-blue/10 text-accent-blue border-accent-blue/20">{teamAbbrev}</span>
                   )}
                 </div>
                 {player?.birthDate && (
-                  <p className="text-gray-600 text-xs mt-1">
+                  <p className="text-text-platinum/40 text-[11px] font-mono mt-3 mb-1">
                     {player.birthCity?.default}{player.birthCity?.default && ", "}{player.birthCountry}
                     {player.heightInInches && ` · ${Math.floor(player.heightInInches / 12)}′${player.heightInInches % 12}″`}
                     {player.weightInPounds && ` · ${player.weightInPounds} lbs`}
@@ -166,83 +174,85 @@ export default function PlayerPage() {
             </div>
           </div>
 
-          {/* Season Stats */}
-          {ss && ss.gamesPlayed > 0 && (
-            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">2024–25 Season</p>
-              <div className="grid grid-cols-4 gap-2">
-                <StatBox label="GP" value={ss.gamesPlayed} />
-                <StatBox label="G" value={ss.goals} />
-                <StatBox label="A" value={ss.assists} />
-                <StatBox label="PTS" value={ss.points} />
-              </div>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                <StatBox label="Shots" value={ss.shots ?? "—"} />
-                <StatBox label="+/-" value={ss.plusMinus >= 0 ? `+${ss.plusMinus}` : ss.plusMinus} />
-                <StatBox label="P/GP" value={ss.gamesPlayed ? (ss.points / ss.gamesPlayed).toFixed(2) : "—"} />
-              </div>
-            </div>
-          )}
-
-          {/* Prop Trend Lines */}
-          {propLines.length > 0 && (
-            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Prop Trend Lines (L{Math.min(gameLogs.length, 10)})</p>
-              <div className="space-y-2">
-                {propLines.map(p => (
-                  <div key={p.label} className="flex items-center justify-between py-2 border-b border-dark-border/30 last:border-0">
-                    <div>
-                      <span className="text-white text-sm font-semibold">Over {p.line} {p.label}</span>
-                      <span className="text-gray-500 text-xs ml-2">avg {p.avg10}/gm</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${p.hr >= 70 ? "text-emerald-400" : p.hr >= 50 ? "text-white" : "text-gray-400"}`}>
-                        {p.hr}%
-                      </span>
-                      <TrendBadge level={p.badge} />
-                    </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
+              {/* Season Stats */}
+              {ss && ss.gamesPlayed > 0 && (
+                <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5 lg:col-span-1">
+                  <p className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">2024–25 Season</p>
+                  <div className="grid grid-cols-4 gap-3">
+                    <StatBox label="GP" value={ss.gamesPlayed} />
+                    <StatBox label="G" value={ss.goals} />
+                    <StatBox label="A" value={ss.assists} />
+                    <StatBox label="PTS" value={ss.points} />
                   </div>
-                ))}
-              </div>
-              <p className="text-gray-600 text-[10px] mt-3">% = hit rate last {Math.min(gameLogs.length, 10)} games</p>
-            </div>
-          )}
+                  <div className="grid grid-cols-3 gap-3 mt-3">
+                    <StatBox label="Shots" value={ss.shots ?? "—"} />
+                    <StatBox label="+/-" value={ss.plusMinus >= 0 ? `+${ss.plusMinus}` : ss.plusMinus} />
+                    <StatBox label="P/GP" value={ss.gamesPlayed ? (ss.points / ss.gamesPlayed).toFixed(2) : "—"} />
+                  </div>
+                </div>
+              )}
 
-          {/* Last 10 Games */}
-          {gameLogs.length > 0 && (
-            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Last {Math.min(gameLogs.length, 10)} Games</p>
-              <div className="space-y-0">
-                {gameLogs.slice(0, 10).map((g, i) => (
-                  <div key={g.gameId ?? i} className="flex items-center justify-between py-2 border-b border-dark-border/30 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 text-xs w-6">{g.homeRoadFlag === "H" ? "vs" : "@"}</span>
-                      <TeamLogo team={g.opponentAbbrev} size={20} />
-                      <span className="text-white text-xs font-medium">{g.opponentAbbrev}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs">
-                      <span className="text-gray-400">{g.toi}</span>
-                      <span className="text-gray-400">{g.shots} SOG</span>
-                      <span className={`font-semibold ${g.plusMinus >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {g.plusMinus >= 0 ? "+" : ""}{g.plusMinus}
-                      </span>
-                      <div className="text-right min-w-[48px]">
-                        <span className="text-white font-bold">{g.goals}G {g.assists}A</span>
+              {/* Prop Trend Lines */}
+              {propLines.length > 0 && (
+                <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5 lg:col-span-1">
+                  <p className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Prop Trend Lines <span className="text-accent-blue/60 ml-2">L{Math.min(gameLogs.length, 10)}</span></p>
+                  <div className="space-y-3">
+                    {propLines.map(p => (
+                      <div key={p.label} className="flex items-center justify-between py-2 border-b border-dark-border/30 last:border-0">
+                        <div>
+                          <span className="text-text-platinum font-mono font-bold tracking-tight text-[15px]">O {p.line} <span className="text-text-platinum/60">{p.label}</span></span>
+                          <div className="text-text-platinum/40 font-mono text-[10px] uppercase tracking-widest mt-0.5">AV {p.avg10}/G</div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-[15px] font-mono font-black tracking-tighter ${p.hr >= 70 ? "text-accent-green drop-shadow-[0_0_8px_rgba(34,197,94,0.3)]" : p.hr >= 50 ? "text-white" : "text-text-platinum/40"}`}>
+                            {p.hr}%
+                          </span>
+                          <TrendBadge level={p.badge} />
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  <p className="text-text-platinum/30 font-mono text-[9px] uppercase tracking-widest mt-4 text-center">% = hit rate in window</p>
+                </div>
+              )}
 
-          {gameLogs.length === 0 && !loading && (
-            <div className="text-center py-8">
-              <p className="text-gray-400 text-sm">No game log data available</p>
-            </div>
-          )}
+              {/* Last 10 Games */}
+              {gameLogs.length > 0 && (
+                <div className="rounded-[24px] border border-dark-border/80 bg-dark-surface/40 p-5 lg:col-span-1">
+                  <p className="text-[10px] uppercase font-mono tracking-widest text-text-platinum/40 font-bold mb-4">Last {Math.min(gameLogs.length, 10)} Games</p>
+                  <div className="space-y-1">
+                    {gameLogs.slice(0, 10).map((g, i) => (
+                      <div key={g.gameId ?? i} className="flex items-center justify-between py-2.5 border-b border-dark-border/30 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-text-platinum/40 font-mono font-bold tracking-widest uppercase text-[10px] w-5">{g.homeRoadFlag === "H" ? "vs" : "@"}</span>
+                          <TeamLogo team={g.opponentAbbrev} size={24} />
+                          <span className="text-text-platinum font-heading font-black text-[14px]">{g.opponentAbbrev}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                          <span className="text-text-platinum/40 font-mono">{g.toi}</span>
+                          <span className="text-text-platinum/60 font-mono font-bold">{g.shots} <span className="text-[9px]">S</span ></span>
+                          <span className={`font-mono font-black ${g.plusMinus >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                            {g.plusMinus >= 0 ? "+" : ""}{g.plusMinus}
+                          </span>
+                          <div className="text-right min-w-[56px] bg-dark-bg/60 px-2 py-0.5 rounded border border-dark-border/40">
+                            <span className="text-white font-mono font-black">{g.goals}<span className="text-[10px] text-text-platinum/40">G</span> {g.assists}<span className="text-[10px] text-text-platinum/40">A</span></span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {gameLogs.length === 0 && !loading && (
+                <div className="text-center py-12 rounded-[24px] border border-dark-border/80 bg-dark-surface/40">
+                  <p className="text-text-platinum/40 font-mono font-bold tracking-widest uppercase text-sm">No game log data available</p>
+                </div>
+              )}
+          </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }

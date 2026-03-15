@@ -5,6 +5,7 @@ import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
+import PickCard from "./PickCard";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -179,7 +180,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
         ) : (
           <div className="space-y-0">
             {displayPicks.map((pick) => (
-              <PickRow key={pick.id} pick={pick} />
+              <PickCard key={pick.id} pick={pick} />
             ))}
           </div>
         )}
