@@ -1,14 +1,14 @@
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 import { League, PlayerProp, SGP, TeamTrend } from "@/lib/types";
 
-export type SportsLeague = "All" | "NHL" | "NBA";
+export type SportsLeague = "All" | "NHL" | "NBA" | "MLB";
 export type ClubLineFilter = "all" | "main" | "alt";
 export type VenueFilter = "all" | "home" | "away";
 
 export type TrendRow = {
   id: string;
   kind: "player" | "team";
-  league: "NHL" | "NBA";
+  league: "NHL" | "NBA" | "MLB";
   team: string;
   teamColor: string;
   opponent: string;
@@ -28,9 +28,7 @@ export type TrendRow = {
   score: number;
 };
 
-export type QuickHitterRow = TrendRow & {
-  paceLabel: "1P" | "1Q";
-};
+export type QuickHitterRow = TrendRow & { paceLabel: "1P" | "1Q" | "BAT" | "ARM" };
 
 const MAIN_TEAM_BET_TYPES = new Set([
   "Team Goals O/U",
@@ -50,8 +48,8 @@ function normalizeEdge(value?: number | null): number {
   return Math.abs(value) <= 1 ? value * 100 : value;
 }
 
-function toSportsLeague(league: League): "NHL" | "NBA" | null {
-  if (league === "NHL" || league === "NBA") return league;
+function toSportsLeague(league: League): "NHL" | "NBA" | "MLB" | null {
+  if (league === "NHL" || league === "NBA" || league === "MLB") return league;
   return null;
 }
 
@@ -157,7 +155,7 @@ function sortRows(rows: TrendRow[]) {
 }
 
 export function normalizeSportsLeague(league: League): SportsLeague {
-  if (league === "All" || league === "NBA" || league === "NHL") return league;
+  if (league === "All" || league === "NBA" || league === "NHL" || league === "MLB") return league;
   return "NHL";
 }
 
@@ -189,9 +187,15 @@ export function buildTrendingRows(props: PlayerProp[], count = 5): TrendRow[] {
   return sortRows(rows).slice(0, count);
 }
 
-function getQuickHitterPace(prop: PlayerProp): "1P" | "1Q" | null {
+function getQuickHitterPace(prop: PlayerProp): "1P" | "1Q" | "BAT" | "ARM" | null {
   if (prop.league === "NHL") return "1P";
   if (prop.league === "NBA") return "1Q";
+  if (prop.league === "MLB") {
+    const market = prop.propType.toLowerCase();
+    return market.includes("strikeout") || market.includes("innings") || market.includes("earned") || market.includes("allowed")
+      ? "ARM"
+      : "BAT";
+  }
   return null;
 }
 
@@ -207,6 +211,18 @@ function qualifiesAsQuickHitter(prop: PlayerProp) {
     return (
       ((market.includes("goal") || market.includes("assist") || market.includes("point")) && prop.line <= 1.5)
       || (market.includes("shot") && prop.line <= 2.5)
+    );
+  }
+
+  if (league === "MLB") {
+    return (
+      (market.includes("hit") && prop.line <= 1.5)
+      || (market.includes("total bases") && prop.line <= 1.5)
+      || (market.includes("home run") && prop.line <= 0.5)
+      || (market.includes("rbi") && prop.line <= 1.5)
+      || (market.includes("run") && prop.line <= 1.5)
+      || (market.includes("stolen") && prop.line <= 0.5)
+      || (market.includes("strikeout") && prop.line <= 5.5)
     );
   }
 
@@ -325,7 +341,8 @@ export function buildSGPSuggestions(props: PlayerProp[], limit = 6): SGP[] {
     const combinedHitRate = computeCombinedHitRate(legs);
     const trackedParlaySample = computeTrackedParlaySample(legs);
     const matchup = buildSGPMatchup(legs);
-    const league = legs[0].league === "NBA" ? "NBA" : "NHL";
+    const league = toSportsLeague(legs[0].league);
+    if (!league) continue;
 
     sgps.push({
       id: `sgp-${key}`,

@@ -7,6 +7,7 @@ import { normalizeSportsLeague } from "@/lib/insights";
 import LeagueSwitcher from "./LeagueSwitcher";
 import ScheduleBoard from "./ScheduleBoard";
 import NBAScheduleBoard from "./NBAScheduleBoard";
+import MLBScheduleBoard from "./MLBScheduleBoard";
 import TeamLogo from "./TeamLogo";
 import type { TeamStandingRow } from "@/lib/nhl-api";
 
@@ -112,6 +113,18 @@ type NBAStanding = {
   streak: string;
 };
 
+type MLBStanding = {
+  teamAbbrev: string;
+  teamName: string;
+  league: "AL" | "NL";
+  division: string;
+  wins: number;
+  losses: number;
+  winPct: number;
+  gamesBack: string;
+  streak: string;
+};
+
 function NBAStandings() {
   const [standings, setStandings] = useState<NBAStanding[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +197,103 @@ function NBAStandings() {
   );
 }
 
+function MLBStandings() {
+  const [standings, setStandings] = useState<MLBStanding[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [league, setLeague] = useState<"AL" | "NL">("AL");
+
+  useEffect(() => {
+    fetch("/api/mlb/standings")
+      .then((response) => response.json())
+      .then((data) => { if (Array.isArray(data)) setStandings(data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const divisions = useMemo(() => {
+    const filtered = standings.filter((team) => team.league === league);
+    const grouped = new Map<string, MLBStanding[]>();
+    for (const team of filtered) {
+      if (!grouped.has(team.division)) grouped.set(team.division, []);
+      grouped.get(team.division)!.push(team);
+    }
+    return Array.from(grouped.entries()).map(([division, teams]) => ({
+      division,
+      teams: teams.sort((a, b) => b.wins - a.wins || a.losses - b.losses),
+    }));
+  }, [league, standings]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex rounded-xl bg-dark-surface border border-dark-border p-1">
+        {(["AL", "NL"] as const).map((value) => (
+          <button
+            key={value}
+            onClick={() => setLeague(value)}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${league === value ? "bg-accent-blue text-white" : "text-gray-400 hover:text-white"}`}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[0, 1, 2].map((index) => <div key={index} className="h-14 rounded-xl bg-dark-border/40 animate-pulse" />)}</div>
+      ) : divisions.length === 0 ? (
+        <div className="py-8 text-center">
+          <p className="text-2xl mb-2">⚾</p>
+          <p className="text-sm text-gray-400">MLB standings unavailable right now</p>
+          <p className="mt-1 text-xs text-gray-600">Standings repopulate automatically once the Stats API responds.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {divisions.map((division) => (
+            <div key={division.division}>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-gray-500">{division.division}</p>
+              <div className="overflow-hidden rounded-2xl border border-dark-border bg-dark-surface">
+                <div className="grid grid-cols-[1fr_40px_40px_48px_48px_56px] gap-1 border-b border-dark-border/50 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500">
+                  <div>Team</div>
+                  <div className="text-center">W</div>
+                  <div className="text-center">L</div>
+                  <div className="text-center">PCT</div>
+                  <div className="text-center">GB</div>
+                  <div className="text-center">Streak</div>
+                </div>
+                {division.teams.map((team) => {
+                  const streakColor = team.streak.startsWith("W")
+                    ? "bg-accent-green/20 text-accent-green border-accent-green/30"
+                    : team.streak.startsWith("L")
+                      ? "bg-accent-red/20 text-accent-red border-accent-red/30"
+                      : "bg-dark-bg text-gray-400 border-dark-border";
+
+                  return (
+                    <div
+                      key={team.teamAbbrev}
+                      className="grid grid-cols-[1fr_40px_40px_48px_48px_56px] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <TeamLogo team={team.teamAbbrev} size={26} />
+                        <span className="truncate text-xs font-medium text-white">{team.teamAbbrev}</span>
+                      </div>
+                      <div className="text-center text-xs font-medium text-white">{team.wins}</div>
+                      <div className="text-center text-xs text-gray-400">{team.losses}</div>
+                      <div className="text-center text-xs text-gray-400">{(team.winPct * 100).toFixed(0)}%</div>
+                      <div className="text-center text-xs text-gray-400">{team.gamesBack}</div>
+                      <div className="flex justify-center">
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${streakColor}`}>{team.streak || "—"}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const VIEW_TABS = ["Schedule", "Standings"] as const;
 
@@ -219,9 +329,15 @@ export default function ScheduleStandingsContent() {
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏀</span> NBA</p>
               <NBAScheduleBoard />
             </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚾</span> MLB</p>
+              <MLBScheduleBoard />
+            </div>
           </div>
         ) : sportLeague === "NBA" ? (
           <NBAScheduleBoard />
+        ) : sportLeague === "MLB" ? (
+          <MLBScheduleBoard />
         ) : (
           <ScheduleBoard />
         )
@@ -237,9 +353,15 @@ export default function ScheduleStandingsContent() {
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏀</span> NBA</p>
               <NBAStandings />
             </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚾</span> MLB</p>
+              <MLBStandings />
+            </div>
           </div>
         ) : sportLeague === "NBA" ? (
           <NBAStandings />
+        ) : sportLeague === "MLB" ? (
+          <MLBStandings />
         ) : (
           <NHLStandings />
         )

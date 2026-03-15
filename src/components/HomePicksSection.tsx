@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePicks, useNBAPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
@@ -81,28 +81,39 @@ function computeRecord(picks: AIPick[]) {
 export default function HomePicksSection({ league = "NHL" }: { league?: string }) {
   const nhl = usePicks();
   const nba = useNBAPicks();
+  const mlb = useMLBPicks();
 
   const allNHLPicks = Object.values(nhl.allPicks).flat();
   const allNBAPicks = Object.values(nba.allPicks).flat();
-  const allPicks = [...allNHLPicks, ...allNBAPicks];
+  const allMLBPicks = Object.values(mlb.allPicks).flat();
+  const allPicks = [...allNHLPicks, ...allNBAPicks, ...allMLBPicks];
 
   const nhlRecord = computeRecord(allNHLPicks);
   const nbaRecord = computeRecord(allNBAPicks);
+  const mlbRecord = computeRecord(allMLBPicks);
   const allRecord = computeRecord(allPicks);
 
   // Which today picks to show
   const displayPicks =
     league === "NBA"
       ? nba.todayPicks
+      : league === "MLB"
+      ? mlb.todayPicks
       : league === "All"
-      ? [...nhl.todayPicks, ...nba.todayPicks]
+      ? [...nhl.todayPicks, ...nba.todayPicks, ...mlb.todayPicks]
       : nhl.todayPicks;
 
   const loadingPicks =
-    league === "NBA" ? nba.loadingPicks : league === "All" ? nhl.loadingPicks || nba.loadingPicks : nhl.loadingPicks;
+    league === "NBA"
+      ? nba.loadingPicks
+      : league === "MLB"
+      ? mlb.loadingPicks
+      : league === "All"
+      ? nhl.loadingPicks || nba.loadingPicks || mlb.loadingPicks
+      : nhl.loadingPicks;
 
   const record =
-    league === "NBA" ? nbaRecord : league === "All" ? allRecord : nhlRecord;
+    league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "All" ? allRecord : nhlRecord;
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
@@ -121,8 +132,8 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
       {league === "All" ? (
         <div className="space-y-1.5">
           <RecordBar {...allRecord} label="All" />
-          <div className="flex gap-1.5">
-            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
               <span className="text-[10px] text-gray-500 font-semibold">🏒 NHL</span>
               <span className="text-emerald-400 text-[11px] font-bold">{nhlRecord.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nhlRecord.losses}L</span>
@@ -130,12 +141,20 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
                 {nhlRecord.profitUnits >= 0 ? "+" : ""}{nhlRecord.profitUnits}u
               </span>
             </div>
-            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
               <span className="text-[10px] text-gray-500 font-semibold">🏀 NBA</span>
               <span className="text-emerald-400 text-[11px] font-bold">{nbaRecord.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nbaRecord.losses}L</span>
               <span className={`ml-auto text-[11px] font-bold ${nbaRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {nbaRecord.profitUnits >= 0 ? "+" : ""}{nbaRecord.profitUnits}u
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+              <span className="text-[10px] text-gray-500 font-semibold">⚾ MLB</span>
+              <span className="text-emerald-400 text-[11px] font-bold">{mlbRecord.wins}W</span>
+              <span className="text-red-400 text-[11px] font-bold">{mlbRecord.losses}L</span>
+              <span className={`ml-auto text-[11px] font-bold ${mlbRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {mlbRecord.profitUnits >= 0 ? "+" : ""}{mlbRecord.profitUnits}u
               </span>
             </div>
           </div>

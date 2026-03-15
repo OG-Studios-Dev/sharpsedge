@@ -6,6 +6,7 @@ import { computePickRecord } from "@/lib/pick-record";
 
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v8";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v8";
+const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
 
 // Nuclear clear: wipe ALL old pick keys from localStorage
 if (typeof window !== "undefined") {
@@ -33,6 +34,7 @@ function isResolvableGameId(gameId: string | undefined, league?: string) {
   if (!gameId) return false;
   if (!/^\d+$/.test(gameId)) return false;
   if (league === "NBA") return gameId.length >= 8;
+  if (league === "MLB") return gameId.length >= 5;
   return gameId.length >= 9;
 }
 
@@ -216,4 +218,8 @@ export function usePicks() {
 
 export function useNBAPicks() {
   return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks", NBA_RESOLVE_ENDPOINT);
+}
+
+export function useMLBPicks() {
+  return usePicksForLeague(MLB_STORAGE_KEY, "/api/mlb/picks", NBA_RESOLVE_ENDPOINT);
 }

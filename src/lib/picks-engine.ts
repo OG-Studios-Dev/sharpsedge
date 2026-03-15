@@ -1,6 +1,6 @@
 import { PlayerProp, TeamTrend, AIPick } from "@/lib/types";
-import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
 import { NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { MLB_TEAM_COLORS } from "@/lib/mlb-api";
 
 type ScoredPlayerProp = PlayerProp & { _score: number };
 type ScoredTeamTrend = TeamTrend & { _score: number };
@@ -29,11 +29,17 @@ function buildTeamPickLabel(trend: TeamTrend): string {
   if (betType === "Team Points O/U") {
     return `${trend.team} ${trend.line}`;
   }
+  if (betType === "Total Runs O/U") {
+    return `${trend.team} ${trend.line}`;
+  }
   if (betType === "Team Win ML" || betType === "ML Home Win" || betType === "ML Streak") {
     return `${trend.team} Win ML`;
   }
   if (betType === "ML Road Win") {
     return `${trend.team} Win ML (Road)`;
+  }
+  if (betType === "Run Line") {
+    return `${trend.team} ${trend.line} Run Line`;
   }
   if (betType.startsWith("H2H ML")) {
     return `${trend.team} Win vs ${trend.opponent} (H2H)`;
@@ -119,7 +125,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     playerId: prop.playerId,
     playerName: prop.playerName,
     team: prop.team,
-    teamColor: prop.teamColor || NHL_TEAM_COLORS[prop.team] || "#4a9eff",
+    teamColor: prop.teamColor || "#4a9eff",
     opponent: prop.opponent,
     isAway: prop.isAway,
     propType: prop.propType,
@@ -145,7 +151,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     date,
     type: "team",
     team: trend.team,
-    teamColor: trend.teamColor || NHL_TEAM_COLORS[trend.team] || "#4a9eff",
+    teamColor: trend.teamColor || "#4a9eff",
     opponent: trend.opponent,
     isAway: trend.isAway,
     betType: trend.betType,
@@ -172,6 +178,10 @@ function propVarietyBucket(prop: PlayerProp): string {
   if (propType.includes("rebound")) return "rebounds";
   if (propType.includes("assist")) return "assists";
   if (propType.includes("goal")) return "goals";
+  if (propType.includes("hit")) return "hits";
+  if (propType.includes("total base")) return "total_bases";
+  if (propType.includes("home run")) return "home_runs";
+  if (propType.includes("strikeout")) return "strikeouts";
   return propType || prop.id;
 }
 
@@ -325,6 +335,69 @@ export function selectNBATopPicks(
       if (filled >= remaining) break;
       const pick = teamTrendToAIPick(t, date);
       pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
+      picks.push(pick);
+      filled++;
+    }
+  }
+
+  return picks.slice(0, 3);
+}
+
+export function selectMLBTopPicks(
+  props: PlayerProp[],
+  teamTrends: TeamTrend[],
+  date: string,
+): AIPick[] {
+  const scoredProps: ScoredPlayerProp[] = props
+    .filter((p) => isPickableOdds(p.odds))
+    .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
+    .sort((a, b) => b._score - a._score);
+
+  const scoredTrends: ScoredTeamTrend[] = teamTrends
+    .filter((t) => isPickableOdds(t.odds))
+    .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
+    .sort((a, b) => b._score - a._score);
+
+  const picks: AIPick[] = [];
+  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
+  const teamPicks = scoredTrends.slice(0, 1);
+
+  for (const prop of playerPicks) {
+    const pick = playerPickToAIPick(prop, date);
+    pick.teamColor = prop.teamColor || MLB_TEAM_COLORS[prop.team] || "#4a9eff";
+    picks.push(pick);
+  }
+
+  for (const trend of teamPicks) {
+    const pick = teamTrendToAIPick(trend, date);
+    pick.teamColor = trend.teamColor || MLB_TEAM_COLORS[trend.team] || "#4a9eff";
+    picks.push(pick);
+  }
+
+  if (picks.length < 3) {
+    const remaining = 3 - picks.length;
+    const usedIds = new Set(picks.map((pick) => pick.id));
+
+    const extraProps = scoredProps
+      .filter((prop) => !playerPicks.some((selected) => selected.id === prop.id))
+      .filter((prop) => !usedIds.has(`pick-${prop.id}-${date}`));
+    const extraTrends = scoredTrends
+      .slice(teamPicks.length)
+      .filter((trend) => !usedIds.has(`pick-${trend.id}-${date}`));
+
+    let filled = 0;
+    for (const prop of extraProps) {
+      if (filled >= remaining) break;
+      const pick = playerPickToAIPick(prop, date);
+      pick.teamColor = prop.teamColor || MLB_TEAM_COLORS[prop.team] || "#4a9eff";
+      picks.push(pick);
+      filled++;
+    }
+
+    for (const trend of extraTrends) {
+      if (filled >= remaining) break;
+      const pick = teamTrendToAIPick(trend, date);
+      pick.teamColor = trend.teamColor || MLB_TEAM_COLORS[trend.team] || "#4a9eff";
       picks.push(pick);
       filled++;
     }

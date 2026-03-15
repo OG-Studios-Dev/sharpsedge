@@ -59,7 +59,7 @@ export default function SearchPage() {
         id: `team-${key}`,
         title: trend.team,
         subtitle: `${trend.league} team page`,
-        href: trend.league === "NBA" ? `/nba/team/${trend.team}` : `/team/${trend.team}`,
+        href: trend.league === "NBA" ? `/nba/team/${trend.team}` : trend.league === "NHL" ? `/team/${trend.team}` : "/props",
         kind: "team",
       });
     }
@@ -91,8 +91,18 @@ export default function SearchPage() {
         kind: "game" as const,
       }));
 
-    return [...nhlGames, ...nbaGames].slice(0, 12);
-  }, [dashboards.nbaSchedule, dashboards.nhlSchedule.games, query]);
+    const mlbGames = dashboards.mlbSchedule
+      .filter((game) => normalize(`${game.awayTeam.abbreviation} ${game.homeTeam.abbreviation} ${game.awayTeam.fullName} ${game.homeTeam.fullName}`).includes(q))
+      .map((game) => ({
+        id: `mlb-game-${game.id}`,
+        title: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+        subtitle: "MLB matchup",
+        href: "/schedule",
+        kind: "game" as const,
+      }));
+
+    return [...nhlGames, ...nbaGames, ...mlbGames].slice(0, 12);
+  }, [dashboards.mlbSchedule, dashboards.nbaSchedule, dashboards.nhlSchedule.games, query]);
 
   const results = [...playerResults, ...teamResults, ...gameResults];
   const hasQuery = query.trim().length > 0;
@@ -128,7 +138,7 @@ export default function SearchPage() {
           <EmptyStateCard
             eyebrow="Search"
             title="Start typing to search the live slate"
-            body="Search matches against player props, team trends, and game cards from the current NHL and NBA dashboards."
+            body="Search matches against player props, team trends, and game cards from the current NHL, NBA, and MLB dashboards."
           />
         ) : results.length === 0 ? (
           <EmptyStateCard

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required pick fields" }, { status: 400 });
     }
 
-    const sport = body.sport === "NBA" ? "NBA" : "NHL";
+    const sport = body.sport === "NBA" ? "NBA" : body.sport === "MLB" ? "MLB" : "NHL";
     const recordId = `pick_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const pickLabel = body.recommendation || `${body.overUnder ?? "Over"} ${body.line} ${body.propType}`;
 

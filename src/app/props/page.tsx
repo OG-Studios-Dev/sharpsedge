@@ -40,6 +40,19 @@ const NBA_PLAYER_METRICS = [
   { label: "Under", value: "under" },
 ];
 
+const MLB_PLAYER_METRICS = [
+  { label: "All Props", value: "all" },
+  { label: "Hits", value: "Hits" },
+  { label: "Total Bases", value: "Total Bases" },
+  { label: "HRs", value: "Home Runs" },
+  { label: "RBIs", value: "RBIs" },
+  { label: "Runs", value: "Runs Scored" },
+  { label: "SBs", value: "Stolen Bases" },
+  { label: "Strikeouts (K)", value: "Strikeouts" },
+  { label: "Over", value: "over" },
+  { label: "Under", value: "under" },
+];
+
 const NHL_TEAM_METRICS = [
   { label: "All Metrics", value: "all" },
   { label: "Team Goals O/U", value: "Team Goals O/U" },
@@ -54,6 +67,13 @@ const NBA_TEAM_METRICS = [
   { label: "Home Wins", value: "ML Home Win" },
   { label: "Road Wins", value: "ML Road Win" },
   { label: "Streak", value: "ML Streak" },
+];
+
+const MLB_TEAM_METRICS = [
+  { label: "All Metrics", value: "all" },
+  { label: "Team Win ML", value: "Team Win ML" },
+  { label: "Run Line", value: "Run Line" },
+  { label: "Total Runs O/U", value: "Total Runs O/U" },
 ];
 
 function mergeOptions(...groups: Array<Array<{ label: string; value: string }>>) {
@@ -118,17 +138,21 @@ export default function PropsPage() {
 
   const playerMetricOptions = useMemo(() => (
     sportLeague === "All"
-      ? mergeOptions(NHL_PLAYER_METRICS, NBA_PLAYER_METRICS)
+      ? mergeOptions(NHL_PLAYER_METRICS, NBA_PLAYER_METRICS, MLB_PLAYER_METRICS)
       : sportLeague === "NBA"
         ? NBA_PLAYER_METRICS
+        : sportLeague === "MLB"
+          ? MLB_PLAYER_METRICS
         : NHL_PLAYER_METRICS
   ), [sportLeague]);
 
   const teamMetricOptions = useMemo(() => (
     sportLeague === "All"
-      ? mergeOptions(NHL_TEAM_METRICS, NBA_TEAM_METRICS)
+      ? mergeOptions(NHL_TEAM_METRICS, NBA_TEAM_METRICS, MLB_TEAM_METRICS)
       : sportLeague === "NBA"
         ? NBA_TEAM_METRICS
+        : sportLeague === "MLB"
+          ? MLB_TEAM_METRICS
         : NHL_TEAM_METRICS
   ), [sportLeague]);
 
@@ -138,6 +162,9 @@ export default function PropsPage() {
         { label: "Full Game", value: "full_game" },
         { label: "1Q (Coming Soon)", value: "first_quarter" },
       ];
+    }
+    if (sportLeague === "MLB") {
+      return [{ label: "Full Game", value: "full_game" }];
     }
     if (sportLeague === "All") {
       return [
@@ -239,7 +266,7 @@ export default function PropsPage() {
       : "Loading team analytics";
 
   const loadingBody = view === "100% Club"
-    ? "Goosalytics is ranking perfect and near-perfect trends across both leagues."
+    ? "Goosalytics is ranking perfect and near-perfect trends across the live leagues."
     : view === "Players"
       ? "Goosalytics is fetching live player markets and scoring today’s slate."
       : "Goosalytics is pulling live team trends and matchup context.";

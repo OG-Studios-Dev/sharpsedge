@@ -16,7 +16,18 @@ import { hasIndicator } from "@/lib/player-trend";
 type Tab = "All" | "Player" | "Team";
 type IndicatorType = "goose_lean" | "hot" | "money" | "lock" | "streak";
 type DirectionFilter = "all" | "over" | "under";
-type PropTypeFilter = "all" | "Points" | "Rebounds" | "Assists" | "Shots" | "Goals" | "3PM";
+type PropTypeFilter =
+  | "all"
+  | "Points"
+  | "Rebounds"
+  | "Assists"
+  | "Shots"
+  | "Goals"
+  | "3PM"
+  | "Hits"
+  | "Total Bases"
+  | "Home Runs"
+  | "Strikeouts";
 type SortFilter = "hit_rate" | "edge" | "odds";
 
 const TEAM_THRESHOLD = 50;
@@ -25,6 +36,7 @@ function matchesPropType(propType: string, filter: PropTypeFilter) {
   if (filter === "all") return true;
   if (filter === "3PM") return propType === "3-Pointers Made";
   if (filter === "Shots") return propType === "Shots on Goal" || propType === "Shots";
+  if (filter === "Strikeouts") return propType === "Strikeouts";
   return propType === filter;
 }
 
@@ -101,7 +113,7 @@ export default function TrendsPage() {
   }, [dashboards.teamTrends, activeIndicators, sortBy]);
 
   const allEmpty = filteredProps.length === 0 && filteredTeams.length === 0;
-  const title = sportLeague === "All" ? "NHL + NBA Trends" : `${sportLeague} Trends`;
+  const title = sportLeague === "All" ? "NHL + NBA + MLB Trends" : `${sportLeague} Trends`;
   const filters = [
     {
       label: "Direction",
@@ -125,6 +137,10 @@ export default function TrendsPage() {
         { label: "Shots", value: "Shots" },
         { label: "Goals", value: "Goals" },
         { label: "3PM", value: "3PM" },
+        { label: "Hits", value: "Hits" },
+        { label: "Total Bases", value: "Total Bases" },
+        { label: "Home Runs", value: "Home Runs" },
+        { label: "Strikeouts", value: "Strikeouts" },
       ],
     },
     {

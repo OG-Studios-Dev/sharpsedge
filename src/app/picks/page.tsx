@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePicks, useNBAPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
@@ -246,15 +246,27 @@ export default function PicksPage() {
     stalePickCount: nbaStalePickCount,
     clearStalePicks: clearNBAStalePicks,
   } = useNBAPicks();
+  const {
+    todayPicks: mlbToday,
+    allPicks: mlbAll,
+    record: mlbRecord,
+    loadingPicks: mlbLoading,
+    stalePickCount: mlbStalePickCount,
+    clearStalePicks: clearMLBStalePicks,
+  } = useMLBPicks();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
 
   const todayKey = localTodayKey();
 
   // Merge picks stores based on league
-  const activeToday = sportLeague === "NBA" ? nbaToday
-    : sportLeague === "All" ? [...nhlToday, ...nbaToday]
-    : nhlToday;
+  const activeToday = sportLeague === "NBA"
+    ? nbaToday
+    : sportLeague === "MLB"
+      ? mlbToday
+      : sportLeague === "All"
+        ? [...nhlToday, ...nbaToday, ...mlbToday]
+        : nhlToday;
 
   const activeAll: Record<string, AIPick[]> = {};
   const mergeStore = (store: Record<string, AIPick[]>) => {
@@ -265,22 +277,33 @@ export default function PicksPage() {
   };
   if (sportLeague === "NHL" || sportLeague === "All") mergeStore(nhlAll);
   if (sportLeague === "NBA" || sportLeague === "All") mergeStore(nbaAll);
+  if (sportLeague === "MLB" || sportLeague === "All") mergeStore(mlbAll);
 
   const allFlat = Object.values(activeAll).flat();
   const activeRecord = computeRecord(allFlat);
   const activeStalePickCount = sportLeague === "NBA"
     ? nbaStalePickCount
-    : sportLeague === "All"
-      ? nhlStalePickCount + nbaStalePickCount
-      : nhlStalePickCount;
+    : sportLeague === "MLB"
+      ? mlbStalePickCount
+      : sportLeague === "All"
+        ? nhlStalePickCount + nbaStalePickCount + mlbStalePickCount
+        : nhlStalePickCount;
 
-  const loading = sportLeague === "NBA" ? nbaLoading : sportLeague === "All" ? (nhlLoading || nbaLoading) : nhlLoading;
+  const loading = sportLeague === "NBA"
+    ? nbaLoading
+    : sportLeague === "MLB"
+      ? mlbLoading
+      : sportLeague === "All"
+        ? (nhlLoading || nbaLoading || mlbLoading)
+        : nhlLoading;
 
   // Per-league records for combined view
   const nhlFlat = Object.values(nhlAll).flat();
   const nbaFlat = Object.values(nbaAll).flat();
+  const mlbFlat = Object.values(mlbAll).flat();
   const nhlRec = computeRecord(nhlFlat);
   const nbaRec = computeRecord(nbaFlat);
+  const mlbRec = computeRecord(mlbFlat);
 
   // Pick History: all past dates (including pending), sorted newest first
   const pastDates = Object.keys(activeAll)
@@ -312,9 +335,14 @@ export default function PicksPage() {
       clearNBAStalePicks();
       return;
     }
+    if (sportLeague === "MLB") {
+      clearMLBStalePicks();
+      return;
+    }
     if (sportLeague === "All") {
       clearNHLStalePicks();
       clearNBAStalePicks();
+      clearMLBStalePicks();
       return;
     }
     clearNHLStalePicks();
@@ -325,10 +353,7 @@ export default function PicksPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-dark-bg pb-3 -mx-4 px-4 pt-1">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-white text-xl font-bold tracking-widest uppercase">GOOSE AI PICKS</h1>
-            <p className="text-gray-500 text-xs mt-0.5">{formatDate(todayKey)}</p>
-          </div>
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
       </div>
@@ -376,8 +401,8 @@ export default function PicksPage() {
           </div>
         </div>
         {sportLeague === "All" && (
-          <div className="flex gap-2 mt-3 pt-3 border-t border-dark-border/40">
-            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-dark-border/40">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
               <span className="text-[10px] text-gray-500 font-semibold">🏒 NHL</span>
               <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
@@ -385,12 +410,20 @@ export default function PicksPage() {
                 {nhlRec.profitUnits >= 0 ? "+" : ""}{nhlRec.profitUnits}u
               </span>
             </div>
-            <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
               <span className="text-[10px] text-gray-500 font-semibold">🏀 NBA</span>
               <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
               <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                 {nbaRec.profitUnits >= 0 ? "+" : ""}{nbaRec.profitUnits}u
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
+              <span className="text-[10px] text-gray-500 font-semibold">⚾ MLB</span>
+              <span className="text-emerald-400 text-[11px] font-bold">{mlbRec.wins}W</span>
+              <span className="text-red-400 text-[11px] font-bold">{mlbRec.losses}L</span>
+              <span className={`ml-auto text-[11px] font-bold ${mlbRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {mlbRec.profitUnits >= 0 ? "+" : ""}{mlbRec.profitUnits}u
               </span>
             </div>
           </div>
@@ -414,7 +447,7 @@ export default function PicksPage() {
       {/* Today's Picks */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-white text-sm font-bold uppercase tracking-wide">
-          Today&apos;s Goose AI Picks
+          Today&apos;s AI Picks
         </p>
         <span className="text-[10px] text-gray-500">3 picks · 1u each</span>
       </div>

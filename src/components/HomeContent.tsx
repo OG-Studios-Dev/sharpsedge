@@ -215,7 +215,7 @@ export default function HomeContent() {
 
         <HomeSection
           title="Trending Now"
-          subtitle="The hottest live props across NHL and NBA, ranked by hit rate, sample, and edge."
+          subtitle="The hottest live props across NHL, NBA, and MLB, ranked by hit rate, sample, and edge."
           href="/trends"
         >
           {dashboards.loading ? (

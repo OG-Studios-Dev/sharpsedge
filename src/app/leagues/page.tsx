@@ -8,6 +8,7 @@ import { useLeague } from "@/hooks/useLeague";
 const LEAGUE_ROUTES: Partial<Record<League, string>> = {
   NHL: "/leagues/nhl",
   NBA: "/props",
+  MLB: "/props",
 };
 
 export default function LeaguesPage() {

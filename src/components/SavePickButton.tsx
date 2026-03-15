@@ -14,7 +14,7 @@ export default function SavePickButton({ prop }: { prop: PlayerProp }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sport: prop.league === "NBA" ? "NBA" : "NHL",
+          sport: prop.league === "NBA" ? "NBA" : prop.league === "MLB" ? "MLB" : "NHL",
           gameId: prop.gameId || prop.id,
           matchup: prop.matchup,
           playerName: prop.playerName,

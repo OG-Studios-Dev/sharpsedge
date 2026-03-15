@@ -27,7 +27,9 @@ type TrendApiResponse = {
 type GameLogTab = "last10" | "h2h" | "venue";
 
 function resolveLeague(value: string | null): SupportedTrendLeague {
-  return value === "NBA" ? "NBA" : "NHL";
+  if (value === "NBA") return "NBA";
+  if (value === "MLB") return "MLB";
+  return "NHL";
 }
 
 function parseLine(value: string | null) {
@@ -134,7 +136,7 @@ export default function PlayerTrendPage() {
 
   const id = params.id;
   const league = resolveLeague(searchParams.get("league"));
-  const propType = searchParams.get("propType") || (league === "NBA" ? "Points" : "Points");
+  const propType = searchParams.get("propType") || (league === "NBA" ? "Points" : league === "MLB" ? "Hits" : "Points");
   const line = parseLine(searchParams.get("line"));
   const opponent = (searchParams.get("opponent") || "").toUpperCase();
   const overUnder = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
@@ -155,9 +157,14 @@ export default function PlayerTrendPage() {
       const query = new URLSearchParams();
       if (playerName) query.set("playerName", playerName);
       if (queryTeam) query.set("team", queryTeam);
+      const playerId = searchParams.get("playerId");
+      if (playerId) query.set("playerId", playerId);
+      if (propType) query.set("propType", propType);
       const endpoint = league === "NBA"
         ? `/api/nba/player/${encodeURIComponent(id)}/game-log?${query.toString()}`
-        : `/api/player/${encodeURIComponent(id)}/game-log`;
+        : league === "MLB"
+          ? `/api/mlb/player/${encodeURIComponent(id)}/game-log?${query.toString()}`
+          : `/api/player/${encodeURIComponent(id)}/game-log`;
 
       try {
         const response = await fetch(endpoint);
@@ -184,7 +191,7 @@ export default function PlayerTrendPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, league, playerName, queryTeam]);
+  }, [id, league, playerName, propType, queryTeam, searchParams]);
 
   const games = data?.games || [];
   const accent = data?.teamColor || queryTeamColor || "#4a9eff";

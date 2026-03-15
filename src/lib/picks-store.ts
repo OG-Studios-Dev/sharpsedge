@@ -4,7 +4,7 @@ import path from "path";
 export type SavedPick = {
   id: string;
   createdAt: string;
-  sport: "NHL" | "NBA";
+  sport: "NHL" | "NBA" | "MLB";
   gameId?: string;
   matchup?: string;
   playerName: string;

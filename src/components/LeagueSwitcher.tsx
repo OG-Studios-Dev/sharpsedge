@@ -6,6 +6,7 @@ const LEAGUES: Array<{ key: League; icon: string; label: string }> = [
   { key: "All", icon: "🪿", label: "All" },
   { key: "NHL", icon: "🏒", label: "NHL" },
   { key: "NBA", icon: "🏀", label: "NBA" },
+  { key: "MLB", icon: "⚾", label: "MLB" },
 ];
 
 interface Props {

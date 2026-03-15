@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { usePicks, useNBAPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 import TeamLogo from "@/components/TeamLogo";
 import Link from "next/link";
 
-type SportFilter = "all" | "NHL" | "NBA";
+type SportFilter = "all" | "NHL" | "NBA" | "MLB";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -42,6 +42,7 @@ function ResultBadge({ result }: { result: AIPick["result"] }) {
 export default function PickHistoryPage() {
   const { allPicks: nhlAll } = usePicks();
   const { allPicks: nbaAll } = useNBAPicks();
+  const { allPicks: mlbAll } = useMLBPicks();
   const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
 
@@ -54,8 +55,11 @@ export default function PickHistoryPage() {
     for (const [date, datePicks] of Object.entries(nbaAll)) {
       for (const p of datePicks) picks.push({ ...p, _date: date, league: p.league || "NBA" });
     }
+    for (const [date, datePicks] of Object.entries(mlbAll)) {
+      for (const p of datePicks) picks.push({ ...p, _date: date, league: p.league || "MLB" });
+    }
     return picks.sort((a, b) => b._date.localeCompare(a._date));
-  }, [nhlAll, nbaAll]);
+  }, [mlbAll, nbaAll, nhlAll]);
 
   // Get unique months for filter
   const months = useMemo(() => {
@@ -133,7 +137,7 @@ export default function PickHistoryPage() {
       {/* Filters */}
       <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
         {/* Sport Filter */}
-        {(["all", "NHL", "NBA"] as SportFilter[]).map((s) => (
+        {(["all", "NHL", "NBA", "MLB"] as SportFilter[]).map((s) => (
           <button
             key={s}
             onClick={() => setSportFilter(s)}

@@ -1,6 +1,6 @@
 import { AIPick, League, PlayerProp, TrendIndicator, TrendSplit } from "@/lib/types";
 
-export type SupportedTrendLeague = Extract<League, "NHL" | "NBA">;
+export type SupportedTrendLeague = Extract<League, "NHL" | "NBA" | "MLB">;
 
 export type PlayerTrendGame = {
   gameId: string;
@@ -17,6 +17,16 @@ export type PlayerTrendGame = {
   rebounds?: number;
   threePointersMade?: number;
   minutes?: string;
+  hits?: number;
+  totalBases?: number;
+  homeRuns?: number;
+  rbis?: number;
+  runs?: number;
+  stolenBases?: number;
+  strikeOuts?: number;
+  inningsPitched?: number;
+  earnedRuns?: number;
+  hitsAllowed?: number;
 };
 
 type SplitReadyGame = {
@@ -49,7 +59,9 @@ export function slugifyPlayerName(name: string): string {
 }
 
 function resolveTrendLeague(league?: string): SupportedTrendLeague {
-  return league === "NBA" ? "NBA" : "NHL";
+  if (league === "NBA") return "NBA";
+  if (league === "MLB") return "MLB";
+  return "NHL";
 }
 
 function resolveTrendRouteId(input: PlayerTrendLinkInput): string {
@@ -82,6 +94,7 @@ export function buildPlayerTrendHref(input: PlayerTrendLinkInput): string {
   setIfDefined(params, "book", input.book);
   setIfDefined(params, "isAway", input.isAway);
   setIfDefined(params, "gameId", input.gameId);
+  setIfDefined(params, "playerId", input.playerId);
 
   const query = params.toString();
   return `/player/${resolveTrendRouteId(input)}/trend${query ? `?${query}` : ""}`;
@@ -206,6 +219,20 @@ export function getTrendGameStatValue(game: PlayerTrendGame, propType: string, l
     if (propType === "Assists") return game.assists ?? 0;
     if (propType === "3-Pointers Made" || propType === "3PM") return game.threePointersMade ?? 0;
     return game.points ?? 0;
+  }
+
+  if (league === "MLB") {
+    if (propType === "Hits") return game.hits ?? 0;
+    if (propType === "Total Bases") return game.totalBases ?? 0;
+    if (propType === "Home Runs" || propType === "HRs") return game.homeRuns ?? 0;
+    if (propType === "RBIs") return game.rbis ?? 0;
+    if (propType === "Runs Scored" || propType === "Runs") return game.runs ?? 0;
+    if (propType === "Stolen Bases" || propType === "SBs") return game.stolenBases ?? 0;
+    if (propType === "Strikeouts" || propType === "Strikeouts (K)" || propType === "K") return game.strikeOuts ?? 0;
+    if (propType === "Earned Runs") return game.earnedRuns ?? 0;
+    if (propType === "Innings Pitched") return game.inningsPitched ?? 0;
+    if (propType === "Hits Allowed") return game.hitsAllowed ?? 0;
+    return game.hits ?? 0;
   }
 
   if (propType === "Goals") return game.goals ?? 0;

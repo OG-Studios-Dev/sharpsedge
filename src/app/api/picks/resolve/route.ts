@@ -10,6 +10,7 @@ import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const NHL_PENDING_STATES = new Set(["PRE", "FUT", "LIVE", "CRIT"]);
 const NHL_FINAL_STATES = new Set(["OFF", "FINAL", "OVER"]);
 
@@ -19,6 +20,11 @@ function normalizeName(value: string) {
 
 function normalizeTeam(value?: string) {
   return (value || "").trim().toUpperCase();
+}
+
+function normalizeMLBTeam(value?: string) {
+  const normalized = normalizeTeam(value);
+  return normalized === "ATH" ? "OAK" : normalized;
 }
 
 function normalizeGameId(value?: string | null) {
@@ -72,6 +78,21 @@ function parseNumericStat(raw: unknown): number {
   return parseInt(raw, 10) || 0;
 }
 
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseBaseballInnings(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return 0;
+  const [whole, fraction] = raw.split(".");
+  const innings = toNumber(whole);
+  const outs = toNumber(fraction);
+  if (!fraction) return innings;
+  return innings + Math.min(outs, 2) / 3;
+}
+
 function isNHLGameComplete(boxscore: any): boolean {
   const state = String(boxscore?.gameState ?? "").toUpperCase();
   if (NHL_PENDING_STATES.has(state)) return false;
@@ -99,6 +120,24 @@ function isNBACompetitionComplete(summary: any): boolean {
   const detail = String(statusType?.detail ?? statusType?.shortDetail ?? "").toUpperCase();
   const state = String(statusType?.state ?? "").toLowerCase();
   return Boolean(statusType?.completed || state === "post" || name.includes("FINAL") || detail.includes("FINAL"));
+}
+
+function parseMLBLine(line?: number | null) {
+  if (typeof line !== "number" || !Number.isFinite(line)) return undefined;
+  return line;
+}
+
+async function fetchMLBScheduleGame(gameId: string, date: string) {
+  const schedule = await fetchJSON<any>(`${MLB_BASE}/schedule?date=${date}&sportId=1&hydrate=linescore`);
+  return (schedule?.dates ?? [])
+    .flatMap((entry: any) => entry?.games ?? [])
+    .find((game: any) => String(game?.gamePk ?? "") === gameId) || null;
+}
+
+function isMLBGameComplete(game: any) {
+  const abstractState = String(game?.status?.abstractGameState ?? "").toUpperCase();
+  const codedState = String(game?.status?.codedGameState ?? "").toUpperCase();
+  return abstractState === "FINAL" || ["F", "O"].includes(codedState);
 }
 
 async function fetchJSON<T>(url: string): Promise<T | null> {
@@ -309,18 +348,142 @@ async function resolveNBATeamPick(pick: AIPick): Promise<AIPick["result"]> {
   return "pending";
 }
 
+async function resolveMLBPlayerPick(pick: AIPick): Promise<AIPick["result"]> {
+  const gameId = normalizeGameId(pick.gameId);
+  if (!gameId) {
+    logResolverIssue(pick, "missing_mlb_game_id");
+    return "pending";
+  }
+
+  const game = await fetchMLBScheduleGame(gameId, pick.date);
+  if (!game || !isMLBGameComplete(game)) return "pending";
+
+  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${gameId}/boxscore`);
+  if (!boxscore) return "pending";
+
+  const homeAbbrev = normalizeMLBTeam(boxscore?.teams?.home?.team?.abbreviation || game?.teams?.home?.team?.abbreviation);
+  const awayAbbrev = normalizeMLBTeam(boxscore?.teams?.away?.team?.abbreviation || game?.teams?.away?.team?.abbreviation);
+  const targetTeam = normalizeMLBTeam(pick.team);
+  const side = targetTeam === awayAbbrev
+    ? "away"
+    : targetTeam === homeAbbrev
+      ? "home"
+      : pick.isAway
+        ? "away"
+        : "home";
+
+  const players = Object.values<any>(boxscore?.teams?.[side]?.players ?? {});
+  const player = findPlayerByName(players, pick.playerName || "", (entry: any) => entry?.person?.fullName || "");
+  if (!player || pick.line === undefined) {
+    logResolverIssue(pick, "mlb_player_not_found", { playerName: pick.playerName || "" });
+    return "pending";
+  }
+
+  const batting = player?.stats?.batting ?? {};
+  const pitching = player?.stats?.pitching ?? {};
+  const propKey = (pick.propType || "").toLowerCase();
+  let actual: number | null = null;
+
+  if (propKey === "hits") actual = batting.hits ?? null;
+  else if (propKey.includes("total base")) actual = batting.totalBases ?? null;
+  else if (propKey.includes("home run")) actual = batting.homeRuns ?? null;
+  else if (propKey.includes("rbi")) actual = batting.rbi ?? batting.rbis ?? null;
+  else if (propKey.includes("run")) actual = batting.runs ?? null;
+  else if (propKey.includes("stolen")) actual = batting.stolenBases ?? null;
+  else if (propKey.includes("strikeout")) actual = pitching.strikeOuts ?? null;
+  else if (propKey.includes("earned")) actual = pitching.earnedRuns ?? null;
+  else if (propKey.includes("innings")) actual = parseBaseballInnings(pitching.inningsPitched);
+  else if (propKey.includes("allowed")) actual = pitching.hits ?? null;
+
+  if (actual === null) {
+    logResolverIssue(pick, "mlb_stat_unavailable", { propType: pick.propType ?? "" });
+    return "pending";
+  }
+
+  if (pick.direction === "Under") {
+    if (actual < pick.line) return "win";
+    if (actual > pick.line) return "loss";
+    return "push";
+  }
+  if (actual > pick.line) return "win";
+  if (actual < pick.line) return "loss";
+  return "push";
+}
+
+async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]> {
+  const gameId = normalizeGameId(pick.gameId);
+  if (!gameId) {
+    logResolverIssue(pick, "missing_mlb_game_id");
+    return "pending";
+  }
+
+  const game = await fetchMLBScheduleGame(gameId, pick.date);
+  if (!game || !isMLBGameComplete(game)) return "pending";
+
+  const homeAbbrev = normalizeMLBTeam(game?.teams?.home?.team?.abbreviation);
+  const awayAbbrev = normalizeMLBTeam(game?.teams?.away?.team?.abbreviation);
+  const targetTeam = normalizeMLBTeam(pick.team);
+  const isAway = targetTeam === awayAbbrev ? true : targetTeam === homeAbbrev ? false : pick.isAway;
+  const homeScore = toNumber(game?.teams?.home?.score);
+  const awayScore = toNumber(game?.teams?.away?.score);
+  const teamScore = isAway ? awayScore : homeScore;
+  const oppScore = isAway ? homeScore : awayScore;
+  const margin = teamScore - oppScore;
+
+  if (pick.betType === "Run Line") {
+    const line = parseMLBLine(pick.line);
+    if (line === undefined) {
+      logResolverIssue(pick, "mlb_run_line_missing_line");
+      return "pending";
+    }
+    const adjusted = margin + line;
+    if (adjusted > 0) return "win";
+    if (adjusted < 0) return "loss";
+    return "push";
+  }
+
+  if (pick.betType === "Total Runs O/U") {
+    const line = parseMLBLine(pick.line);
+    if (line === undefined) {
+      logResolverIssue(pick, "mlb_total_missing_line");
+      return "pending";
+    }
+    const totalRuns = homeScore + awayScore;
+    const side = pick.pickLabel.includes("Under") ? "Under" : "Over";
+    if (side === "Under") {
+      if (totalRuns < line) return "win";
+      if (totalRuns > line) return "loss";
+      return "push";
+    }
+    if (totalRuns > line) return "win";
+    if (totalRuns < line) return "loss";
+    return "push";
+  }
+
+  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak"].includes(pick.betType || "")) {
+    if (teamScore > oppScore) return "win";
+    if (teamScore < oppScore) return "loss";
+    return "push";
+  }
+
+  return "pending";
+}
+
 async function resolvePick(pick: AIPick): Promise<AIPick> {
   if (pick.result !== "pending") return pick;
 
   try {
-    const isNBA = pick.league === "NBA";
-    const result = isNBA
+    const result = pick.league === "NBA"
       ? pick.type === "player"
         ? await resolveNBAPlayerPick(pick)
         : await resolveNBATeamPick(pick)
-      : pick.type === "player"
-        ? await resolveNHLPlayerPick(pick)
-        : await resolveNHLTeamPick(pick);
+      : pick.league === "MLB"
+        ? pick.type === "player"
+          ? await resolveMLBPlayerPick(pick)
+          : await resolveMLBTeamPick(pick)
+        : pick.type === "player"
+          ? await resolveNHLPlayerPick(pick)
+          : await resolveNHLTeamPick(pick);
 
     return { ...pick, result };
   } catch (error) {

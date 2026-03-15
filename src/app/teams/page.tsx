@@ -26,9 +26,18 @@ type NBAStanding = {
   conference: "Eastern" | "Western";
 };
 
+type MLBStanding = {
+  teamAbbrev: string;
+  teamName: string;
+  league: "AL" | "NL";
+  division: string;
+  wins: number;
+  losses: number;
+};
+
 type TeamDirectoryRow = {
   id: string;
-  league: "NHL" | "NBA";
+  league: "NHL" | "NBA" | "MLB";
   teamAbbrev: string;
   teamName: string;
   detail: string;
@@ -41,6 +50,7 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true);
   const [nhlTeams, setNhlTeams] = useState<NHLStanding[]>([]);
   const [nbaTeams, setNbaTeams] = useState<NBAStanding[]>([]);
+  const [mlbTeams, setMlbTeams] = useState<MLBStanding[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -48,10 +58,12 @@ export default function TeamsPage() {
     Promise.all([
       fetch("/api/standings").then((response) => response.json()).catch(() => []),
       fetch("/api/nba/standings").then((response) => response.json()).catch(() => []),
-    ]).then(([nhl, nba]) => {
+      fetch("/api/mlb/standings").then((response) => response.json()).catch(() => []),
+    ]).then(([nhl, nba, mlb]) => {
       if (!mounted) return;
       setNhlTeams(Array.isArray(nhl) ? nhl : []);
       setNbaTeams(Array.isArray(nba) ? nba : []);
+      setMlbTeams(Array.isArray(mlb) ? mlb : []);
       setLoading(false);
     });
 
@@ -77,11 +89,20 @@ export default function TeamsPage() {
       detail: `${team.wins}-${team.losses} · ${team.conference} #${team.seed}`,
       href: `/nba/team/${team.teamAbbrev}`,
     }));
+    const mlbRows = mlbTeams.map((team) => ({
+      id: `mlb-${team.teamAbbrev}`,
+      league: "MLB" as const,
+      teamAbbrev: team.teamAbbrev,
+      teamName: team.teamName || team.teamAbbrev,
+      detail: `${team.wins}-${team.losses} · ${team.league} ${team.division}`,
+      href: "/props",
+    }));
 
     if (sportLeague === "NBA") return nbaRows;
-    if (sportLeague === "All") return [...nhlRows, ...nbaRows];
+    if (sportLeague === "MLB") return mlbRows;
+    if (sportLeague === "All") return [...nhlRows, ...nbaRows, ...mlbRows];
     return nhlRows;
-  }, [nbaTeams, nhlTeams, sportLeague]);
+  }, [mlbTeams, nbaTeams, nhlTeams, sportLeague]);
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -100,7 +121,7 @@ export default function TeamsPage() {
           <EmptyStateCard
             eyebrow="Teams"
             title="Loading team directories"
-            body="Pulling NHL and NBA standings so the current team list stays live."
+            body="Pulling NHL, NBA, and MLB standings so the current team list stays live."
           />
         ) : rows.length === 0 ? (
           <EmptyStateCard
