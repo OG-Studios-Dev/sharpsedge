@@ -15,12 +15,13 @@ export async function GET(req: NextRequest) {
       ? picks.filter((pick) => pick.league === league)
       : picks;
 
-    return NextResponse.json({ picks: filtered });
+    return NextResponse.json({ picks: filtered, _debug: { total: picks.length, filtered: filtered.length, hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY } });
   } catch (error) {
     return NextResponse.json(
       {
         picks: [],
         error: error instanceof Error ? error.message : "Failed to load pick history",
+        _stack: error instanceof Error ? error.stack?.slice(0, 200) : undefined,
       },
       { status: 500 },
     );
