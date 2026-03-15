@@ -5,32 +5,13 @@ import { NHLGame, TeamTrend } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
 import { buildLiveTeamTrends } from "@/lib/nhl-team-trends";
 import { buildPropsPayload } from "@/lib/props";
-import { teamTrends as seedTeamTrends } from "@/data/seed";
+// Seed data removed — only live data
 import { getDateKey } from "@/lib/date-utils";
 
 const ACTIVE_STATES = ["FUT", "LIVE", "PRE"];
 
 function buildSeedTeamTrendPayload(): TeamTrend[] {
-  return seedTeamTrends.map((trend, index) => {
-    const primarySplit = trend.splits.find((split) => split.total > 0) ?? trend.splits[0];
-    const hitRate = primarySplit?.hitRate ?? 0;
-    const indicators = trend.indicators && trend.indicators.length > 0
-      ? trend.indicators
-      : hitRate >= 85
-        ? [{ type: "lock" as const, active: true }, { type: "hot" as const, active: true }]
-        : hitRate >= 70
-          ? [{ type: "hot" as const, active: true }]
-          : [];
-
-    return {
-      ...trend,
-      id: trend.id || `trend-${trend.team}-${trend.opponent}-${index}`,
-      gameId: trend.gameId, // never fake a gameId — picks need real IDs to resolve
-      hitRate,
-      edge: trend.edge ?? Math.round(hitRate - 52.4),
-      indicators,
-    };
-  });
+  return []; // No seed data
 }
 
 function withFallbackData(
@@ -39,7 +20,7 @@ function withFallbackData(
 ) {
   return {
     props: props.length > 0 ? props : buildPropsPayload(),
-    teamTrends: teamTrends.length > 0 ? teamTrends : buildSeedTeamTrendPayload(),
+    teamTrends: teamTrends,
   };
 }
 
