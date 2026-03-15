@@ -17,7 +17,7 @@ export default function FilterBar({ filters }: Props) {
           <select
             value={filter.value}
             onChange={(e) => filter.onChange(e.target.value)}
-            className="appearance-none bg-dark-surface border border-dark-border rounded-full px-3 py-1.5 pr-7 text-sm text-white font-medium cursor-pointer focus:outline-none focus:border-accent-blue/50"
+            className="tap-button appearance-none rounded-full border border-dark-border bg-dark-surface px-3 py-1.5 pr-7 text-xs font-semibold text-white cursor-pointer focus:outline-none focus:border-accent-blue/50"
           >
             {filter.options.map((opt) => (
               <option key={opt.value} value={opt.value}>

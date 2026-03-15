@@ -104,9 +104,9 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
   const awayWon = isFinal && game.homeScore !== null && game.awayScore !== null && game.awayScore > game.homeScore;
 
   return (
-    <Link href={`/nba/matchup/${game.id}`} className="block">
+    <Link href={`/nba/matchup/${game.id}`} className="tap-card block">
       <div
-        className="relative rounded-2xl border border-dark-border overflow-hidden hover:border-gray-500 transition-colors"
+        className="relative overflow-hidden rounded-2xl border border-dark-border transition-colors hover:border-gray-500"
         style={{
           background: `linear-gradient(135deg, ${awayColor}1e 0%, #161923 40%, #161923 60%, ${homeColor}1e 100%)`,
         }}

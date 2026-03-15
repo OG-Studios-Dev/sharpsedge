@@ -7,6 +7,7 @@ import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
+import PageHeader from "@/components/PageHeader";
 
 type SearchResult = {
   id: string;
@@ -109,15 +110,12 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg">
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-4">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-              <p className="text-xs text-gray-500 mt-0.5">Players, teams, and matchups from the active slate.</p>
-            </div>
-            <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-          </div>
+      <PageHeader
+        title="Search"
+        subtitle="Players, teams, and matchups from the active slate."
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      >
+        <div className="max-w-2xl mx-auto">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -125,7 +123,7 @@ export default function SearchPage() {
             className="w-full rounded-2xl border border-dark-border bg-dark-surface px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-accent-blue/50"
           />
         </div>
-      </header>
+      </PageHeader>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
         {dashboards.loading ? (

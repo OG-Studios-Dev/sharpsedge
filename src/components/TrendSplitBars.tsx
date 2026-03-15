@@ -28,7 +28,7 @@ export default function TrendSplitBars({
                 {formatRate(split)}
               </span>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/30">
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-dark-bg/70">
               <div
                 className={`h-full rounded-full ${muted ? "bg-gray-600/70" : ""}`}
                 style={{

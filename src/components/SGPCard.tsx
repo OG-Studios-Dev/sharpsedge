@@ -7,7 +7,7 @@ export default function SGPCard({ sgp }: { sgp: SGP }) {
   const trackedSplit = sgp.splits[0];
 
   return (
-    <div className="overflow-hidden rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] p-4 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
+    <div className="tap-card overflow-hidden rounded-2xl border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] p-4 shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">{sgp.league}</p>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { GolfLeaderboard } from "@/lib/types";
+import { LeaderboardSkeleton } from "@/components/LoadingSkeleton";
 
 function scoreTone(score: string) {
   if (score === "CUT") return "text-red-400";
@@ -21,11 +22,7 @@ export default function GolfLeaderboardCard({
   if (loading) {
     return (
       <section className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
-        <div className="space-y-2">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-10 animate-pulse rounded-lg bg-dark-border/40" />
-          ))}
-        </div>
+        <LeaderboardSkeleton rows={10} />
       </section>
     );
   }

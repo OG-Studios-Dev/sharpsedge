@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import NBAGameCard from "./NBAGameCard";
 import type { OddsEvent } from "@/lib/types";
 import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE, parseDateKey } from "@/lib/date-utils";
+import { GameCardSkeleton } from "@/components/LoadingSkeleton";
 
 type NBAGame = {
   id: string;
@@ -68,11 +69,11 @@ export default function NBAScheduleBoard({ compact, showHeader = false }: Props)
   }
 
   return (
-    <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
+    <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4">
       {showHeader && (
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-semibold text-white">NBA Schedule</h3>
+            <h3 className="page-heading">NBA Schedule</h3>
             <p className="text-[11px] text-gray-500 mt-0.5">Today, tomorrow, and next up</p>
           </div>
         </div>
@@ -80,7 +81,7 @@ export default function NBAScheduleBoard({ compact, showHeader = false }: Props)
 
       {loading ? (
         <div className="grid grid-cols-2 gap-3">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-2xl bg-dark-border/40 animate-pulse" />)}
+          {[0, 1, 2, 3].map((i) => <GameCardSkeleton key={i} />)}
         </div>
       ) : displaySections.length === 0 ? (
         <div className="text-center py-6">

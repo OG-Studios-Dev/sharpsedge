@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase-client";
+import { useLeague } from "@/hooks/useLeague";
 import { APP_NAV_GROUPS, APP_NAV_ITEMS, getNavItemById } from "@/lib/app-nav";
 import { TIER_LABELS, canAccessFeature } from "@/lib/tier-access";
 import { useAppChrome } from "@/components/AppChromeProvider";
@@ -14,6 +15,7 @@ function isActivePath(pathname: string, href: string) {
 export default function DesktopSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [league, setLeague] = useLeague();
   const {
     viewer,
     shortcuts,
@@ -40,7 +42,7 @@ export default function DesktopSidebar() {
           <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl" />
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-accent-blue">Goosalytics</p>
           <p className="mt-1 text-xs text-gray-500">
-            {viewer.profile?.name || viewer.user?.email || "Today&apos;s edge, locked in."}
+            {viewer.profile?.name || viewer.user?.email || "Today's edge, locked in."}
           </p>
           <p className="mt-2 text-[11px] text-gray-400">Tier {TIER_LABELS[viewer.tier]}</p>
         </Link>
@@ -50,13 +52,19 @@ export default function DesktopSidebar() {
             <p className="section-heading">Quick Shortcuts</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {pinnedItems.map((item) => (
-                <Link
+                <button
                   key={item.id}
-                  href={item.href}
+                  type="button"
+                  onClick={() => {
+                    if (item.leagueOverride && league !== item.leagueOverride) {
+                      setLeague(item.leagueOverride);
+                    }
+                    router.push(item.href);
+                  }}
                   className="tap-button rounded-full border border-dark-border bg-dark-bg/70 px-3 py-1.5 text-xs font-semibold text-white"
                 >
                   {item.shortLabel}
-                </Link>
+                </button>
               ))}
             </div>
           </div>
@@ -81,9 +89,15 @@ export default function DesktopSidebar() {
                     const locked = item.tierFeature && !canAccessFeature(item.tierFeature, viewer.profile, viewer.tier);
 
                     return (
-                      <Link
+                      <button
                         key={item.href}
-                        href={item.href}
+                        type="button"
+                        onClick={() => {
+                          if (item.leagueOverride && league !== item.leagueOverride) {
+                            setLeague(item.leagueOverride);
+                          }
+                          router.push(item.href);
+                        }}
                         className={`tap-button flex items-center gap-3 rounded-2xl border px-3 py-3 text-sm font-medium transition-all ${
                           active
                             ? "border-accent-blue/30 bg-accent-blue/10 text-white shadow-[0_0_0_1px_rgba(74,158,255,0.15)]"
@@ -98,7 +112,7 @@ export default function DesktopSidebar() {
                           </span>
                         )}
                         {locked && <span className="text-[11px] text-amber-300">Locked</span>}
-                      </Link>
+                      </button>
                     );
                   })}
                 </div>

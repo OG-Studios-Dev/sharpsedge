@@ -6,6 +6,7 @@ import { NHLGame } from "@/lib/types";
 import TeamLogo from "@/components/TeamLogo";
 import { computeWinProb } from "@/components/WinProbability";
 import { getDateKey, parseDateKey } from "@/lib/date-utils";
+import { GameCardSkeleton } from "@/components/LoadingSkeleton";
 
 type GoalieStarter = {
   playerId: number;
@@ -159,11 +160,11 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
   }, [data.games, teamFilter]);
 
   return (
-    <section className="rounded-3xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+    <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
       {showHeader && (
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <div>
-            <h2 className="text-white font-semibold text-lg">NHL Schedule</h2>
+            <h2 className="page-heading">NHL Schedule</h2>
             <p className="text-xs text-gray-500 mt-1">{compact ? "Today, tomorrow, and next up" : "Today, tomorrow, and the rest of the week"}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -184,7 +185,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
           <div className="relative">
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-surface border border-dark-border text-[11px] font-medium text-gray-300 hover:border-gray-600 transition-colors"
+              className="tap-button flex items-center gap-1.5 rounded-xl border border-dark-border bg-dark-surface px-3 py-1.5 text-[11px] font-medium text-gray-300 hover:border-gray-600 transition-colors"
             >
               {teamFilter === "ALL" ? "All Teams" : teamFilter}
               <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -195,7 +196,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
               <div className="absolute z-50 mt-1 w-44 max-h-60 overflow-y-auto rounded-xl bg-dark-surface border border-dark-border shadow-xl">
                 <button
                   onClick={() => { setTeamFilter("ALL"); setShowDropdown(false); }}
-                  className={`w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === "ALL" ? "text-accent-blue font-semibold" : "text-gray-300"}`}
+                  className={`tap-button w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === "ALL" ? "text-accent-blue font-semibold" : "text-gray-300"}`}
                 >
                   All Teams
                 </button>
@@ -203,7 +204,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
                   <button
                     key={t}
                     onClick={() => { setTeamFilter(t); setShowDropdown(false); }}
-                    className={`w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === t ? "text-accent-blue font-semibold" : "text-gray-300"}`}
+                    className={`tap-button w-full text-left px-3 py-2 text-xs hover:bg-dark-bg transition-colors ${teamFilter === t ? "text-accent-blue font-semibold" : "text-gray-300"}`}
                   >
                     {t}
                   </button>
@@ -215,7 +216,11 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading NHL slate...</p>
+        <div className="grid gap-3 xl:grid-cols-2">
+          {Array.from({ length: compact ? 4 : 6 }).map((_, index) => (
+            <GameCardSkeleton key={index} />
+          ))}
+        </div>
       ) : sections.length === 0 ? (
         <p className="text-sm text-gray-500">No upcoming NHL games found{teamFilter !== "ALL" ? ` for ${teamFilter}` : ""}.</p>
       ) : (
@@ -228,7 +233,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
               </div>
               <div className="grid gap-3 xl:grid-cols-2">
                 {section.games.map((game) => (
-                  <Link key={game.id} href={`/matchup/${game.id}`} className="block">
+                  <Link key={game.id} href={`/matchup/${game.id}`} className="tap-card block">
                     <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 hover:border-gray-600 transition-colors">
                       <div className="flex items-center justify-between mb-3 gap-3">
                         <div className="text-xs text-gray-400">{formatGameTime(game.startTimeUTC)}</div>

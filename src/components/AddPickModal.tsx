@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { formatAmericanOdds } from "@/lib/my-picks";
 
@@ -13,6 +13,12 @@ export default function AddPickModal() {
     addPickFromDraft,
   } = useAppChrome();
   const [units, setUnits] = useState(1);
+
+  useEffect(() => {
+    if (pickDraft) {
+      setUnits(1);
+    }
+  }, [pickDraft]);
 
   if (!pickDraft) return null;
 

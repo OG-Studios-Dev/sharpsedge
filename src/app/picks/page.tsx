@@ -552,8 +552,8 @@ export default function PicksPage() {
       />
 
       <div className="mb-6 grid gap-4 px-4 pt-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-0">
-        <Link href="/picks/history">
-          <div className="tap-card cursor-pointer rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
+        <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
+          <Link href="/picks/history" className="tap-button block rounded-xl">
             <div className="mb-3 flex items-center justify-between">
               <p className="section-heading">
                 {sportLeague === "All" ? "Combined" : sportLeague} Season Record
@@ -593,6 +593,7 @@ export default function PicksPage() {
                 <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
               </div>
             </div>
+          </Link>
             {sportLeague === "All" && (
               <div className="mt-3 grid grid-cols-3 gap-2 border-t border-dark-border/40 pt-3">
                 <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
@@ -634,8 +635,7 @@ export default function PicksPage() {
                 </button>
               </div>
             )}
-          </div>
-        </Link>
+        </div>
 
         <div>
           <div className="mb-3 rounded-2xl border border-accent-blue/20 bg-accent-blue/10 p-3">

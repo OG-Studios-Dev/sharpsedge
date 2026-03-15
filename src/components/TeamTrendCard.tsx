@@ -30,9 +30,16 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
     <div className="tap-card h-full overflow-hidden rounded-2xl border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.98)_100%)] shadow-[0_14px_40px_rgba(0,0,0,0.22)]">
       <div className="h-1 w-full" style={{ background: trend.teamColor }} />
 
-      <button
-        type="button"
+      <div
         onClick={() => setExpanded((current) => !current)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setExpanded((current) => !current);
+          }
+        }}
         className="tap-button w-full p-4 text-left"
       >
         <div className="flex items-start gap-3">
@@ -91,7 +98,7 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
             </div>
           </div>
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="space-y-4 border-t border-dark-border/50 px-4 pb-4 pt-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { useLeague } from "@/hooks/useLeague";
@@ -139,6 +139,12 @@ export default function SlideMenu() {
   const pinnedItems = shortcuts
     .map((id) => getNavItemById(id))
     .filter((item): item is AppNavItem => Boolean(item));
+
+  useEffect(() => {
+    closeMenu();
+    // close the mobile panel after any route change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
     <>

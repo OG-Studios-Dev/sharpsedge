@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GolfDashboardData, GolfTournament } from "@/lib/types";
+import { CardSkeleton } from "@/components/LoadingSkeleton";
 
 function statusStyles(status: GolfTournament["status"]) {
   if (status === "completed") return "border-gray-500/20 bg-gray-500/10 text-gray-300";
@@ -46,10 +47,10 @@ export default function GolfScheduleBoard({
   }, [controlledLoading, tournaments]);
 
   return (
-    <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+    <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
       {showHeader && (
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-white">PGA Schedule</h2>
+          <h2 className="page-heading">PGA Schedule</h2>
           <p className="mt-1 text-xs text-gray-500">Current week plus the next tournaments on the board</p>
         </div>
       )}
@@ -57,7 +58,7 @@ export default function GolfScheduleBoard({
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-36 animate-pulse rounded-2xl bg-dark-border/40" />
+            <CardSkeleton key={item} className="h-36" />
           ))}
         </div>
       ) : schedule.length === 0 ? (

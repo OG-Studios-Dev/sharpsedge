@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import MLBGameCard from "./MLBGameCard";
 import type { MLBGame } from "@/lib/types";
 import { getDateKey, getDateKeyWithOffset, parseDateKey } from "@/lib/date-utils";
+import { GameCardSkeleton } from "@/components/LoadingSkeleton";
 
 function sectionTitleFor(dateStr: string) {
   const target = parseDateKey(dateStr);
@@ -45,7 +46,7 @@ export default function MLBScheduleBoard({ compact, showHeader = false }: { comp
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4">
       {showHeader && (
         <div className="mb-3">
-          <h3 className="text-sm font-semibold text-white">MLB Schedule</h3>
+          <h3 className="page-heading">MLB Schedule</h3>
           <p className="mt-0.5 text-[11px] text-gray-500">Starters, run lines, totals, and live inning state</p>
         </div>
       )}
@@ -53,7 +54,7 @@ export default function MLBScheduleBoard({ compact, showHeader = false }: { comp
       {loading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="h-44 rounded-2xl bg-dark-border/40 animate-pulse" />
+            <GameCardSkeleton key={index} />
           ))}
         </div>
       ) : displaySections.length === 0 ? (

@@ -6,6 +6,7 @@ import { computePickHistorySummary } from "@/lib/pick-history";
 import type { PickHistoryRecord } from "@/lib/supabase-types";
 import TeamLogo from "@/components/TeamLogo";
 import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 
 type SportFilter = "all" | "NHL" | "NBA" | "MLB";
 
@@ -78,15 +79,14 @@ export default function PickHistoryPage() {
   }, [filtered]);
 
   return (
-    <main className="min-h-screen bg-dark-bg pb-24 pt-6 px-4 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <Link href="/picks" className="text-accent-blue text-xs font-medium mb-1 block">← Back to Picks</Link>
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          <p className="text-gray-500 text-xs mt-0.5">All-time AI pick performance</p>
-        </div>
-      </div>
+    <main className="min-h-screen bg-dark-bg pb-24">
+      <PageHeader
+        title="Pick History"
+        subtitle="All-time AI pick performance."
+      />
+
+      <div className="mx-auto max-w-2xl px-4 py-4">
+        <Link href="/picks" className="tap-button mb-4 inline-flex text-xs font-medium text-accent-blue">← Back to Picks</Link>
 
       {/* Overall Stats */}
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4">
@@ -238,6 +238,7 @@ export default function PickHistoryPage() {
           })}
         </div>
       )}
+      </div>
     </main>
   );
 }

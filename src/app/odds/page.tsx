@@ -5,10 +5,14 @@ import type { ReactNode } from "react";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TeamLogo from "@/components/TeamLogo";
+import PageHeader from "@/components/PageHeader";
+import LockedFeature from "@/components/LockedFeature";
+import { OddsGameSkeleton } from "@/components/LoadingSkeleton";
 import { useLeague } from "@/hooks/useLeague";
 import { normalizeSportsLeague } from "@/lib/insights";
 import type { GolfDashboardData } from "@/lib/types";
 import type { AggregatedBookOdds, AggregatedOdds, AggregatedSport } from "@/lib/books/types";
+import { getStaggerStyle } from "@/lib/stagger-style";
 
 type Tab = "Best Lines" | "Movement" | "Sharp";
 
@@ -519,19 +523,17 @@ export default function OddsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <header className="sticky top-0 z-40 border-b border-dark-border bg-dark-bg/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-3">
-          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-        </div>
-        <p className="pb-1 text-center text-sm font-semibold text-gray-300">Lines</p>
-
+      <PageHeader
+        title="Lines & Odds"
+        subtitle="Best prices, movement, and sharper-book context."
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      >
         <div className="flex overflow-x-auto border-b border-dark-border scrollbar-hide">
           {(["Best Lines", "Movement", "Sharp"] as Tab[]).map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}
-              className={`relative flex-1 min-w-[96px] py-3 text-center text-sm font-medium transition-colors ${
+              className={`tap-button relative flex-1 min-w-[96px] py-3 text-center text-sm font-medium transition-colors ${
                 tab === item ? "text-white" : "text-gray-500"
               }`}
             >
@@ -540,85 +542,95 @@ export default function OddsPage() {
             </button>
           ))}
         </div>
-      </header>
+      </PageHeader>
 
-      <div className="px-3 py-4 lg:px-0">
-        {loading ? (
-          <EmptyStateCard
-            eyebrow="Loading odds"
-            title="Fetching live book comparisons"
-            body="Pulling moneylines, spreads, and totals from every connected free sportsbook feed."
-          />
-        ) : sportLeague === "PGA" ? (
-          <GolfBoard tab={tab} golfData={golfData} />
-        ) : tab === "Movement" ? (
-          <MovementTab games={displayedGames} />
-        ) : tab === "Sharp" ? (
-          <SharpTab games={displayedGames} />
-        ) : displayedGames.length === 0 ? (
-          <EmptyStateCard
-            eyebrow="Best Lines"
-            title="No aggregated odds available right now"
-            body="This view fills from the live sportsbook feeds. If books have not posted markets yet, the board stays empty."
-          />
-        ) : (
-          <div className="space-y-4">
-            {aggregated?.generatedAt && (
-              <div className="rounded-2xl border border-dark-border bg-dark-surface/60 px-4 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Multi-book board</p>
-                    <p className="mt-1 text-sm text-gray-300">
-                      {displayedGames.length} game{displayedGames.length === 1 ? "" : "s"} cached for {aggregated.meta.ttlMinutes} minutes
+      <LockedFeature feature="odds_board">
+        <div className="space-y-4 px-4 py-4 lg:px-0">
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="stagger-in" style={getStaggerStyle(index)}>
+                  <OddsGameSkeleton />
+                </div>
+              ))}
+            </div>
+          ) : sportLeague === "PGA" ? (
+            <GolfBoard tab={tab} golfData={golfData} />
+          ) : tab === "Movement" ? (
+            <LockedFeature feature="line_movement" compact>
+              <MovementTab games={displayedGames} />
+            </LockedFeature>
+          ) : tab === "Sharp" ? (
+            <LockedFeature feature="sharp_alerts" compact>
+              <SharpTab games={displayedGames} />
+            </LockedFeature>
+          ) : displayedGames.length === 0 ? (
+            <EmptyStateCard
+              eyebrow="Best Lines"
+              title="No aggregated odds available right now"
+              body="This view fills from the live sportsbook feeds. If books have not posted markets yet, the board stays empty."
+            />
+          ) : (
+            <div className="space-y-4">
+              {aggregated?.generatedAt && (
+                <div className="rounded-2xl border border-dark-border bg-dark-surface/60 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="section-heading">Multi-Book Board</p>
+                      <p className="mt-1 text-sm text-gray-300">
+                        {displayedGames.length} game{displayedGames.length === 1 ? "" : "s"} cached for {aggregated.meta.ttlMinutes} minutes
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Updated {new Date(aggregated.generatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </p>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Updated {new Date(aggregated.generatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                  </p>
                 </div>
-              </div>
-            )}
+              )}
 
-            {displayedGames.map((game) => (
-              <div key={game.gameId} className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                        {game.sport}
-                      </span>
-                      <span className="text-xs text-gray-500">{formatCommenceTime(game.commenceTime)}</span>
-                    </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <TeamLogo team={game.awayAbbrev} size={28} color="#475569" />
-                      <div>
-                        <p className="text-sm font-semibold text-white">{game.awayTeam}</p>
-                        <p className="text-xs text-gray-500">{game.awayAbbrev}</p>
+              {displayedGames.map((game, index) => (
+                <div key={game.gameId} className="stagger-in" style={getStaggerStyle(index)}>
+                  <div className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                            {game.sport}
+                          </span>
+                          <span className="text-xs text-gray-500">{formatCommenceTime(game.commenceTime)}</span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-3">
+                          <TeamLogo team={game.awayAbbrev} size={28} color="#475569" />
+                          <div>
+                            <p className="card-title">{game.awayTeam}</p>
+                            <p className="text-xs text-gray-500">{game.awayAbbrev}</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <TeamLogo team={game.homeAbbrev} size={28} color="#475569" />
+                          <div>
+                            <p className="card-title">{game.homeTeam}</p>
+                            <p className="text-xs text-gray-500">{game.homeAbbrev}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="min-w-0 max-w-full shrink-0">
+                        <p className="mb-2 section-heading">Best Prices</p>
+                        <BestLineSummary game={game} />
                       </div>
                     </div>
-                    <div className="mt-2 flex items-center gap-3">
-                      <TeamLogo team={game.homeAbbrev} size={28} color="#475569" />
-                      <div>
-                        <p className="text-sm font-semibold text-white">{game.homeTeam}</p>
-                        <p className="text-xs text-gray-500">{game.homeAbbrev}</p>
-                      </div>
+
+                    <div className="mt-4">
+                      <BookGrid game={game} />
                     </div>
                   </div>
-
-                  <div className="min-w-0 max-w-full shrink-0">
-                    <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-gray-500">Best prices</p>
-                    <BestLineSummary game={game} />
-                  </div>
                 </div>
-
-                <div className="mt-4">
-                  <BookGrid game={game} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </LockedFeature>
     </div>
   );
 }

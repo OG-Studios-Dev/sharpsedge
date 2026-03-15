@@ -7,6 +7,9 @@ import { normalizeSportsLeague } from "@/lib/insights";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TeamLogo from "@/components/TeamLogo";
+import PageHeader from "@/components/PageHeader";
+import { CardSkeleton } from "@/components/LoadingSkeleton";
+import { getStaggerStyle } from "@/lib/stagger-style";
 
 type NHLStanding = {
   teamAbbrev: string;
@@ -106,15 +109,11 @@ export default function TeamsPage() {
 
   return (
     <div className="min-h-screen bg-dark-bg">
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-          <div>
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-            <p className="text-xs text-gray-500 mt-0.5">League directory with direct links into each team page.</p>
-          </div>
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
-        </div>
-      </header>
+      <PageHeader
+        title="Teams"
+        subtitle="League directory with direct links into each team page."
+        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+      />
 
       <div className="max-w-2xl mx-auto px-4 py-5">
         {sportLeague === "PGA" ? (
@@ -124,11 +123,13 @@ export default function TeamsPage() {
             body="Use the leaderboard and schedule views for PGA coverage. Golf support in this build is tournament-based, not club-based."
           />
         ) : loading ? (
-          <EmptyStateCard
-            eyebrow="Teams"
-            title="Loading team directories"
-            body="Pulling NHL, NBA, and MLB standings so the current team list stays live."
-          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="stagger-in" style={getStaggerStyle(index)}>
+                <CardSkeleton className="h-28" />
+              </div>
+            ))}
+          </div>
         ) : rows.length === 0 ? (
           <EmptyStateCard
             eyebrow="Teams"
@@ -137,11 +138,12 @@ export default function TeamsPage() {
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <Link
                 key={row.id}
                 href={row.href}
-                className="rounded-2xl border border-dark-border bg-dark-surface px-4 py-4 transition-colors hover:border-gray-600"
+                className="tap-card stagger-in rounded-2xl border border-dark-border bg-dark-surface px-4 py-4 transition-colors hover:border-gray-600"
+                style={getStaggerStyle(index)}
               >
                 <div className="flex items-center gap-3">
                   <TeamLogo team={row.teamAbbrev} size={36} />

@@ -21,7 +21,7 @@ export default function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={pending}
-      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-dark-border bg-dark-bg px-4 text-sm font-semibold text-white transition-colors hover:border-gray-500 disabled:opacity-60"
+      className="tap-button inline-flex min-h-[44px] items-center justify-center rounded-xl border border-dark-border bg-dark-bg px-4 text-sm font-semibold text-white transition-colors hover:border-gray-500 disabled:opacity-60"
     >
       {pending ? "Signing out..." : "Log out"}
     </button>
