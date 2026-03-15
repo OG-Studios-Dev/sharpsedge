@@ -236,30 +236,29 @@ function qualifiesAsQuickHitter(prop: PlayerProp) {
   );
 }
 
-export function buildQuickHitters(props: PlayerProp[], count = 5, teamTrends: TeamTrend[] = []): QuickHitterRow[] {
-  // Player props quick hitters
-  const playerRows = props
-    .filter(qualifiesAsQuickHitter)
-    .map((prop) => {
-      const row = propToTrendRow(prop);
-      const paceLabel = getQuickHitterPace(prop);
-      if (!row || !paceLabel) return null;
-      return { ...row, paceLabel };
-    })
-    .filter(Boolean) as QuickHitterRow[];
+export function buildQuickHitters(_props: PlayerProp[], count = 5, teamTrends: TeamTrend[] = []): QuickHitterRow[] {
+  // Quick Hitters = TEAMS & TOTALS ONLY (1P, 1Q, early markets)
+  // No player props — only team ML, totals, and spreads for early periods
 
-  // Team 1P/1Q trends as quick hitters
   const teamRows = teamTrends
-    .filter((t) => t.betType === "1P ML" || t.betType === "1Q ML")
+    .filter((t) => {
+      const hr = typeof t.hitRate === "number" ? t.hitRate : 0;
+      if (t.betType === "1P ML" || t.betType === "1Q ML") return hr >= 55;
+      if (t.betType === "Team Goals O/U" || t.betType === "Team Points O/U") return hr >= 60;
+      if (t.betType === "ML Home Win" || t.betType === "ML Road Win") return hr >= 65;
+      return false;
+    })
     .map((t) => {
       const row = teamTrendToTrendRow(t);
       if (!row) return null;
-      const paceLabel = t.league === "NHL" ? "1P" as const : "1Q" as const;
+      const paceLabel = t.league === "NHL" ? "1P" as const
+        : t.league === "NBA" ? "1Q" as const
+        : "BAT" as const;
       return { ...row, paceLabel };
     })
     .filter(Boolean) as QuickHitterRow[];
 
-  return [...playerRows, ...teamRows]
+  return teamRows
     .sort((a, b) => (
       b.hitRate - a.hitRate
       || b.score - a.score
