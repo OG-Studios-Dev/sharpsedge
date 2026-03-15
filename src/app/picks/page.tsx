@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
+import { usePickHistory } from "@/hooks/usePickHistory";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
 import { computePickRecord } from "@/lib/pick-record";
+import type { PickHistoryRecord } from "@/lib/supabase-types";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
@@ -290,9 +292,71 @@ function localTodayKey() {
 }
 
 type PastFilter = "all" | "win" | "loss" | "push";
+type HistoryItem = {
+  id: string;
+  date: string;
+  league: string;
+  team: string;
+  opponent: string;
+  pickLabel: string;
+  hitRate: number;
+  edge: number;
+  result: AIPick["result"];
+  units: number;
+  teamColor?: string;
+};
 
 function computeRecord(picks: AIPick[]) {
   return computePickRecord(picks);
+}
+
+function computeHistoryRecord(items: HistoryItem[]) {
+  return items.reduce((record, item) => {
+    if (item.result === "win") {
+      record.wins += 1;
+      record.profitUnits += item.units;
+    } else if (item.result === "loss") {
+      record.losses += 1;
+      record.profitUnits -= item.units;
+    } else if (item.result === "push") {
+      record.pushes += 1;
+    } else {
+      record.pending += 1;
+    }
+
+    return record;
+  }, { wins: 0, losses: 0, pushes: 0, pending: 0, profitUnits: 0 });
+}
+
+function mapLocalPickToHistoryItem(date: string, pick: AIPick): HistoryItem {
+  return {
+    id: pick.id,
+    date,
+    league: pick.league || "NHL",
+    team: pick.team,
+    opponent: pick.opponent,
+    pickLabel: pick.pickLabel,
+    hitRate: pick.hitRate,
+    edge: pick.edge,
+    result: pick.result,
+    units: pick.units,
+    teamColor: pick.teamColor,
+  };
+}
+
+function mapRecordToHistoryItem(record: PickHistoryRecord): HistoryItem {
+  return {
+    id: record.id,
+    date: record.date,
+    league: record.league,
+    team: record.team,
+    opponent: record.opponent || "TBD",
+    pickLabel: record.pick_label,
+    hitRate: typeof record.hit_rate === "number" ? record.hit_rate : 0,
+    edge: typeof record.edge === "number" ? record.edge : 0,
+    result: record.result,
+    units: typeof record.units === "number" && Number.isFinite(record.units) ? record.units : 1,
+  };
 }
 
 export default function PicksPage() {
@@ -301,7 +365,6 @@ export default function PicksPage() {
   const {
     todayPicks: nhlToday,
     allPicks: nhlAll,
-    record: nhlRecord,
     loadingPicks: nhlLoading,
     stalePickCount: nhlStalePickCount,
     clearStalePicks: clearNHLStalePicks,
@@ -309,7 +372,6 @@ export default function PicksPage() {
   const {
     todayPicks: nbaToday,
     allPicks: nbaAll,
-    record: nbaRecord,
     loadingPicks: nbaLoading,
     stalePickCount: nbaStalePickCount,
     clearStalePicks: clearNBAStalePicks,
@@ -317,11 +379,11 @@ export default function PicksPage() {
   const {
     todayPicks: mlbToday,
     allPicks: mlbAll,
-    record: mlbRecord,
     loadingPicks: mlbLoading,
     stalePickCount: mlbStalePickCount,
     clearStalePicks: clearMLBStalePicks,
   } = useMLBPicks();
+  const { picks: historyPicks } = usePickHistory();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
 
@@ -348,7 +410,6 @@ export default function PicksPage() {
   if (sportLeague === "MLB" || sportLeague === "All") mergeStore(mlbAll);
 
   const allFlat = Object.values(activeAll).flat();
-  const activeRecord = computeRecord(allFlat);
   const activeStalePickCount = sportLeague === "NBA"
     ? nbaStalePickCount
     : sportLeague === "MLB"
@@ -369,31 +430,57 @@ export default function PicksPage() {
   const nhlFlat = Object.values(nhlAll).flat();
   const nbaFlat = Object.values(nbaAll).flat();
   const mlbFlat = Object.values(mlbAll).flat();
-  const nhlRec = computeRecord(nhlFlat);
-  const nbaRec = computeRecord(nbaFlat);
-  const mlbRec = computeRecord(mlbFlat);
+  const filteredHistoryRecords = useMemo(() => (
+    sportLeague === "All"
+      ? historyPicks
+      : historyPicks.filter((pick) => pick.league === sportLeague)
+  ), [historyPicks, sportLeague]);
+  const remoteHistoryItems = useMemo(() => (
+    filteredHistoryRecords.map(mapRecordToHistoryItem)
+  ), [filteredHistoryRecords]);
+  const fallbackHistoryItems = useMemo(() => (
+    Object.entries(activeAll).flatMap(([date, picks]) => picks.map((pick) => mapLocalPickToHistoryItem(date, pick)))
+  ), [activeAll]);
+  const historyItems = remoteHistoryItems.length > 0 ? remoteHistoryItems : fallbackHistoryItems;
 
-  // Pick History: all past dates (including pending), sorted newest first
-  const pastDates = Object.keys(activeAll)
-    .filter((d) => d !== todayKey)
-    .sort((a, b) => b.localeCompare(a));
+  const activeRecord = computeHistoryRecord(historyItems);
+  const nhlRec = remoteHistoryItems.length > 0
+    ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NHL").map(mapRecordToHistoryItem))
+    : computeRecord(nhlFlat);
+  const nbaRec = remoteHistoryItems.length > 0
+    ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NBA").map(mapRecordToHistoryItem))
+    : computeRecord(nbaFlat);
+  const mlbRec = remoteHistoryItems.length > 0
+    ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "MLB").map(mapRecordToHistoryItem))
+    : computeRecord(mlbFlat);
 
-  const runningUnitsByDate = (() => {
+  const pastHistoryItems = useMemo(() => (
+    historyItems.filter((item) => item.date !== todayKey)
+  ), [historyItems, todayKey]);
+  const allHistoryPicks = pastHistoryItems;
+  const pastDates = useMemo(() => (
+    Array.from(new Set(pastHistoryItems.map((item) => item.date))).sort((a, b) => b.localeCompare(a))
+  ), [pastHistoryItems]);
+  const historyByDate = useMemo(() => (
+    pastHistoryItems.reduce<Record<string, HistoryItem[]>>((groups, item) => {
+      if (!groups[item.date]) groups[item.date] = [];
+      groups[item.date].push(item);
+      return groups;
+    }, {})
+  ), [pastHistoryItems]);
+  const runningUnitsByDate = useMemo(() => {
     const totals: Record<string, number> = {};
     let running = 0;
+
     for (const date of [...pastDates].sort()) {
-      running += computeRecord(activeAll[date] || []).profitUnits;
+      running += computeHistoryRecord(historyByDate[date] || []).profitUnits;
       totals[date] = running;
     }
+
     return totals;
-  })();
+  }, [historyByDate, pastDates]);
 
-  // Flat list of all past picks for history
-  const allHistoryPicks = pastDates.flatMap((d) =>
-    (activeAll[d] || []).map((p) => ({ ...p, _date: d }))
-  );
-
-  function filterHistoryPicks(picks: (AIPick & { _date: string })[]) {
+  function filterHistoryPicks(picks: HistoryItem[]) {
     if (pastFilter === "all") return picks;
     return picks.filter((p) => p.result === pastFilter);
   }
@@ -581,10 +668,10 @@ export default function PicksPage() {
           {/* Daily grouped history */}
           <div className="space-y-3">
             {pastDates.map((date) => {
-              const dayPicks = (activeAll[date] || []).map((p) => ({ ...p, _date: date }));
+              const dayPicks = historyByDate[date] || [];
               const filtered = filterHistoryPicks(dayPicks);
               if (!filtered.length) return null;
-              const dailyRecord = computeRecord(activeAll[date]);
+              const dailyRecord = computeHistoryRecord(dayPicks);
               const dailyWinPct = (dailyRecord.wins + dailyRecord.losses) > 0
                 ? Math.round((dailyRecord.wins / (dailyRecord.wins + dailyRecord.losses)) * 100)
                 : null;
@@ -638,9 +725,7 @@ export default function PicksPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-gray-500 text-[10px]">
-                              {pick.isAway ? "@" : "vs"} {pick.opponent}
-                            </p>
+                            <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent}</p>
                             <span className="text-[9px] text-gray-600">
                               {displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge
                             </span>

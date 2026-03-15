@@ -185,3 +185,31 @@ Users can favorite items (⭐) as Quick Shortcuts (max 5).
 - Keep bottom nav for top 5 most-used: Home, Schedule, Props, Picks, Trends
 - Menu adds access to everything else
 - Lines tab could move to menu since it's less frequent
+
+## Daily Dashboard — AI Game Previews + Situational Edges
+
+### AI Quick Preview (per game)
+- AI-written narrative: "BOS hosts CHI as heavy favorites. Celtics have won 7 of L10..."
+- Key stats, injury impact, matchup context
+- Written in analyst voice, 2-3 sentences per game
+
+### Situational Edge Cards
+- "Bounce-back spot: GSW" — team coming off loss, historically responds well
+- "Rest advantage: BOS" — extra day off vs opponent on B2B
+- "Home dog: MIA" — underdog at home, historically profitable
+- Signal Strength gauge (0-100%)
+- SITUATIONAL / EDGE badges
+
+### Upcoming Milestones (prop goldmine)
+- Track players approaching career/franchise milestones
+- "2 threes from passing Ray Allen for #6 in franchise 3PM"
+- Data: career stats vs milestone threshold
+- Categories: All-time records, Career scoring, Shooting, Franchise records
+- Prop connection: player chasing milestone = extra motivation = prop edge
+- "101 close" badge showing how many milestones are near
+
+### Implementation
+- AI narrative: use reasoning from picks engine or simple template-based generation
+- Situational data: back-to-back detection, rest days, post-loss records from standings
+- Milestones: would need career stats database (ESPN has some, or build incrementally)
+- Premium feature (Sharp tier)

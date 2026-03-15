@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
-import { AIPick } from "@/lib/types";
-import { computePickRecord } from "@/lib/pick-record";
+import { usePickHistory } from "@/hooks/usePickHistory";
+import { computePickHistorySummary } from "@/lib/pick-history";
+import type { PickHistoryRecord } from "@/lib/supabase-types";
 import TeamLogo from "@/components/TeamLogo";
 import Link from "next/link";
 
 type SportFilter = "all" | "NHL" | "NBA" | "MLB";
 
-function displayHitRate(val: number): string {
+function displayHitRate(val?: number | null): string {
+  if (typeof val !== "number" || !Number.isFinite(val)) return "0.0%";
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
   return `${pct.toFixed(1)}%`;
 }
@@ -32,7 +33,7 @@ function formatMonth(monthKey: string) {
   return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function ResultBadge({ result }: { result: AIPick["result"] }) {
+function ResultBadge({ result }: { result: PickHistoryRecord["result"] }) {
   if (result === "win") return <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>;
   if (result === "loss") return <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✗</span>;
   if (result === "push") return <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>;
@@ -40,55 +41,38 @@ function ResultBadge({ result }: { result: AIPick["result"] }) {
 }
 
 export default function PickHistoryPage() {
-  const { allPicks: nhlAll } = usePicks();
-  const { allPicks: nbaAll } = useNBAPicks();
-  const { allPicks: mlbAll } = useMLBPicks();
+  const { picks: historyPicks, loading } = usePickHistory();
   const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
 
-  // Merge all picks with league tags
-  const allPicks = useMemo(() => {
-    const picks: (AIPick & { _date: string })[] = [];
-    for (const [date, datePicks] of Object.entries(nhlAll)) {
-      for (const p of datePicks) picks.push({ ...p, _date: date, league: p.league || "NHL" });
-    }
-    for (const [date, datePicks] of Object.entries(nbaAll)) {
-      for (const p of datePicks) picks.push({ ...p, _date: date, league: p.league || "NBA" });
-    }
-    for (const [date, datePicks] of Object.entries(mlbAll)) {
-      for (const p of datePicks) picks.push({ ...p, _date: date, league: p.league || "MLB" });
-    }
-    return picks.sort((a, b) => b._date.localeCompare(a._date));
-  }, [mlbAll, nbaAll, nhlAll]);
-
   // Get unique months for filter
   const months = useMemo(() => {
-    const set = new Set(allPicks.map((p) => getMonthKey(p._date)));
+    const set = new Set(historyPicks.map((pick) => getMonthKey(pick.date)));
     return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [allPicks]);
+  }, [historyPicks]);
 
   // Apply filters
   const filtered = useMemo(() => {
-    return allPicks.filter((p) => {
-      if (sportFilter !== "all" && p.league !== sportFilter) return false;
-      if (monthFilter !== "all" && getMonthKey(p._date) !== monthFilter) return false;
+    return historyPicks.filter((pick) => {
+      if (sportFilter !== "all" && pick.league !== sportFilter) return false;
+      if (monthFilter !== "all" && getMonthKey(pick.date) !== monthFilter) return false;
       return true;
     });
-  }, [allPicks, sportFilter, monthFilter]);
+  }, [historyPicks, monthFilter, sportFilter]);
 
   // Compute stats
-  const record = computePickRecord(filtered);
+  const record = computePickHistorySummary(filtered);
   const winPct = (record.wins + record.losses) > 0
     ? ((record.wins / (record.wins + record.losses)) * 100).toFixed(1)
     : "0.0";
 
   // Group by date
   const groupedByDate = useMemo(() => {
-    const map = new Map<string, (AIPick & { _date: string })[]>();
+    const map = new Map<string, PickHistoryRecord[]>();
     for (const pick of filtered) {
-      const current = map.get(pick._date) || [];
+      const current = map.get(pick.date) || [];
       current.push(pick);
-      map.set(pick._date, current);
+      map.set(pick.date, current);
     }
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
@@ -185,14 +169,18 @@ export default function PickHistoryPage() {
       )}
 
       {/* Pick list grouped by date */}
-      {groupedByDate.length === 0 ? (
+      {loading && groupedByDate.length === 0 ? (
+        <div className="rounded-2xl border border-dark-border bg-dark-surface p-6 text-center">
+          <p className="text-gray-400 text-sm">Loading pick history...</p>
+        </div>
+      ) : groupedByDate.length === 0 ? (
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-6 text-center">
           <p className="text-gray-400 text-sm">No picks yet. Check back after today&apos;s games.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {groupedByDate.map(([date, picks]) => {
-            const dayRecord = computePickRecord(picks);
+            const dayRecord = computePickHistorySummary(picks);
             const dayWinPct = (dayRecord.wins + dayRecord.losses) > 0
               ? Math.round((dayRecord.wins / (dayRecord.wins + dayRecord.losses)) * 100)
               : null;
@@ -228,18 +216,16 @@ export default function PickHistoryPage() {
                         "border-l-2 border-l-gray-600"
                       }`}
                     >
-                      <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
+                      <TeamLogo team={pick.team} size={24} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="text-white text-xs font-medium truncate">{pick.pickLabel}</p>
-                          {pick.league && (
-                            <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-                          )}
+                          <p className="text-white text-xs font-medium truncate">{pick.pick_label}</p>
+                          <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-gray-500 text-[10px]">{pick.isAway ? "@" : "vs"} {pick.opponent}</p>
+                          <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent || "TBD"}</p>
                           <span className="text-[9px] text-gray-600">
-                            {displayHitRate(pick.hitRate)} hit
+                            {displayHitRate(pick.hit_rate)} hit
                           </span>
                         </div>
                       </div>
