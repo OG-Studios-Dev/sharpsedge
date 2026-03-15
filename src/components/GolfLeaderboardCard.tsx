@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { GolfLeaderboard } from "@/lib/types";
 
 function scoreTone(score: string) {
@@ -37,10 +38,12 @@ export default function GolfLeaderboardCard({
     );
   }
 
+  const [showAll, setShowAll] = useState(false);
   const players = leaderboard.players;
   const tournament = leaderboard.tournament;
-  const activePlayers = players.filter((p) => p.position !== "CUT");
+  const allActive = players.filter((p) => p.position !== "CUT");
   const cutPlayers = players.filter((p) => p.position === "CUT");
+  const activePlayers = showAll ? allActive : allActive.slice(0, 20);
 
   return (
     <section className="space-y-3">
@@ -95,8 +98,18 @@ export default function GolfLeaderboardCard({
           ))
         )}
 
+        {/* See All button */}
+        {!showAll && allActive.length > 20 && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="w-full py-2.5 text-center text-xs font-semibold text-accent-blue hover:text-blue-300 transition-colors border-b border-dark-border/20"
+          >
+            See all {allActive.length} players ↓
+          </button>
+        )}
+
         {/* Cut line separator */}
-        {cutPlayers.length > 0 && (
+        {showAll && cutPlayers.length > 0 && (
           <>
             <div className="flex items-center gap-2 px-4 py-1.5 bg-red-500/5 border-y border-red-500/20">
               <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Missed Cut</span>
