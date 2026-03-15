@@ -32,8 +32,8 @@ function LoginForm() {
       return;
     }
 
-    const next = searchParams.get("next") || "/";
-    router.replace(next);
+    const next = searchParams.get("next") || "/dashboard";
+    router.replace(next === "/" ? "/dashboard" : next);
     router.refresh();
   }
 

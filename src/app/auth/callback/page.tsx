@@ -29,7 +29,7 @@ export default function AuthCallbackPage() {
           credentials: "include",
         });
 
-        router.replace("/");
+        router.replace("/dashboard");
         router.refresh();
       }
     });
@@ -47,7 +47,7 @@ export default function AuthCallbackPage() {
           }),
           credentials: "include",
         }).then(() => {
-          router.replace("/");
+          router.replace("/dashboard");
           router.refresh();
         });
       }

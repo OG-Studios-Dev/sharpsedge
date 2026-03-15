@@ -24,10 +24,8 @@ export default function LandingNav() {
             : "bg-transparent border-transparent"
         }`}
       >
-        <Link href="/" className="flex flex-col">
-          <span className="font-drama text-2xl tracking-tight text-text-platinum font-bold italic leading-none">
-            Goosa<span className="font-heading not-italic font-black text-accent-blue">lytics</span>
-          </span>
+        <Link href="/" className="flex items-center">
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg object-cover" />
         </Link>
 
         {/* Desktop Links */}

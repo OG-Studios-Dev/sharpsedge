@@ -177,9 +177,7 @@ export default function LandingPage() {
       <footer className="bg-dark-card border-t border-dark-border py-12 rounded-t-3xl mt-[-20px] relative z-20">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2 space-y-4">
-            <span className="font-drama text-2xl tracking-tight text-text-platinum font-bold italic">
-              Goosa<span className="font-heading not-italic font-black text-accent-blue">lytics</span>
-            </span>
+            <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl object-cover" />
             <p className="text-sm text-text-platinum/50 max-w-sm">The automated sports betting terminal for finding mathematical edges in player props and parlays across North American sports.</p>
             <div className="flex items-center gap-2 text-xs font-mono text-text-platinum/50 bg-dark-bg/50 inline-flex px-3 py-1.5 rounded-full border border-dark-border/50">
               <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse"></span>

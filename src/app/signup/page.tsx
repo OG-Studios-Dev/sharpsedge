@@ -38,7 +38,7 @@ export default function SignupPage() {
     }
 
     if (result.data.session) {
-      router.replace("/");
+      router.replace("/dashboard");
     } else {
       router.replace("/login");
     }

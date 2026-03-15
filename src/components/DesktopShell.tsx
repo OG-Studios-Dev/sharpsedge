@@ -40,11 +40,9 @@ export default function DesktopShell({ children }: { children: React.ReactNode }
         <div className="h-20 flex items-center px-5 border-b border-dark-border/50 overflow-hidden">
           <div className="flex items-center w-full min-w-[200px]">
             {isExpanded ? (
-              <span className="font-drama text-2xl tracking-tight text-text-platinum font-bold italic block">
-                Goosa<span className="font-heading not-italic font-black text-accent-blue">lytics</span>
-              </span>
+              <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg object-cover" />
             ) : (
-              <span className="font-drama text-3xl text-text-platinum font-bold italic w-8 text-center ml-[-2px]">G</span>
+              <img src="/logo.jpg" alt="Goosalytics" className="h-8 w-8 rounded-lg object-cover ml-[2px]" />
             )}
           </div>
         </div>

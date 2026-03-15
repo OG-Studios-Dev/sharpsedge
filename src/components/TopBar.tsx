@@ -10,8 +10,8 @@ export default function TopBar() {
   return (
     <div className="lg:hidden fixed top-0 left-0 right-0 h-[72px] bg-dark-bg/80 backdrop-blur-lg z-40 px-4 flex items-center justify-between border-b border-dark-border/50">
       <div className="flex items-center shrink-0">
-        <Link href="/dashboard" className="font-drama text-2xl tracking-tight text-text-platinum font-bold italic block">
-          Goosa<span className="font-heading not-italic font-black text-accent-blue">lytics</span>
+        <Link href="/dashboard" className="block mt-1">
+          <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg object-cover" />
         </Link>
       </div>
 
