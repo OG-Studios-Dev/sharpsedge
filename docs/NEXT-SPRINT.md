@@ -74,3 +74,35 @@ Components:
 - [x] Multi-agent architecture playbook researched
 - [x] Home page redesign with sections
 - [x] localStorage fresh start (v5)
+
+## Pick Lifecycle System (NEW — Marco's direction)
+
+### Rules
+- AI generates preliminary picks by 9 AM ET daily
+- Picks are UNLOCKED until their game starts
+- While unlocked, AI can swap/adjust picks based on:
+  - Injury news
+  - Line movement / value changes
+  - Starting lineup confirmations (goalies, pitchers)
+- Pick LOCKS at game start time — no more changes
+- Post-game: auto-resolve W/L/Push
+
+### UI
+- 🔓 UNLOCKED badge on pre-game picks ("Pick may change")
+- 🔒 LOCKED badge once game begins ("Final pick")
+- ⚡ UPDATED highlight if pick was swapped — show what changed and why
+- Timestamp: "Locked at 7:02 PM" or "Updated at 2:15 PM"
+
+### Implementation
+- Add `lockedAt` and `updatedAt` fields to AIPick type
+- Pick generation runs at 9 AM ET via cron/heartbeat
+- Before each game starts, re-evaluate pick (check injuries, line movement)
+- If better pick available, swap and mark as UPDATED
+- Once game starts (gameState !== FUT), set lockedAt timestamp
+- Resolver only processes LOCKED picks
+
+### Schedule
+- Before 9 AM ET: show "Today's picks loading by 9 AM"
+- 9 AM → game time: show picks with 🔓 UNLOCKED
+- Game started: 🔒 LOCKED
+- Game finished: ✅ W / ❌ L / ⏸️ Push
