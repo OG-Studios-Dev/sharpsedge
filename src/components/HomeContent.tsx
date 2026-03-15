@@ -117,8 +117,7 @@ export default function HomeContent() {
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
         <header className="flex items-center justify-between">
           <div>
-            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
-            <p className="mt-1 text-xs text-gray-500">Pick Smarter</p>
+            <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl" />
           </div>
 
           {viewerName ? (

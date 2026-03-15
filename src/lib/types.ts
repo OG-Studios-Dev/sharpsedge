@@ -144,6 +144,64 @@ export type NHLGame = {
   };
 };
 
+export type MLBProbablePitcher = {
+  id: string;
+  name: string;
+  hand?: string;
+  era?: number | null;
+  wins?: number;
+  losses?: number;
+};
+
+export type MLBGameOddsSide = {
+  odds: number;
+  book: string;
+  line?: number;
+};
+
+export type MLBGameTotalOdds = {
+  line: number;
+  over?: MLBGameOddsSide | null;
+  under?: MLBGameOddsSide | null;
+};
+
+export type MLBGame = {
+  id: string;
+  date: string;
+  startTimeUTC: string;
+  status: string;
+  statusDetail: string;
+  inning?: string;
+  oddsEventId?: string;
+  awayTeam: {
+    id: string;
+    abbreviation: string;
+    fullName: string;
+    record: string;
+    logo?: string;
+    probablePitcher?: MLBProbablePitcher | null;
+  };
+  homeTeam: {
+    id: string;
+    abbreviation: string;
+    fullName: string;
+    record: string;
+    logo?: string;
+    probablePitcher?: MLBProbablePitcher | null;
+  };
+  awayScore: number | null;
+  homeScore: number | null;
+  bestMoneyline?: {
+    home?: MLBGameOddsSide | null;
+    away?: MLBGameOddsSide | null;
+  };
+  bestRunLine?: {
+    home?: MLBGameOddsSide | null;
+    away?: MLBGameOddsSide | null;
+  };
+  bestTotal?: MLBGameTotalOdds | null;
+};
+
 export type ScheduleResponse = {
   games: NHLGame[];
   date: string;
