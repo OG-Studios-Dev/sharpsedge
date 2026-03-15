@@ -71,7 +71,7 @@ export function useSportsDashboards(league: SportsLeague) {
 
       const shouldLoadNHL = league === "All" || league === "NHL";
       const shouldLoadNBA = league === "All" || league === "NBA";
-      const shouldLoadMLB = league === "All" || league === "MLB";
+      const shouldLoadMLB = false; // MLB not live yet — enable when season starts
 
       const [nhlPayload, nbaPayload, mlbPayload] = await Promise.all([
         shouldLoadNHL ? fetchJson<any>("/api/dashboard") : Promise.resolve(null),
