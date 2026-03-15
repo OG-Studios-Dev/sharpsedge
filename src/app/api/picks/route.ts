@@ -4,12 +4,17 @@ import { createServerClient } from "@/lib/supabase-server";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
 import { getDateKey } from "@/lib/date-utils";
+import { persistPicksToSupabase } from "@/lib/persist-picks";
 
 export async function GET(req: NextRequest) {
   try {
     const data = await getLiveDashboardData();
     const date = req.nextUrl.searchParams.get("date") || getDateKey();
     const picks = selectTopPicks(data.props || [], data.teamTrends || [], date);
+
+    // Persist to Supabase (non-blocking)
+    persistPicksToSupabase(picks.map(p => ({ ...p, league: p.league ?? "NHL" }))).catch(() => {});
+
     return NextResponse.json({ picks, date });
   } catch {
     return NextResponse.json({ picks: [], date: getDateKey() });

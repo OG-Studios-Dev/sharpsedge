@@ -3,6 +3,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
 import { selectNBATopPicks } from "@/lib/picks-engine";
+import { persistPicksToSupabase } from "@/lib/persist-picks";
 import { getDateKey, NBA_TIME_ZONE } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ export async function GET(req: NextRequest) {
       const fallback = buildFallbackPicks(date);
       if (fallback) return NextResponse.json(fallback);
     }
+    persistPicksToSupabase(picks.map(p => ({ ...p, league: p.league ?? "NBA" }))).catch(() => {});
     return NextResponse.json({ picks, date });
   } catch {
     const fallback = buildFallbackPicks(date);
