@@ -213,3 +213,48 @@ Users can favorite items (⭐) as Quick Shortcuts (max 5).
 - Situational data: back-to-back detection, rest days, post-loss records from standings
 - Milestones: would need career stats database (ESPN has some, or build incrementally)
 - Premium feature (Sharp tier)
+
+## Golf AI Picks System (Premium — Sharp Tier)
+
+### Pick Structure (per tournament, 12 picks, 12u)
+
+**🏆 Tournament Winner (3 picks, 1u each)**
+- Long shot value: +2000 or longer
+- Mid-range: +800 to +2000
+- Favorite: +200 to +800
+
+**🔒 Lock Picks (3 picks, 1u each)**
+- 1 Top 5 Lock (safest, best form + course fit)
+- 1 Top 10 Lock
+- 1 Top 20 Lock
+
+**💎 Value Picks (6 picks, 1u each)**
+- 2 Top 5 value plays (higher odds, risk/reward)
+- 2 Top 10 value plays
+- 2 Top 20 value plays
+
+### Timing
+- Wednesday night: AI generates picks (before R1 Thursday)
+- Thursday R1 tee time: LOCKED
+- Sunday final round: RESOLVE
+- Weekly record tracking (not daily)
+
+### AI Analysis Factors
+- Recent form (last 5 tournaments, weighted by recency)
+- Course history (previous results at this venue)
+- Strokes Gained: Off-the-tee, Approach, Around Green, Putting
+- Current form vs field strength
+- Odds value: model probability vs book odds (edge detection)
+- Weather/course conditions (future enhancement)
+
+### UI
+- Dedicated section on golf home page: "Tournament Picks"
+- 3 sections: Winner / Locks / Value
+- Each pick: player name, odds, AI reasoning, form badges
+- Weekly record card (like daily record for team sports)
+- Lock/Unlock badges before/after R1
+
+### Premium Gate
+- Free users: see pick NAMES only (blurred odds + reasoning)
+- Pro ($4.99): see full picks with odds
+- Sharp ($9.99): see picks + AI reasoning + course analysis
