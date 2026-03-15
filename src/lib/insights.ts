@@ -28,6 +28,10 @@ export type TrendRow = {
   score: number;
 };
 
+export type QuickHitterRow = TrendRow & {
+  paceLabel: "1P" | "1Q";
+};
+
 const MAIN_TEAM_BET_TYPES = new Set([
   "Team Goals O/U",
   "Team Points O/U",
@@ -183,6 +187,57 @@ export function buildTrendingRows(props: PlayerProp[], count = 5): TrendRow[] {
     .filter((row): row is TrendRow => Boolean(row));
 
   return sortRows(rows).slice(0, count);
+}
+
+function getQuickHitterPace(prop: PlayerProp): "1P" | "1Q" | null {
+  if (prop.league === "NHL") return "1P";
+  if (prop.league === "NBA") return "1Q";
+  return null;
+}
+
+function qualifiesAsQuickHitter(prop: PlayerProp) {
+  const league = toSportsLeague(prop.league);
+  if (!league) return false;
+
+  const hitRate = normalizePercent(prop.hitRate ?? prop.fairProbability);
+  if (hitRate < 55) return false;
+
+  const market = prop.propType.toLowerCase();
+  if (league === "NHL") {
+    return (
+      ((market.includes("goal") || market.includes("assist") || market.includes("point")) && prop.line <= 1.5)
+      || (market.includes("shot") && prop.line <= 2.5)
+    );
+  }
+
+  return (
+    (market.includes("point") && prop.line <= 8.5)
+    || (market.includes("rebound") && prop.line <= 3.5)
+    || (market.includes("assist") && prop.line <= 2.5)
+    || ((market.includes("3pm") || market.includes("3pt") || market.includes("three")) && prop.line <= 1.5)
+  );
+}
+
+export function buildQuickHitters(props: PlayerProp[], count = 5): QuickHitterRow[] {
+  return props
+    .filter(qualifiesAsQuickHitter)
+    .map((prop) => {
+      const row = propToTrendRow(prop);
+      const paceLabel = getQuickHitterPace(prop);
+      if (!row || !paceLabel) return null;
+      return {
+        ...row,
+        paceLabel,
+      };
+    })
+    .filter((row): row is QuickHitterRow => Boolean(row))
+    .sort((a, b) => (
+      b.hitRate - a.hitRate
+      || b.score - a.score
+      || b.total - a.total
+      || a.title.localeCompare(b.title)
+    ))
+    .slice(0, count);
 }
 
 function uniquePropSelections(props: PlayerProp[]) {

@@ -53,8 +53,8 @@ export function assignIndicators(params: {
     indicators.push({ type: "money", active: true });
   }
 
-  // 💨 On a Run: 3+ consecutive hits
-  if (streak >= 3) {
+  // 💨 On a Run: 2+ consecutive hits
+  if (streak >= 2) {
     indicators.push({ type: "streak", active: true });
   }
 

@@ -1,23 +1,52 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
+import Link from "next/link";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
-import { useNBAPicks, usePicks } from "@/hooks/usePicks";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
-import { buildClubRows, buildSGPSuggestions, buildTrendingRows, normalizeSportsLeague } from "@/lib/insights";
-import { computePickRecord } from "@/lib/pick-record";
+import { buildClubRows, buildQuickHitters, buildSGPSuggestions, buildTrendingRows, normalizeSportsLeague, type QuickHitterRow } from "@/lib/insights";
+import { formatOdds } from "@/lib/edge-engine";
+import { createBrowserClient } from "@/lib/supabase-client";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import TeamLogo from "@/components/TeamLogo";
 import HomePicksSection from "./HomePicksSection";
 import LeagueSwitcher from "./LeagueSwitcher";
-import NBAScheduleBoard from "./NBAScheduleBoard";
-import ScheduleBoard from "./ScheduleBoard";
 import SectionHeader from "./SectionHeader";
 import SGPCard from "./SGPCard";
 import TrendRow from "./TrendRow";
 
-function formatRecordSummary(wins: number, losses: number, pushes: number, profitUnits: number) {
-  const units = `${profitUnits > 0 ? "+" : ""}${profitUnits}u`;
-  return `${wins}-${losses}-${pushes} · ${units}`;
+function QuickHitterCard({ row }: { row: QuickHitterRow }) {
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface/80 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent-blue/10 text-lg text-accent-blue">
+          ϟ
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="truncate text-sm font-semibold text-white">{row.title}</p>
+            <span className="rounded-full border border-accent-blue/20 bg-accent-blue/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-blue">
+              {row.paceLabel}
+            </span>
+            <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
+            <TeamLogo team={row.team} size={20} color={row.teamColor} />
+            <span>{row.subtitle}</span>
+          </div>
+          <p className="mt-2 text-sm text-gray-200">{row.marketLabel}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          {typeof row.odds === "number" && (
+            <p className="text-xs font-semibold text-white">{formatOdds(row.odds)}</p>
+          )}
+          <p className="mt-1 rounded-full border border-accent-green/20 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
+            {Math.round(row.hitRate)}%
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function HomeSection({
@@ -43,26 +72,17 @@ export default function HomeContent() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
-  const nhl = usePicks();
-  const nba = useNBAPicks();
-
-  const activeRecord = useMemo(() => {
-    const nhlRecord = computePickRecord(Object.values(nhl.allPicks).flat());
-    const nbaRecord = computePickRecord(Object.values(nba.allPicks).flat());
-
-    if (sportLeague === "NBA") return nbaRecord;
-    if (sportLeague === "All") {
-      return computePickRecord([
-        ...Object.values(nhl.allPicks).flat(),
-        ...Object.values(nba.allPicks).flat(),
-      ]);
-    }
-    return nhlRecord;
-  }, [nba.allPicks, nhl.allPicks, sportLeague]);
+  const supabase = createBrowserClient();
+  const [viewerName, setViewerName] = useState<string | null>(null);
+  const [viewerInitial, setViewerInitial] = useState("G");
 
   const clubRows = useMemo(
     () => buildClubRows(dashboards.props, dashboards.teamTrends).slice(0, 5),
     [dashboards.props, dashboards.teamTrends],
+  );
+  const quickHitters = useMemo(
+    () => buildQuickHitters(dashboards.props, 5),
+    [dashboards.props],
   );
   const sgps = useMemo(
     () => buildSGPSuggestions(dashboards.props, 3),
@@ -73,23 +93,48 @@ export default function HomeContent() {
     [dashboards.props],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSession() {
+      const result = await supabase.auth.getSession();
+      if (cancelled) return;
+
+      const name = result.data.profile?.name || result.data.user?.name || result.data.user?.email || null;
+      setViewerName(name);
+      setViewerInitial((name || "G").charAt(0).toUpperCase());
+    }
+
+    void loadSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
+
   return (
     <main className="min-h-screen bg-dark-bg pb-24">
       <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
-        <section className="relative overflow-hidden rounded-[28px] border border-dark-border bg-[radial-gradient(circle_at_top_left,rgba(74,158,255,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(34,197,94,0.16),transparent_34%),linear-gradient(180deg,#161b26_0%,#0d1118_100%)] px-5 py-6 shadow-[0_16px_60px_rgba(0,0,0,0.32)]">
-          <div className="relative z-10">
-            <h1 className="text-white text-xl font-bold tracking-wide">Goosalytics</h1>
-            <p className="text-sm text-gray-400 mt-1">Pickin&apos; Sports Smarter</p>
-            <div className="mt-5 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1.5 text-sm font-semibold text-emerald-300">
-                {formatRecordSummary(activeRecord.wins, activeRecord.losses, activeRecord.pushes, activeRecord.profitUnits)}
-              </span>
-              <span className="rounded-full border border-dark-border bg-dark-bg/70 px-3 py-1.5 text-xs font-medium text-gray-300">
-                {sportLeague === "All" ? "Combined season record" : `${sportLeague} season record`}
-              </span>
-            </div>
+        <header className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-white">Goosalytics</h1>
+            <p className="mt-1 text-xs text-gray-500">Pickin&apos; Sports Smarter</p>
           </div>
-        </section>
+
+          {viewerName ? (
+            <Link
+              href="/settings"
+              aria-label="Open settings"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-blue/20 text-sm font-bold text-accent-blue"
+            >
+              {viewerInitial}
+            </Link>
+          ) : (
+            <Link href="/login" className="text-sm font-semibold text-accent-blue">
+              Sign In
+            </Link>
+          )}
+        </header>
 
         <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 
@@ -116,6 +161,30 @@ export default function HomeContent() {
           ) : (
             <div className="space-y-3">
               {clubRows.map((row) => <TrendRow key={row.id} row={row} />)}
+            </div>
+          )}
+        </HomeSection>
+
+        <HomeSection
+          title="Quick Hitters"
+          subtitle="Small-number markets that profile like first-period NHL or first-quarter NBA punches."
+        >
+          {dashboards.loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-20 rounded-2xl bg-dark-border/40 animate-pulse" />
+              ))}
+            </div>
+          ) : quickHitters.length === 0 ? (
+            <EmptyStateCard
+              eyebrow="Quick Hitters"
+              title="No low-line heaters cleared the bar"
+              body="This section populates when short-line props hit at least a 55% rate."
+              className="mx-0 mt-0"
+            />
+          ) : (
+            <div className="space-y-3">
+              {quickHitters.map((row) => <QuickHitterCard key={row.id} row={row} />)}
             </div>
           )}
         </HomeSection>
@@ -167,23 +236,6 @@ export default function HomeContent() {
             <div className="space-y-3">
               {trendingRows.map((row) => <TrendRow key={row.id} row={row} />)}
             </div>
-          )}
-        </HomeSection>
-
-        <HomeSection
-          title="Today's Schedule"
-          subtitle="Live slates with matchup cards and current odds."
-          href="/schedule"
-        >
-          {sportLeague === "All" ? (
-            <div className="space-y-4">
-              <ScheduleBoard compact showHeader={false} />
-              <NBAScheduleBoard compact showHeader={false} />
-            </div>
-          ) : sportLeague === "NBA" ? (
-            <NBAScheduleBoard compact showHeader={false} />
-          ) : (
-            <ScheduleBoard compact showHeader={false} />
           )}
         </HomeSection>
       </div>
