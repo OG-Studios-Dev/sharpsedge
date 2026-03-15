@@ -92,9 +92,14 @@ function buildIterationList(games: MLBGame[], standings: MLBTeamStanding[]) {
         awayMLOdds: game.bestMoneyline?.away?.odds ?? STANDARD_JUICE,
         homeBook: game.bestMoneyline?.home?.book,
         awayBook: game.bestMoneyline?.away?.book,
+        homeBookOdds: game.moneylineBookOdds?.home ?? [],
+        awayBookOdds: game.moneylineBookOdds?.away ?? [],
         homeRunLine: game.bestRunLine?.home ?? null,
         awayRunLine: game.bestRunLine?.away ?? null,
+        homeRunLineBookOdds: game.runLineBookOdds?.home ?? [],
+        awayRunLineBookOdds: game.runLineBookOdds?.away ?? [],
         total: game.bestTotal ?? null,
+        totalBookOdds: game.totalBookOdds ?? null,
         gameId: game.id,
       }));
   }
@@ -116,9 +121,14 @@ function buildIterationList(games: MLBGame[], standings: MLBTeamStanding[]) {
       awayMLOdds: STANDARD_JUICE,
       homeBook: undefined,
       awayBook: undefined,
+      homeBookOdds: [],
+      awayBookOdds: [],
       homeRunLine: null,
       awayRunLine: null,
+      homeRunLineBookOdds: [],
+      awayRunLineBookOdds: [],
       total: null,
+      totalBookOdds: null,
       gameId: undefined,
     });
   }
@@ -162,6 +172,7 @@ export async function buildMLBTeamTrends(
         line: "Home ML",
         odds: entry.homeMLOdds,
         book: entry.homeBook,
+        bookOdds: entry.homeBookOdds,
         impliedProb: toPct(implied),
         hitRate: toPct(rate),
         edge: toPct(rate - implied),
@@ -202,6 +213,7 @@ export async function buildMLBTeamTrends(
         line: "Road ML",
         odds: entry.awayMLOdds,
         book: entry.awayBook,
+        bookOdds: entry.awayBookOdds,
         impliedProb: toPct(implied),
         hitRate: toPct(rate),
         edge: toPct(rate - implied),
@@ -234,7 +246,9 @@ export async function buildMLBTeamTrends(
         isAway: false,
         odds: entry.homeMLOdds,
         book: entry.homeBook,
+        bookOdds: entry.homeBookOdds,
         runLine: entry.homeRunLine,
+        runLineBookOdds: entry.homeRunLineBookOdds,
       },
       {
         team: awayAbbrev,
@@ -242,7 +256,9 @@ export async function buildMLBTeamTrends(
         isAway: true,
         odds: entry.awayMLOdds,
         book: entry.awayBook,
+        bookOdds: entry.awayBookOdds,
         runLine: entry.awayRunLine,
+        runLineBookOdds: entry.awayRunLineBookOdds,
       },
     ]) {
       const standing = standingMap.get(teamContext.team);
@@ -264,6 +280,7 @@ export async function buildMLBTeamTrends(
         line: "L10",
         odds: teamContext.odds,
         book: teamContext.book,
+        bookOdds: teamContext.bookOdds,
         impliedProb: toPct(implied),
         hitRate: toPct(winRate),
         edge: toPct(winRate - implied),
@@ -307,6 +324,7 @@ export async function buildMLBTeamTrends(
         line: `${selectedRunLine.line > 0 ? "+" : ""}${selectedRunLine.line}`,
         odds: teamContext.runLine?.odds ?? teamContext.odds,
         book: teamContext.runLine?.book ?? teamContext.book,
+        bookOdds: teamContext.runLineBookOdds,
         impliedProb: toPct(implied),
         hitRate: toPct(selectedRunLine.hitRate),
         edge: toPct(selectedRunLine.hitRate - implied),
@@ -338,6 +356,9 @@ export async function buildMLBTeamTrends(
       const totalBook = totalSelection.side === "Over"
         ? entry.total?.over?.book
         : entry.total?.under?.book;
+      const totalBookOdds = totalSelection.side === "Over"
+        ? entry.totalBookOdds?.over ?? []
+        : entry.totalBookOdds?.under ?? [];
       const totalImplied = americanOddsToImpliedProbability(totalOdds) || STANDARD_IMPLIED_PROB;
 
       trends.push({
@@ -350,6 +371,7 @@ export async function buildMLBTeamTrends(
         line: `${totalSelection.side} ${totalLine}`,
         odds: totalOdds,
         book: totalBook,
+        bookOdds: totalBookOdds,
         impliedProb: toPct(totalImplied),
         hitRate: toPct(totalSelection.hitRate),
         edge: toPct(totalSelection.hitRate - totalImplied),
@@ -379,6 +401,7 @@ export async function buildMLBTeamTrends(
           line: `W${streak.count} streak`,
           odds: teamContext.odds,
           book: teamContext.book,
+          bookOdds: teamContext.bookOdds,
           impliedProb: toPct(implied),
           hitRate: Math.min(100, toPct(standing.winPct) + streak.count * 4),
           edge: Math.min(100, toPct(standing.winPct - implied) + streak.count * 2),

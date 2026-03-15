@@ -57,6 +57,8 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
     homeMLOdds: number; awayMLOdds: number;
     homeBook?: string;
     awayBook?: string;
+    homeBookOdds?: TeamTrend["bookOdds"];
+    awayBookOdds?: TeamTrend["bookOdds"];
     matchup: string;
     gameId?: string;
   }> =
@@ -75,18 +77,39 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
             awayMLOdds: g.bestMoneyline?.away?.odds ?? STANDARD_JUICE,
             homeBook: g.bestMoneyline?.home?.book,
             awayBook: g.bestMoneyline?.away?.book,
+            homeBookOdds: g.moneylineBookOdds?.home ?? [],
+            awayBookOdds: g.moneylineBookOdds?.away ?? [],
             matchup: `${g.awayTeam.abbreviation} @ ${g.homeTeam.abbreviation}`,
             gameId: g.id,
           }))
-      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; matchup: string; gameId?: string }>>((acc, abbrev, i) => {
+      : abbrevs.reduce<Array<{ homeAbbrev: string; awayAbbrev: string; homeMLOdds: number; awayMLOdds: number; homeBook?: string; awayBook?: string; homeBookOdds?: TeamTrend["bookOdds"]; awayBookOdds?: TeamTrend["bookOdds"]; matchup: string; gameId?: string }>>((acc, abbrev, i) => {
           if (i % 2 === 0) {
             const opp = abbrevs[i + 1] || "TBD";
-            acc.push({ homeAbbrev: abbrev, awayAbbrev: opp, homeMLOdds: STANDARD_JUICE, awayMLOdds: STANDARD_JUICE, matchup: `${opp} @ ${abbrev}`, gameId: undefined });
+            acc.push({
+              homeAbbrev: abbrev,
+              awayAbbrev: opp,
+              homeMLOdds: STANDARD_JUICE,
+              awayMLOdds: STANDARD_JUICE,
+              homeBookOdds: [],
+              awayBookOdds: [],
+              matchup: `${opp} @ ${abbrev}`,
+              gameId: undefined,
+            });
           }
           return acc;
         }, []);
 
-  for (const { homeAbbrev, awayAbbrev, homeMLOdds, awayMLOdds, homeBook, awayBook, gameId } of iterationList) {
+  for (const {
+    homeAbbrev,
+    awayAbbrev,
+    homeMLOdds,
+    awayMLOdds,
+    homeBook,
+    awayBook,
+    homeBookOdds,
+    awayBookOdds,
+    gameId,
+  } of iterationList) {
     const homeData = standingMap.get(homeAbbrev);
     const awayData = standingMap.get(awayAbbrev);
 
@@ -107,6 +130,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         line: "Home ML",
         odds: homeMLOdds,
         book: homeBook,
+        bookOdds: homeBookOdds,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(homeWinRate * 100),
         edge: Math.round(edge * 100),
@@ -144,6 +168,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
         line: "Road ML",
         odds: awayMLOdds,
         book: awayBook,
+        bookOdds: awayBookOdds,
         impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
         hitRate: Math.round(roadWinRate * 100),
         edge: Math.round(edge * 100),
@@ -165,9 +190,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
     }
 
     // ── Streak trends ──
-    for (const { abbrev, opponentAbbrev, isAway, odds } of [
-      { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false, odds: homeMLOdds },
-      { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true, odds: awayMLOdds },
+    for (const { abbrev, opponentAbbrev, isAway, odds, bookOdds } of [
+      { abbrev: homeAbbrev, opponentAbbrev: awayAbbrev, isAway: false, odds: homeMLOdds, bookOdds: homeBookOdds },
+      { abbrev: awayAbbrev, opponentAbbrev: homeAbbrev, isAway: true, odds: awayMLOdds, bookOdds: awayBookOdds },
     ]) {
       const data = standingMap.get(abbrev);
       if (!data) continue;
@@ -184,6 +209,7 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           line: `W${streak.count} streak`,
           odds,
           book: isAway ? awayBook : homeBook,
+          bookOdds,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
           hitRate: Math.min(100, Math.round((data.winPct * 100) + streak.count * 5)),
           edge: Math.round((data.winPct - STANDARD_IMPLIED_PROB) * 100),

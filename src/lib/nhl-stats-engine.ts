@@ -109,8 +109,8 @@ type StatKey = "points" | "shots" | "assists" | "goals";
 type PropDef = { key: StatKey; label: string; market: string; minLine: number };
 
 const NHL_PROP_DEFS: PropDef[] = [
-  { key: "points", label: "Points", market: "player_points", minLine: 1.5 },
-  { key: "shots", label: "Shots on Goal", market: "player_shots_on_goal", minLine: 2.5 },
+  { key: "points", label: "Points", market: "player_points", minLine: 0.5 },
+  { key: "shots", label: "Shots on Goal", market: "player_shots_on_goal", minLine: 1.5 },
   { key: "goals", label: "Goals", market: "player_goals", minLine: 0.5 },
   { key: "assists", label: "Assists", market: "player_assists", minLine: 0.5 },
 ];
