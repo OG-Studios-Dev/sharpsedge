@@ -31,6 +31,9 @@ function getTodayActiveGameIds(schedule: any[]) {
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), MLB_TIME_ZONE);
 
+  // MLB picks disabled until regular season starts — return empty
+  return NextResponse.json({ picks: [], date, message: "MLB picks launch with regular season" });
+
   try {
     const data = await getMLBDashboardData();
     const todayIds = getTodayActiveGameIds(data.schedule || []);
