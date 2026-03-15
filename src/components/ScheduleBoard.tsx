@@ -96,7 +96,7 @@ function GoalieInfo({ goalie }: { goalie: GoalieStarter | null }) {
   );
 }
 
-export default function ScheduleBoard({ compact = false, showHeader = true }: { compact?: boolean; showHeader?: boolean }) {
+export default function ScheduleBoard({ compact = false, showHeader = false }: { compact?: boolean; showHeader?: boolean }) {
   const [data, setData] = useState<GamesResponse>({ games: [], date: "" });
   const [loading, setLoading] = useState(true);
   const [goalieMap, setGoalieMap] = useState<Record<number, GameGoalies>>({});
@@ -180,13 +180,6 @@ export default function ScheduleBoard({ compact = false, showHeader = true }: { 
       {!compact && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {/* League filter */}
-          <div className="flex rounded-lg bg-dark-surface border border-dark-border p-0.5">
-            <div className="px-3 py-1.5 text-[11px] font-semibold rounded-md bg-accent-blue text-white">NHL</div>
-            {["NBA", "NFL", "MLB"].map((l) => (
-              <div key={l} className="px-3 py-1.5 text-[11px] text-gray-600 cursor-not-allowed">{l}</div>
-            ))}
-          </div>
-
           {/* Team filter */}
           <div className="relative">
             <button

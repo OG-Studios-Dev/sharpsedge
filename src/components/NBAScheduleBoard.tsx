@@ -26,7 +26,7 @@ function sectionTitleFor(dateStr: string) {
 
 interface Props { compact?: boolean; showHeader?: boolean }
 
-export default function NBAScheduleBoard({ compact, showHeader = true }: Props) {
+export default function NBAScheduleBoard({ compact, showHeader = false }: Props) {
   const [games, setGames] = useState<NBAGame[]>([]);
   const [oddsEvents, setOddsEvents] = useState<OddsEvent[]>([]);
   const [loading, setLoading] = useState(true);

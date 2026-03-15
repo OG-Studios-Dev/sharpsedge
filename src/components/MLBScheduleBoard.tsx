@@ -14,7 +14,7 @@ function sectionTitleFor(dateStr: string) {
   return target.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
-export default function MLBScheduleBoard({ compact, showHeader = true }: { compact?: boolean; showHeader?: boolean }) {
+export default function MLBScheduleBoard({ compact, showHeader = false }: { compact?: boolean; showHeader?: boolean }) {
   const [games, setGames] = useState<MLBGame[]>([]);
   const [loading, setLoading] = useState(true);
 
