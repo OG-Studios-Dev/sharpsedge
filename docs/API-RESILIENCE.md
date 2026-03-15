@@ -130,3 +130,27 @@ if (failures >= 3 in last 5 min) {
 1. Create Matchbook account → send username/password
 2. Create Betfair account → get app key → send it
 3. Both are free, instant activation
+
+## ⚠️ HARD RULE: API Quota Alerts
+
+### SportsGameOdds (Amateur Tier)
+- Monthly limit: 2,500 objects
+- Current usage: check /v2/account/usage
+- ⛔ DO NOT EXCEED — auto-charges $150/mo if over
+- Alert Marco at 80% (2,000 objects)
+- Stop all calls at 90% (2,250 objects)
+- Key: b0a7899b93af643b96f6f4adfcf9c02c
+
+### Odds API (Free Tier)
+- Monthly limit: 500 requests
+- ⛔ Already exhausted for this billing cycle
+- Reset: on billing anniversary date
+- Key: d3ae9218fa76b23cb08174e34e401c01
+
+### Rule for ALL paid/metered APIs:
+1. Check usage before making calls
+2. Alert Marco at 80% usage
+3. STOP all calls at 90% usage
+4. NEVER exceed limits without Marco's explicit approval
+5. Use free aggregator (Bovada/Kambi/PointsBet/ESPN) as primary
+6. Only use metered APIs for data we can't get free (player props)
