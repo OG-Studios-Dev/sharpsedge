@@ -4,7 +4,6 @@ import {
   MLBGame,
   getCurrentMLBSeason,
   getMLBSchedule,
-  getMLBScheduleRange,
   getRecentMLBGames,
 } from "@/lib/mlb-api";
 import { getBestSpreadForTeam, getBestTotalForEvent, getMLBOdds, findMLBOddsForGame } from "@/lib/mlb-odds";
@@ -52,37 +51,6 @@ function attachLiveOddsToSchedule(games: MLBGame[], events: Awaited<ReturnType<t
   });
 }
 
-async function getFallbackSlate() {
-  const previousSeason = getCurrentMLBSeason() - 1;
-  const fallbackGames = await getMLBScheduleRange(`${previousSeason}-09-01`, `${previousSeason}-11-15`);
-  const completed = fallbackGames.filter((game) => game.status === "Final");
-  if (!completed.length) {
-    return {
-      season: previousSeason,
-      scheduleDate: null as string | null,
-      slateGames: [] as MLBGame[],
-      recentGames: [] as MLBGame[],
-    };
-  }
-
-  const latestDate = [...completed].sort((a: MLBGame, b: MLBGame) => b.date.localeCompare(a.date))[0]?.date ?? null;
-  if (!latestDate) {
-    return {
-      season: previousSeason,
-      scheduleDate: null,
-      slateGames: [] as MLBGame[],
-      recentGames: completed,
-    };
-  }
-  const slateGames = completed.filter((game) => game.date === latestDate);
-  return {
-    season: previousSeason,
-    scheduleDate: latestDate,
-    slateGames,
-    recentGames: completed,
-  };
-}
-
 async function getDashboardInputs() {
   const [schedule, recentGames, odds] = await Promise.all([
     getMLBSchedule(getScheduleDaysAhead()),
@@ -91,27 +59,13 @@ async function getDashboardInputs() {
   ]);
 
   const scheduleWithOdds = attachLiveOddsToSchedule(schedule, odds);
-  if (scheduleWithOdds.length > 0) {
-    return {
-      season: getCurrentMLBSeason(),
-      schedule: scheduleWithOdds,
-      analysisGames: scheduleWithOdds,
-      recentGames,
-      odds,
-      fallbackDate: null as string | null,
-    };
-  }
-
-  const fallback = await getFallbackSlate();
-  const fallbackSchedule = attachLiveOddsToSchedule(fallback.slateGames, odds);
-
   return {
-    season: fallback.season,
-    schedule: [] as MLBGame[],
-    analysisGames: fallbackSchedule,
-    recentGames: fallback.recentGames,
+    season: getCurrentMLBSeason(),
+    schedule: scheduleWithOdds,
+    analysisGames: scheduleWithOdds,
+    recentGames,
     odds,
-    fallbackDate: fallback.scheduleDate,
+    fallbackDate: null as string | null,
   };
 }
 

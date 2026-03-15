@@ -13,7 +13,7 @@
  */
 
 import { OddsEvent, PlayerProp } from "@/lib/types";
-import { NBAGame, getNBABoxscore, NBA_TEAM_COLORS } from "@/lib/nba-api";
+import { NBAGame, getNBABoxscore, getNBATeamRosterEntries, NBA_TEAM_COLORS } from "@/lib/nba-api";
 import { getPlayerPropOdds, type PlayerPropOdds } from "@/lib/odds-api";
 import { getNBAEventOdds } from "@/lib/nba-odds";
 import { assignIndicators } from "@/lib/trend-indicators";
@@ -46,6 +46,16 @@ type GameStat = {
   threePointersMade: number;
   minutes: number;
 };
+
+function normalizePlayerName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function isUnavailableInjuryStatus(status?: string | null) {
+  const normalized = String(status || "").toLowerCase();
+  if (!normalized) return false;
+  return /\bout\b|\bdoubtful\b|\binactive\b|\binjured\b|\bsuspended\b/.test(normalized);
+}
 
 async function getPlayerRecentStats(
   playerName: string,
@@ -257,6 +267,22 @@ export async function buildNBAStatsPropFeed(
   }
   console.log(`[nba-stats] teams: ${Array.from(allTeamAbbrevs).join(',')}, discoveryGames: ${discoveryGameMap.size}`);
 
+  const unavailablePlayersByTeam = new Map<string, Set<string>>();
+  await Promise.all(
+    Array.from(allTeamAbbrevs).map(async (abbrev) => {
+      try {
+        const roster = await getNBATeamRosterEntries(abbrev);
+        const unavailable = roster
+          .filter((player) => isUnavailableInjuryStatus(player.injuryStatus))
+          .map((player) => normalizePlayerName(player.name))
+          .filter(Boolean);
+        unavailablePlayersByTeam.set(abbrev, new Set(unavailable));
+      } catch {
+        unavailablePlayersByTeam.set(abbrev, new Set());
+      }
+    })
+  );
+
   // Parallel-fetch all discovery boxscores (one per team)
   const discoveryIds = Array.from(new Set(Array.from(discoveryGameMap.values()).map(g => g.id)));
   const boxscoreCache = new Map<string, Awaited<ReturnType<typeof getNBABoxscore>>>();
@@ -277,7 +303,9 @@ export async function buildNBAStatsPropFeed(
     if (!box) return [];
     const isHome = discoveryGame.homeTeam.abbreviation === teamAbbrev;
     const teamPlayers = isHome ? box.home : box.away;
+    const unavailable = unavailablePlayersByTeam.get(teamAbbrev) ?? new Set<string>();
     return teamPlayers
+      .filter(p => !unavailable.has(normalizePlayerName(p.name)))
       .filter(p => parseFloat(p.minutes) >= 20)
       .sort((a, b) => b.points - a.points)
       .slice(0, maxPlayers)

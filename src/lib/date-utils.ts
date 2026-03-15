@@ -1,5 +1,6 @@
 export const APP_TIME_ZONE = "America/Toronto";
 export const NBA_TIME_ZONE = "America/New_York";
+export const MLB_TIME_ZONE = "America/New_York";
 
 export function getDateKey(date: Date = new Date(), timeZone = APP_TIME_ZONE) {
   const formatter = new Intl.DateTimeFormat("en-CA", {

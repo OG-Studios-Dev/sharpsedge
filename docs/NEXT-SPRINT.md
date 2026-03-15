@@ -258,3 +258,66 @@ Users can favorite items (⭐) as Quick Shortcuts (max 5).
 - Free users: see pick NAMES only (blurred odds + reasoning)
 - Pro ($4.99): see full picks with odds
 - Sharp ($9.99): see picks + AI reasoning + course analysis
+
+## Golf V2 — DataGolf-Powered Analytics
+
+### Data Source: DataGolf API (feeds.datagolf.com)
+- API requires key (pricing behind login — likely $25-100/mo)
+- Endpoints: player list, predictions, odds, SG data, DFS projections
+- Covers: PGA Tour, DP World Tour, LIV Golf, Korn Ferry Tour
+
+### Features to Build (inspired by datagolf.com)
+
+**1. Pre-Tournament Model**
+- Win probability per player (model vs books)
+- Top 5/10/20/Cut finish probabilities
+- Edge detection: model prob vs book odds = value
+- Course fit score per player
+
+**2. Live Tournament Model**
+- Real-time win probability updates during rounds
+- Live strokes gained tracking
+- Position change tracking (who's moving up/down)
+- Cut line projection
+
+**3. Course Analytics**
+- Course fit analysis: which skills matter most (driving, approach, putting)
+- "Where to miss" around the course
+- Historical scoring averages by hole
+- Course history per player (past results at this venue)
+
+**4. Player Decomposition**
+- Strokes Gained breakdown: OTT, Approach, Around Green, Putting
+- Skill ratings (DataGolf proprietary)
+- Form tracker (recent tournaments weighted by recency)
+- Head-to-head comparison tool
+- Pressure performance rating
+- Career evolution charts
+
+**5. Betting Tools**
+- Finish position odds with model edge overlay
+- 3-ball & matchup odds + model picks
+- Tournament props (top nationality, cut miss, round leader)
+- Custom matchup builder (pick any 2 players, get H2H odds)
+- Bet tracker for golf-specific bets
+
+**6. Fantasy/DFS**
+- DFS salary + projection table
+- Optimal lineup suggestions
+- Ownership projections
+
+### UI Design
+- Leaderboard as primary view (already built)
+- Tabs: Leaderboard | Model | Course | Players | Betting
+- Player cards: headshot, SG breakdown bars, course fit gauge, form badges
+- Course map with skill importance overlay (premium visual)
+
+### Integration Plan
+1. Sign up for DataGolf API (Marco needs to create account)
+2. Get API key, add to .env.local as DATAGOLF_API_KEY
+3. Create src/lib/datagolf-api.ts client
+4. Replace ESPN golf data with DataGolf where available
+5. Keep ESPN as fallback for basic leaderboard/schedule
+
+### Action Item
+Marco: Create account at https://datagolf.com/api-access and get API key

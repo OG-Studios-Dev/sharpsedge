@@ -15,6 +15,7 @@ import EmptyStateCard from "@/components/EmptyStateCard";
 import BookBadge from "@/components/BookBadge";
 import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
 import { getPlayerTrendHrefFromPick } from "@/lib/player-trend";
+import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 
 function ResultPill({ result }: { result: AIPick["result"] }) {
   const styles: Record<AIPick["result"], string> = {
@@ -99,23 +100,39 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
         )}
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
       </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
+        {trendHref && (
+          <Link
+            href={trendHref}
+            onClick={(event) => event.stopPropagation()}
+            className="text-[10px] font-semibold text-accent-blue"
+          >
+            Player trend →
+          </Link>
+        )}
+      </div>
     </>
   );
 
   return (
     <div className={`rounded-2xl border bg-dark-surface p-4 space-y-3 transition-all ${cardTone}`}>
       <div className="flex items-start gap-3">
-        {trendHref ? (
-          <Link href={trendHref} className="block flex-1 min-w-0 rounded-xl transition-colors hover:bg-dark-bg/20">
-            {summaryContent}
-            <p className="mt-3 text-gray-600 text-[10px]">Tap card to open player trend →</p>
-          </Link>
-        ) : (
-          <button onClick={onToggle} className="flex-1 min-w-0 text-left">
-            {summaryContent}
-            <p className="mt-3 text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
-          </button>
-        )}
+        <div
+          onClick={onToggle}
+          className="flex-1 min-w-0 cursor-pointer rounded-xl text-left transition-colors hover:bg-dark-bg/20"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onToggle();
+            }
+          }}
+        >
+          {summaryContent}
+        </div>
 
         <div className="flex flex-col items-end gap-2">
           <ResultPill result={pick.result} />
@@ -283,12 +300,14 @@ function formatDate(dateStr: string) {
   });
 }
 
-function localTodayKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function todayKeyForLeague(league: string) {
+  const timeZone = league === "NBA"
+    ? NBA_TIME_ZONE
+    : league === "MLB"
+      ? MLB_TIME_ZONE
+      : APP_TIME_ZONE;
+
+  return getDateKey(new Date(), timeZone);
 }
 
 type PastFilter = "all" | "win" | "loss" | "push";
@@ -394,7 +413,7 @@ export default function PicksPage() {
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
 
-  const todayKey = localTodayKey();
+  const todayKey = todayKeyForLeague(sportLeague);
 
   // Merge picks stores based on league
   const activeToday = sportLeague === "NBA"
@@ -533,7 +552,6 @@ export default function PicksPage() {
           <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
           <LeagueSwitcher active={sportLeague} onChange={setLeague} />
         </div>
-        <p className="text-center text-sm font-semibold text-gray-300 pt-1">Picks</p>
       </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">

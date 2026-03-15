@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
+import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v10";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
@@ -63,21 +64,21 @@ function normalizeStore(store: PickStore): { store: PickStore; changed: boolean 
   };
 }
 
-function isStalePendingPick(date: string, pick: AIPick): boolean {
+function isStalePendingPick(date: string, pick: AIPick, timeZone: string): boolean {
   return pick.result === "pending"
-    && date < todayKey()
+    && date < todayKey(timeZone)
     && !isResolvableGameId(normalizeGameId(pick.gameId), pick.league);
 }
 
-function countStalePendingPicks(store: PickStore) {
+function countStalePendingPicks(store: PickStore, timeZone: string) {
   return Object.entries(store).reduce((count, [date, picks]) => (
-    count + picks.filter((pick) => isStalePendingPick(date, pick)).length
+    count + picks.filter((pick) => isStalePendingPick(date, pick, timeZone)).length
   ), 0);
 }
 
-function clearStalePendingPicks(store: PickStore): PickStore {
+function clearStalePendingPicks(store: PickStore, timeZone: string): PickStore {
   const nextEntries = Object.entries(store).map(([date, picks]) => {
-    const filtered = picks.filter((pick) => !isStalePendingPick(date, pick));
+    const filtered = picks.filter((pick) => !isStalePendingPick(date, pick, timeZone));
     return [date, filtered] as const;
   }).filter(([, picks]) => picks.length > 0);
 
@@ -98,12 +99,8 @@ function saveStore(key: string, store: PickStore) {
   localStorage.setItem(key, JSON.stringify(store));
 }
 
-function todayKey() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function todayKey(timeZone = APP_TIME_ZONE) {
+  return getDateKey(new Date(), timeZone);
 }
 
 async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<AIPick[]> {
@@ -124,11 +121,11 @@ async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<A
   }
 }
 
-function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string) {
+function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string, timeZone = APP_TIME_ZONE) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
 
-  const key = todayKey();
+  const key = todayKey(timeZone);
   const todayPicks = allPicks[key] || [];
 
   const resolvePending = useCallback(async (store: PickStore) => {
@@ -154,11 +151,11 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
 
   const clearStalePicks = useCallback(() => {
     setAllPicks((current) => {
-      const next = clearStalePendingPicks(current);
+      const next = clearStalePendingPicks(current, timeZone);
       saveStore(storageKey, next);
       return next;
     });
-  }, [storageKey]);
+  }, [storageKey, timeZone]);
 
   const fetchAndStore = useCallback(async () => {
     setLoadingPicks(true);
@@ -208,23 +205,23 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   }, [fetchAndStore, key, resolvePending, storageKey]);
 
   const record = computePickRecord(Object.values(allPicks).flat());
-  const stalePickCount = countStalePendingPicks(allPicks);
+  const stalePickCount = countStalePendingPicks(allPicks, timeZone);
 
   return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
 }
 
 export function usePicks() {
-  return usePicksForLeague(NHL_STORAGE_KEY, "/api/picks", NHL_RESOLVE_ENDPOINT);
+  return usePicksForLeague(NHL_STORAGE_KEY, "/api/picks", NHL_RESOLVE_ENDPOINT, APP_TIME_ZONE);
 }
 
 export function useNBAPicks() {
-  return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks", NBA_RESOLVE_ENDPOINT);
+  return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks", NBA_RESOLVE_ENDPOINT, NBA_TIME_ZONE);
 }
 
 export function useMLBPicks() {
-  return usePicksForLeague(MLB_STORAGE_KEY, "/api/mlb/picks", NBA_RESOLVE_ENDPOINT);
+  return usePicksForLeague(MLB_STORAGE_KEY, "/api/mlb/picks", NBA_RESOLVE_ENDPOINT, MLB_TIME_ZONE);
 }
 
 export function useGolfPicks() {
-  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", NBA_RESOLVE_ENDPOINT);
+  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", NBA_RESOLVE_ENDPOINT, APP_TIME_ZONE);
 }

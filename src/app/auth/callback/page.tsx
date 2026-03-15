@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "/";
 
   useEffect(() => {
     const supabase = createClient(
@@ -15,7 +17,7 @@ export default function AuthCallbackPage() {
 
     // Supabase automatically picks up the auth code from the URL hash/params
     // and exchanges it for a session
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         // Send session to our API to set cookies
         await fetch("/api/auth/login", {
@@ -29,7 +31,7 @@ export default function AuthCallbackPage() {
           credentials: "include",
         });
 
-        router.replace("/");
+        router.replace(next);
         router.refresh();
       }
     });
@@ -47,12 +49,16 @@ export default function AuthCallbackPage() {
           }),
           credentials: "include",
         }).then(() => {
-          router.replace("/");
+          router.replace(next);
           router.refresh();
         });
       }
     });
-  }, [router]);
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [next, router]);
 
   return (
     <main className="min-h-screen bg-dark-bg flex items-center justify-center">
@@ -61,5 +67,13 @@ export default function AuthCallbackPage() {
         <p className="text-gray-400 text-sm">Signing you in...</p>
       </div>
     </main>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-dark-bg" />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

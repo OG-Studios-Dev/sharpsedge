@@ -16,51 +16,130 @@ function readText(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), "utf8");
 }
 
-function readJson(relativePath) {
-  return JSON.parse(readText(relativePath));
+function snippetVariants(snippet) {
+  return [
+    snippet,
+    snippet.replaceAll("'", "&#x27;"),
+    snippet.replaceAll("&", "&amp;"),
+  ];
+}
+
+function hasSnippet(text, snippet) {
+  return snippetVariants(snippet).some((candidate) => text.includes(candidate));
+}
+
+function assertHasAll(text, snippets, label) {
+  const missing = snippets.filter((snippet) => !hasSnippet(text, snippet));
+  assert(missing.length === 0, `${label} missing: ${missing.join(", ")}`);
+}
+
+function assertLacksAll(text, snippets, label) {
+  const unexpected = snippets.filter((snippet) => hasSnippet(text, snippet));
+  assert(unexpected.length === 0, `${label} should not include: ${unexpected.join(", ")}`);
 }
 
 function checkPageShells() {
   const checks = [
-    ["home", "index.html", ["GOOSE AI PICKS", "100% Club", "Same-Game Parlays", "Trending Now", "Today&#x27;s Schedule"]],
-    ["picks", "picks.html", ["GOOSE AI PICKS", "Today&#x27;s Goose AI Picks"]],
-    ["props", "props.html", ["Props &amp; Analytics", "100% Club", "1P (Coming Soon)"]],
-    ["trends", "trends.html", ["Trends", "Player", "Team"]],
-    ["schedule", "schedule.html", ["Schedule", "Standings"]],
-    ["teams", "teams.html", ["Teams", "League directory"]],
-    ["search", "search.html", ["Search", "Search players, teams, or matchups"]],
-    ["parlays", "parlays.html", ["Same-Game Parlays", "combined hit probability"]],
+    {
+      name: "login",
+      sourceFile: "src/app/login/page.tsx",
+      required: ["Continue with Google", "Sign in with Email", "Create Account"],
+    },
+    {
+      name: "signup",
+      sourceFile: "src/app/signup/page.tsx",
+      required: ["Create account", "Confirm Password", "Minimum 8 characters"],
+    },
+    {
+      name: "home",
+      file: "index.html",
+      required: ["TODAY'S TOP PICKS", "100% Club", "Quick Hitters", "Same-Game Parlays", "Trending Now"],
+      forbidden: ["Today's Schedule", "Today’s Schedule", "GOOSE AI PICKS"],
+    },
+    {
+      name: "picks",
+      file: "picks.html",
+      required: ["Season Record", "Today's AI Picks", "View History"],
+    },
+    {
+      name: "props",
+      file: "props.html",
+      required: ["Props", "100% Club", "Players", "Team"],
+    },
+    {
+      name: "trends",
+      file: "trends.html",
+      required: ["Trends", "Player", "Team", "Direction"],
+    },
+    {
+      name: "schedule",
+      file: "schedule.html",
+      required: ["Schedule", "Standings"],
+    },
+    {
+      name: "odds",
+      file: "odds.html",
+      required: ["Best Lines", "Movement", "Sharp"],
+    },
+    {
+      name: "history",
+      file: path.join("picks", "history.html"),
+      required: ["All-time AI pick performance", "All Sports"],
+    },
   ];
 
-  return checks.map(([name, file, snippets]) => {
-    const html = readText(path.join(".next", "server", "app", file));
-    const missing = snippets.filter((snippet) => !html.includes(snippet));
-    assert(missing.length === 0, `${name} shell missing: ${missing.join(", ")}`);
-    return { name, status: "ok" };
+  return checks.map((check) => {
+    const text = check.sourceFile
+      ? readText(check.sourceFile)
+      : readText(path.join(".next", "server", "app", check.file));
+
+    assertHasAll(text, check.required, check.name);
+    if (check.forbidden) {
+      assertLacksAll(text, check.forbidden, check.name);
+    }
+    return { name: check.name, status: "ok" };
   });
 }
 
-function checkStaticApiBodies() {
-  const dashboard = readJson(".next/server/app/api/dashboard.body");
-  const nbaDashboard = readJson(".next/server/app/api/nba/dashboard.body");
-  const trends = readJson(".next/server/app/api/trends.body");
-  const nbaTrends = readJson(".next/server/app/api/nba/trends.body");
+function checkSourceGuards() {
+  const sourceChecks = [
+    {
+      name: "nba-dashboard-fallback",
+      file: "src/app/api/nba/dashboard/route.ts",
+      forbidden: ["dashboard.body"],
+    },
+    {
+      name: "nba-picks-fallback",
+      file: "src/app/api/nba/picks/route.ts",
+      forbidden: ["dashboard.body", "readBuiltDashboardFallback", "buildFallbackPicks"],
+    },
+    {
+      name: "mlb-previous-season-fallback",
+      file: "src/lib/mlb-live-data.ts",
+      forbidden: ["getMLBScheduleRange", "previousSeason", "getFallbackSlate"],
+    },
+    {
+      name: "nhl-seed-stats-source",
+      file: "src/lib/live-data.ts",
+      forbidden: ['statsSource: "seed"'],
+    },
+    {
+      name: "live-props-seed-stats-source",
+      file: "src/lib/live-props.ts",
+      forbidden: ['statsSource: "seed"'],
+    },
+    {
+      name: "nhl-prop-model-seed-stats-source",
+      file: "src/lib/nhl-prop-model.ts",
+      forbidden: ['statsSource: "seed"'],
+    },
+  ];
 
-  assert(Array.isArray(dashboard.props) && dashboard.props.length > 0, "dashboard props missing");
-  assert(Array.isArray(dashboard.teamTrends) && dashboard.teamTrends.length > 0, "dashboard teamTrends missing");
-  assert(Array.isArray(nbaDashboard.props) && nbaDashboard.props.length > 0, "nba dashboard props missing");
-  assert(Array.isArray(nbaDashboard.teamTrends) && nbaDashboard.teamTrends.length > 0, "nba dashboard teamTrends missing");
-  assert(Array.isArray(trends.props), "trends props missing");
-  assert(Array.isArray(trends.teamTrends), "trends teamTrends missing");
-  assert(Array.isArray(nbaTrends.props), "nba trends props missing");
-  assert(Array.isArray(nbaTrends.teamTrends), "nba trends teamTrends missing");
-
-  return {
-    dashboard: { props: dashboard.props.length, teamTrends: dashboard.teamTrends.length },
-    nbaDashboard: { props: nbaDashboard.props.length, teamTrends: nbaDashboard.teamTrends.length },
-    trends: { props: trends.props.length, teamTrends: trends.teamTrends.length },
-    nbaTrends: { props: nbaTrends.props.length, teamTrends: nbaTrends.teamTrends.length },
-  };
+  return sourceChecks.map((check) => {
+    const text = readText(check.file);
+    assertLacksAll(text, check.forbidden, check.name);
+    return { name: check.name, status: "ok" };
+  });
 }
 
 async function checkResolveRoute() {
@@ -198,7 +277,7 @@ async function main() {
 
   const summary = {
     pages: checkPageShells(),
-    apis: checkStaticApiBodies(),
+    sources: checkSourceGuards(),
     resolve: await checkResolveRoute(),
   };
 

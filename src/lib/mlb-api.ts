@@ -1,10 +1,9 @@
-import { getDateKey, getDateKeyWithOffset } from "@/lib/date-utils";
+import { MLB_TIME_ZONE, getDateKey, getDateKeyWithOffset } from "@/lib/date-utils";
 import { findMLBTeamAbbreviationByName, normalizeMLBTeamAbbrev } from "@/lib/mlb-mappings";
 import type { MLBGame } from "@/lib/types";
 
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const CACHE_TTL = 15 * 60 * 1000;
-export const MLB_TIME_ZONE = "America/New_York";
 export type { MLBGame };
 
 type CacheEntry<T> = { data: T; timestamp: number };

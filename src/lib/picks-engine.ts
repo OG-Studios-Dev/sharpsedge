@@ -131,7 +131,7 @@ function buildTeamReasoning(trend: ScoredTeamTrend): string {
 // Filter: odds must be between -200 and +300 (no heavy favorites or long shots)
 function isPickableOdds(odds?: number): boolean {
   if (typeof odds !== "number") return true; // allow if no odds data
-  return odds >= -200;
+  return odds >= -200 && odds <= 300;
 }
 
 function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {

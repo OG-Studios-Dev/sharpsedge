@@ -54,7 +54,7 @@ export async function enrichPropWithLiveHistory(prop: PlayerProp): Promise<Playe
   try {
     const playerId = await findPlayerId(prop.team, prop.playerName);
     if (!playerId) {
-      return { ...prop, statsSource: "seed" };
+      return prop;
     }
 
     const gameLog = await getPlayerGameLog(playerId);
@@ -63,7 +63,7 @@ export async function enrichPropWithLiveHistory(prop: PlayerProp): Promise<Playe
       .filter((value): value is number => typeof value === "number");
 
     if (values.length < 3) {
-      return { ...prop, playerId, statsSource: "seed" };
+      return { ...prop, playerId };
     }
 
     const last5 = values.slice(0, 5);
@@ -94,7 +94,7 @@ export async function enrichPropWithLiveHistory(prop: PlayerProp): Promise<Playe
       statsSource: "live-nhl",
     };
   } catch {
-    return { ...prop, statsSource: prop.statsSource || "seed" };
+    return prop;
   }
 }
 

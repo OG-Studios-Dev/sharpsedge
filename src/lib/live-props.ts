@@ -97,7 +97,6 @@ export async function buildLivePropFeed(games: NHLGame[], odds: OddsEvent[]) {
             hitRate: undefined,
             edge: undefined,
             score: undefined,
-            statsSource: "seed",
           };
 
           props.push(prop);

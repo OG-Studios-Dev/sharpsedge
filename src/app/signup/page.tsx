@@ -1,27 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase-client";
 
-export default function SignupPage() {
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createBrowserClient();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const nextParam = searchParams.get("next");
+  const next = nextParam || "/";
+  const loginHref = nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : "/login";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!isValidEmail(normalizedEmail)) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setPending(true);
     setError(null);
 
     const result = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -37,12 +63,7 @@ export default function SignupPage() {
       return;
     }
 
-    if (result.data.session) {
-      router.replace("/");
-    } else {
-      router.replace("/login");
-    }
-
+    router.replace(next);
     router.refresh();
   }
 
@@ -99,10 +120,24 @@ export default function SignupPage() {
               <input
                 type="password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="h-12 w-full rounded-xl border border-dark-border bg-dark-bg px-4 text-white outline-none transition-colors placeholder:text-gray-600 focus:border-accent-blue"
-                placeholder="Choose a password"
+                placeholder="Minimum 8 characters"
+              />
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Confirm Password</span>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="h-12 w-full rounded-xl border border-dark-border bg-dark-bg px-4 text-white outline-none transition-colors placeholder:text-gray-600 focus:border-accent-blue"
+                placeholder="Re-enter your password"
               />
             </label>
 
@@ -124,11 +159,19 @@ export default function SignupPage() {
 
         <p className="text-sm text-gray-400">
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-accent-blue">
+          <Link href={loginHref} className="font-semibold text-accent-blue">
             Sign in
           </Link>
         </p>
       </div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-dark-bg" />}>
+      <SignupForm />
+    </Suspense>
   );
 }
