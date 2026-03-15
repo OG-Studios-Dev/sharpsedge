@@ -84,7 +84,7 @@ function LoginForm() {
       <div className="mx-auto max-w-md w-full space-y-6">
         <div className="text-center space-y-3">
           <img src="/logo.jpg" alt="Goosalytics" className="w-48 h-auto mx-auto rounded-2xl" />
-          <p className="text-sm text-gray-400">Pickin&apos; Sports Smarter</p>
+          <p className="text-sm text-gray-400">Pick Smarter</p>
         </div>
 
         <div className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.28)] space-y-4">
