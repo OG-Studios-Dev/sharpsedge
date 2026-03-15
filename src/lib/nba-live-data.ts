@@ -1,4 +1,5 @@
 import { getNBASchedule, getRecentNBAGames } from "@/lib/nba-api";
+import { getScheduleDaysAhead } from "@/lib/date-utils";
 import { getNBAOdds } from "@/lib/nba-odds";
 import { getBestOdds } from "@/lib/odds-api";
 import { findNBAOddsForGame } from "@/lib/nba-odds";
@@ -30,7 +31,7 @@ function attachLiveOddsToSchedule(
 export async function getNBADashboardData() {
   // Fetch schedule + recent games (14 days for enough player data) + odds in parallel
   const [schedule, recentGames, odds] = await Promise.all([
-    getNBASchedule(),
+    getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
     getNBAOdds(),
   ]);
@@ -71,7 +72,7 @@ export async function getNBADashboardData() {
 
 export async function getNBATrendData() {
   const [schedule, recentGames, odds] = await Promise.all([
-    getNBASchedule(),
+    getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
     getNBAOdds(),
   ]);

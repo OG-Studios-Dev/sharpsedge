@@ -1,4 +1,5 @@
 import { getUpcomingSchedule, getBroadSchedule } from "@/lib/nhl-api";
+import { getScheduleDaysAhead } from "@/lib/date-utils";
 import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
 import { NHLGame, TeamTrend } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
@@ -101,7 +102,7 @@ export async function getLiveTrendData() {
 
 export async function getLiveDashboardData() {
   const [schedule, odds] = await Promise.all([
-    getUpcomingSchedule(4),
+    getUpcomingSchedule(getScheduleDaysAhead() + 1),
     getNHLOdds(),
   ]);
 

@@ -25,3 +25,18 @@ export function parseDateKey(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
   return new Date(year, (month || 1) - 1, day || 1, 12, 0, 0, 0);
 }
+
+/**
+ * How many days ahead to show in schedule/picks/props.
+ * Before 11 PM ET: show today only (0 days ahead).
+ * After 11 PM ET: show today + tomorrow (1 day ahead).
+ */
+export function getScheduleDaysAhead(timeZone = APP_TIME_ZONE): number {
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    hour12: false,
+  }).format(new Date());
+  const hour = parseInt(hourStr, 10);
+  return hour >= 23 ? 1 : 0;
+}
