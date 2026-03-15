@@ -93,9 +93,11 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
         <span className="text-[10px] bg-accent-blue/10 text-accent-blue rounded-full px-2 py-0.5 font-medium">
           {displayEdge(pick.edge)} edge
         </span>
-        {showBookOdds && (
-          <span className="text-[10px] bg-dark-bg/70 text-gray-300 rounded-full px-2 py-0.5 font-medium">
-            {selectedBookOdds?.book ?? pick.book} {formatAmericanOdds(selectedBookOdds?.odds ?? pick.odds)}
+        {typeof pick.odds === "number" && (
+          <span className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${
+            showBookOdds ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-dark-bg/70 text-gray-300"
+          }`}>
+            {showBookOdds ? `${selectedBookOdds?.book ?? pick.book} ` : ""}{formatAmericanOdds(selectedBookOdds?.odds ?? pick.odds)}
           </span>
         )}
         <span className="ml-auto text-[10px] text-gray-500 font-medium">1u</span>
