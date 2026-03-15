@@ -1,6 +1,7 @@
 import { getNBASchedule, getRecentNBAGames } from "@/lib/nba-api";
 import { getScheduleDaysAhead } from "@/lib/date-utils";
 import { getNBAOdds } from "@/lib/nba-odds";
+import { getAggregatedOddsEvents } from "@/lib/odds-aggregator";
 import { getAllOdds, getBestOdds } from "@/lib/odds-api";
 import { findNBAOddsForGame } from "@/lib/nba-odds";
 import { buildNBAStatsPropFeed } from "@/lib/nba-stats-engine";
@@ -37,7 +38,7 @@ export async function getNBADashboardData() {
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
-    getNBAOdds(),
+    getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
   ]);
 
   // Filter out completed games — only keep upcoming/live games for picks & trends
@@ -78,7 +79,7 @@ export async function getNBATrendData() {
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
-    getNBAOdds(),
+    getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
   ]);
 
   // For trends, include recent completed games so trend data is populated

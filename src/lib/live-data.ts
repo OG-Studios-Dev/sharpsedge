@@ -1,6 +1,7 @@
 import { getUpcomingSchedule, getBroadSchedule } from "@/lib/nhl-api";
 import { getScheduleDaysAhead } from "@/lib/date-utils";
 import { findOddsForGame, getAllOdds, getBestOdds, getNHLOdds } from "@/lib/odds-api";
+import { getAggregatedOddsEvents } from "@/lib/odds-aggregator";
 import { NHLGame } from "@/lib/types";
 import { buildNHLStatsPropFeed } from "@/lib/nhl-stats-engine";
 import { buildLiveTeamTrends } from "@/lib/nhl-team-trends";
@@ -35,7 +36,7 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 export async function getLiveTrendData() {
   const [schedule, odds] = await Promise.all([
     getBroadSchedule(4),  // includes OFF games from last few days
-    getNHLOdds(),
+    getNHLOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NHL")).catch(() => getAggregatedOddsEvents("NHL")),
   ]);
 
   const gamesWithOdds = attachLiveOddsToSchedule(schedule.games, odds);
