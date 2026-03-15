@@ -5,6 +5,7 @@ export type SupportedTrendLeague = Extract<League, "NHL" | "NBA" | "MLB">;
 export type PlayerTrendGame = {
   gameId: string;
   date: string;
+  teamAbbrev?: string;
   opponent: string;
   opponentAbbrev: string;
   isHome: boolean;
@@ -16,7 +17,10 @@ export type PlayerTrendGame = {
   shots?: number;
   rebounds?: number;
   threePointersMade?: number;
+  steals?: number;
+  blocks?: number;
   minutes?: string;
+  minutesPlayed?: number;
   hits?: number;
   totalBases?: number;
   homeRuns?: number;
@@ -221,6 +225,11 @@ export function getTrendGameStatValue(game: PlayerTrendGame, propType: string, l
     if (propType === "Points") return game.points ?? 0;
     if (propType === "Rebounds") return game.rebounds ?? 0;
     if (propType === "Assists") return game.assists ?? 0;
+    if (propType === "Steals") return game.steals ?? 0;
+    if (propType === "Blocks") return game.blocks ?? 0;
+    if (propType === "PTS+REB+AST" || propType === "Points+Rebounds+Assists" || propType === "PRA") {
+      return (game.points ?? 0) + (game.rebounds ?? 0) + (game.assists ?? 0);
+    }
     if (propType === "3-Pointers Made" || propType === "3PM") return game.threePointersMade ?? 0;
     return game.points ?? 0;
   }

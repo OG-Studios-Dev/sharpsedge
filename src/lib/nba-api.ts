@@ -69,6 +69,9 @@ export type NBAPlayerGameLog = {
   playerId: string;
   playerName: string;
   team: string;
+  position?: string;
+  jersey?: string;
+  headshot?: string | null;
   gameId: string;
   gameDate: string;
   opponent: string;
@@ -105,6 +108,8 @@ export type NBABoxscorePlayer = {
   name: string;
   teamAbbrev: string;
   position: string;
+  jersey?: string;
+  headshot?: string | null;
   minutes: string;
   points: number;
   rebounds: number;
@@ -114,6 +119,15 @@ export type NBABoxscorePlayer = {
   fieldGoals: string;  // "7-18"
   threePointers: string; // "2-5"
   plusMinus: string;
+};
+
+export type NBARosterPlayer = {
+  id: number;
+  name: string;
+  position: string;
+  jersey?: string;
+  headshot?: string | null;
+  injuryStatus?: string | null;
 };
 
 // ── ESPN Scoreboard ──────────────────────────────────────────────────────────
@@ -236,9 +250,19 @@ export async function getNBAStandings(): Promise<NBATeamStanding[]> {
 
 // ── ESPN Game Summary (boxscore + player stats) ───────────────────────────────
 
+export async function getNBAGameSummary(eventId: string): Promise<any | null> {
+  try {
+    return await cachedFetch<any>(`${ESPN_BASE}/summary?event=${eventId}`);
+  } catch (err) {
+    console.warn("[nba-api] getNBAGameSummary failed:", err);
+    return null;
+  }
+}
+
 export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxscorePlayer[]; away: NBABoxscorePlayer[] }> {
   try {
-    const data = await cachedFetch<any>(`${ESPN_BASE}/summary?event=${eventId}`);
+    const data = await getNBAGameSummary(eventId);
+    if (!data) return { home: [], away: [] };
     const teams: any[] = data.boxscore?.players ?? [];
     const result = { home: [] as NBABoxscorePlayer[], away: [] as NBABoxscorePlayer[] };
 
@@ -274,6 +298,8 @@ export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxsco
             name: a.athlete?.displayName ?? "",
             teamAbbrev: abbrev,
             position: a.athlete?.position?.abbreviation ?? "",
+            jersey: a.athlete?.jersey ?? "",
+            headshot: a.athlete?.headshot?.href || (a.athlete?.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${a.athlete.id}.png` : null),
             minutes: minIdx >= 0 ? stats[minIdx] : "0",
             points: ptIdx >= 0 ? parseInt(stats[ptIdx], 10) || 0 : 0,
             rebounds: rebIdx >= 0 ? parseInt(stats[rebIdx], 10) || 0 : 0,
@@ -326,6 +352,9 @@ export async function getNBAPlayerGameLog(
           playerId: player.id,
           playerName: player.name,
           team: teamAbbrev,
+          position: player.position,
+          jersey: player.jersey,
+          headshot: player.headshot,
           gameId: game.id,
           gameDate: game.date,
           opponent: isHome ? game.awayTeam.fullName : game.homeTeam.fullName,
@@ -366,6 +395,31 @@ export async function getNBATeamRoster(teamId: number): Promise<Array<{ id: numb
       name: `${p.first_name} ${p.last_name}`,
       position: p.position ?? "",
     }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getNBATeamRosterEntries(teamAbbrev: string): Promise<NBARosterPlayer[]> {
+  const teamId = ESPN_TEAM_IDS[teamAbbrev];
+  if (!teamId) return [];
+
+  try {
+    const data = await cachedFetch<any>(`${ESPN_BASE}/teams/${teamId}/roster`, 60 * 60 * 1000);
+    const groups = Array.isArray(data?.athletes) ? data.athletes : [];
+    const athletes = groups.flatMap((group: any) => Array.isArray(group?.items) ? group.items : []);
+
+    return athletes.map((athlete: any) => {
+      const injury = athlete?.injuries?.[0] || athlete?.status || null;
+      return {
+        id: Number(athlete?.id) || 0,
+        name: athlete?.displayName || athlete?.fullName || "",
+        position: athlete?.position?.abbreviation || athlete?.position?.name || "",
+        jersey: athlete?.jersey || "",
+        headshot: athlete?.headshot?.href || (athlete?.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${athlete.id}.png` : null),
+        injuryStatus: injury?.status || injury?.type?.description || injury?.shortDetail || injury?.detail || null,
+      };
+    }).filter((player: { id: number; name: string }) => player.id && player.name);
   } catch {
     return [];
   }

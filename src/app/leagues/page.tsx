@@ -9,6 +9,7 @@ const LEAGUE_ROUTES: Partial<Record<League, string>> = {
   NHL: "/leagues/nhl",
   NBA: "/props",
   MLB: "/props",
+  PGA: "/schedule",
 };
 
 export default function LeaguesPage() {

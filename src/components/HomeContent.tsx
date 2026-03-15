@@ -8,6 +8,9 @@ import { buildClubRows, buildQuickHitters, buildSGPSuggestions, buildTrendingRow
 import { formatOdds } from "@/lib/edge-engine";
 import { createBrowserClient } from "@/lib/supabase-client";
 import EmptyStateCard from "@/components/EmptyStateCard";
+import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
+import GolfPlayerCard from "@/components/GolfPlayerCard";
+import GolfScheduleBoard from "@/components/GolfScheduleBoard";
 import TeamLogo from "@/components/TeamLogo";
 import HomePicksSection from "./HomePicksSection";
 import LeagueSwitcher from "./LeagueSwitcher";
@@ -72,6 +75,32 @@ function HomeSection({
   );
 }
 
+function GolfPicksCard({ loading, oddsConnected }: { loading: boolean; oddsConnected: boolean }) {
+  return (
+    <section className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+      <SectionHeader title="Top Picks" subtitle="Tournament picks lock before round one and are disabled in this build." />
+      {loading ? (
+        <div className="mt-4 h-32 animate-pulse rounded-2xl bg-dark-border/40" />
+      ) : (
+        <div className="mt-4 rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+          <p className="text-sm font-semibold text-white">PGA picks are disabled for now</p>
+          <p className="mt-2 text-sm text-gray-400">
+            The golf model is running leaderboard, recent-form, course-history, and outright pricing support. Tournament-level picks stay off until lock handling is promoted.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${oddsConnected ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-yellow-500/20 bg-yellow-500/10 text-yellow-300"}`}>
+              {oddsConnected ? "Outrights connected" : "Odds unavailable"}
+            </span>
+            <span className="rounded-full border border-dark-border px-2.5 py-1 text-[11px] font-semibold text-gray-400">
+              Tournament mode only
+            </span>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function HomeContent() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
@@ -115,6 +144,75 @@ export default function HomeContent() {
       cancelled = true;
     };
   }, []);
+
+  if (sportLeague === "PGA") {
+    const golfDashboard = dashboards.golfDashboard;
+
+    return (
+      <main className="min-h-screen bg-dark-bg pb-24">
+        <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 lg:px-0 lg:py-1">
+          <header className="flex items-center justify-between">
+            <div>
+              <img src="/logo.jpg" alt="Goosalytics" className="h-12 w-auto rounded-xl" />
+            </div>
+
+            {viewerName ? (
+              <Link
+                href="/settings"
+                aria-label="Open settings"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-blue/20 text-sm font-bold text-accent-blue"
+              >
+                {viewerInitial}
+              </Link>
+            ) : (
+              <Link href="/login" className="text-sm font-semibold text-accent-blue">
+                Sign In
+              </Link>
+            )}
+          </header>
+
+          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
+            <div className="space-y-5">
+              <GolfLeaderboardCard leaderboard={golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
+
+              <HomeSection
+                title="Contender Board"
+                subtitle="Recent form, course history, season profile, and outright prices for the top PGA names on the board."
+              >
+                {dashboards.loading ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[0, 1, 2, 3].map((item) => (
+                      <div key={item} className="h-72 animate-pulse rounded-2xl bg-dark-border/40" />
+                    ))}
+                  </div>
+                ) : (golfDashboard?.playerInsights.length ?? 0) === 0 ? (
+                  <EmptyStateCard
+                    eyebrow="Contenders"
+                    title="No player insights loaded yet"
+                    body="Player cards appear once the leaderboard or posted field is available for the current PGA event."
+                    className="mx-0 mt-0"
+                  />
+                ) : (
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {golfDashboard?.playerInsights.slice(0, 6).map((player) => (
+                      <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
+                    ))}
+                  </div>
+                )}
+              </HomeSection>
+            </div>
+
+            <div className="space-y-5">
+              <GolfPicksCard loading={dashboards.loading} oddsConnected={Boolean(golfDashboard?.meta.oddsConnected)} />
+              <GolfScheduleBoard tournaments={golfDashboard?.schedule ?? []} loading={dashboards.loading} showHeader />
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-dark-bg pb-24">

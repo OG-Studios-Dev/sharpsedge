@@ -278,6 +278,28 @@ export default function PropsPage() {
       ? filteredTeams.length === 0
       : clubRows.length === 0;
 
+  if (sportLeague === "PGA") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">
+          <div className="flex items-center justify-between px-4 py-3">
+            <img src="/logo.jpg" alt="Goosalytics" className="h-10 w-auto rounded-lg" />
+            <LeagueSwitcher active={sportLeague} onChange={setLeague} />
+          </div>
+          <p className="text-center text-sm font-semibold text-gray-300 pb-1">Props</p>
+        </header>
+
+        <EmptyStateCard
+          eyebrow="PGA"
+          title="Golf is leaderboard-first in this build"
+          body="Tournament outrights, matchups, and contender cards live on the home, schedule, and lines views. Generic prop-card rendering has not been turned on for PGA yet."
+          ctaLabel="Open Schedule"
+          ctaHref="/schedule"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border">

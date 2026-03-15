@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
 import { normalizeSportsLeague } from "@/lib/insights";
+import { GolfDashboardData } from "@/lib/types";
 import LeagueSwitcher from "@/components/LeagueSwitcher";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
@@ -61,18 +62,35 @@ export default function OddsPage() {
   const [tab, setTab] = useState<Tab>("Best Lines");
   const [props, setProps] = useState<any[]>([]);
   const [odds, setOdds] = useState<any[]>([]);
+  const [golfData, setGolfData] = useState<GolfDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const endpoints = [];
-    if (sportLeague !== "NBA") endpoints.push(fetch("/api/dashboard").then(r => r.json()));
-    if (sportLeague !== "NHL") endpoints.push(fetch("/api/nba/dashboard").then(r => r.json()));
+    setProps([]);
+    setOdds([]);
+    setGolfData(null);
+
+    if (sportLeague === "PGA") {
+      fetch("/api/golf/dashboard")
+        .then((response) => response.json())
+        .then((data: GolfDashboardData) => {
+          setGolfData(data);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+      return;
+    }
+
+    const endpoints: Array<Promise<any>> = [];
+    if (sportLeague === "All" || sportLeague === "NHL") endpoints.push(fetch("/api/dashboard").then((r) => r.json()));
+    if (sportLeague === "All" || sportLeague === "NBA") endpoints.push(fetch("/api/nba/dashboard").then((r) => r.json()));
+    if (sportLeague === "All" || sportLeague === "MLB") endpoints.push(fetch("/api/mlb/dashboard").then((r) => r.json()));
 
     Promise.all(endpoints)
       .then((results) => {
-        const allProps = results.flatMap(r => r.props || []);
-        const allOdds = results.flatMap(r => r.odds || []);
+        const allProps = results.flatMap((result) => result.props || []);
+        const allOdds = results.flatMap((result) => result.odds || []);
         setProps(allProps);
         setOdds(allOdds);
       })
@@ -162,6 +180,77 @@ export default function OddsPage() {
             title="Fetching live lines from sportsbooks"
             body="Pulling real-time odds from DraftKings, FanDuel, BetMGM, and more."
           />
+        ) : sportLeague === "PGA" ? (
+          tab === "Best Lines" ? (
+            golfData?.odds && (golfData.odds.outrights.length > 0 || golfData.odds.h2h.length > 0) ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Tournament board</p>
+                  <h3 className="mt-1 text-lg font-semibold text-white">{golfData.leaderboard?.tournament.name || golfData.odds.tournament}</h3>
+                  <p className="mt-1 text-sm text-gray-400">
+                    {golfData.meta.oddsConnected ? "Outrights and head-to-head matchups loaded from The Odds API." : "Odds feed unavailable for the current PGA event."}
+                  </p>
+                </div>
+
+                {golfData.odds.outrights.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Outrights</p>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {golfData.odds.outrights.slice(0, 12).map((offer) => (
+                        <div key={`${offer.playerName}-${offer.book}`} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-white">{offer.playerName}</p>
+                              <p className="mt-1 text-xs text-gray-500">{offer.book}</p>
+                            </div>
+                            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-300">
+                              {formatOdds(offer.odds)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {golfData.odds.h2h.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Head To Head</p>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {golfData.odds.h2h.slice(0, 8).map((matchup) => (
+                        <div key={`${matchup.matchup}-${matchup.book}`} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
+                          <p className="text-sm font-semibold text-white">{matchup.matchup}</p>
+                          <p className="mt-1 text-xs text-gray-500">{matchup.book}</p>
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-dark-border/40 bg-dark-bg/40 px-3 py-2">
+                              <p className="truncate text-[11px] text-gray-400">{matchup.playerA}</p>
+                              <p className="mt-1 text-sm font-semibold text-white">{formatOdds(matchup.playerAOdds)}</p>
+                            </div>
+                            <div className="rounded-xl border border-dark-border/40 bg-dark-bg/40 px-3 py-2">
+                              <p className="truncate text-[11px] text-gray-400">{matchup.playerB}</p>
+                              <p className="mt-1 text-sm font-semibold text-white">{formatOdds(matchup.playerBOdds)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmptyStateCard
+                eyebrow="PGA Odds"
+                title="No golf odds available right now"
+                body="This view will populate when the current tournament has posted outrights or head-to-head markets."
+              />
+            )
+          ) : (
+            <EmptyStateCard
+              eyebrow={tab}
+              title="Coming soon"
+              body="Golf line movement and sharper matchup screening will sit on top of the new tournament odds feed once snapshot storage is enabled."
+            />
+          )
         ) : tab === "Best Lines" ? (
           propsWithOdds.length > 0 ? (
             <div className="grid gap-3 lg:grid-cols-2">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { NBAGame } from "@/lib/nba-api";
-import type { MLBGame } from "@/lib/types";
+import type { GolfDashboardData, MLBGame } from "@/lib/types";
 import { OddsEvent, PlayerProp, TeamTrend, NHLGame } from "@/lib/types";
 import { SportsLeague } from "@/lib/insights";
 
@@ -19,6 +19,7 @@ type DashboardState = {
   nbaSchedule: NBAGame[];
   mlbSchedule: MLBGame[];
   oddsEvents: OddsEvent[];
+  golfDashboard: GolfDashboardData | null;
 };
 
 const EMPTY_STATE: DashboardState = {
@@ -29,6 +30,7 @@ const EMPTY_STATE: DashboardState = {
   nbaSchedule: [],
   mlbSchedule: [],
   oddsEvents: [],
+  golfDashboard: null,
 };
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -72,11 +74,13 @@ export function useSportsDashboards(league: SportsLeague) {
       const shouldLoadNHL = league === "All" || league === "NHL";
       const shouldLoadNBA = league === "All" || league === "NBA";
       const shouldLoadMLB = league === "All" || league === "MLB";
+      const shouldLoadGolf = league === "PGA";
 
-      const [nhlPayload, nbaPayload, mlbPayload] = await Promise.all([
+      const [nhlPayload, nbaPayload, mlbPayload, golfPayload] = await Promise.all([
         shouldLoadNHL ? fetchJson<any>("/api/dashboard") : Promise.resolve(null),
         shouldLoadNBA ? fetchJson<any>("/api/nba/dashboard") : Promise.resolve(null),
         shouldLoadMLB ? fetchJson<any>("/api/mlb/dashboard") : Promise.resolve(null),
+        shouldLoadGolf ? fetchJson<GolfDashboardData>("/api/golf/dashboard") : Promise.resolve(null),
       ]);
 
       if (cancelled) return;
@@ -97,6 +101,7 @@ export function useSportsDashboards(league: SportsLeague) {
         nbaSchedule: shouldLoadNBA ? parseNBASchedule(nbaPayload) : [],
         mlbSchedule: shouldLoadMLB ? parseMLBSchedule(mlbPayload) : [],
         oddsEvents: Array.isArray(nbaPayload?.odds) ? nbaPayload.odds : [],
+        golfDashboard: golfPayload,
       });
     }
 

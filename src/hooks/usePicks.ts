@@ -7,6 +7,7 @@ import { computePickRecord } from "@/lib/pick-record";
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v10";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
 const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
+const GOLF_STORAGE_KEY = "goosalytics_golf_picks_v10";
 
 // Nuclear clear: wipe ALL old pick keys from localStorage
 if (typeof window !== "undefined") {
@@ -222,4 +223,8 @@ export function useNBAPicks() {
 
 export function useMLBPicks() {
   return usePicksForLeague(MLB_STORAGE_KEY, "/api/mlb/picks", NBA_RESOLVE_ENDPOINT);
+}
+
+export function useGolfPicks() {
+  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", NBA_RESOLVE_ENDPOINT);
 }

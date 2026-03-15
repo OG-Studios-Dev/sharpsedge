@@ -6,6 +6,8 @@ export const leagueMeta: Record<League, { icon: string; subtitle: string; accent
   NBA: { icon: "🏀", subtitle: "Pace, usage, assists, threes, and props", accent: "from-orange-500/20 to-red-500/10" },
   NFL: { icon: "🏈", subtitle: "Receiving, rushing, alt lines, game scripts", accent: "from-green-500/20 to-lime-500/10" },
   MLB: { icon: "⚾", subtitle: "Hits, strikeouts, home runs, and run line trends", accent: "from-sky-500/20 to-indigo-500/10" },
+  PGA: { icon: "⛳", subtitle: "Tournament props, matchups, and leaderboard trends", accent: "from-emerald-500/20 to-lime-500/10" },
+  LIV: { icon: "🏌️", subtitle: "Golf leaderboards, outrights, and matchup boards", accent: "from-teal-500/20 to-emerald-500/10" },
   "Serie A": { icon: "🇮🇹", subtitle: "Match props, cards, shots, and outcomes", accent: "from-emerald-500/20 to-green-500/10" },
   EPL: { icon: "🏴", subtitle: "Goals, shots, cards, and match edges", accent: "from-purple-500/20 to-fuchsia-500/10" },
   WNBA: { icon: "🏀", subtitle: "Usage, pace, and player prop trends", accent: "from-pink-500/20 to-rose-500/10" },
@@ -14,4 +16,4 @@ export const leagueMeta: Record<League, { icon: string; subtitle: string; accent
   AFL: { icon: "🏉", subtitle: "Australian football trends and lines", accent: "from-yellow-500/20 to-amber-500/10" },
 };
 
-export const featuredLeagues: League[] = ["NHL", "NBA", "NFL", "MLB", "EPL", "Serie A"];
+export const featuredLeagues: League[] = ["NHL", "NBA", "MLB", "PGA", "NFL", "EPL", "Serie A"];

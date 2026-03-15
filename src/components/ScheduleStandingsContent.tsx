@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLeague } from "@/hooks/useLeague";
+import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
+import EmptyStateCard from "./EmptyStateCard";
+import GolfLeaderboardCard from "./GolfLeaderboardCard";
+import GolfPlayerCard from "./GolfPlayerCard";
+import GolfScheduleBoard from "./GolfScheduleBoard";
 import LeagueSwitcher from "./LeagueSwitcher";
 import ScheduleBoard from "./ScheduleBoard";
 import NBAScheduleBoard from "./NBAScheduleBoard";
@@ -295,12 +300,21 @@ function MLBStandings() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const VIEW_TABS = ["Schedule", "Standings"] as const;
+type MainView = "Schedule" | "Standings" | "Leaderboard";
 
 export default function ScheduleStandingsContent() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
-  const [view, setView] = useState<"Schedule" | "Standings">("Schedule");
+  const dashboards = useSportsDashboards(sportLeague);
+  const [view, setView] = useState<MainView>("Schedule");
+
+  useEffect(() => {
+    setView(sportLeague === "PGA" ? "Leaderboard" : "Schedule");
+  }, [sportLeague]);
+
+  const viewTabs = sportLeague === "PGA"
+    ? (["Leaderboard", "Schedule"] as const)
+    : (["Schedule", "Standings"] as const);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-5 space-y-4 lg:px-0">
@@ -309,7 +323,7 @@ export default function ScheduleStandingsContent() {
 
       {/* Schedule / Standings tabs */}
       <div className="flex rounded-xl bg-dark-surface border border-dark-border p-1">
-        {VIEW_TABS.map((t) => (
+        {viewTabs.map((t) => (
           <button key={t} onClick={() => setView(t)}
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${view === t ? "bg-dark-bg text-white border border-dark-border" : "text-gray-400 hover:text-white"}`}>
             {t}
@@ -318,7 +332,35 @@ export default function ScheduleStandingsContent() {
       </div>
 
       {/* Content */}
-      {view === "Schedule" ? (
+      {sportLeague === "PGA" ? (
+        view === "Leaderboard" ? (
+          <div className="space-y-5">
+            <GolfLeaderboardCard leaderboard={dashboards.golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
+            {dashboards.loading ? (
+              <div className="grid gap-3 xl:grid-cols-2">
+                {[0, 1, 2, 3].map((item) => (
+                  <div key={item} className="h-72 animate-pulse rounded-2xl bg-dark-border/40" />
+                ))}
+              </div>
+            ) : (dashboards.golfDashboard?.playerInsights.length ?? 0) === 0 ? (
+              <EmptyStateCard
+                eyebrow="PGA"
+                title="No player insight cards yet"
+                body="Recent-form and course-history cards populate once the tournament field or live leaderboard is available."
+                className="mx-0 mt-0"
+              />
+            ) : (
+              <div className="grid gap-3 xl:grid-cols-2">
+                {dashboards.golfDashboard?.playerInsights.slice(0, 6).map((player) => (
+                  <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <GolfScheduleBoard tournaments={dashboards.golfDashboard?.schedule ?? []} loading={dashboards.loading} />
+        )
+      ) : view === "Schedule" ? (
         sportLeague === "All" ? (
           <div className="space-y-6">
             <div>

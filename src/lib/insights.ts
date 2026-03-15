@@ -1,7 +1,7 @@
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 import { League, PlayerProp, SGP, TeamTrend } from "@/lib/types";
 
-export type SportsLeague = "All" | "NHL" | "NBA" | "MLB";
+export type SportsLeague = "All" | "NHL" | "NBA" | "MLB" | "PGA";
 export type ClubLineFilter = "all" | "main" | "alt";
 export type VenueFilter = "all" | "home" | "away";
 
@@ -157,7 +157,8 @@ function sortRows(rows: TrendRow[]) {
 }
 
 export function normalizeSportsLeague(league: League): SportsLeague {
-  if (league === "All" || league === "NBA" || league === "NHL" || league === "MLB") return league;
+  if (league === "All" || league === "NBA" || league === "NHL" || league === "MLB" || league === "PGA") return league;
+  if (league === "LIV") return "PGA";
   return "NHL";
 }
 

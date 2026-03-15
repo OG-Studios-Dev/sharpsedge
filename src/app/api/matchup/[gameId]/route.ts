@@ -1,42 +1,23 @@
 import { NextResponse } from "next/server";
-import {
-  getGameGoalies,
-  getScheduleGameById,
-  getTeamStandings,
-  getTeamRecentGames,
-} from "@/lib/nhl-api";
+import { getNHLMatchupData } from "@/lib/nhl-matchup";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ gameId: string }> }
 ) {
   const { gameId } = await params;
-  const id = parseInt(gameId, 10);
-  if (isNaN(id)) {
-    return NextResponse.json({ error: "Invalid gameId" }, { status: 400 });
+
+  try {
+    const data = await getNHLMatchupData(gameId);
+    if (!data) {
+      return NextResponse.json({ error: "Matchup not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json({ error: "Failed to load matchup" }, { status: 500 });
   }
-
-  const [goalies, standings] = await Promise.all([
-    getGameGoalies(id),
-    getTeamStandings(),
-  ]);
-
-  const homeAbbrev = goalies.home?.team || "";
-  const awayAbbrev = goalies.away?.team || "";
-
-  const [homeRecentGames, awayRecentGames] = await Promise.all([
-    homeAbbrev ? getTeamRecentGames(homeAbbrev) : Promise.resolve([]),
-    awayAbbrev ? getTeamRecentGames(awayAbbrev) : Promise.resolve([]),
-  ]);
-
-  const homeStanding = standings.find((t) => t.teamAbbrev === homeAbbrev) || null;
-  const awayStanding = standings.find((t) => t.teamAbbrev === awayAbbrev) || null;
-
-  return NextResponse.json({
-    goalies,
-    homeStanding,
-    awayStanding,
-    homeRecentGames: homeRecentGames.slice(-5),
-    awayRecentGames: awayRecentGames.slice(-5),
-  });
 }

@@ -33,6 +33,10 @@ function resolveHeadshot(playerId: number) {
   return `https://img.mlbstatic.com/mlb-photos/image/upload/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`;
 }
 
+function shortLabel(propType: string) {
+  return propType.replace(/[^A-Za-z0-9+]/g, "").toUpperCase().slice(0, 6) || "STAT";
+}
+
 export async function GET(req: NextRequest, context: { params: { name: string } }) {
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -102,9 +106,19 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       teamColor: MLB_TEAM_COLORS[team] || "#4a9eff",
       headshot: resolveHeadshot(playerId),
       oddsComparison,
+      availableStats: [{ key: propType, label: propType, shortLabel: shortLabel(propType) }],
+      nextGame: null,
+      defenseGrid: null,
+      player: {
+        position: group === "pitching" ? "P" : "BAT",
+        positionLabel: group === "pitching" ? "Pitcher" : "Batter",
+        jerseyNumber: null,
+        injuryStatus: null,
+      },
       games: logs.map((log) => ({
         gameId: log.gameId,
         date: log.gameDate,
+        teamAbbrev: team,
         opponent: log.opponentAbbrev,
         opponentAbbrev: log.opponentAbbrev,
         isHome: log.isHome,
@@ -121,8 +135,20 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
         earnedRuns: log.earnedRuns,
         hitsAllowed: log.hitsAllowed,
       })),
+      previousSeasonGames: [],
     });
   } catch {
-    return NextResponse.json({ league: "MLB", games: [] }, { status: 500 });
+    return NextResponse.json({
+      league: "MLB",
+      availableStats: [],
+      player: {
+        position: "",
+        positionLabel: "Player",
+        jerseyNumber: null,
+        injuryStatus: null,
+      },
+      games: [],
+      previousSeasonGames: [],
+    }, { status: 500 });
   }
 }

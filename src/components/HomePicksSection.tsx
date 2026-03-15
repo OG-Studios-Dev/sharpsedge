@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
@@ -84,17 +84,20 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
   const nhl = usePicks();
   const nba = useNBAPicks();
   const mlb = useMLBPicks();
+  const golf = useGolfPicks();
   const { picks: historyPicks } = usePickHistory();
 
   const allNHLPicks = Object.values(nhl.allPicks).flat();
   const allNBAPicks = Object.values(nba.allPicks).flat();
   const allMLBPicks = Object.values(mlb.allPicks).flat();
+  const allGolfPicks = Object.values(golf.allPicks).flat();
   const allPicks = [...allNHLPicks, ...allNBAPicks, ...allMLBPicks];
 
   const localNhlRecord = computeRecord(allNHLPicks);
   const localNbaRecord = computeRecord(allNBAPicks);
   const localMlbRecord = computeRecord(allMLBPicks);
   const localAllRecord = computeRecord(allPicks);
+  const localGolfRecord = computeRecord(allGolfPicks);
   const hasRemoteHistory = historyPicks.length > 0;
 
   const nhlRecord = hasRemoteHistory
@@ -109,6 +112,9 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
   const allRecord = hasRemoteHistory
     ? computePickHistorySummary(historyPicks)
     : localAllRecord;
+  const golfRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "PGA"))
+    : localGolfRecord;
 
   // Which today picks to show
   const displayPicks =
@@ -116,6 +122,8 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
       ? nba.todayPicks
       : league === "MLB"
       ? mlb.todayPicks
+      : league === "PGA"
+      ? golf.todayPicks
       : league === "All"
       ? [...nhl.todayPicks, ...nba.todayPicks, ...mlb.todayPicks]
       : nhl.todayPicks;
@@ -125,12 +133,14 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
       ? nba.loadingPicks
       : league === "MLB"
       ? mlb.loadingPicks
+      : league === "PGA"
+      ? golf.loadingPicks
       : league === "All"
       ? nhl.loadingPicks || nba.loadingPicks || mlb.loadingPicks
       : nhl.loadingPicks;
 
   const record =
-    league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "All" ? allRecord : nhlRecord;
+    league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
@@ -187,6 +197,11 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-12 rounded-xl bg-dark-border/40 animate-pulse" />
             ))}
+          </div>
+        ) : league === "PGA" ? (
+          <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-4 py-4 text-center">
+            <p className="text-sm font-medium text-white">Tournament picks are disabled</p>
+            <p className="mt-1 text-xs text-gray-500">Golf picks lock before round one. This build ships leaderboard, form, and outright support first.</p>
           </div>
         ) : displayPicks.length === 0 ? (
           <div className="text-center py-4">

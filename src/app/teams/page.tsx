@@ -117,7 +117,13 @@ export default function TeamsPage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
-        {loading ? (
+        {sportLeague === "PGA" ? (
+          <EmptyStateCard
+            eyebrow="PGA"
+            title="Golf does not use team directories"
+            body="Use the leaderboard and schedule views for PGA coverage. Golf support in this build is tournament-based, not club-based."
+          />
+        ) : loading ? (
           <EmptyStateCard
             eyebrow="Teams"
             title="Loading team directories"

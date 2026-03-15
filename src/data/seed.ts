@@ -1,8 +1,8 @@
 import { PlayerProp, TeamTrend, Parlay, SGP, LeagueCategory } from "@/lib/types";
 
 export const leagueCategories: LeagueCategory[] = [
-  { name: "Live Data", leagues: ["NHL", "NBA"] },
-  { name: "Coming Soon", leagues: ["NFL", "MLB"] },
+  { name: "Live Data", leagues: ["NHL", "NBA", "MLB", "PGA"] },
+  { name: "Coming Soon", leagues: ["NFL", "LIV"] },
 ];
 
 export const playerProps: PlayerProp[] = [

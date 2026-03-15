@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePicks, useNBAPicks, useMLBPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick } from "@/lib/types";
@@ -383,6 +383,13 @@ export default function PicksPage() {
     stalePickCount: mlbStalePickCount,
     clearStalePicks: clearMLBStalePicks,
   } = useMLBPicks();
+  const {
+    todayPicks: golfToday,
+    allPicks: golfAll,
+    loadingPicks: golfLoading,
+    stalePickCount: golfStalePickCount,
+    clearStalePicks: clearGolfStalePicks,
+  } = useGolfPicks();
   const { picks: historyPicks } = usePickHistory();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
@@ -394,6 +401,8 @@ export default function PicksPage() {
     ? nbaToday
     : sportLeague === "MLB"
       ? mlbToday
+      : sportLeague === "PGA"
+        ? golfToday
       : sportLeague === "All"
         ? [...nhlToday, ...nbaToday, ...mlbToday]
         : nhlToday;
@@ -408,12 +417,15 @@ export default function PicksPage() {
   if (sportLeague === "NHL" || sportLeague === "All") mergeStore(nhlAll);
   if (sportLeague === "NBA" || sportLeague === "All") mergeStore(nbaAll);
   if (sportLeague === "MLB" || sportLeague === "All") mergeStore(mlbAll);
+  if (sportLeague === "PGA") mergeStore(golfAll);
 
   const allFlat = Object.values(activeAll).flat();
   const activeStalePickCount = sportLeague === "NBA"
     ? nbaStalePickCount
     : sportLeague === "MLB"
       ? mlbStalePickCount
+      : sportLeague === "PGA"
+        ? golfStalePickCount
       : sportLeague === "All"
         ? nhlStalePickCount + nbaStalePickCount + mlbStalePickCount
         : nhlStalePickCount;
@@ -422,6 +434,8 @@ export default function PicksPage() {
     ? nbaLoading
     : sportLeague === "MLB"
       ? mlbLoading
+      : sportLeague === "PGA"
+        ? golfLoading
       : sportLeague === "All"
         ? (nhlLoading || nbaLoading || mlbLoading)
         : nhlLoading;
@@ -430,6 +444,7 @@ export default function PicksPage() {
   const nhlFlat = Object.values(nhlAll).flat();
   const nbaFlat = Object.values(nbaAll).flat();
   const mlbFlat = Object.values(mlbAll).flat();
+  const golfFlat = Object.values(golfAll).flat();
   const filteredHistoryRecords = useMemo(() => (
     sportLeague === "All"
       ? historyPicks
@@ -453,6 +468,9 @@ export default function PicksPage() {
   const mlbRec = remoteHistoryItems.length > 0
     ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "MLB").map(mapRecordToHistoryItem))
     : computeRecord(mlbFlat);
+  const golfRec = remoteHistoryItems.length > 0
+    ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "PGA").map(mapRecordToHistoryItem))
+    : computeRecord(golfFlat);
 
   const pastHistoryItems = useMemo(() => (
     historyItems.filter((item) => item.date !== todayKey)
@@ -492,6 +510,10 @@ export default function PicksPage() {
     }
     if (sportLeague === "MLB") {
       clearMLBStalePicks();
+      return;
+    }
+    if (sportLeague === "PGA") {
+      clearGolfStalePicks();
       return;
     }
     if (sportLeague === "All") {
@@ -618,7 +640,9 @@ export default function PicksPage() {
             <EmptyStateCard
               eyebrow="AI Picks"
               title={`No ${sportLeague === "All" ? "" : sportLeague + " "}picks today`}
-              body="Check back when games are scheduled to see today's top AI picks."
+              body={sportLeague === "PGA"
+                ? "Golf picks are intentionally disabled in this build. The live PGA experience currently focuses on leaderboard position, recent form, course history, and outrights."
+                : "Check back when games are scheduled to see today's top AI picks."}
             />
           ) : (
             <div className="space-y-3">

@@ -1,4 +1,4 @@
-export type League = "All" | "NHL" | "NBA" | "NFL" | "MLB" | "Serie A" | "EPL" | "WNBA" | "NCAAB" | "NCAAF" | "AFL";
+export type League = "All" | "NHL" | "NBA" | "NFL" | "MLB" | "PGA" | "LIV" | "Serie A" | "EPL" | "WNBA" | "NCAAB" | "NCAAF" | "AFL";
 
 export type LeagueCategory = {
   name: string;
@@ -225,6 +225,118 @@ export type MLBGame = {
   runLineBookOdds?: BookOddsBySide;
   bestTotal?: MLBGameTotalOdds | null;
   totalBookOdds?: BookOddsByTotal | null;
+};
+
+export type GolfTournamentStatus = "upcoming" | "in-progress" | "completed";
+
+export type GolfPlayerSeasonStats = {
+  scoringAverage: number | null;
+  drivingAccuracy: number | null;
+  gir: number | null;
+  puttingAverage: number | null;
+};
+
+export type GolfPlayerHistoryResult = {
+  tournamentId: string;
+  tournamentName: string;
+  course: string;
+  date: string;
+  finish: string;
+  score: string;
+  roundScores?: number[];
+  madeCut?: boolean;
+};
+
+export type GolfPlayerHitRates = {
+  top5: number;
+  top10: number;
+  top20: number;
+  madeCut: number;
+  firstRoundLeader: number;
+  under70_5: number;
+};
+
+export type GolfTournament = {
+  id: string;
+  name: string;
+  dates: string;
+  course: string;
+  purse: string;
+  status: GolfTournamentStatus;
+  tour?: "PGA" | "LIV";
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  coursePar?: number | null;
+  round?: number | null;
+  statusDetail?: string;
+  current?: boolean;
+  cutLine?: string | null;
+};
+
+export type GolfPlayer = {
+  id: string;
+  name: string;
+  position: string;
+  score: string;
+  todayScore: string;
+  thru: string;
+  teeTime: string;
+  status?: string;
+  roundScores?: number[];
+  recentForm?: GolfPlayerHistoryResult[];
+  courseHistory?: GolfPlayerHistoryResult[];
+  seasonStats?: GolfPlayerSeasonStats | null;
+  hitRates?: GolfPlayerHitRates;
+  image?: string;
+  outrightOdds?: number | null;
+  outrightBook?: string | null;
+  compositeScore?: number | null;
+};
+
+export type GolfLeaderboard = {
+  tournament: GolfTournament;
+  players: GolfPlayer[];
+  cutLine?: string | null;
+  lastUpdated?: string | null;
+  statusBadge?: string;
+};
+
+export type GolfOutrightOdds = {
+  playerName: string;
+  odds: number;
+  book: string;
+};
+
+export type GolfHeadToHeadOdds = {
+  matchup: string;
+  playerA: string;
+  playerB: string;
+  playerAOdds: number;
+  playerBOdds: number;
+  book: string;
+};
+
+export type GolfOddsBoard = {
+  sportKey: string;
+  tournament: string;
+  commenceTime?: string;
+  outrights: GolfOutrightOdds[];
+  h2h: GolfHeadToHeadOdds[];
+};
+
+export type GolfDashboardData = {
+  leaderboard: GolfLeaderboard | null;
+  schedule: GolfTournament[];
+  playerInsights: GolfPlayer[];
+  odds: GolfOddsBoard | null;
+  meta: {
+    league: "PGA" | "LIV";
+    oddsConnected: boolean;
+    scheduleCount: number;
+    playersCount: number;
+    tournamentStatus: GolfTournamentStatus | "none";
+  };
 };
 
 export type ScheduleResponse = {

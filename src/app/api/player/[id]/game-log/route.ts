@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { NHL_TEAM_COLORS, getTeamRoster } from "@/lib/nhl-api";
 import { getAllPlayerPropOdds, getNHLEventOdds, getNHLOdds, findOddsForGame } from "@/lib/odds-api";
+import { getDefenseGridForPlayer } from "@/lib/player-defense";
+import { formatNextGameDisplay, getPlayerResearchStats, parseClockMinutes } from "@/lib/player-research";
 import { getGameLog } from "@/lib/nhl-stats-engine";
 import { PlayerTrendGame } from "@/lib/player-trend";
 import { resolvePlayerPropMarket } from "@/lib/player-prop-odds";
@@ -8,6 +10,17 @@ import { BookOdds } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const SEASON = "20252026";
+const PREVIOUS_SEASON = "20242025";
+
+const POSITION_LABELS: Record<string, string> = {
+  C: "Center",
+  LW: "Left Wing",
+  RW: "Right Wing",
+  L: "Left Wing",
+  R: "Right Wing",
+  D: "Defenseman",
+  G: "Goalie",
+};
 
 async function fetchJSON<T>(url: string): Promise<T> {
   const response = await fetch(url, { next: { revalidate: 900 } });
@@ -23,6 +36,11 @@ async function getPlayerLanding(playerId: string) {
 
 async function getClubSchedule(teamAbbrev: string) {
   return fetchJSON<any>(`${NHL_BASE}/club-schedule-season/${teamAbbrev}/${SEASON}`);
+}
+
+async function getPlayerSeasonLog(playerId: string, season: string) {
+  const data = await fetchJSON<any>(`${NHL_BASE}/player/${playerId}/game-log/${season}/2`);
+  return Array.isArray(data?.gameLog) ? data.gameLog : [];
 }
 
 async function getGamecenterLanding(gameId: string) {
@@ -51,6 +69,18 @@ function getPlayerName(landing: any) {
 
 function getTeamAbbrev(landing: any) {
   return landing?.teamAbbrev?.default || landing?.teamAbbrev || landing?.currentTeamAbbrev?.default || landing?.currentTeamAbbrev || "";
+}
+
+function getPositionCode(landing: any) {
+  return landing?.position || landing?.positionCode || "";
+}
+
+function getInjuryStatus(landing: any) {
+  return landing?.injuryStatus?.description
+    || landing?.injuryStatus
+    || landing?.rosterStatus
+    || landing?.currentRosterStatus
+    || null;
 }
 
 function buildScore(teamScore?: number, opponentScore?: number) {
@@ -138,14 +168,17 @@ export async function GET(req: Request, context: { params: { id: string } }) {
       }
     }
 
-    const [landing, logs] = await Promise.all([
+    const [landing, logs, previousSeasonRaw] = await Promise.all([
       getPlayerLanding(String(playerId)),
       getGameLog(playerId),
+      getPlayerSeasonLog(String(playerId), PREVIOUS_SEASON).catch(() => []),
     ]);
 
-    const recentLogs = logs.slice(0, 20);
+    const recentLogs = logs;
+    const teamAbbrev = getTeamAbbrev(landing);
+    const teamSchedule = teamAbbrev ? await getClubSchedule(teamAbbrev).catch(() => ({ games: [] })) : { games: [] };
     const scheduleLookup = await buildScheduleLookup([
-      getTeamAbbrev(landing),
+      teamAbbrev,
       ...recentLogs.map((log) => log.teamAbbrev || ""),
     ]);
 
@@ -167,6 +200,7 @@ export async function GET(req: Request, context: { params: { id: string } }) {
         return {
           gameId: log.gameId,
           date: fallbackGame?.date || log.gameDate,
+          teamAbbrev: log.teamAbbrev || teamAbbrev,
           opponent: fallbackGame?.opponent || log.opponentAbbrev,
           opponentAbbrev: fallbackGame?.opponentAbbrev || log.opponentAbbrev,
           isHome: log.isHome,
@@ -177,24 +211,82 @@ export async function GET(req: Request, context: { params: { id: string } }) {
           points: log.points,
           shots: log.shots,
           minutes: log.toi,
+          minutesPlayed: parseClockMinutes(log.toi),
         } satisfies PlayerTrendGame;
       })
     );
+
+    const previousSeasonGames = previousSeasonRaw.map((log: any) => ({
+      gameId: String(log.gameId || log.id || ""),
+      date: log.gameDate || "",
+      teamAbbrev: log.teamAbbrev?.default || log.teamAbbrev || teamAbbrev,
+      opponent: log.opponentAbbrev || log.opponentTeamAbbrev?.default || log.opponentTeamAbbrev || "",
+      opponentAbbrev: log.opponentAbbrev || log.opponentTeamAbbrev?.default || log.opponentTeamAbbrev || "",
+      isHome: log.homeRoadFlag === "H",
+      result: null,
+      score: "Final",
+      goals: Number(log.goals) || 0,
+      assists: Number(log.assists) || 0,
+      points: Number(log.points) || 0,
+      shots: Number(log.shots) || 0,
+      minutes: log.toi || "0:00",
+      minutesPlayed: parseClockMinutes(log.toi),
+    })) satisfies PlayerTrendGame[];
+
+    const upcomingGame = (Array.isArray(teamSchedule?.games) ? teamSchedule.games : []).find((game: any) => {
+      const state = String(game?.gameState || "").toUpperCase();
+      return state !== "OFF" && state !== "FINAL";
+    });
+    const nextGameInfo = upcomingGame
+      ? {
+          gameId: String(upcomingGame?.id || ""),
+          opponent: upcomingGame?.homeTeam?.abbrev === teamAbbrev ? upcomingGame?.awayTeam?.abbrev || "" : upcomingGame?.homeTeam?.abbrev || "",
+          team: teamAbbrev,
+          isAway: upcomingGame?.awayTeam?.abbrev === teamAbbrev,
+          startTimeUTC: upcomingGame?.startTimeUTC,
+          display: formatNextGameDisplay(
+            teamAbbrev,
+            upcomingGame?.homeTeam?.abbrev === teamAbbrev ? upcomingGame?.awayTeam?.abbrev || "" : upcomingGame?.homeTeam?.abbrev || "",
+            upcomingGame?.awayTeam?.abbrev === teamAbbrev,
+            upcomingGame?.startTimeUTC
+          ),
+        }
+      : null;
+    const positionCode = getPositionCode(landing);
+    const defenseGrid = await getDefenseGridForPlayer("NHL", (opponent || nextGameInfo?.opponent || "").toUpperCase(), positionCode);
 
     return NextResponse.json({
       league: "NHL",
       playerId,
       playerName: getPlayerName(landing),
-      team: getTeamAbbrev(landing),
-      teamColor: NHL_TEAM_COLORS[getTeamAbbrev(landing)] || "#4a9eff",
+      team: teamAbbrev,
+      teamColor: NHL_TEAM_COLORS[teamAbbrev] || "#4a9eff",
       headshot: landing?.headshot || null,
       oddsComparison,
+      availableStats: getPlayerResearchStats("NHL"),
+      nextGame: nextGameInfo,
+      defenseGrid,
+      player: {
+        position: positionCode,
+        positionLabel: POSITION_LABELS[positionCode] || positionCode || "Skater",
+        jerseyNumber: landing?.sweaterNumber || null,
+        injuryStatus: getInjuryStatus(landing),
+      },
       games,
+      previousSeasonGames,
     });
   } catch {
     return NextResponse.json({
       league: "NHL",
+      availableStats: getPlayerResearchStats("NHL"),
+      player: {
+        position: "",
+        positionLabel: "Skater",
+        jerseyNumber: null,
+        injuryStatus: null,
+      },
       games: [],
+      previousSeasonGames: [],
     }, { status: 500 });
   }
 }

@@ -1,40 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import BookBadge from "@/components/BookBadge";
-import TeamLogo from "@/components/TeamLogo";
-import { BookOdds, TrendSplit } from "@/lib/types";
+import DVPBadge from "@/components/player/DVPBadge";
+import GameBarChart from "@/components/player/GameBarChart";
+import GameLogTable, { GameLogTableTab } from "@/components/player/GameLogTable";
+import HitRateTimeline from "@/components/player/HitRateTimeline";
+import PlayerHeader from "@/components/player/PlayerHeader";
+import PropBuilder from "@/components/player/PropBuilder";
+import StatTabs from "@/components/player/StatTabs";
 import {
-  describeBookSavings,
-  formatAmericanOdds,
-  formatOddsLine,
-  hasAlternateBookLines,
-  resolveSelectedBookOdds,
-  sortBookOddsForDisplay,
-} from "@/lib/book-odds";
-import {
-  PlayerTrendGame,
-  SupportedTrendLeague,
-  buildPlayerSplits,
-  formatTrendOdds,
-  getSplitByType,
-  getTrendGameStatValue,
-  parseTrendBoolean,
-} from "@/lib/player-trend";
+  NBA_PLAYER_RESEARCH_STATS,
+  NHL_PLAYER_RESEARCH_STATS,
+  PlayerResearchResponse,
+  PlayerResearchStatOption,
+  filterPlayerResearchGames,
+  getDefenseRankTone,
+  getDvpLabel,
+  getOpponentOptions,
+  getPlayerResearchHitRate,
+  ordinal,
+  rankToEdgeScore,
+} from "@/lib/player-research";
+import { PlayerTrendGame, SupportedTrendLeague, getTrendGameStatValue } from "@/lib/player-trend";
 
-type TrendApiResponse = {
-  league: SupportedTrendLeague;
-  playerId?: number;
-  playerName?: string;
-  team?: string;
-  teamColor?: string;
-  headshot?: string | null;
-  oddsComparison?: BookOdds[];
-  games: PlayerTrendGame[];
-};
-
-type GameLogTab = "last10" | "h2h" | "venue";
+type VenueFilter = "all" | "home" | "away";
+type MinuteOption = { label: string; minMinutes?: number };
 
 function resolveLeague(value: string | null): SupportedTrendLeague {
   if (value === "NBA") return "NBA";
@@ -47,116 +38,165 @@ function parseLine(value: string | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatDate(value: string) {
-  if (!value) return "TBD";
-  const date = new Date(`${value}T12:00:00`);
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+function roundToHalf(value: number) {
+  return Math.round(value * 2) / 2;
 }
 
-function didHitLine(value: number, line: number, overUnder: "Over" | "Under") {
-  return overUnder === "Under" ? value < line : value > line;
+function abbreviateStat(label: string) {
+  return label.replace(/[^A-Za-z0-9+]/g, "").toUpperCase().slice(0, 6) || "STAT";
 }
 
-function formatResult(result: PlayerTrendGame["result"], score: string) {
-  if (!result) return score || "Final";
-  return `${result} ${score}`;
+function getFallbackOptions(league: SupportedTrendLeague, propType: string): PlayerResearchStatOption[] {
+  if (league === "NBA") return NBA_PLAYER_RESEARCH_STATS;
+  if (league === "NHL") return NHL_PLAYER_RESEARCH_STATS;
+  const safeProp = propType || "Stat";
+  return [{ key: safeProp, label: safeProp, shortLabel: abbreviateStat(safeProp) }];
 }
 
-function tabTitle(tab: GameLogTab) {
-  if (tab === "h2h") return "Head to Head";
-  if (tab === "venue") return "Home/Away";
-  return "Last 10";
+function resolveStatFromOptions(options: PlayerResearchStatOption[], value: string) {
+  return options.find((option) => option.key === value || option.label === value || option.shortLabel === value)?.key
+    || options[0]?.key
+    || value
+    || "Points";
 }
 
-function signalTitle(split: TrendSplit, opponent: string, isAway: boolean) {
-  if (split.type === "vs_opponent") return `vs ${opponent || "OPP"}`;
-  if (split.type === "home_away") return isAway ? "Away" : "Home";
-  if (split.type === "without_player") return "Without Player";
-  return "Recent";
+function getSuggestedLine(games: PlayerTrendGame[], league: SupportedTrendLeague, statKey: string) {
+  const sample = games.slice(0, 10);
+  if (!sample.length) return 0.5;
+  const total = sample.reduce((sum, game) => sum + getTrendGameStatValue(game, statKey, league), 0);
+  return Math.max(roundToHalf(total / sample.length), 0.5);
 }
 
-function signalDescription(split: TrendSplit, opponent: string, isAway: boolean) {
-  if (split.type === "without_player") return "Coming soon";
-  if (split.total === 0) {
-    if (split.type === "vs_opponent") return `No recent games vs ${opponent || "this opponent"}`;
-    if (split.type === "home_away") return `No ${isAway ? "away" : "home"} sample yet`;
-    return "No recent sample yet";
+function getMinuteOptions(league: SupportedTrendLeague): MinuteOption[] {
+  if (league === "NBA") {
+    return [
+      { label: "All Min" },
+      { label: "20+", minMinutes: 20 },
+      { label: "30+", minMinutes: 30 },
+      { label: "35+", minMinutes: 35 },
+    ];
   }
-  return `Hit in ${split.hits} of last ${split.total} games`;
+
+  if (league === "NHL") {
+    return [
+      { label: "All Min" },
+      { label: "12+", minMinutes: 12 },
+      { label: "16+", minMinutes: 16 },
+      { label: "20+", minMinutes: 20 },
+    ];
+  }
+
+  return [{ label: "All Min" }];
 }
 
-function SkeletonCard() {
-  return <div className="h-28 rounded-[24px] border border-dark-border bg-dark-surface/70 animate-pulse" />;
+function getTableGames(
+  tab: GameLogTableTab,
+  games: PlayerTrendGame[],
+  targetOpponent: string
+) {
+  if (tab === "h2h") return targetOpponent ? games.filter((game) => game.opponentAbbrev.toUpperCase() === targetOpponent) : [];
+  if (tab === "l5") return games.slice(0, 5);
+  if (tab === "l10") return games.slice(0, 10);
+  if (tab === "l20") return games.slice(0, 20);
+  return games;
 }
 
-function SignalCard({
-  accent,
-  icon,
-  split,
+function getDefenseMetricLabel(league: SupportedTrendLeague, statKey: string) {
+  if (league === "NBA") {
+    if (statKey === "Points") return "PTS";
+    if (statKey === "Rebounds") return "REB";
+    if (statKey === "Assists") return "AST";
+    if (statKey === "3PM") return "3PM";
+    if (statKey === "PTS+REB+AST") return "PRA";
+  }
+
+  if (league === "NHL") {
+    if (statKey === "Goals") return "Goals";
+    if (statKey === "Assists") return "Assists";
+    if (statKey === "Shots") return "Shots";
+    return "Points";
+  }
+
+  return abbreviateStat(statKey);
+}
+
+function getDefenseCell(data: PlayerResearchResponse | null, league: SupportedTrendLeague, statKey: string) {
+  const grid = data?.defenseGrid;
+  if (!grid) return null;
+
+  if (league === "NBA" && statKey === "PTS+REB+AST") {
+    const keys = ["PTS", "REB", "AST"];
+    const cells = keys.map((key) => grid.vsPosition.find((cell) => cell.label === key)).filter(Boolean);
+    if (!cells.length) return null;
+    const rank = Math.round(cells.reduce((sum, cell) => sum + (cell?.rank || 0), 0) / cells.length);
+    return { label: "PRA", rank };
+  }
+
+  const label = getDefenseMetricLabel(league, statKey);
+  const cell = grid.vsPosition.find((entry) => entry.label === label) || grid.overall.find((entry) => entry.label === label);
+  if (!cell) return null;
+  return { label, rank: cell.rank };
+}
+
+function getRankPillClasses(rank: number, teamCount: number) {
+  const tone = getDefenseRankTone(rank, teamCount);
+  if (tone === "good") return "border-emerald-500/30 bg-emerald-500/12 text-emerald-100";
+  if (tone === "neutral") return "border-amber-500/30 bg-amber-500/12 text-amber-100";
+  return "border-red-500/30 bg-red-500/12 text-red-100";
+}
+
+function SectionToggle({
   title,
   description,
+  children,
 }: {
-  accent: string;
-  icon: string;
-  split: TrendSplit;
   title: string;
   description: string;
+  children: ReactNode;
 }) {
-  const width = split.total > 0 ? Math.max(split.hitRate, 6) : 20;
-  const muted = split.type === "without_player" || split.total === 0;
-
   return (
-    <div className="rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.96)_0%,rgba(12,16,24,0.96)_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-      <div className="flex items-start justify-between gap-3">
+    <details open className="overflow-hidden rounded-[28px] border border-dark-border bg-dark-surface/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+      <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 [&::-webkit-details-marker]:hidden">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-500">{title}</div>
-          <div className="mt-2 text-2xl">{icon}</div>
+          <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">{title}</p>
+          <p className="mt-1 text-sm text-gray-300">{description}</p>
         </div>
-        <div className={`text-right text-lg font-semibold ${muted ? "text-gray-500" : "text-white"}`}>
-          {split.total > 0 ? `${Math.round(split.hitRate)}%` : "Soon"}
-        </div>
-      </div>
-      <p className={`mt-3 text-sm leading-5 ${muted ? "text-gray-500" : "text-gray-300"}`}>
-        {description}
-      </p>
-      <div className="mt-4 h-2 rounded-full bg-dark-bg/90 overflow-hidden border border-dark-border/70">
-        <div
-          className={`h-full rounded-full transition-all ${muted ? "bg-gray-600/70" : ""}`}
-          style={{
-            width: `${Math.min(width, 100)}%`,
-            backgroundColor: muted ? undefined : accent,
-          }}
-        />
-      </div>
-    </div>
+        <span className="text-xl text-gray-500">+</span>
+      </summary>
+      <div className="border-t border-dark-border/80 p-4">{children}</div>
+    </details>
   );
+}
+
+function SkeletonCard({ height }: { height: string }) {
+  return <div className={`${height} animate-pulse rounded-[28px] border border-dark-border bg-dark-surface/80`} />;
 }
 
 export default function PlayerTrendPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [data, setData] = useState<TrendApiResponse | null>(null);
+  const [data, setData] = useState<PlayerResearchResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<GameLogTab>("last10");
+  const [activeStat, setActiveStat] = useState("Points");
+  const [direction, setDirection] = useState<"Over" | "Under">("Over");
+  const [lineByStat, setLineByStat] = useState<Record<string, number>>({});
+  const [tableTab, setTableTab] = useState<GameLogTableTab>("l10");
+  const [teamFilter, setTeamFilter] = useState("");
+  const [venueFilter, setVenueFilter] = useState<VenueFilter>("all");
+  const [minMinutes, setMinMinutes] = useState<number | undefined>(undefined);
 
   const id = params.id;
   const league = resolveLeague(searchParams.get("league"));
-  const propType = searchParams.get("propType") || (league === "NBA" ? "Points" : league === "MLB" ? "Hits" : "Points");
-  const line = parseLine(searchParams.get("line"));
+  const requestedPropType = searchParams.get("propType") || (league === "NBA" ? "Points" : league === "MLB" ? "Hits" : "Points");
+  const requestedLine = parseLine(searchParams.get("line"));
+  const requestedDirection = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
   const opponent = (searchParams.get("opponent") || "").toUpperCase();
-  const overUnder = searchParams.get("overUnder") === "Under" ? "Under" : "Over";
   const playerName = searchParams.get("playerName") || id.replace(/-/g, " ");
   const queryTeam = searchParams.get("team") || "";
-  const isAway = parseTrendBoolean(searchParams.get("isAway")) ?? false;
-  const queryTeamColor = searchParams.get("teamColor") || "";
-  const odds = searchParams.get("odds");
-  const book = searchParams.get("book");
-  const oddsEventId = searchParams.get("oddsEventId");
+  const oddsEventId = searchParams.get("oddsEventId") || "";
+  const requestedPlayerId = searchParams.get("playerId") || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -164,34 +204,41 @@ export default function PlayerTrendPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      setData(null);
+      setLineByStat({});
+      setTeamFilter("");
+      setVenueFilter("all");
+      setMinMinutes(undefined);
+      setTableTab("l10");
+      setDirection(requestedDirection);
 
       const query = new URLSearchParams();
       if (playerName) query.set("playerName", playerName);
       if (queryTeam) query.set("team", queryTeam);
       if (opponent) query.set("opponent", opponent);
-      const playerId = searchParams.get("playerId");
-      if (playerId) query.set("playerId", playerId);
-      if (propType) query.set("propType", propType);
-      if (overUnder) query.set("overUnder", overUnder);
+      if (requestedPropType) query.set("propType", requestedPropType);
+      if (requestedDirection) query.set("overUnder", requestedDirection);
       if (oddsEventId) query.set("oddsEventId", oddsEventId);
+      if (requestedPlayerId) query.set("playerId", requestedPlayerId);
+
       const endpoint = league === "NBA"
         ? `/api/nba/player/${encodeURIComponent(id)}/game-log?${query.toString()}`
         : league === "MLB"
           ? `/api/mlb/player/${encodeURIComponent(id)}/game-log?${query.toString()}`
-          : `/api/player/${encodeURIComponent(id)}/game-log`;
+          : `/api/player/${encodeURIComponent(id)}/game-log?${query.toString()}`;
 
       try {
         const response = await fetch(endpoint);
         const payload = await response.json();
         if (!response.ok) {
-          throw new Error(payload?.error || "Unable to load game log");
+          throw new Error(payload?.error || "Unable to load player research");
         }
         if (!cancelled) {
           setData(payload);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load game log");
+          setError(err instanceof Error ? err.message : "Unable to load player research");
         }
       } finally {
         if (!cancelled) {
@@ -205,321 +252,334 @@ export default function PlayerTrendPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, league, playerName, propType, queryTeam, searchParams]);
+  }, [id, league, oddsEventId, opponent, playerName, queryTeam, requestedDirection, requestedPlayerId, requestedPropType]);
 
-  const games = data?.games || [];
-  const accent = data?.teamColor || queryTeamColor || "#4a9eff";
-  const displayName = data?.playerName || playerName || "Player";
-  const displayTeam = data?.team || queryTeam;
-  const matchup = displayTeam && opponent ? `${displayTeam} ${isAway ? "@" : "vs"} ${opponent}` : displayTeam || opponent;
-  const formattedOdds = formatTrendOdds(odds ? Number(odds) : null);
-  const oddsComparison = useMemo(() => (
-    sortBookOddsForDisplay(data?.oddsComparison || [], line)
-  ), [data?.oddsComparison, line]);
-  const selectedBookOdds = useMemo(() => (
-    resolveSelectedBookOdds(oddsComparison, {
-      book: book || undefined,
-      odds: odds ? Number(odds) : undefined,
-      line,
-    })
-  ), [book, line, odds, oddsComparison]);
-  const savings = useMemo(() => (
-    describeBookSavings(oddsComparison, {
-      book: selectedBookOdds?.book ?? book ?? undefined,
-      odds: selectedBookOdds?.odds ?? (odds ? Number(odds) : undefined),
-      line: selectedBookOdds?.line ?? line,
-    })
-  ), [book, line, odds, oddsComparison, selectedBookOdds]);
-  const showOddsLine = hasAlternateBookLines(oddsComparison);
+  const statOptions = data?.availableStats?.length
+    ? data.availableStats
+    : getFallbackOptions(data?.league || league, requestedPropType);
+  const resolvedStat = resolveStatFromOptions(statOptions, activeStat || requestedPropType);
+  const currentLeague = data?.league || league;
 
-  const splits = useMemo(() => (
-    buildPlayerSplits({
-      games,
-      didHit: (game) => didHitLine(getTrendGameStatValue(game, propType, league), line, overUnder),
-      isAway,
-      opponent,
-      lastN: 10,
-    })
-  ), [games, isAway, league, line, opponent, overUnder, propType]);
+  useEffect(() => {
+    if (!data) return;
+    const nextActiveStat = resolveStatFromOptions(statOptions, requestedPropType);
+    setActiveStat(nextActiveStat);
+    setLineByStat(() => {
+      const next: Record<string, number> = {};
+      for (const option of statOptions) {
+        next[option.key] = option.key === nextActiveStat && requestedLine > 0
+          ? requestedLine
+          : getSuggestedLine(data.games || [], data.league, option.key);
+      }
+      return next;
+    });
+  }, [data, requestedLine, requestedPropType]);
 
-  const signalCards = [
-    { icon: "⚡", split: getSplitByType(splits, "last_n") || splits[0] },
-    { icon: "🎯", split: getSplitByType(splits, "vs_opponent") || splits[1] },
-    { icon: "🏠", split: getSplitByType(splits, "home_away") || splits[2] },
-    { icon: "🤕", split: getSplitByType(splits, "without_player") || splits[3] },
+  const selectedLine = typeof lineByStat[resolvedStat] === "number"
+    ? lineByStat[resolvedStat]
+    : requestedLine > 0
+      ? requestedLine
+      : getSuggestedLine(data?.games || [], currentLeague, resolvedStat);
+
+  const currentOpponent = (teamFilter || opponent || data?.nextGame?.opponent || "").toUpperCase();
+  const filteredGames = filterPlayerResearchGames(data?.games || [], {
+    opponent: teamFilter || undefined,
+    venue: venueFilter,
+    minMinutes,
+  });
+  const filteredPreviousSeasonGames = filterPlayerResearchGames(data?.previousSeasonGames || [], {
+    opponent: teamFilter || undefined,
+    venue: venueFilter,
+    minMinutes,
+  });
+  const currentHitRate = getPlayerResearchHitRate(filteredGames, currentLeague, resolvedStat, selectedLine, direction);
+  const timelineItems = [
+    { label: "H2H", value: currentOpponent ? getPlayerResearchHitRate(filteredGames.filter((game) => game.opponentAbbrev.toUpperCase() === currentOpponent), currentLeague, resolvedStat, selectedLine, direction) : null },
+    { label: "L5", value: getPlayerResearchHitRate(filteredGames.slice(0, 5), currentLeague, resolvedStat, selectedLine, direction) },
+    { label: "L10", value: getPlayerResearchHitRate(filteredGames.slice(0, 10), currentLeague, resolvedStat, selectedLine, direction) },
+    { label: "L20", value: getPlayerResearchHitRate(filteredGames.slice(0, 20), currentLeague, resolvedStat, selectedLine, direction) },
+    { label: "Season", value: getPlayerResearchHitRate(filteredGames, currentLeague, resolvedStat, selectedLine, direction) },
+    { label: "Prev Season", value: getPlayerResearchHitRate(filteredPreviousSeasonGames, currentLeague, resolvedStat, selectedLine, direction) },
   ];
+  const tableGames = getTableGames(tableTab, filteredGames, currentOpponent);
+  const defenseCell = getDefenseCell(data, currentLeague, resolvedStat);
+  const minuteOptions = getMinuteOptions(currentLeague);
+  const opponentOptions = getOpponentOptions(data?.games || []);
 
-  const tabGames = useMemo(() => {
-    if (activeTab === "h2h") {
-      return games.filter((game) => game.opponentAbbrev.toUpperCase() === opponent);
-    }
-    if (activeTab === "venue") {
-      return games.filter((game) => game.isHome !== isAway);
-    }
-    return games.slice(0, 10);
-  }, [activeTab, games, isAway, opponent]);
+  function handleStatChange(nextStat: string) {
+    setActiveStat(nextStat);
+    setLineByStat((previous) => {
+      if (typeof previous[nextStat] === "number") return previous;
+      return {
+        ...previous,
+        [nextStat]: getSuggestedLine(data?.games || [], currentLeague, nextStat),
+      };
+    });
+  }
+
+  function handleLineAdjust(delta: number) {
+    setLineByStat((previous) => ({
+      ...previous,
+      [resolvedStat]: Math.max(0, roundToHalf((previous[resolvedStat] ?? selectedLine) + delta)),
+    }));
+  }
 
   return (
     <div className="min-h-screen bg-dark-bg">
       <header className="sticky top-0 z-40 border-b border-dark-border bg-dark-bg/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-2xl px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={() => router.back()}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dark-border bg-dark-surface text-gray-200 transition-colors hover:border-gray-500"
-              aria-label="Go back"
-            >
-              ←
-            </button>
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Player Analysis</p>
-              <p className="text-sm text-gray-300">{propType}</p>
-            </div>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dark-border bg-dark-surface text-gray-200 transition-colors hover:border-gray-500"
+            aria-label="Go back"
+          >
+            ←
+          </button>
+          <div className="text-right">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Player Page V2</p>
+            <p className="text-sm text-gray-300">{resolvedStat}</p>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-5 pb-28">
+      <main className="mx-auto max-w-7xl px-4 py-5 pb-28">
         {loading ? (
           <div className="space-y-4">
-            <SkeletonCard />
-            <div className="grid grid-cols-2 gap-3">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+            <SkeletonCard height="h-48" />
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)]">
+              <div className="space-y-4">
+                <SkeletonCard height="h-36" />
+                <SkeletonCard height="h-28" />
+                <SkeletonCard height="h-[380px]" />
+                <SkeletonCard height="h-[420px]" />
+              </div>
+              <div className="space-y-4">
+                <SkeletonCard height="h-40" />
+                <SkeletonCard height="h-64" />
+                <SkeletonCard height="h-64" />
+              </div>
             </div>
-            <div className="h-80 rounded-[28px] border border-dark-border bg-dark-surface/70 animate-pulse" />
           </div>
         ) : error ? (
-          <div className="rounded-[28px] border border-dark-border bg-dark-surface/90 p-6 text-center shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-            <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Game log unavailable</p>
-            <h1 className="mt-2 text-xl font-semibold text-white">{displayName}</h1>
+          <div className="rounded-[28px] border border-dark-border bg-dark-surface/95 p-6 text-center shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Player research unavailable</p>
+            <h1 className="mt-2 text-xl font-semibold text-white">{playerName}</h1>
             <p className="mt-3 text-sm leading-6 text-gray-400">{error}</p>
             <button
+              type="button"
               onClick={() => window.location.reload()}
-              className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-accent-blue/40 bg-accent-blue/10 px-4 text-sm font-semibold text-accent-blue"
+              className="mt-5 inline-flex min-h-[44px] items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-100"
             >
               Try again
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            <section
-              className="overflow-hidden rounded-[30px] border border-dark-border bg-[linear-gradient(180deg,rgba(21,24,33,0.98)_0%,rgba(12,16,24,0.98)_100%)] shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
-            >
-              <div className="h-1.5 w-full" style={{ background: accent }} />
-              <div className="p-5">
-                <div className="flex items-start gap-4">
-                  {data?.headshot ? (
-                    <img
-                      src={data.headshot}
-                      alt={displayName}
-                      className="h-16 w-16 rounded-full border border-dark-border object-cover"
-                    />
-                  ) : (
-                    <TeamLogo team={displayTeam || displayName.slice(0, 3)} color={accent} size={64} />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{league}</p>
-                    <h1 className="mt-1 truncate text-2xl font-semibold text-white">{displayName}</h1>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {matchup && (
-                        <span className="rounded-full border border-dark-border bg-dark-bg/70 px-3 py-1 text-xs font-medium text-gray-300">
-                          {matchup}
-                        </span>
-                      )}
-                      <span className="rounded-full border border-accent-blue/20 bg-accent-blue/10 px-3 py-1 text-xs font-semibold text-accent-blue">
-                        {overUnder} {line} {propType}
-                      </span>
-                      {formattedOdds && (
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-                          {formattedOdds}
-                          {book ? ` · ${book}` : ""}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
+            <PlayerHeader
+              headshot={data?.headshot}
+              league={currentLeague}
+              name={data?.playerName || playerName}
+              team={data?.team || queryTeam}
+              teamColor={data?.teamColor}
+              player={data?.player || {
+                position: "",
+                positionLabel: currentLeague,
+                jerseyNumber: null,
+                injuryStatus: null,
+              }}
+              nextGame={data?.nextGame}
+            />
 
-            <section className="grid grid-cols-2 gap-3">
-              {signalCards.map(({ icon, split }) => (
-                <SignalCard
-                  key={`${split.type}-${icon}`}
-                  accent={accent}
-                  icon={icon}
-                  split={split}
-                  title={signalTitle(split, opponent, isAway)}
-                  description={signalDescription(split, opponent, isAway)}
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.95fr)]">
+              <div className="space-y-4">
+                <section className="rounded-[28px] border border-dark-border bg-dark-surface/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Stat Tabs</p>
+                  <p className="mt-1 text-sm text-gray-300">Switching tabs updates the builder, hit rates, chart, and table.</p>
+                  <div className="mt-4">
+                    <StatTabs options={statOptions} activeKey={resolvedStat} onChange={handleStatChange} />
+                  </div>
+                </section>
+
+                <PropBuilder
+                  options={statOptions}
+                  activeStat={resolvedStat}
+                  direction={direction}
+                  line={selectedLine}
+                  hitRate={currentHitRate}
+                  onStatChange={handleStatChange}
+                  onDirectionChange={setDirection}
+                  onLineAdjust={handleLineAdjust}
                 />
-              ))}
-            </section>
 
-            <section className="overflow-hidden rounded-[28px] border border-dark-border bg-dark-surface/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <div className="border-b border-dark-border/80 px-4 py-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Odds Comparison</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">{overUnder} {line} {propType}</h2>
-                  </div>
-                  {selectedBookOdds && (
-                    <BookBadge
-                      book={selectedBookOdds.book}
-                      odds={selectedBookOdds.odds}
-                      line={selectedBookOdds.line}
-                      highlight
-                      showLine={showOddsLine}
+                <HitRateTimeline items={timelineItems} />
+
+                <GameBarChart
+                  games={filteredGames}
+                  league={currentLeague}
+                  statKey={resolvedStat}
+                  line={selectedLine}
+                  direction={direction}
+                />
+
+                <GameLogTable
+                  games={tableGames}
+                  league={currentLeague}
+                  statKey={resolvedStat}
+                  line={selectedLine}
+                  direction={direction}
+                  activeTab={tableTab}
+                  onTabChange={setTableTab}
+                />
+              </div>
+
+              <div className="space-y-4">
+                {data?.defenseGrid && defenseCell ? (
+                  <>
+                    <DVPBadge
+                      opponent={data.defenseGrid.opponent}
+                      position={data.player?.position || data.defenseGrid.position}
+                      statLabel={defenseCell.label}
+                      rank={defenseCell.rank}
+                      teamCount={data.defenseGrid.teamCount}
                     />
-                  )}
-                </div>
-                {savings && (
-                  <p className="mt-3 text-xs text-emerald-300">
-                    {savings.best.book} saves you {savings.centsPerDollar}c per dollar vs {savings.comparison.book}
-                  </p>
-                )}
-              </div>
 
-              {oddsComparison.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <p className="text-sm font-medium text-white">No odds available</p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    The Odds API does not have a live book price for this prop right now.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="bg-dark-bg/60 text-[11px] uppercase tracking-wide text-gray-500">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Book</th>
-                        <th className="px-4 py-3 font-medium">Line</th>
-                        <th className="px-4 py-3 font-medium">Odds</th>
-                        <th className="px-4 py-3 font-medium">Implied Prob</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-dark-border/60">
-                      {oddsComparison.map((offer) => {
-                        const isBest = selectedBookOdds
-                          ? offer.book === selectedBookOdds.book && offer.odds === selectedBookOdds.odds && offer.line === selectedBookOdds.line
-                          : false;
-
-                        return (
-                          <tr key={`${offer.book}-${offer.line}-${offer.odds}`} className={isBest ? "bg-emerald-500/8" : ""}>
-                            <td className="px-4 py-3">
-                              <BookBadge book={offer.book} showOdds={false} />
-                            </td>
-                            <td className="px-4 py-3 text-gray-300">{formatOddsLine(offer.line)}</td>
-                            <td className={`px-4 py-3 font-semibold ${isBest ? "text-emerald-300" : "text-white"}`}>
-                              {formatAmericanOdds(offer.odds)}
-                            </td>
-                            <td className="px-4 py-3 text-gray-300">{(offer.impliedProbability * 100).toFixed(1)}%</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="overflow-hidden rounded-[28px] border border-dark-border bg-dark-surface/95 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
-              <div className="border-b border-dark-border/80 px-4 pt-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Game Log</p>
-                    <h2 className="mt-1 text-lg font-semibold text-white">{tabTitle(activeTab)}</h2>
-                  </div>
-                  <div className="rounded-full border border-dark-border bg-dark-bg/70 px-3 py-1 text-xs text-gray-400">
-                    {propType}
-                  </div>
-                </div>
-                <div className="mt-4 flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
-                  {([
-                    { key: "last10", label: "Last 10" },
-                    { key: "h2h", label: "Head to Head" },
-                    { key: "venue", label: isAway ? "Away" : "Home" },
-                  ] as Array<{ key: GameLogTab; label: string }>).map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`min-h-[44px] shrink-0 rounded-full border px-4 text-sm font-medium transition-colors ${
-                        activeTab === tab.key
-                          ? "border-accent-blue/40 bg-accent-blue/15 text-accent-blue"
-                          : "border-dark-border bg-dark-bg/60 text-gray-400"
-                      }`}
+                    <SectionToggle
+                      title="Opponent Defense Grid"
+                      description={`${data.defenseGrid.opponent} recent allowance profile`}
                     >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {tabGames.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <p className="text-sm font-medium text-white">No matching games found</p>
-                  <p className="mt-2 text-sm text-gray-500">
-                    This split will populate automatically once enough recent game log data is available.
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-dark-border/60">
-                  {tabGames.map((game) => {
-                    const statValue = getTrendGameStatValue(game, propType, league);
-                    const hit = didHitLine(statValue, line, overUnder);
-                    return (
                       <div
-                        key={`${game.gameId}-${game.date}`}
-                        className={`grid grid-cols-[40px_64px_1fr_88px_72px] items-center gap-3 px-4 py-3 text-sm ${
-                          hit ? "bg-emerald-500/8" : "bg-transparent"
-                        }`}
+                        className="grid gap-2 text-center text-xs"
+                        style={{ gridTemplateColumns: `88px repeat(${data.defenseGrid.overall.length}, minmax(0, 1fr))` }}
                       >
-                        <div className="flex justify-center">
-                          <span
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${
-                              hit
-                                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                                : "border-red-500/20 bg-red-500/10 text-red-300"
+                        <div className="text-left text-[11px] uppercase tracking-[0.18em] text-gray-500">Split</div>
+                        {data.defenseGrid.overall.map((cell) => (
+                          <div key={`header-${cell.label}`} className="text-[11px] uppercase tracking-[0.18em] text-gray-500">
+                            {cell.label}
+                          </div>
+                        ))}
+
+                        <div className="flex items-center text-sm font-medium text-white">Overall</div>
+                        {data.defenseGrid.overall.map((cell) => (
+                          <div
+                            key={`overall-${cell.label}`}
+                            className={`rounded-[18px] border px-2 py-3 font-semibold ${getRankPillClasses(cell.rank, data.defenseGrid?.teamCount || 30)}`}
+                          >
+                            {cell.rank}
+                          </div>
+                        ))}
+
+                        <div className="flex items-center text-sm font-medium text-white">
+                          vs {data.player?.position || data.defenseGrid.position}
+                        </div>
+                        {data.defenseGrid.vsPosition.map((cell) => (
+                          <div
+                            key={`position-${cell.label}`}
+                            className={`rounded-[18px] border px-2 py-3 font-semibold ${getRankPillClasses(cell.rank, data.defenseGrid?.teamCount || 30)}`}
+                          >
+                            {cell.rank}
+                          </div>
+                        ))}
+                      </div>
+                    </SectionToggle>
+                  </>
+                ) : null}
+
+                <SectionToggle
+                  title="Filters"
+                  description="Team, venue, and minutes thresholds"
+                >
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Opponent</p>
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        <button
+                          type="button"
+                          onClick={() => setTeamFilter("")}
+                          className={`min-h-[44px] shrink-0 rounded-full border px-4 text-sm font-semibold ${
+                            !teamFilter
+                              ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                              : "border-dark-border bg-dark-bg/70 text-gray-400"
+                          }`}
+                        >
+                          All Teams
+                        </button>
+                        {opponentOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => setTeamFilter(option)}
+                            className={`min-h-[44px] shrink-0 rounded-full border px-4 text-sm font-semibold ${
+                              teamFilter === option
+                                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                                : "border-dark-border bg-dark-bg/70 text-gray-400"
                             }`}
                           >
-                            {hit ? "✓" : "×"}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-400">{formatDate(game.date)}</div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-white">
-                            {game.isHome ? "vs" : "@"} {game.opponentAbbrev}
-                          </div>
-                          {game.minutes && (
-                            <div className="mt-1 text-xs text-gray-500">{game.minutes}</div>
-                          )}
-                        </div>
-                        <div className="text-xs font-medium text-gray-300">{formatResult(game.result, game.score)}</div>
-                        <div className={`text-right text-base font-semibold ${hit ? "text-emerald-300" : "text-white"}`}>
-                          {statValue}
-                        </div>
+                            {option}
+                          </button>
+                        ))}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                    </div>
 
-            <section className="rounded-[28px] border border-dark-border bg-dark-surface/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Action Bar</p>
-                  <p className="mt-1 text-sm text-gray-300">Pick saving is reserved for the next sprint.</p>
-                </div>
-                <button
-                  disabled
-                  className="min-h-[44px] rounded-full border border-gray-700 bg-dark-bg/70 px-4 text-sm font-semibold text-gray-500"
-                >
-                  Add to My Picks
-                </button>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Home / Away</p>
+                      <div className="mt-3 flex gap-2">
+                        {([
+                          { value: "all", label: "All" },
+                          { value: "home", label: "Home" },
+                          { value: "away", label: "Away" },
+                        ] as const).map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setVenueFilter(option.value)}
+                            className={`min-h-[44px] rounded-full border px-4 text-sm font-semibold ${
+                              venueFilter === option.value
+                                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                                : "border-dark-border bg-dark-bg/70 text-gray-400"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Minutes</p>
+                      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                        {minuteOptions.map((option) => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            onClick={() => setMinMinutes(option.minMinutes)}
+                            className={`min-h-[44px] shrink-0 rounded-full border px-4 text-sm font-semibold ${
+                              minMinutes === option.minMinutes
+                                ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                                : "border-dark-border bg-dark-bg/70 text-gray-400"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </SectionToggle>
+
+                {data?.defenseGrid && defenseCell ? (
+                  <section className="rounded-[28px] border border-dark-border bg-dark-surface/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Matchup Summary</p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {data.defenseGrid.opponent} allows {ordinal(defenseCell.rank)} most {defenseCell.label} to {data.player?.position || data.defenseGrid.position}
+                    </p>
+                    <p className="mt-3 text-sm text-gray-300">
+                      Edge score {rankToEdgeScore(defenseCell.rank, data.defenseGrid.teamCount)} • {getDvpLabel(defenseCell.rank, data.defenseGrid.teamCount)}
+                    </p>
+                  </section>
+                ) : null}
               </div>
-            </section>
+            </div>
           </div>
         )}
       </main>

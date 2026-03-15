@@ -116,6 +116,14 @@ export async function getScheduleGameById(gameId: number): Promise<NHLGame | nul
   }
 }
 
+export async function getNHLGameLanding(gameId: number): Promise<any | null> {
+  try {
+    return await cachedFetch<any>(`${NHL_BASE}/gamecenter/${gameId}/landing`, 5 * 60 * 1000);
+  } catch {
+    return null;
+  }
+}
+
 export async function getPlayerGameLog(
   playerId: number,
   season: string = "20252026"
