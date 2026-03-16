@@ -391,6 +391,8 @@ export async function buildMLBTeamTrends(
 
       const streak = parseStreak(standing.streak);
       if (streak && streak.type === "W" && streak.count >= 2) {
+        // Use actual win% as hitRate — never inflate with streak bonus
+        const actualWinPct = toPct(standing.winPct);
         trends.push({
           id: `mlb-streak-${teamContext.team}-${index++}`,
           team: teamContext.team,
@@ -398,19 +400,19 @@ export async function buildMLBTeamTrends(
           opponent: teamContext.opponent,
           isAway: teamContext.isAway,
           betType: "ML Streak",
-          line: `W${streak.count} streak`,
+          line: `W${streak.count} recent`,
           odds: teamContext.odds,
           book: teamContext.book,
           bookOdds: teamContext.bookOdds,
           impliedProb: toPct(implied),
-          hitRate: Math.min(100, toPct(standing.winPct) + streak.count * 4),
-          edge: Math.min(100, toPct(standing.winPct - implied) + streak.count * 2),
+          hitRate: actualWinPct,
+          edge: toPct(standing.winPct - implied),
           league: "MLB",
           gameId,
           splits: [
             {
-              label: `Active ${streak.count}-game win streak`,
-              hitRate: toPct(standing.winPct),
+              label: `Season record: ${standing.wins}-${standing.losses} (${actualWinPct}% win rate)`,
+              hitRate: actualWinPct,
               hits: standing.wins,
               total: standing.wins + standing.losses,
               type: "last_n",

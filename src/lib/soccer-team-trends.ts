@@ -266,6 +266,10 @@ export function buildSoccerTeamTrends(
     }
 
     if (insight.homeForm.winStreak >= 2) {
+      // Use actual win rate — never inflate with streak bonus
+      const homeRec = insight.homeForm.homeRecord;
+      const homeTotal = homeRec.wins + homeRec.draws + homeRec.losses;
+      const homeActualWinPct = homeTotal > 0 ? Math.round((homeRec.wins / homeTotal) * 100) : 50;
       trends.push({
         id: `soccer-home-streak-${match.id}`,
         team: match.homeTeam.abbreviation || match.homeTeam.shortName,
@@ -273,22 +277,26 @@ export function buildSoccerTeamTrends(
         opponent: match.awayTeam.abbreviation || match.awayTeam.shortName,
         isAway: false,
         betType: "Win Streak",
-        line: `W${insight.homeForm.winStreak}`,
+        line: `W${insight.homeForm.winStreak} recent`,
         odds: homeOdds,
         book: match.bestThreeWay?.home?.book,
         bookOdds: match.threeWayBookOdds?.home ?? [],
         impliedProb: homeImplied,
-        hitRate: Math.min(95, 60 + insight.homeForm.winStreak * 8),
-        edge: Math.min(95, 60 + insight.homeForm.winStreak * 8) - homeImplied,
+        hitRate: homeActualWinPct,
+        edge: homeActualWinPct - homeImplied,
         league,
         gameId: match.id,
         gameDate: match.date,
-        splits: splitsFor(`Active win streak: ${insight.homeForm.winStreak}`, insight.homeForm.winStreak, insight.homeForm.winStreak, []),
-        indicators: withHotIndicators(Math.min(95, 60 + insight.homeForm.winStreak * 8), insight.homeForm.winStreak),
+        splits: splitsFor(`Home form: ${homeRec.wins}W-${homeRec.draws}D-${homeRec.losses}L (${homeActualWinPct}% win rate)`, homeRec.wins, homeTotal, []),
+        indicators: withHotIndicators(homeActualWinPct, insight.homeForm.winStreak),
       });
     }
 
     if (insight.awayForm.winStreak >= 2) {
+      // Use actual win rate — never inflate with streak bonus
+      const awayRec = insight.awayForm.awayRecord;
+      const awayTotal = awayRec.wins + awayRec.draws + awayRec.losses;
+      const awayActualWinPct = awayTotal > 0 ? Math.round((awayRec.wins / awayTotal) * 100) : 50;
       trends.push({
         id: `soccer-away-streak-${match.id}`,
         team: match.awayTeam.abbreviation || match.awayTeam.shortName,
@@ -296,18 +304,18 @@ export function buildSoccerTeamTrends(
         opponent: match.homeTeam.abbreviation || match.homeTeam.shortName,
         isAway: true,
         betType: "Win Streak",
-        line: `W${insight.awayForm.winStreak}`,
+        line: `W${insight.awayForm.winStreak} recent`,
         odds: awayOdds,
         book: match.bestThreeWay?.away?.book,
         bookOdds: match.threeWayBookOdds?.away ?? [],
         impliedProb: awayImplied,
-        hitRate: Math.min(95, 60 + insight.awayForm.winStreak * 8),
-        edge: Math.min(95, 60 + insight.awayForm.winStreak * 8) - awayImplied,
+        hitRate: awayActualWinPct,
+        edge: awayActualWinPct - awayImplied,
         league,
         gameId: match.id,
         gameDate: match.date,
-        splits: splitsFor(`Active win streak: ${insight.awayForm.winStreak}`, insight.awayForm.winStreak, insight.awayForm.winStreak, []),
-        indicators: withHotIndicators(Math.min(95, 60 + insight.awayForm.winStreak * 8), insight.awayForm.winStreak),
+        splits: splitsFor(`Away form: ${awayRec.wins}W-${awayRec.draws}D-${awayRec.losses}L (${awayActualWinPct}% win rate)`, awayRec.wins, awayTotal, []),
+        indicators: withHotIndicators(awayActualWinPct, insight.awayForm.winStreak),
       });
     }
   }
