@@ -249,9 +249,7 @@ export default function HomeContent() {
                 {(viewer.profile?.name || viewer.user.email || "G").charAt(0).toUpperCase()}
               </Link>
             ) : (
-              <Link href="/login" className="tap-button text-sm font-semibold text-accent-blue">
-                Sign In
-              </Link>
+              <div className="h-11 w-11" />
             )}
           >
             <LeagueSwitcher active={sportLeague} onChange={setLeague} />
