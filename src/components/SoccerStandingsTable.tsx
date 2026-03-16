@@ -40,19 +40,19 @@ export default function SoccerStandingsTable({ league }: { league: SoccerLeague 
           <p className="text-sm text-gray-400">No standings available right now</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <div className="min-w-[720px] overflow-hidden rounded-2xl border border-dark-border/60">
-            <div className="grid grid-cols-[28px_1.2fr_repeat(8,_40px)] gap-1 border-b border-dark-border/50 bg-dark-bg/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500">
-              <div className="text-center">Pos</div>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <div className="min-w-0 overflow-hidden rounded-2xl border border-dark-border/60">
+            <div className="grid grid-cols-[24px_1fr_28px_28px_28px_28px_32px] sm:grid-cols-[28px_1.2fr_repeat(8,_40px)] gap-0.5 sm:gap-1 border-b border-dark-border/50 bg-dark-bg/60 px-2 sm:px-3 py-2 text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-500">
+              <div className="text-center">#</div>
               <div>Team</div>
               <div className="text-center">P</div>
               <div className="text-center">W</div>
               <div className="text-center">D</div>
               <div className="text-center">L</div>
-              <div className="text-center">GF</div>
-              <div className="text-center">GA</div>
-              <div className="text-center">GD</div>
-              <div className="text-center">Pts</div>
+              <div className="hidden sm:block text-center">GF</div>
+              <div className="hidden sm:block text-center">GA</div>
+              <div className="hidden sm:block text-center">GD</div>
+              <div className="text-center font-semibold">Pts</div>
             </div>
 
             {standings.map((team) => {
@@ -65,21 +65,21 @@ export default function SoccerStandingsTable({ league }: { league: SoccerLeague 
               return (
                 <div
                   key={`${league}-${team.team}`}
-                  className={`grid grid-cols-[28px_1.2fr_repeat(8,_40px)] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0 ${zoneClass}`}
+                  className={`grid grid-cols-[24px_1fr_28px_28px_28px_28px_32px] sm:grid-cols-[28px_1.2fr_repeat(8,_40px)] gap-0.5 sm:gap-1 items-center border-b border-dark-border/30 px-2 sm:px-3 py-2 sm:py-2.5 last:border-b-0 ${zoneClass}`}
                 >
-                  <div className="text-center text-xs text-gray-400">{team.position}</div>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <TeamLogo team={team.team} logo={team.logo} size={24} color={team.color} />
-                    <span className="truncate text-xs font-medium text-white">{team.team}</span>
+                  <div className="text-center text-[10px] sm:text-xs text-gray-400">{team.position}</div>
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                    <TeamLogo team={team.team} logo={team.logo} size={20} color={team.color} />
+                    <span className="truncate text-[11px] sm:text-xs font-medium text-white">{team.team}</span>
                   </div>
-                  <div className="text-center text-xs text-gray-400">{team.played}</div>
-                  <div className="text-center text-xs text-white">{team.won}</div>
-                  <div className="text-center text-xs text-gray-300">{team.drawn}</div>
-                  <div className="text-center text-xs text-gray-400">{team.lost}</div>
-                  <div className="text-center text-xs text-gray-400">{team.goalsFor}</div>
-                  <div className="text-center text-xs text-gray-400">{team.goalsAgainst}</div>
-                  <div className="text-center text-xs text-gray-400">{team.goalDifference}</div>
-                  <div className="text-center text-xs font-semibold text-white">{team.points}</div>
+                  <div className="text-center text-[10px] sm:text-xs text-gray-400">{team.played}</div>
+                  <div className="text-center text-[10px] sm:text-xs text-white">{team.won}</div>
+                  <div className="text-center text-[10px] sm:text-xs text-gray-300">{team.drawn}</div>
+                  <div className="text-center text-[10px] sm:text-xs text-gray-400">{team.lost}</div>
+                  <div className="hidden sm:block text-center text-xs text-gray-400">{team.goalsFor}</div>
+                  <div className="hidden sm:block text-center text-xs text-gray-400">{team.goalsAgainst}</div>
+                  <div className="hidden sm:block text-center text-xs text-gray-400">{team.goalDifference}</div>
+                  <div className="text-center text-[10px] sm:text-xs font-semibold text-white">{team.points}</div>
                 </div>
               );
             })}
