@@ -36,7 +36,7 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 export async function getLiveTrendData() {
   const [schedule, odds] = await Promise.all([
     getBroadSchedule(4),  // includes OFF games from last few days
-    getNHLOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NHL")).catch(() => getAggregatedOddsEvents("NHL")),
+    getNHLOdds().then(async (odds) => odds.length > 0 ? odds : (await getAggregatedOddsEvents("NHL")).NHL || []).catch(async () => (await getAggregatedOddsEvents("NHL")).NHL || []),
   ]);
 
   const gamesWithOdds = attachLiveOddsToSchedule(schedule.games, odds);
