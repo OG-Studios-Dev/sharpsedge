@@ -28,7 +28,7 @@ function displayHitRate(val?: number | null): string {
   return `${pct.toFixed(0)}%`;
 }
 
-export default function PropCard({ prop }: { prop: PlayerProp }) {
+export default function PropCard({ prop, compact = false }: { prop: PlayerProp; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const { openAddPickModal } = useAppChrome();
   const hitRate = displayHitRate(prop.hitRate ?? prop.fairProbability);
@@ -44,6 +44,49 @@ export default function PropCard({ prop }: { prop: PlayerProp }) {
     line: selectedBookOdds?.line ?? prop.line,
   });
   const showOddsLine = hasAlternateBookLines(bookOdds);
+  const compactEdge = typeof prop.edgePct === "number" ? prop.edgePct : prop.edge;
+
+  if (compact) {
+    return (
+      <Link
+        href={getPlayerTrendHrefFromProp(prop)}
+        className="block rounded-2xl border border-dark-border bg-dark-surface/70 p-4 transition hover:border-white/15 hover:bg-dark-surface"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <TeamLogo team={prop.team} color={prop.teamColor || "#4a9eff"} size={24} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{prop.playerName}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <p className="text-sm font-semibold text-white">{formatOdds(prop.odds)}</p>
+            <p className="mt-1 text-[10px] text-gray-500">{prop.book || "Model"}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-300">
+          <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
+            {prop.overUnder} {prop.line} {prop.propType}
+          </span>
+          <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
+            Hit {hitRate}
+          </span>
+          <span className={`rounded-full border px-2.5 py-1 ${
+            typeof compactEdge === "number" && compactEdge > 0
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+              : "border-dark-border/70 bg-dark-bg/60 text-gray-300"
+          }`}>
+            Edge {compactEdge != null ? `${compactEdge > 0 ? "+" : ""}${(compactEdge * 100).toFixed(1)}%` : "NA"}
+          </span>
+        </div>
+      </Link>
+    );
+  }
 
   return (
     <div className="tap-card h-full overflow-hidden rounded-2xl border border-dark-border bg-dark-surface/70">

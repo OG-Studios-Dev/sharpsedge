@@ -43,7 +43,7 @@ export default function LeagueDropdown({ active, onChange }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-xl border border-dark-border bg-dark-surface shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-xl border border-dark-border bg-dark-surface shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
           {LEAGUES.map(({ key, icon, label }) => (
             <button
               key={key}
