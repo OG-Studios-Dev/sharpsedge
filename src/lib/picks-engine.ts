@@ -302,20 +302,35 @@ export function selectTopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  // Minimum hit rate: 65% for player props, 60% for team trends
-  // Below this threshold, the pick isn't worth tracking
-  const MIN_PLAYER_HIT_RATE = 65;
-  const MIN_TEAM_HIT_RATE = 60;
+  // Pick quality filter:
+  // - 65%+ hit rate: always pickable
+  // - 60-64% hit rate: only if on a streak (2+ consecutive hits from recentGames)
+  // - Below 60%: never pick
+  function meetsQualityThreshold(hitRate: number, recentGames?: number[], line?: number): boolean {
+    const hr = normalizePercentValue(hitRate);
+    if (hr >= 65) return true;
+    if (hr < 60) return false;
+    // 60-64%: check for consecutive streak
+    if (recentGames && line !== undefined && recentGames.length >= 2) {
+      let streak = 0;
+      for (const val of recentGames) {
+        if (val > line) streak++;
+        else break;
+      }
+      if (streak >= 2) return true; // on a run = valid pick at 60%+
+    }
+    return false;
+  }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => normalizePercentValue(p.hitRate) >= MIN_PLAYER_HIT_RATE)
+    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.recentGames, p.line))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
-    .filter((t) => normalizePercentValue(t.hitRate) >= MIN_TEAM_HIT_RATE)
+    .filter((t) => normalizePercentValue(t.hitRate) >= 60)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -381,18 +396,30 @@ export function selectNBATopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  const MIN_PLAYER_HIT_RATE = 65;
-  const MIN_TEAM_HIT_RATE = 60;
+  function meetsQualityThreshold(hitRate: number, recentGames?: number[], line?: number): boolean {
+    const hr = normalizePercentValue(hitRate);
+    if (hr >= 65) return true;
+    if (hr < 60) return false;
+    if (recentGames && line !== undefined && recentGames.length >= 2) {
+      let streak = 0;
+      for (const val of recentGames) {
+        if (val > line) streak++;
+        else break;
+      }
+      if (streak >= 2) return true;
+    }
+    return false;
+  }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => normalizePercentValue(p.hitRate) >= MIN_PLAYER_HIT_RATE)
+    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.recentGames, p.line))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
-    .filter((t) => normalizePercentValue(t.hitRate) >= MIN_TEAM_HIT_RATE)
+    .filter((t) => normalizePercentValue(t.hitRate) >= 60)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 

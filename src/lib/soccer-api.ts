@@ -556,10 +556,11 @@ export async function getSoccerStandings(league: SoccerLeague): Promise<SoccerTe
       : [{ standings: payload?.standings }];
 
     const entries = containers.flatMap((container: any) => Array.isArray(container?.standings?.entries) ? container.standings.entries : []);
-    return entries
+    const standings: SoccerTeamStanding[] = entries
       .map(parseStandingEntry)
-      .filter((entry: SoccerTeamStanding) => entry.teamName)
-      .sort((left, right) => left.position - right.position || right.points - left.points);
+      .filter((entry: SoccerTeamStanding) => entry.teamName);
+
+    return standings.sort((left, right) => left.position - right.position || right.points - left.points);
   } catch {
     try {
       const payload = await cachedFetch<any>(

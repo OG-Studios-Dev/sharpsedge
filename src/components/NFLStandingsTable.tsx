@@ -48,31 +48,33 @@ export default function NFLStandingsTable() {
                   No {conference} standings available
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-dark-border/60">
-                  <div className="grid grid-cols-[32px_1fr_44px_44px_44px_72px] gap-1 border-b border-dark-border/50 bg-dark-bg/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500">
-                    <div className="text-center">#</div>
-                    <div>Team</div>
-                    <div className="text-center">W</div>
-                    <div className="text-center">L</div>
-                    <div className="text-center">T</div>
-                    <div className="text-center">Div</div>
-                  </div>
-                  {teams.map((team) => (
-                    <div
-                      key={`${conference}-${team.team}`}
-                      className="grid grid-cols-[32px_1fr_44px_44px_44px_72px] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0"
-                    >
-                      <div className="text-center text-xs text-gray-400">{team.position}</div>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <TeamLogo team={team.team} logo={team.logo} size={24} color={team.color} />
-                        <span className="truncate text-xs font-medium text-white">{team.team}</span>
-                      </div>
-                      <div className="text-center text-xs font-medium text-white">{team.wins}</div>
-                      <div className="text-center text-xs text-gray-400">{team.losses}</div>
-                      <div className="text-center text-xs text-gray-400">{team.ties}</div>
-                      <div className="text-center text-xs text-gray-400">{team.division}</div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[520px] overflow-hidden rounded-2xl border border-dark-border/60">
+                    <div className="grid grid-cols-[32px_1fr_44px_44px_44px_72px] gap-1 border-b border-dark-border/50 bg-dark-bg/60 px-3 py-2 text-[10px] uppercase tracking-wider text-gray-500">
+                      <div className="text-center">#</div>
+                      <div>Team</div>
+                      <div className="text-center">W</div>
+                      <div className="text-center">L</div>
+                      <div className="text-center">T</div>
+                      <div className="text-center">Div</div>
                     </div>
-                  ))}
+                    {teams.map((team) => (
+                      <div
+                        key={`${conference}-${team.team}`}
+                        className="grid grid-cols-[32px_1fr_44px_44px_44px_72px] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0"
+                      >
+                        <div className="text-center text-xs text-gray-400">{team.position}</div>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <TeamLogo team={team.team} logo={team.logo} size={24} color={team.color} />
+                          <span className="truncate text-xs font-medium text-white">{team.team}</span>
+                        </div>
+                        <div className="text-center text-xs font-medium text-white">{team.wins}</div>
+                        <div className="text-center text-xs text-gray-400">{team.losses}</div>
+                        <div className="text-center text-xs text-gray-400">{team.ties}</div>
+                        <div className="text-center text-xs text-gray-400">{team.division}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

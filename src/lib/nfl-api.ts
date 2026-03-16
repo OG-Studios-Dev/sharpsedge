@@ -267,7 +267,7 @@ export async function getNFLStandings(season = new Date().getFullYear()): Promis
     try {
       const payload = await cachedFetch<any>(`${ESPN_V2_BASE}/standings?season=${targetSeason}`, 30 * 60 * 1000);
       const groups = Array.isArray(payload?.children) ? payload.children : [];
-      const standings = groups.flatMap((group: any) => {
+      const standings: NFLTeamStanding[] = groups.flatMap((group: any) => {
         const conference: "AFC" | "NFC" = String(group?.abbreviation || group?.name || "").includes("AFC") ? "AFC" : "NFC";
         const entries = Array.isArray(group?.standings?.entries) ? group.standings.entries : [];
         return entries.map((entry: any) => parseStandingEntry(entry, conference));
