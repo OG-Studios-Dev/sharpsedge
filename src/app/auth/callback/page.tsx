@@ -77,13 +77,13 @@ function AuthCallbackContent() {
         setTimeout(() => {
           setStatus("Taking too long — try signing in again");
           subscription.unsubscribe();
-          setTimeout(() => router.replace("/login"), 2000);
-        }, 10000);
+          router.replace("/");
+        }, 5000);
 
       } catch (err) {
         console.error("Auth callback error:", err);
         setStatus("Something went wrong — redirecting to login");
-        setTimeout(() => router.replace("/login"), 2000);
+        router.replace("/");
       }
     }
 
