@@ -1,4 +1,3 @@
-import { getPGASchedule } from "@/lib/golf-api";
 import Link from "next/link";
 import { getPGALeaderboard, getPGASchedule, getPGATournamentLeaderboard } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";

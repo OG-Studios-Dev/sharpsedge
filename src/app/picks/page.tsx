@@ -379,7 +379,7 @@ function mapRecordToHistoryItem(record: PickHistoryRecord): HistoryItem {
 
 export default function PicksPage() {
   const [league, setLeague] = useLeague();
-  const sportLeague = normalizeSportsLeague(league);
+  const sportLeague = league === "Soccer" ? "All" : normalizeSportsLeague(league);
   const {
     todayPicks: nhlToday,
     allPicks: nhlAll,
