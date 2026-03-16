@@ -638,14 +638,7 @@ export default function PicksPage() {
         </div>
 
         <div>
-          <div className="mb-3 rounded-2xl border border-accent-blue/20 bg-accent-blue/10 p-3">
-            <p className="section-heading text-accent-blue">
-              {sportLeague === "PGA" ? "Tournament board" : "Access"}
-            </p>
-            <p className="mt-1 text-sm text-gray-300">
-              Free users see delayed AI picks. Pro and Sharp unlock the real-time board and live refresh.
-            </p>
-          </div>
+          { /* ACCESS banner hidden during beta */ }
 
           <div className="mb-2 flex items-center justify-between">
             <p className="section-heading">

@@ -41,7 +41,7 @@ export default function PageHeader({
               <img src="/logo.jpg" alt="Goosalytics" className="h-9 w-auto rounded-xl" />
             </Link>
 
-            <div className="min-w-0">
+            <div className="min-w-0 hidden lg:block">
               <h1 className="page-heading truncate">{title}</h1>
               {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
             </div>
