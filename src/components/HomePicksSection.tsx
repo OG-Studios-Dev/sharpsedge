@@ -45,7 +45,7 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
       </div>
       <div className="ml-auto text-right">
         <p className={`font-bold text-sm ${unitColor}`}>
-          {profitUnits > 0 ? "+" : ""}{profitUnits.toFixed(2)}u
+          {profitUnits > 0 ? "+" : ""}{(profitUnits || 0).toFixed(2)}u
         </p>
         <p className="text-[9px] text-gray-500 uppercase">Net</p>
       </div>
@@ -167,7 +167,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
               <span className="text-emerald-400 text-[11px] font-bold">{nhlRecord.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nhlRecord.losses}L</span>
               <span className={`ml-auto text-[11px] font-bold ${nhlRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nhlRecord.profitUnits >= 0 ? "+" : ""}{nhlRecord.profitUnits.toFixed(2)}u
+                {nhlRecord.profitUnits >= 0 ? "+" : ""}{(nhlRecord.profitUnits || 0).toFixed(2)}u
               </span>
             </div>
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
@@ -175,7 +175,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
               <span className="text-emerald-400 text-[11px] font-bold">{nbaRecord.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{nbaRecord.losses}L</span>
               <span className={`ml-auto text-[11px] font-bold ${nbaRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nbaRecord.profitUnits >= 0 ? "+" : ""}{nbaRecord.profitUnits.toFixed(2)}u
+                {nbaRecord.profitUnits >= 0 ? "+" : ""}{(nbaRecord.profitUnits || 0).toFixed(2)}u
               </span>
             </div>
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
@@ -183,7 +183,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
               <span className="text-emerald-400 text-[11px] font-bold">{mlbRecord.wins}W</span>
               <span className="text-red-400 text-[11px] font-bold">{mlbRecord.losses}L</span>
               <span className={`ml-auto text-[11px] font-bold ${mlbRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {mlbRecord.profitUnits >= 0 ? "+" : ""}{mlbRecord.profitUnits.toFixed(2)}u
+                {mlbRecord.profitUnits >= 0 ? "+" : ""}{(mlbRecord.profitUnits || 0).toFixed(2)}u
               </span>
             </div>
           </div>
