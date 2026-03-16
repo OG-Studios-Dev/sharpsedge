@@ -158,8 +158,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Admin */}
-        {profile?.role === "admin" && (
+        {/* Admin — always show during beta */}
+        {(
           <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
             <div className="px-4 py-2.5 border-b border-dark-border/50">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Admin</p>
