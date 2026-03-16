@@ -204,6 +204,9 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
 
       const streak = parseStreak(data.streak);
       if (streak && streak.type === "W" && streak.count >= 2) {
+        // Use actual win% as hitRate — never inflate with streak bonus
+        const actualWinPct = Math.round(data.winPct * 100);
+        const totalGamesPlayed = data.wins + data.losses;
         trends.push({
           id: `nba-team-streak-${abbrev}-${idx++}`,
           team: abbrev,
@@ -211,22 +214,22 @@ export async function buildNBATeamTrends(games: NBAGame[]): Promise<TeamTrend[]>
           opponent: opponentAbbrev,
           isAway,
           betType: "ML Streak",
-          line: `W${streak.count} streak`,
+          line: `W${streak.count} recent`,
           odds,
           book: isAway ? awayBook : homeBook,
           bookOdds,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
-          hitRate: Math.min(100, Math.round((data.winPct * 100) + streak.count * 5)),
+          hitRate: actualWinPct,
           edge: Math.round((data.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NBA",
           gameId,
           gameDate,
           splits: [
             {
-              label: `Active ${streak.count}-game win streak`,
-              hitRate: Math.round(data.winPct * 100),
+              label: `Season record: ${data.wins}-${data.losses} (${actualWinPct}% win rate)`,
+              hitRate: actualWinPct,
               hits: data.wins,
-              total: data.wins + data.losses,
+              total: totalGamesPlayed,
               type: "last_n",
             },
           ],

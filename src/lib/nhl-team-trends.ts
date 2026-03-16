@@ -201,6 +201,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     if (homeData) {
       const streak = parseStreak(homeData.streakCode);
       if (streak && streak.type === "W" && streak.count >= 2) {
+        const actualWinPct = Math.round(homeData.winPct * 100);
+        const totalWins = homeData.homeWins + homeData.roadWins;
         trends.push({
           id: `team-streak-${homeAbbrev}-${idx}-${idx++}`,
           team: homeAbbrev,
@@ -208,21 +210,21 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           opponent: awayAbbrev,
           isAway: false,
           betType: "ML Streak",
-          line: `W${streak.count} streak`,
+          line: `W${streak.count} recent`,
           odds: homeMLOdds,
           book: homeBook,
           bookOdds: homeBookOdds,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
-          hitRate: Math.min(100, Math.round((homeData.winPct * 100) + streak.count * 5)),
+          hitRate: actualWinPct,
           edge: Math.round((homeData.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NHL",
           gameId: gameId ? String(gameId) : undefined,
           gameDate,
           splits: [
             {
-              label: `Active ${streak.count}-game win streak`,
-              hitRate: Math.round(homeData.winPct * 100),
-              hits: homeData.homeWins + homeData.roadWins,
+              label: `Season record: ${totalWins}-${homeData.gamesPlayed - totalWins} (${actualWinPct}% win rate)`,
+              hitRate: actualWinPct,
+              hits: totalWins,
               total: homeData.gamesPlayed,
               type: "last_n",
             },
@@ -236,6 +238,8 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
     if (awayData) {
       const streak = parseStreak(awayData.streakCode);
       if (streak && streak.type === "W" && streak.count >= 2) {
+        const actualWinPct = Math.round(awayData.winPct * 100);
+        const totalWins = awayData.homeWins + awayData.roadWins;
         trends.push({
           id: `team-streak-${awayAbbrev}-${idx}-${idx++}`,
           team: awayAbbrev,
@@ -243,21 +247,21 @@ export async function buildLiveTeamTrends(games: NHLGame[]): Promise<TeamTrend[]
           opponent: homeAbbrev,
           isAway: true,
           betType: "ML Streak",
-          line: `W${streak.count} streak`,
+          line: `W${streak.count} recent`,
           odds: awayMLOdds,
           book: awayBook,
           bookOdds: awayBookOdds,
           impliedProb: Math.round(STANDARD_IMPLIED_PROB * 100),
-          hitRate: Math.min(100, Math.round((awayData.winPct * 100) + streak.count * 5)),
+          hitRate: actualWinPct,
           edge: Math.round((awayData.winPct - STANDARD_IMPLIED_PROB) * 100),
           league: "NHL",
           gameId: gameId ? String(gameId) : undefined,
           gameDate,
           splits: [
             {
-              label: `Active ${streak.count}-game win streak`,
-              hitRate: Math.round(awayData.winPct * 100),
-              hits: awayData.homeWins + awayData.roadWins,
+              label: `Season record: ${totalWins}-${awayData.gamesPlayed - totalWins} (${actualWinPct}% win rate)`,
+              hitRate: actualWinPct,
+              hits: totalWins,
               total: awayData.gamesPlayed,
               type: "last_n",
             },
