@@ -402,8 +402,10 @@ function parseScheduleFromScoreboard(scoreboard: any, tour: "PGA" | "LIV", inclu
 
   const schedule: GolfTournament[] = calendar
     .map((entry: any) => {
-      const id = firstString(entry?.value);
-      const event = eventMap.get(id);
+      // Use value as ID; fall back to slug from label for upcoming events without ESPN event IDs
+      const rawId = firstString(entry?.value);
+      const id = rawId || (entry?.label ? `upcoming-${entry.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}` : "");
+      const event = eventMap.get(rawId);
       const startDate = firstString(entry?.startDate, event?.date);
       const endDate = firstString(entry?.endDate, event?.endDate, startDate);
       const status = getTournamentStatus(event, startDate, endDate);
