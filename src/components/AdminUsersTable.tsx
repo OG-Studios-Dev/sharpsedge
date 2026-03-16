@@ -54,11 +54,12 @@ export default function AdminUsersTable({
       )}
 
       <div className="overflow-hidden rounded-2xl border border-dark-border bg-dark-surface">
-        <div className="grid grid-cols-[1.2fr_1fr_0.9fr_0.9fr_0.8fr] gap-3 border-b border-dark-border/50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+        <div className="grid grid-cols-[1.2fr_0.8fr_0.6fr_0.7fr_0.7fr_0.6fr] gap-3 border-b border-dark-border/50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
           <span>Name</span>
           <span>Username</span>
           <span>Role</span>
           <span>Joined</span>
+          <span>Last Login</span>
           <span className="text-right">Action</span>
         </div>
 
@@ -67,7 +68,7 @@ export default function AdminUsersTable({
           return (
             <div
               key={user.id}
-              className="grid grid-cols-[1.2fr_1fr_0.9fr_0.9fr_0.8fr] gap-3 border-b border-dark-border/30 px-4 py-3 last:border-b-0"
+              className="grid grid-cols-[1.2fr_0.8fr_0.6fr_0.7fr_0.7fr_0.6fr] gap-3 border-b border-dark-border/30 px-4 py-3 last:border-b-0"
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">{user.name}</p>
@@ -76,6 +77,7 @@ export default function AdminUsersTable({
               <p className="text-sm text-gray-300">{user.username ? `@${user.username}` : "—"}</p>
               <p className="text-sm text-gray-300">{user.role}</p>
               <p className="text-sm text-gray-400">{formatDate(user.created_at)}</p>
+              <p className="text-sm text-gray-400">{user.last_login_at ? formatDate(user.last_login_at) : "Never"}</p>
               <div className="text-right">
                 <button
                   type="button"
