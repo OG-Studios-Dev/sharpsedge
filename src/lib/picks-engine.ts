@@ -120,14 +120,27 @@ function buildTeamReasoning(trend: ScoredTeamTrend): string {
   const displayOdds = bestBookOdds?.odds ?? trend.odds;
 
   const parts: string[] = [];
-  parts.push(`${trend.team} ${trend.betType}: ${hr.toFixed(0)}% hit rate.`);
 
+  // Build reasoning per template: hit rate, recent form, matchup, edge, why now
+  const betLabel = trend.betType || "trend";
+  const lookback = betLabel.toLowerCase().includes("streak") ? "recent stretch" : "L10";
+
+  parts.push(`${trend.team} ${betLabel}: ${hr.toFixed(0)}% hit rate over ${lookback}.`);
+
+  // Include split context but strip unverified streak claims
   for (const split of splits.slice(0, 2)) {
-    if (split.label) parts.push(split.label + ".");
+    if (split.label) {
+      // Don't parrot specific streak numbers we can't verify
+      const cleaned = split.label
+        .replace(/Active \d+-game (win |)streak\.?/gi, "Strong recent form.")
+        .replace(/\d+-game (win |)streak/gi, "recent winning run")
+        .trim();
+      if (cleaned) parts.push(cleaned + (cleaned.endsWith(".") ? "" : "."));
+    }
   }
 
   if (edge > 0) {
-    parts.push(`Edge: +${edge.toFixed(1)}% over implied.`);
+    parts.push(`Model edge: +${edge.toFixed(1)}% over implied book odds.`);
   }
 
   if (displayBook && displayBook !== "Model Line" && typeof displayOdds === "number") {
