@@ -202,10 +202,10 @@ export default async function GolfPage() {
             <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">World Rankings</p>
-                  <h2 className="mt-1 text-xl font-semibold text-white">OWGR proxy for now</h2>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Player Rankings</p>
+                  <h2 className="mt-1 text-xl font-semibold text-white">Field power rankings</h2>
                 </div>
-                <span className="text-xs text-gray-500">OWGR + LIV rankings coming soon</span>
+                <span className="text-xs text-gray-500">DataGolf SG data updating daily</span>
               </div>
 
               {rankingBoard.length > 0 ? (
