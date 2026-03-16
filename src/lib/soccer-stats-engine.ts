@@ -114,9 +114,9 @@ function buildSnapshotMap(recentMatches: SoccerMatch[]) {
     }
   }
 
-  for (const snapshot of map.values()) {
+  map.forEach((snapshot) => {
     snapshot.matches.sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }
+  });
 
   return map;
 }

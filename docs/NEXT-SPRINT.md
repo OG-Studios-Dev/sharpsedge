@@ -397,3 +397,33 @@ Marco: Create account at https://datagolf.com/api-access and get API key
 - Swapped picks show ⚡ UPDATED badge in bright yellow/orange
 - Tooltip/detail: "Changed at 2:15 PM — was Tavares O0.5, now Matthews O0.5 (Tavares ruled out)"
 - Original pick visible in reasoning text
+
+## Pick History — Collapsible Daily Records
+
+### Problem
+Daily pick breakdowns take too much space when history grows to 30+ days.
+
+### Solution
+Compact daily summary → tap to expand full details.
+
+**Compact:**
+```
+Mar 15: 2W-1L (+0.91u) ▼
+Mar 14: 4W-2L-1P (+1.20u) ▼
+```
+
+**Expanded:**
+```
+Mar 15: 2W-1L (+0.91u)
+───────────────
+✅ OKC Win ML (+0.91u)
+❌ Edwards Over 29.5 (-1u)
+✅ Marshall Over 2.5 Ast (+0.91u)
+```
+
+### Implementation
+- In src/app/picks/history/page.tsx
+- Each day is a tappable row (details/summary component)
+- Default: show 10 most recent days compact
+- Expand/collapse with smooth animation
+- Persist expanded state in URL query params (?expanded=2026-03-15)
