@@ -541,7 +541,7 @@ async function getGolfSchedule(tour: GolfTourKey): Promise<GolfTournament[]> {
   try {
     const scoreboard = await getGolfScoreboard(tour);
     const tourLabel = tour === "pga" ? "PGA" : "LIV";
-    const schedule = parseScheduleFromScoreboard(scoreboard, tourLabel);
+    const schedule = parseScheduleFromScoreboard(scoreboard, tourLabel, true);
     const enriched = await Promise.all(
       schedule.map((tournament: GolfTournament, index: number) => (
         index < 4 ? enrichTournament(tournament, tour) : Promise.resolve(tournament)
