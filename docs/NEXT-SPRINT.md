@@ -368,3 +368,32 @@ Marco: Create account at https://datagolf.com/api-access and get API key
 - Badge check runs on each pick resolution
 - Leaderboard: materialized view or scheduled aggregate
 - Needs minimum user base (~50 users) before leaderboard is meaningful
+
+## AI Pick Process — HARD RULES (from Marco)
+
+### Daily Flow
+1. **By 9 AM ET**: Generate 3 NHL + 3 NBA picks
+2. **Immediately save to Supabase** as PENDING with odds, reasoning, gameId
+3. **Before game time**: AI can swap picks if:
+   - Injury news (starter ruled out)
+   - Line movement (odds shifted significantly)
+   - Lineup change (backup goalie, rest day)
+4. **If swapped**: 
+   - Update pick in Supabase (keep old pick in reasoning as "Changed from X")
+   - Mark pick with ⚡ UPDATED highlight on picks page (bright color)
+   - Record WHY it changed
+5. **At game start**: Pick LOCKS — no more changes
+6. **After game**: Resolve W/L/Push, update Supabase
+7. **Next morning**: Report results to Marco
+
+### Recording Rules
+- NEVER lose track of picks — Supabase is the source of truth
+- NEVER backfill picks after games start
+- NEVER change a pick after its game has begun
+- Record original pick + any changes with timestamps
+- Every pick must have: date, league, player/team, line, odds, gameId
+
+### UI: Pick Changes
+- Swapped picks show ⚡ UPDATED badge in bright yellow/orange
+- Tooltip/detail: "Changed at 2:15 PM — was Tavares O0.5, now Matthews O0.5 (Tavares ruled out)"
+- Original pick visible in reasoning text

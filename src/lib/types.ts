@@ -270,6 +270,7 @@ export type GolfTournament = {
   endDate?: string;
   location?: string;
   coursePar?: number | null;
+  courseYardage?: number | null;
   round?: number | null;
   statusDetail?: string;
   current?: boolean;

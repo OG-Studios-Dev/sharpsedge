@@ -228,6 +228,15 @@ function getCoursePar(event: any) {
   );
 }
 
+function getCourseYardage(event: any) {
+  return (
+    toNumber(event?.competitions?.[0]?.venue?.yardage)
+    ?? toNumber(event?.competitions?.[0]?.course?.yardage)
+    ?? toNumber(event?.venue?.yardage)
+    ?? null
+  );
+}
+
 function getTournamentLocation(event: any) {
   const address = event?.competitions?.[0]?.venue?.address ?? event?.venue?.address ?? {};
   return [safeString(address.city), safeString(address.state), safeString(address.country)].filter(Boolean).join(", ");
@@ -269,6 +278,7 @@ function parseTournamentFromEvent(event: any, tour: "PGA" | "LIV"): GolfTourname
     endDate,
     location: getTournamentLocation(event),
     coursePar: getCoursePar(event),
+    courseYardage: getCourseYardage(event),
     round: toNumber(competition?.status?.period ?? event?.status?.period),
     statusDetail: firstString(
       competition?.status?.type?.shortDetail,
