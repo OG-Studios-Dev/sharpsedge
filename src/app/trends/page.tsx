@@ -7,7 +7,7 @@ import { normalizeSportsLeague } from "@/lib/insights";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 import TrendPropCard from "@/components/TrendPropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import { TREND_FILTER_OPTIONS } from "@/components/TrendIndicators";
 import FilterBar from "@/components/FilterBar";
@@ -168,7 +168,7 @@ export default function TrendsPage() {
         <PageHeader
           title="Trends"
           subtitle="Live trend cards and model signals."
-          right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
         />
 
         <EmptyStateCard
@@ -187,7 +187,7 @@ export default function TrendsPage() {
       <PageHeader
         title="Trends"
         subtitle="Live trend cards and model signals."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       >
         <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
           {(["All", "Player", "Team"] as Tab[]).map((item) => (

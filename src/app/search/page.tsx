@@ -6,7 +6,7 @@ import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
 import EmptyStateCard from "@/components/EmptyStateCard";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import PageHeader from "@/components/PageHeader";
 
 type SearchResult = {
@@ -113,7 +113,7 @@ export default function SearchPage() {
       <PageHeader
         title="Search"
         subtitle="Players, teams, and matchups from the active slate."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       >
         <div className="max-w-2xl mx-auto">
           <input

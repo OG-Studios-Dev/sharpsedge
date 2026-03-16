@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
 import { normalizeSportsLeague } from "@/lib/insights";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TeamLogo from "@/components/TeamLogo";
 import PageHeader from "@/components/PageHeader";
@@ -112,7 +112,7 @@ export default function TeamsPage() {
       <PageHeader
         title="Teams"
         subtitle="League directory with direct links into each team page."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       />
 
       <div className="max-w-2xl mx-auto px-4 py-5">

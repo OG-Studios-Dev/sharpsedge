@@ -5,7 +5,7 @@ import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { buildSGPSuggestions, normalizeSportsLeague } from "@/lib/insights";
 import EmptyStateCard from "@/components/EmptyStateCard";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import SGPCard from "@/components/SGPCard";
 import PageHeader from "@/components/PageHeader";
 import LockedFeature from "@/components/LockedFeature";
@@ -47,7 +47,7 @@ export default function ParlaysPage() {
       <PageHeader
         title="Parlay Builder"
         subtitle="Same-game combinations ranked by multiplied hit probability."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       />
 
       <LockedFeature feature="sgp_builder">

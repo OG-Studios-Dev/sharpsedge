@@ -8,7 +8,7 @@ import { buildClubRows, normalizeSportsLeague } from "@/lib/insights";
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 import PropCard from "@/components/PropCard";
 import TeamTrendCard from "@/components/TeamTrendCard";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import FilterBar from "@/components/FilterBar";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TrendRow from "@/components/TrendRow";
@@ -276,7 +276,7 @@ export default function PropsPage() {
         <PageHeader
           title="Props"
           subtitle="Player and team market analytics."
-          right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
         />
 
         <EmptyStateCard
@@ -295,7 +295,7 @@ export default function PropsPage() {
       <PageHeader
         title="Props"
         subtitle="Player and team market analytics."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       >
         <div className="pb-1">
           <FilterBar filters={filters} />

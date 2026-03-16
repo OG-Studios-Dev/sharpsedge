@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import TeamLogo from "@/components/TeamLogo";
 import PageHeader from "@/components/PageHeader";
@@ -526,7 +526,7 @@ export default function OddsPage() {
       <PageHeader
         title="Lines & Odds"
         subtitle="Best prices, movement, and sharper-book context."
-        right={<LeagueSwitcher active={sportLeague} onChange={setLeague} />}
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
       >
         <div className="flex overflow-x-auto border-b border-dark-border scrollbar-hide">
           {(["Best Lines", "Movement", "Sharp"] as Tab[]).map((item) => (

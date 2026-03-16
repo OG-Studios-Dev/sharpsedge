@@ -9,7 +9,7 @@ import { AIPick } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
 import { computePickRecord } from "@/lib/pick-record";
 import type { PickHistoryRecord } from "@/lib/supabase-types";
-import LeagueSwitcher from "@/components/LeagueSwitcher";
+import LeagueDropdown from "@/components/LeagueDropdown";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import BookBadge from "@/components/BookBadge";
@@ -546,7 +546,7 @@ export default function PicksPage() {
   return (
     <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24 lg:px-0">
             <PageHeader title="" subtitle="">
-        <LeagueSwitcher active={sportLeague} onChange={setLeague} />
+        <LeagueDropdown active={sportLeague} onChange={setLeague} />
       </PageHeader>
 
       <div className="mb-6 grid gap-4 px-4 pt-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-0">
