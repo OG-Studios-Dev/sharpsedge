@@ -236,9 +236,11 @@ export default function HomeContent() {
       <main className="min-h-screen bg-dark-bg pb-24">
         <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
           <PageHeader
-            title="Golf"
-            subtitle="Leaderboard-first tournament intelligence."
-            right={viewer.user ? (
+            title=""
+            subtitle=""
+            right={viewer.loading ? (
+              <div className="h-11 w-11 rounded-2xl bg-dark-border/40 animate-pulse" />
+            ) : viewer.user ? (
               <Link
                 href="/settings"
                 aria-label="Open settings"
