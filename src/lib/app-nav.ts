@@ -97,7 +97,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
   {
     id: "golf",
-    href: "/schedule",
+    href: "/golf",
     label: "Golf",
     shortLabel: "Golf",
     emoji: "⛳",
