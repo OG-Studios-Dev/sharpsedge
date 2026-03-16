@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 // Run this function from Ireland to bypass Matchbook's region block
 export const runtime = "edge";
-export const preferredRegion = "irl1";
+export const preferredRegion = "dub1";
 
 const MATCHBOOK_BASE = "https://api.matchbook.com/bpapi/rest";
 const MB_USERNAME = process.env.MATCHBOOK_USERNAME;
