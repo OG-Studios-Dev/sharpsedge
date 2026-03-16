@@ -1,11 +1,11 @@
 import AdminUsersTable from "@/components/AdminUsersTable";
-import { requireAdmin } from "@/lib/auth";
+
 import { getAdminUsers } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const viewer = await requireAdmin();
+  
   const users = await getAdminUsers();
 
   return (
