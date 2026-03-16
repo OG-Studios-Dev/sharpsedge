@@ -462,6 +462,36 @@ async function getGolfLeaderboardByEvent(tour: GolfTourKey, eventId: string) {
   return cachedFetch<any>(`${ESPN_WEB_BASE}/leaderboard?league=${tour}&event=${eventId}`);
 }
 
+function buildLeaderboardFromEvent(event: any, tourLabel: "PGA" | "LIV", lastUpdated?: string | null): GolfLeaderboard {
+  const parsedTournament = parseTournamentFromEvent(event, tourLabel);
+  const competition = event?.competitions?.[0] ?? {};
+  const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+  const players = parseLeaderboardPlayers(competitors, parsedTournament);
+  const cutLine = parseCutLine(players);
+
+  return {
+    tournament: { ...parsedTournament, cutLine },
+    players,
+    cutLine,
+    lastUpdated: firstString(lastUpdated, competition?.status?.type?.detail),
+    statusBadge: getStatusBadge(parsedTournament),
+  };
+}
+
+async function getGolfLeaderboardForEvent(tour: GolfTourKey, eventId: string): Promise<GolfLeaderboard | null> {
+  if (!eventId) return null;
+
+  try {
+    const payload = await getGolfLeaderboardByEvent(tour, eventId);
+    const event = payload?.events?.[0];
+    if (!event) return null;
+
+    return buildLeaderboardFromEvent(payload?.events?.[0], tour === "pga" ? "PGA" : "LIV", payload?.timestamp);
+  } catch {
+    return null;
+  }
+}
+
 async function enrichTournament(tournament: GolfTournament, tour: GolfTourKey) {
   if (!tournament.id || (tournament.course !== "Course TBD" && tournament.purse !== "TBD")) {
     return tournament;
@@ -505,21 +535,11 @@ async function getGolfLeaderboard(tour: GolfTourKey): Promise<GolfLeaderboard | 
     const tournament = parseTournamentFromEvent(activeEvent, tourLabel);
 
     try {
-      const payload = await getGolfLeaderboardByEvent(tour, tournament.id);
-      const event = payload?.events?.[0] ?? activeEvent;
-      const parsedTournament = parseTournamentFromEvent(event, tourLabel);
-      const competition = event?.competitions?.[0] ?? activeEvent?.competitions?.[0] ?? {};
-      const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
-      const players = parseLeaderboardPlayers(competitors, parsedTournament);
-      const cutLine = parseCutLine(players);
+      const leaderboard = await getGolfLeaderboardForEvent(tour, tournament.id);
+      if (leaderboard) return leaderboard;
 
-      return {
-        tournament: { ...parsedTournament, cutLine },
-        players,
-        cutLine,
-        lastUpdated: firstString(payload?.timestamp, competition?.status?.type?.detail),
-        statusBadge: getStatusBadge(parsedTournament),
-      };
+      const fallbackBoard = buildLeaderboardFromEvent(activeEvent, tourLabel);
+      return fallbackBoard;
     } catch {
       const competition = activeEvent?.competitions?.[0] ?? {};
       const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
@@ -606,6 +626,16 @@ export async function getPGALeaderboard() {
 
 export async function getPGASchedule() {
   return getGolfSchedule("pga");
+}
+
+export async function getPGATournamentLeaderboard(eventId: string) {
+  return getGolfLeaderboardForEvent("pga", eventId);
+}
+
+export async function getPGATournamentById(eventId: string) {
+  if (!eventId) return null;
+  const schedule = await getPGASchedule();
+  return schedule.find((tournament) => tournament.id === eventId) ?? null;
 }
 
 export async function getPlayerTournamentHistory(playerId: string, limit = HISTORY_SCAN_LIMIT) {

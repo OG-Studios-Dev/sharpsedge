@@ -118,6 +118,7 @@ export default function PropsPage() {
   const [clubLineType, setClubLineType] = useState<ClubLineFilter>("all");
   const [venue, setVenue] = useState<VenueFilter>("all");
   const [gameFilter, setGameFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"hit_rate" | "edge" | "odds">("hit_rate");
   const dashboards = useSportsDashboards(sportLeague);
 
   // Build game options from available props
@@ -184,7 +185,7 @@ export default function PropsPage() {
   }, [sportLeague]);
 
   const filteredPlayers = useMemo(() => {
-    return dashboards.props.filter((prop: PlayerProp) => {
+    const filtered = dashboards.props.filter((prop: PlayerProp) => {
       if (!qualifiesAsTrend(prop)) return false;
       if (gameFilter !== "all" && prop.gameId !== gameFilter) return false;
       if (metric === "all") return true;
@@ -192,7 +193,16 @@ export default function PropsPage() {
       if (metric === "under") return prop.overUnder === "Under";
       return prop.propType === metric;
     });
-  }, [dashboards.props, metric, gameFilter]);
+    // Sort
+    return filtered.sort((a, b) => {
+      const aHR = typeof a.hitRate === "number" ? (Math.abs(a.hitRate) <= 1 ? a.hitRate * 100 : a.hitRate) : 0;
+      const bHR = typeof b.hitRate === "number" ? (Math.abs(b.hitRate) <= 1 ? b.hitRate * 100 : b.hitRate) : 0;
+      if (sortBy === "hit_rate") return bHR - aHR;
+      if (sortBy === "edge") return (b.edgePct ?? b.edge ?? 0) - (a.edgePct ?? a.edge ?? 0);
+      if (sortBy === "odds") return (a.odds ?? 0) - (b.odds ?? 0);
+      return bHR - aHR;
+    });
+  }, [dashboards.props, metric, gameFilter, sortBy]);
 
   const filteredTeams = useMemo(() => {
     return dashboards.teamTrends.filter((trend: TeamTrend) => {
@@ -259,6 +269,18 @@ export default function PropsPage() {
           value: gameFilter,
           onChange: setGameFilter,
           options: [{ label: "All Games", value: "all" }, ...gameOptions],
+        }]
+      : []),
+    ...(view === "Players"
+      ? [{
+          label: "Sort",
+          value: sortBy,
+          onChange: (v: string) => setSortBy(v as "hit_rate" | "edge" | "odds"),
+          options: [
+            { label: "Hit Rate ↓", value: "hit_rate" },
+            { label: "Edge ↓", value: "edge" },
+            { label: "Best Odds", value: "odds" },
+          ],
         }]
       : []),
   ];

@@ -8,8 +8,8 @@ import {
   type GoalieStarter,
   type TeamStandingRow,
 } from "@/lib/nhl-api";
-import { findOddsForGame, getNHLOdds } from "@/lib/odds-api";
-import type { NHLGame } from "@/lib/types";
+import { findOddsForGame, getBestOdds, getNHLOdds } from "@/lib/odds-api";
+import type { NHLGame, OddsEvent } from "@/lib/types";
 import type {
   MatchupComparisonView,
   MatchupInsight,
@@ -494,6 +494,134 @@ function formatET(date: string) {
   })} ET`;
 }
 
+function formatOdds(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function formatRecord(wins?: number | null, losses?: number | null, otLosses?: number | null) {
+  return `${wins ?? 0}-${losses ?? 0}-${otLosses ?? 0}`;
+}
+
+function buildRecentRecord(games: any[], teamAbbrev: string) {
+  const completed = games
+    .filter((game) => game?.gameState === "OFF")
+    .slice(-10);
+
+  if (completed.length === 0) return "0-0";
+
+  let wins = 0;
+  for (const game of completed) {
+    const isHome = game.homeTeam?.abbrev === teamAbbrev;
+    const goalsFor = isHome ? Number(game.homeTeam?.score ?? 0) : Number(game.awayTeam?.score ?? 0);
+    const goalsAgainst = isHome ? Number(game.awayTeam?.score ?? 0) : Number(game.homeTeam?.score ?? 0);
+    if (goalsFor > goalsAgainst) wins += 1;
+  }
+
+  return `${wins}-${completed.length - wins}`;
+}
+
+function buildSeriesRecord(games: any[], teamAbbrev: string, opponentAbbrev: string) {
+  const completed = games.filter((game) => {
+    if (game?.gameState !== "OFF") return false;
+    const home = game.homeTeam?.abbrev;
+    const away = game.awayTeam?.abbrev;
+    return (home === teamAbbrev && away === opponentAbbrev) || (home === opponentAbbrev && away === teamAbbrev);
+  });
+
+  if (completed.length === 0) return null;
+
+  let wins = 0;
+  for (const game of completed) {
+    const isHome = game.homeTeam?.abbrev === teamAbbrev;
+    const goalsFor = isHome ? Number(game.homeTeam?.score ?? 0) : Number(game.awayTeam?.score ?? 0);
+    const goalsAgainst = isHome ? Number(game.awayTeam?.score ?? 0) : Number(game.homeTeam?.score ?? 0);
+    if (goalsFor > goalsAgainst) wins += 1;
+  }
+
+  return `${wins}-${completed.length - wins}`;
+}
+
+function getBestSpreadForTeam(event: OddsEvent | undefined, teamName: string) {
+  if (!event) return null;
+
+  let best: { odds: number; book: string; line: number } | null = null;
+
+  for (const bookmaker of event.bookmakers || []) {
+    const market = bookmaker.markets.find((entry) => entry.key === "spreads");
+    if (!market) continue;
+
+    for (const outcome of market.outcomes || []) {
+      if (outcome.name !== teamName) continue;
+      if (typeof outcome.point !== "number" || !Number.isFinite(outcome.point)) continue;
+      if (!best || outcome.price > best.odds) {
+        best = { odds: outcome.price, book: bookmaker.title, line: outcome.point };
+      }
+    }
+  }
+
+  return best;
+}
+
+function getBestTotalForEvent(event: OddsEvent | undefined) {
+  if (!event) return null;
+
+  let bestLine: number | null = null;
+  let over: { odds: number; book: string } | null = null;
+  let under: { odds: number; book: string } | null = null;
+
+  for (const bookmaker of event.bookmakers || []) {
+    const market = bookmaker.markets.find((entry) => entry.key === "totals");
+    if (!market) continue;
+
+    const marketLine = market.outcomes.find((outcome) => outcome.name === "Over" && typeof outcome.point === "number")?.point;
+    if (typeof marketLine === "number" && bestLine === null) {
+      bestLine = marketLine;
+    }
+
+    for (const outcome of market.outcomes || []) {
+      if (typeof outcome.point !== "number" || !Number.isFinite(outcome.point)) continue;
+      if (bestLine !== null && outcome.point !== bestLine) continue;
+
+      if (outcome.name === "Over" && (!over || outcome.price > over.odds)) {
+        over = { odds: outcome.price, book: bookmaker.title };
+      }
+      if (outcome.name === "Under" && (!under || outcome.price > under.odds)) {
+        under = { odds: outcome.price, book: bookmaker.title };
+      }
+    }
+  }
+
+  if (bestLine === null) return null;
+  return { line: bestLine, over, under };
+}
+
+function buildBettingSummary(event: OddsEvent | undefined, awayAbbrev: string, homeAbbrev: string) {
+  const awayMoneyline = event ? getBestOdds(event, "h2h", event.away_team) : null;
+  const homeMoneyline = event ? getBestOdds(event, "h2h", event.home_team) : null;
+  const awaySpread = event ? getBestSpreadForTeam(event, event.away_team) : null;
+  const homeSpread = event ? getBestSpreadForTeam(event, event.home_team) : null;
+  const total = getBestTotalForEvent(event);
+
+  const favorite = homeSpread && homeSpread.line < 0
+    ? `${homeAbbrev} ${homeSpread.line}`
+    : awaySpread && awaySpread.line < 0
+      ? `${awayAbbrev} ${awaySpread.line}`
+      : homeSpread
+        ? `${homeAbbrev} ${homeSpread.line}`
+        : awaySpread
+          ? `${awayAbbrev} ${awaySpread.line}`
+          : null;
+
+  return {
+    moneyline: awayMoneyline?.odds != null || homeMoneyline?.odds != null
+      ? `${awayAbbrev} ${formatOdds(awayMoneyline?.odds) ?? "—"} | ${homeAbbrev} ${formatOdds(homeMoneyline?.odds) ?? "—"}`
+      : null,
+    spread: favorite,
+    total: total ? `O/U ${total.line}` : null,
+  };
+}
+
 function buildStatus(landing: any): MatchupStatus {
   const state = String(landing?.gameState || "");
   if (state === "OFF" || state === "FINAL") {
@@ -785,7 +913,7 @@ export async function getNHLMatchupData(gameId: string): Promise<MatchupPageData
     }
   }
 
-  const [awayPlayers, homePlayers] = await Promise.all([
+  const [awayPlayers, homePlayers, awaySchedule, homeSchedule] = await Promise.all([
     buildTeamPlayers({
       teamAbbrev: awayAbbrev,
       opponentAbbrev: homeAbbrev,
@@ -802,6 +930,8 @@ export async function getNHLMatchupData(gameId: string): Promise<MatchupPageData
       bestPropByPlayer,
       dataset,
     }),
+    getClubSchedule(awayAbbrev),
+    getClubSchedule(homeAbbrev),
   ]);
 
   const lineup: MatchupLineup = {
@@ -845,6 +975,29 @@ export async function getNHLMatchupData(gameId: string): Promise<MatchupPageData
     score: typeof landing.homeTeam?.score === "number" ? landing.homeTeam.score : null,
   };
 
+  const awayLast10 = buildRecentRecord(awaySchedule, awayAbbrev);
+  const homeLast10 = buildRecentRecord(homeSchedule, homeAbbrev);
+  const awaySeries = buildSeriesRecord(awaySchedule, awayAbbrev, homeAbbrev);
+  const homeSeries = buildSeriesRecord(homeSchedule, homeAbbrev, awayAbbrev);
+  const betting = buildBettingSummary(oddsEvent, awayAbbrev, homeAbbrev);
+
+  const awayCompact = awayStanding
+    ? `Road ${formatRecord(awayStanding.roadWins, awayStanding.roadLosses, awayStanding.roadOtLosses)} | L10 ${awayLast10} | Streak ${awayStanding.streakCode || "—"}`
+    : `L10 ${awayLast10} | Streak —`;
+  const homeCompact = homeStanding
+    ? `Home ${formatRecord(homeStanding.homeWins, homeStanding.homeLosses, homeStanding.homeOtLosses)} | L10 ${homeLast10} | Streak ${homeStanding.streakCode || "—"}`
+    : `L10 ${homeLast10} | Streak —`;
+
+  const awayRow1 = awayStanding
+    ? `Record: ${formatRecord(awayStanding.wins, awayStanding.losses, awayStanding.otLosses)} | Home: ${formatRecord(awayStanding.homeWins, awayStanding.homeLosses, awayStanding.homeOtLosses)} | Road: ${formatRecord(awayStanding.roadWins, awayStanding.roadLosses, awayStanding.roadOtLosses)}`
+    : `Record: ${awaySummary.record}`;
+  const homeRow1 = homeStanding
+    ? `Record: ${formatRecord(homeStanding.wins, homeStanding.losses, homeStanding.otLosses)} | Home: ${formatRecord(homeStanding.homeWins, homeStanding.homeLosses, homeStanding.homeOtLosses)} | Road: ${formatRecord(homeStanding.roadWins, homeStanding.roadLosses, homeStanding.roadOtLosses)}`
+    : `Record: ${homeSummary.record}`;
+
+  const awayRow2 = `L10: ${awayLast10} | Streak: ${awayStanding?.streakCode || "—"} | ${awaySeries ? `vs ${homeAbbrev}: ${awaySeries}` : `Pts: ${awayStanding?.points ?? 0}`}`;
+  const homeRow2 = `L10: ${homeLast10} | Streak: ${homeStanding?.streakCode || "—"} | ${homeSeries ? `vs ${awayAbbrev}: ${homeSeries}` : `Pts: ${homeStanding?.points ?? 0}`}`;
+
   return {
     league: "NHL",
     gameId,
@@ -852,6 +1005,22 @@ export async function getNHLMatchupData(gameId: string): Promise<MatchupPageData
       away: awaySummary,
       home: homeSummary,
       status,
+      compact: {
+        away: awayCompact,
+        home: homeCompact,
+        betting,
+      },
+    },
+    teamStats: {
+      away: {
+        row1: awayRow1,
+        row2: awayRow2,
+      },
+      home: {
+        row1: homeRow1,
+        row2: homeRow2,
+      },
+      seriesNote: awaySeries && homeSeries ? `Season series: ${awayAbbrev} ${awaySeries}, ${homeAbbrev} ${homeSeries}` : null,
     },
     insights: buildInsights(awayStanding, homeStanding),
     comparisonViews: buildComparisonViews(awayAbbrev, homeAbbrev, dataset),

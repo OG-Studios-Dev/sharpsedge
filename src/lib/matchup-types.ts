@@ -77,6 +77,17 @@ export type MatchupLineup = {
   home: MatchupStarter[];
 };
 
+export type MatchupBettingSummary = {
+  moneyline: string | null;
+  spread: string | null;
+  total: string | null;
+};
+
+export type MatchupTeamStatBlock = {
+  row1: string;
+  row2: string;
+};
+
 export type MatchupPropCard = {
   id: string;
   playerName: string;
@@ -99,6 +110,16 @@ export type MatchupPageData = {
     away: MatchupTeamSummary;
     home: MatchupTeamSummary;
     status: MatchupStatus;
+    compact: {
+      away: string;
+      home: string;
+      betting: MatchupBettingSummary;
+    };
+  };
+  teamStats: {
+    away: MatchupTeamStatBlock;
+    home: MatchupTeamStatBlock;
+    seriesNote?: string | null;
   };
   insights: MatchupInsight[];
   comparisonViews: MatchupComparisonView[];
