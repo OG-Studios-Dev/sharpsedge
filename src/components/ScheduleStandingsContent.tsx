@@ -321,7 +321,7 @@ export default function ScheduleStandingsContent() {
     : (["Schedule", "Standings"] as const);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5 space-y-4 lg:px-0">
+    <div className="mx-auto max-w-6xl px-4 py-5 space-y-4 lg:px-0 overflow-x-hidden">
       {/* League Switcher */}
       <LeagueSwitcher active={sportLeague} onChange={setLeague} />
 
