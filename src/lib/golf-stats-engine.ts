@@ -714,3 +714,83 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
 
   return picks.slice(0, 12);
 }
+
+// --- DataGolf Integration ---
+
+import type { DGPlayerRanking, DGPrediction, DGCourseFit } from "./datagolf-scraper";
+import { getDGCache } from "./datagolf-cache";
+
+export interface DGEnrichedPlayer {
+  sgOTT: number | null;
+  sgAPP: number | null;
+  sgARG: number | null;
+  sgPUTT: number | null;
+  sgT2G: number | null;
+  dgRank: number | null;
+  dgWinProb: number | null;
+  dgTop5Prob: number | null;
+  dgTop10Prob: number | null;
+  dgTop20Prob: number | null;
+  dgCourseFit: number | null;
+}
+
+function normalizeDGName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z]/g, "").trim();
+}
+
+function findDGMatch<T extends { name: string }>(list: T[], playerName: string): T | undefined {
+  const normalized = normalizeDGName(playerName);
+  return list.find((p) => normalizeDGName(p.name) === normalized)
+    || list.find((p) => normalizeDGName(p.name).includes(normalized) || normalized.includes(normalizeDGName(p.name)));
+}
+
+/**
+ * Enrich a golf player with DataGolf strokes-gained data from cache.
+ */
+export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
+  const cache = getDGCache();
+  if (!cache?.data) return null;
+
+  const ranking = findDGMatch(cache.data.rankings, playerName);
+  const prediction = findDGMatch(cache.data.predictions, playerName);
+  const courseFit = findDGMatch(cache.data.courseFit, playerName);
+
+  if (!ranking && !prediction && !courseFit) return null;
+
+  return {
+    sgOTT: ranking?.sgOTT ?? null,
+    sgAPP: ranking?.sgAPP ?? null,
+    sgARG: ranking?.sgARG ?? null,
+    sgPUTT: ranking?.sgPUTT ?? null,
+    sgT2G: ranking?.sgT2G ?? null,
+    dgRank: ranking?.rank ?? null,
+    dgWinProb: prediction?.winProb ?? null,
+    dgTop5Prob: prediction?.top5Prob ?? null,
+    dgTop10Prob: prediction?.top10Prob ?? null,
+    dgTop20Prob: prediction?.top20Prob ?? null,
+    dgCourseFit: courseFit?.fitScore ?? null,
+  };
+}
+
+/**
+ * Calculate edge from DataGolf prediction vs book odds.
+ * Returns edge as percentage (e.g. 15.2 means +15.2% edge).
+ */
+export function calculateDGEdge(
+  dgProb: number | null,
+  bookOdds: number | null,
+  market: "win" | "top5" | "top10" | "top20" = "win"
+): number | null {
+  if (dgProb === null || bookOdds === null) return null;
+
+  // Convert American odds to implied probability
+  const impliedProb = bookOdds > 0
+    ? 100 / (bookOdds + 100)
+    : Math.abs(bookOdds) / (Math.abs(bookOdds) + 100);
+
+  // DG probs may be 0-1 or 0-100
+  const dgProbNorm = dgProb > 1 ? dgProb / 100 : dgProb;
+
+  const edge = (dgProbNorm - impliedProb) * 100;
+  return Math.round(edge * 10) / 10;
+}
