@@ -8,6 +8,9 @@ const LEAGUES: Array<{ key: League; icon: string; label: string }> = [
   { key: "NHL", icon: "🏒", label: "NHL" },
   { key: "NBA", icon: "🏀", label: "NBA" },
   { key: "MLB", icon: "⚾", label: "MLB" },
+  { key: "NFL", icon: "🏈", label: "NFL" },
+  { key: "EPL", icon: "⚽", label: "EPL" },
+  { key: "Serie A", icon: "⚽", label: "Serie A" },
   { key: "PGA", icon: "⛳", label: "PGA" },
 ];
 

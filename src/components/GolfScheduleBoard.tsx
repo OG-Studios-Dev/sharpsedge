@@ -1,22 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { GolfDashboardData, GolfTournament } from "@/lib/types";
 import { CardSkeleton } from "@/components/LoadingSkeleton";
-
-function statusStyles(status: GolfTournament["status"]) {
-  if (status === "completed") return "border-gray-500/20 bg-gray-500/10 text-gray-300";
-  if (status === "in-progress") return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-  return "border-amber-500/20 bg-amber-500/10 text-amber-300";
-}
-
-function statusLabel(tournament: GolfTournament) {
-  if (tournament.status === "in-progress") {
-    return tournament.round ? `Round ${tournament.round}` : "In Progress";
-  }
-  if (tournament.status === "completed") return "Completed";
-  return "Upcoming";
-}
+import { getGolfBadgeTone, getGolfTournamentBadgeLabel, isGolfMajor } from "@/lib/golf-ui";
 
 export default function GolfScheduleBoard({
   tournaments,
@@ -69,22 +57,26 @@ export default function GolfScheduleBoard({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {schedule.map((tournament) => (
-            <article
+            <Link
               key={tournament.id}
+              href={`/golf/tournament/${tournament.id}`}
               className={`rounded-2xl border p-4 ${
                 tournament.current
                   ? "border-emerald-500/30 bg-emerald-500/5"
                   : "border-dark-border bg-dark-surface/70"
-              }`}
+              } transition hover:border-white/20 hover:bg-white/[0.06]`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-[0.18em] text-gray-500">{tournament.tour ?? "PGA"}</div>
-                  <h3 className="mt-1 text-base font-semibold text-white">{tournament.name}</h3>
+                  <h3 className="mt-1 text-base font-semibold text-white">
+                    {isGolfMajor(tournament.name) ? "\u2B50 " : ""}
+                    {tournament.name}
+                  </h3>
                   <p className="mt-1 text-sm text-gray-400">{tournament.course}</p>
                 </div>
-                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${statusStyles(tournament.status)}`}>
-                  {statusLabel(tournament)}
+                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getGolfBadgeTone(tournament)}`}>
+                  {getGolfTournamentBadgeLabel(tournament, undefined, "season")}
                 </span>
               </div>
               <div className="mt-4 space-y-1 text-sm text-gray-300">
@@ -97,7 +89,7 @@ export default function GolfScheduleBoard({
                   Current tournament
                 </div>
               )}
-            </article>
+            </Link>
           ))}
         </div>
       )}

@@ -103,6 +103,7 @@ export default function TeamsPage() {
 
     if (sportLeague === "NBA") return nbaRows;
     if (sportLeague === "MLB") return mlbRows;
+    if (sportLeague === "NFL" || sportLeague === "EPL" || sportLeague === "Serie A") return [];
     if (sportLeague === "All") return [...nhlRows, ...nbaRows, ...mlbRows];
     return nhlRows;
   }, [mlbTeams, nbaTeams, nhlTeams, sportLeague]);
@@ -121,6 +122,14 @@ export default function TeamsPage() {
             eyebrow="PGA"
             title="Golf does not use team directories"
             body="Use the leaderboard and schedule views for PGA coverage. Golf support in this build is tournament-based, not club-based."
+          />
+        ) : sportLeague === "NFL" || sportLeague === "EPL" || sportLeague === "Serie A" ? (
+          <EmptyStateCard
+            eyebrow={sportLeague}
+            title="Use Schedule for this league"
+            body="NFL, EPL, and Serie A are wired through the schedule and standings views in this build. Team-level directory pages are still limited to NHL and NBA."
+            ctaLabel="Open Schedule"
+            ctaHref="/schedule"
           />
         ) : loading ? (
           <div className="grid gap-3 sm:grid-cols-2">

@@ -521,6 +521,26 @@ export default function OddsPage() {
     return aggregated.sports[sportLeague as AggregatedSport] || [];
   }, [aggregated, sportLeague]);
 
+  if (sportLeague === "EPL" || sportLeague === "Serie A") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Lines & Odds"
+          subtitle="Best prices, movement, and sharper-book context."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow={sportLeague}
+          title="Soccer lines live on the schedule board"
+          body="This release surfaces soccer odds directly on each match card in 1X2 format. The cross-book aggregated odds board is still limited to the sports already wired into the free-feed aggregator."
+          ctaLabel="Open Schedule"
+          ctaHref="/schedule"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader

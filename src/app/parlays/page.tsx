@@ -42,6 +42,26 @@ export default function ParlaysPage() {
 
   const activeSuggestions = sgps.filter((sgp) => (sgp.gameId || sgp.id) === activeGameId);
 
+  if (sportLeague === "NFL" || sportLeague === "EPL" || sportLeague === "Serie A") {
+    return (
+      <div>
+        <PageHeader
+          title="Parlay Builder"
+          subtitle="Same-game combinations ranked by multiplied hit probability."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow={sportLeague}
+          title="Same-game parlays are not wired for this league yet"
+          body={sportLeague === "NFL"
+            ? "NFL support in this build focuses on schedule, standings, and offseason visibility first."
+            : "Soccer support in this build focuses on schedule, standings, 1X2 odds, and team trends first."}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader

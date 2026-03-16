@@ -302,13 +302,20 @@ export function selectTopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
+  // Minimum hit rate: 65% for player props, 60% for team trends
+  // Below this threshold, the pick isn't worth tracking
+  const MIN_PLAYER_HIT_RATE = 65;
+  const MIN_TEAM_HIT_RATE = 60;
+
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
+    .filter((p) => normalizePercentValue(p.hitRate) >= MIN_PLAYER_HIT_RATE)
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
+    .filter((t) => normalizePercentValue(t.hitRate) >= MIN_TEAM_HIT_RATE)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -374,13 +381,18 @@ export function selectNBATopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
+  const MIN_PLAYER_HIT_RATE = 65;
+  const MIN_TEAM_HIT_RATE = 60;
+
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
+    .filter((p) => normalizePercentValue(p.hitRate) >= MIN_PLAYER_HIT_RATE)
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
+    .filter((t) => normalizePercentValue(t.hitRate) >= MIN_TEAM_HIT_RATE)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 

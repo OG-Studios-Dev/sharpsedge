@@ -312,6 +312,46 @@ export default function PropsPage() {
     );
   }
 
+  if (sportLeague === "NFL") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Props"
+          subtitle="Player and team market analytics."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow="NFL"
+          title="NFL props launch Week 1"
+          body="The offseason build keeps NFL visible through schedule, standings, and lines. Prop cards turn on when the regular-season board is posting consistently."
+          ctaLabel="Open Schedule"
+          ctaHref="/schedule"
+        />
+      </div>
+    );
+  }
+
+  if (sportLeague === "EPL" || sportLeague === "Serie A") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Props"
+          subtitle="Player and team market analytics."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow={sportLeague}
+          title="Soccer trend cards live in Trends"
+          body="This build ships soccer schedule, standings, 1X2 pricing, and team-level trend cards first. Generic prop-card rendering is still reserved for the North American leagues."
+          ctaLabel="Open Trends"
+          ctaHref="/trends"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader

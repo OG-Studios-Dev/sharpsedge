@@ -1,14 +1,14 @@
 import { qualifiesAsTrend } from "@/lib/trend-filter";
 import { League, PlayerProp, SGP, TeamTrend } from "@/lib/types";
 
-export type SportsLeague = "All" | "NHL" | "NBA" | "MLB" | "PGA";
+export type SportsLeague = "All" | "NHL" | "NBA" | "MLB" | "PGA" | "NFL" | "EPL" | "Serie A";
 export type ClubLineFilter = "all" | "main" | "alt";
 export type VenueFilter = "all" | "home" | "away";
 
 export type TrendRow = {
   id: string;
   kind: "player" | "team";
-  league: "NHL" | "NBA" | "MLB";
+  league: League;
   team: string;
   teamColor: string;
   opponent: string;
@@ -50,8 +50,8 @@ function normalizeEdge(value?: number | null): number {
   return Math.abs(value) <= 1 ? value * 100 : value;
 }
 
-function toSportsLeague(league: League): "NHL" | "NBA" | "MLB" | null {
-  if (league === "NHL" || league === "NBA" || league === "MLB") return league;
+function toSportsLeague(league: League): "NHL" | "NBA" | "MLB" | "EPL" | "Serie A" | "NFL" | null {
+  if (league === "NHL" || league === "NBA" || league === "MLB" || league === "EPL" || league === "Serie A" || league === "NFL") return league;
   return null;
 }
 
@@ -157,9 +157,20 @@ function sortRows(rows: TrendRow[]) {
 }
 
 export function normalizeSportsLeague(league: League): SportsLeague {
-  if (league === "All" || league === "NBA" || league === "NHL" || league === "MLB" || league === "PGA") return league;
+  if (
+    league === "All"
+    || league === "NBA"
+    || league === "NHL"
+    || league === "MLB"
+    || league === "PGA"
+    || league === "NFL"
+    || league === "EPL"
+    || league === "Serie A"
+  ) {
+    return league;
+  }
   if (league === "LIV") return "PGA";
-  return "NHL";
+  return "All";
 }
 
 export function buildClubRows(

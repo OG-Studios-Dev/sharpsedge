@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
@@ -98,6 +98,14 @@ export default function TrendsPage() {
   const [propTypeFilter, setPropTypeFilter] = useState<PropTypeFilter>("all");
   const [sortBy, setSortBy] = useState<SortFilter>("hit_rate");
   const dashboards = useSportsDashboards(sportLeague);
+  const isSoccerLeague = sportLeague === "EPL" || sportLeague === "Serie A";
+  const availableTabs: Tab[] = isSoccerLeague ? ["All", "Team"] : ["All", "Player", "Team"];
+
+  useEffect(() => {
+    if (isSoccerLeague && tab === "Player") {
+      setTab("Team");
+    }
+  }, [isSoccerLeague, tab]);
 
   const filteredProps = useMemo(() => {
     const qualified = dashboards.props
@@ -121,46 +129,77 @@ export default function TrendsPage() {
   const limitedTeams = isFreeTier ? filteredTeams.slice(0, 5) : filteredTeams;
 
   const allEmpty = limitedProps.length === 0 && limitedTeams.length === 0;
-  const filters = [
-    {
-      label: "Direction",
-      value: directionFilter,
-      onChange: (value: string) => setDirectionFilter(value as DirectionFilter),
-      options: [
-        { label: "All", value: "all" },
-        { label: "Over", value: "over" },
-        { label: "Under", value: "under" },
-      ],
-    },
-    {
-      label: "Prop Type",
-      value: propTypeFilter,
-      onChange: (value: string) => setPropTypeFilter(value as PropTypeFilter),
-      options: [
-        { label: "All", value: "all" },
-        { label: "Points", value: "Points" },
-        { label: "Rebounds", value: "Rebounds" },
-        { label: "Assists", value: "Assists" },
-        { label: "Shots", value: "Shots" },
-        { label: "Goals", value: "Goals" },
-        { label: "3PM", value: "3PM" },
-        { label: "Hits", value: "Hits" },
-        { label: "Total Bases", value: "Total Bases" },
-        { label: "Home Runs", value: "Home Runs" },
-        { label: "Strikeouts", value: "Strikeouts" },
-      ],
-    },
-    {
-      label: "Sort",
-      value: sortBy,
-      onChange: (value: string) => setSortBy(value as SortFilter),
-      options: [
-        { label: "Hit Rate", value: "hit_rate" },
-        { label: "Edge", value: "edge" },
-        { label: "Odds", value: "odds" },
-      ],
-    },
-  ];
+  const filters = isSoccerLeague
+    ? [
+        {
+          label: "Sort",
+          value: sortBy,
+          onChange: (value: string) => setSortBy(value as SortFilter),
+          options: [
+            { label: "Hit Rate", value: "hit_rate" },
+            { label: "Edge", value: "edge" },
+            { label: "Odds", value: "odds" },
+          ],
+        },
+      ]
+    : [
+        {
+          label: "Direction",
+          value: directionFilter,
+          onChange: (value: string) => setDirectionFilter(value as DirectionFilter),
+          options: [
+            { label: "All", value: "all" },
+            { label: "Over", value: "over" },
+            { label: "Under", value: "under" },
+          ],
+        },
+        {
+          label: "Prop Type",
+          value: propTypeFilter,
+          onChange: (value: string) => setPropTypeFilter(value as PropTypeFilter),
+          options: [
+            { label: "All", value: "all" },
+            { label: "Points", value: "Points" },
+            { label: "Rebounds", value: "Rebounds" },
+            { label: "Assists", value: "Assists" },
+            { label: "Shots", value: "Shots" },
+            { label: "Goals", value: "Goals" },
+            { label: "3PM", value: "3PM" },
+            { label: "Hits", value: "Hits" },
+            { label: "Total Bases", value: "Total Bases" },
+            { label: "Home Runs", value: "Home Runs" },
+            { label: "Strikeouts", value: "Strikeouts" },
+          ],
+        },
+        {
+          label: "Sort",
+          value: sortBy,
+          onChange: (value: string) => setSortBy(value as SortFilter),
+          options: [
+            { label: "Hit Rate", value: "hit_rate" },
+            { label: "Edge", value: "edge" },
+            { label: "Odds", value: "odds" },
+          ],
+        },
+      ];
+
+  if (sportLeague === "NFL") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Trends"
+          subtitle="Live trend cards and model signals."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow="NFL"
+          title="NFL props and picks launch Week 1"
+          body="The offseason build keeps NFL visible through schedule and standings support. Trend cards activate once regular weekly markets are live."
+        />
+      </div>
+    );
+  }
 
   if (sportLeague === "PGA") {
     return (
@@ -184,13 +223,13 @@ export default function TrendsPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <PageHeader
-        title="Trends"
-        subtitle="Live trend cards and model signals."
-        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
-      >
-        <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
-          {(["All", "Player", "Team"] as Tab[]).map((item) => (
+        <PageHeader
+          title="Trends"
+          subtitle="Live trend cards and model signals."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        >
+          <div className="flex border-b border-dark-border overflow-x-auto scrollbar-hide">
+          {availableTabs.map((item) => (
             <button
               key={item}
               onClick={() => setTab(item)}

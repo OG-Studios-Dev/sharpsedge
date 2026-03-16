@@ -13,6 +13,10 @@ import LeagueSwitcher from "./LeagueSwitcher";
 import ScheduleBoard from "./ScheduleBoard";
 import NBAScheduleBoard from "./NBAScheduleBoard";
 import MLBScheduleBoard from "./MLBScheduleBoard";
+import NFLScheduleBoard from "./NFLScheduleBoard";
+import NFLStandingsTable from "./NFLStandingsTable";
+import SoccerScheduleBoard from "./SoccerScheduleBoard";
+import SoccerStandingsTable from "./SoccerStandingsTable";
 import TeamLogo from "./TeamLogo";
 import type { TeamStandingRow } from "@/lib/nhl-api";
 
@@ -375,11 +379,29 @@ export default function ScheduleStandingsContent() {
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚾</span> MLB</p>
               <MLBScheduleBoard />
             </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏈</span> NFL</p>
+              <NFLScheduleBoard />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚽</span> EPL</p>
+              <SoccerScheduleBoard league="EPL" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚽</span> Serie A</p>
+              <SoccerScheduleBoard league="SERIE_A" />
+            </div>
           </div>
         ) : sportLeague === "NBA" ? (
           <NBAScheduleBoard />
         ) : sportLeague === "MLB" ? (
           <MLBScheduleBoard />
+        ) : sportLeague === "NFL" ? (
+          <NFLScheduleBoard showHeader />
+        ) : sportLeague === "EPL" ? (
+          <SoccerScheduleBoard league="EPL" showHeader />
+        ) : sportLeague === "Serie A" ? (
+          <SoccerScheduleBoard league="SERIE_A" showHeader />
         ) : (
           <ScheduleBoard />
         )
@@ -399,11 +421,29 @@ export default function ScheduleStandingsContent() {
               <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚾</span> MLB</p>
               <MLBStandings />
             </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>🏈</span> NFL</p>
+              <NFLStandingsTable />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚽</span> EPL</p>
+              <SoccerStandingsTable league="EPL" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400 mb-3 flex items-center gap-1.5"><span>⚽</span> Serie A</p>
+              <SoccerStandingsTable league="SERIE_A" />
+            </div>
           </div>
         ) : sportLeague === "NBA" ? (
           <NBAStandings />
         ) : sportLeague === "MLB" ? (
           <MLBStandings />
+        ) : sportLeague === "NFL" ? (
+          <NFLStandingsTable />
+        ) : sportLeague === "EPL" ? (
+          <SoccerStandingsTable league="EPL" />
+        ) : sportLeague === "Serie A" ? (
+          <SoccerStandingsTable league="SERIE_A" />
         ) : (
           <NHLStandings />
         )

@@ -10,7 +10,12 @@ import type { GolfHeadToHeadPrediction, GolfPrediction, GolfValuePlay } from "@/
 import EmptyStateCard from "@/components/EmptyStateCard";
 import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
 import GolfScheduleBoard from "@/components/GolfScheduleBoard";
+import NFLScheduleBoard from "@/components/NFLScheduleBoard";
+import NFLStandingsTable from "@/components/NFLStandingsTable";
 import TeamLogo from "@/components/TeamLogo";
+import SoccerScheduleBoard from "@/components/SoccerScheduleBoard";
+import SoccerStandingsTable from "@/components/SoccerStandingsTable";
+import TeamTrendCard from "@/components/TeamTrendCard";
 import HomePicksSection from "./HomePicksSection";
 import LeagueDropdown from "./LeagueDropdown";
 import SectionHeader from "./SectionHeader";
@@ -328,6 +333,82 @@ export default function HomeContent() {
     );
   }
 
+  if (sportLeague === "NFL") {
+    return (
+      <main className="min-h-screen bg-dark-bg pb-24">
+        <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
+          <PageHeader
+            title="Home"
+            subtitle="NFL is wired in with offseason visibility."
+            right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+          />
+
+          <div className="space-y-5 px-4 lg:px-0">
+            <NFLScheduleBoard showHeader />
+            <NFLStandingsTable />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (sportLeague === "EPL" || sportLeague === "Serie A") {
+    const soccerLeague = sportLeague === "Serie A" ? "SERIE_A" : "EPL";
+    const soccerTrends = dashboards.teamTrends
+      .filter((trend) => trend.league === sportLeague)
+      .slice(0, 6);
+
+    return (
+      <main className="min-h-screen bg-dark-bg pb-24">
+        <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
+          <PageHeader
+            title="Home"
+            subtitle="League table first, match edges second."
+            right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+          />
+
+          <div className="grid gap-5 px-4 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:px-0">
+            <div className="space-y-5">
+              <SoccerScheduleBoard league={soccerLeague} showHeader />
+              <HomeSection
+                title="Team Trends"
+                subtitle="Recent form, BTTS, clean-sheet, and total-goal trend cards for the active slate."
+                href="/trends"
+              >
+                {dashboards.loading ? (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((item) => (
+                      <TrendRowSkeleton key={item} />
+                    ))}
+                  </div>
+                ) : soccerTrends.length === 0 ? (
+                  <EmptyStateCard
+                    eyebrow={sportLeague}
+                    title="No soccer team trends posted yet"
+                    body="Trend cards appear once recent results and current match lines overlap for the active slate."
+                    className="mx-0 mt-0"
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    {soccerTrends.map((trend, index) => (
+                      <div key={trend.id} className="stagger-in" style={getStaggerStyle(index)}>
+                        <TeamTrendCard trend={trend} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </HomeSection>
+            </div>
+
+            <div className="space-y-5">
+              <SoccerStandingsTable league={soccerLeague} />
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-dark-bg pb-24">
       <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
@@ -439,7 +520,7 @@ export default function HomeContent() {
 
             <HomeSection
               title="Trending Now"
-              subtitle="The hottest live props across NHL, NBA, and MLB, ranked by hit rate, sample, and edge."
+              subtitle="The hottest live props and team trends across NHL, NBA, MLB, and soccer, ranked by hit rate, sample, and edge."
               href="/trends"
             >
               {dashboards.loading ? (

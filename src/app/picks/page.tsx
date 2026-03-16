@@ -414,6 +414,46 @@ export default function PicksPage() {
 
   const todayKey = todayKeyForLeague(sportLeague);
 
+  if (sportLeague === "NFL") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Picks"
+          subtitle="Today’s strongest plays, with reasoning and record tracking."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow="NFL"
+          title="NFL picks launch Week 1"
+          body="The offseason build keeps NFL visible through schedule, standings, and odds. Pick generation turns on when weekly props and sides are posting consistently."
+          ctaLabel="Open Schedule"
+          ctaHref="/schedule"
+        />
+      </div>
+    );
+  }
+
+  if (sportLeague === "EPL" || sportLeague === "Serie A") {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="Picks"
+          subtitle="Today’s strongest plays, with reasoning and record tracking."
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        />
+
+        <EmptyStateCard
+          eyebrow={sportLeague}
+          title="Soccer picks are not live yet"
+          body="This release includes schedule, league tables, 1X2 pricing, and team trends for soccer. Pick cards are intentionally disabled until the team-level models are finalized."
+          ctaLabel="Open Trends"
+          ctaHref="/trends"
+        />
+      </div>
+    );
+  }
+
   // Merge picks stores based on league
   const activeToday = sportLeague === "NBA"
     ? nbaToday

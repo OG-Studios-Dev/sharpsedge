@@ -60,7 +60,11 @@ export default function SearchPage() {
         id: `team-${key}`,
         title: trend.team,
         subtitle: `${trend.league} team page`,
-        href: trend.league === "NBA" ? `/nba/team/${trend.team}` : trend.league === "NHL" ? `/team/${trend.team}` : "/props",
+        href: trend.league === "NBA"
+          ? `/nba/team/${trend.team}`
+          : trend.league === "NHL"
+            ? `/team/${trend.team}`
+            : "/schedule",
         kind: "team",
       });
     }
@@ -102,8 +106,38 @@ export default function SearchPage() {
         kind: "game" as const,
       }));
 
-    return [...nhlGames, ...nbaGames, ...mlbGames].slice(0, 12);
-  }, [dashboards.mlbSchedule, dashboards.nbaSchedule, dashboards.nhlSchedule.games, query]);
+    const nflGames = dashboards.nflSchedule
+      .filter((game) => normalize(`${game.awayTeam.abbreviation} ${game.homeTeam.abbreviation} ${game.awayTeam.fullName} ${game.homeTeam.fullName}`).includes(q))
+      .map((game) => ({
+        id: `nfl-game-${game.id}`,
+        title: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+        subtitle: "NFL matchup",
+        href: "/schedule",
+        kind: "game" as const,
+      }));
+
+    const eplGames = dashboards.eplSchedule
+      .filter((game) => normalize(`${game.awayTeam.abbreviation} ${game.homeTeam.abbreviation} ${game.awayTeam.name} ${game.homeTeam.name}`).includes(q))
+      .map((game) => ({
+        id: `epl-game-${game.id}`,
+        title: `${game.awayTeam.shortName} @ ${game.homeTeam.shortName}`,
+        subtitle: "EPL fixture",
+        href: "/schedule",
+        kind: "game" as const,
+      }));
+
+    const serieAGames = dashboards.serieASchedule
+      .filter((game) => normalize(`${game.awayTeam.abbreviation} ${game.homeTeam.abbreviation} ${game.awayTeam.name} ${game.homeTeam.name}`).includes(q))
+      .map((game) => ({
+        id: `serie-a-game-${game.id}`,
+        title: `${game.awayTeam.shortName} @ ${game.homeTeam.shortName}`,
+        subtitle: "Serie A fixture",
+        href: "/schedule",
+        kind: "game" as const,
+      }));
+
+    return [...nhlGames, ...nbaGames, ...mlbGames, ...nflGames, ...eplGames, ...serieAGames].slice(0, 12);
+  }, [dashboards.eplSchedule, dashboards.mlbSchedule, dashboards.nbaSchedule, dashboards.nflSchedule, dashboards.nhlSchedule.games, dashboards.serieASchedule, query]);
 
   const results = [...playerResults, ...teamResults, ...gameResults];
   const hasQuery = query.trim().length > 0;
