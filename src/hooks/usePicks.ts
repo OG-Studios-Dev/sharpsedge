@@ -168,16 +168,13 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
       if (normalized.changed) {
         saveStore(storageKey, store);
       }
-      if (!store[key]?.length) {
-        const res = await fetch(`${fetchEndpoint}?date=${key}`);
-        const data = await res.json();
-        if (data.picks?.length) {
-          const date = data.date || key;
-          if (!store[date]?.length) {
-            store[date] = data.picks.map(normalizePick);
-            saveStore(storageKey, store);
-          }
-        }
+      // Always fetch fresh picks from API (don't rely on stale localStorage)
+      const res = await fetch(`${fetchEndpoint}?date=${key}`);
+      const data = await res.json();
+      if (data.picks?.length) {
+        const date = data.date || key;
+        store[date] = data.picks.map(normalizePick);
+        saveStore(storageKey, store);
       }
 
       setAllPicks({ ...store });
