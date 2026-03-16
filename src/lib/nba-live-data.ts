@@ -38,7 +38,7 @@ export async function getNBADashboardData() {
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
-    getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
+    getAggregatedOddsEvents("NBA").catch(() => [] as any[]),
   ]);
 
   const targetDates = new Set(getPickDateKeys(new Date(), "America/New_York"));
@@ -82,7 +82,7 @@ export async function getNBATrendData() {
   const [schedule, recentGames, odds] = await Promise.all([
     getNBASchedule(getScheduleDaysAhead()),
     getRecentNBAGames(14),
-    getNBAOdds().then(odds => odds.length > 0 ? odds : getAggregatedOddsEvents("NBA")).catch(() => getAggregatedOddsEvents("NBA")),
+    getAggregatedOddsEvents("NBA").catch(() => [] as any[]),
   ]);
 
   const targetDates = new Set(getPickDateKeys(new Date(), "America/New_York"));

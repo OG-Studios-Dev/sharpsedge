@@ -36,7 +36,7 @@ function attachLiveOddsToSchedule(games: NHLGame[], events: Awaited<ReturnType<t
 export async function getLiveTrendData() {
   const [schedule, odds] = await Promise.all([
     getBroadSchedule(4),  // includes OFF games from last few days
-    getNHLOdds().then(async (odds) => odds.length > 0 ? odds : (await getAggregatedOddsEvents("NHL")).NHL || []).catch(async () => (await getAggregatedOddsEvents("NHL")).NHL || []),
+    getAggregatedOddsEvents("NHL").catch(() => [] as any[]),
   ]);
 
   const gamesWithOdds = attachLiveOddsToSchedule(schedule.games, odds);
@@ -72,7 +72,7 @@ export async function getLiveTrendData() {
 export async function getLiveDashboardData() {
   const [schedule, odds] = await Promise.all([
     getUpcomingSchedule(getScheduleDaysAhead() + 1),
-    getNHLOdds(),
+    getAggregatedOddsEvents("NHL").catch(() => [] as any[]),
   ]);
 
   const targetDates = new Set(getPickDateKeys());
