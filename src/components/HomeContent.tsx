@@ -12,7 +12,7 @@ import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
 import GolfScheduleBoard from "@/components/GolfScheduleBoard";
 import TeamLogo from "@/components/TeamLogo";
 import HomePicksSection from "./HomePicksSection";
-import LeagueSwitcher from "./LeagueSwitcher";
+import LeagueDropdown from "./LeagueDropdown";
 import SectionHeader from "./SectionHeader";
 import SGPCard from "./SGPCard";
 import TrendRow from "./TrendRow";
@@ -238,23 +238,9 @@ export default function HomeContent() {
           <PageHeader
             title=""
             subtitle=""
-            right={viewer.loading ? (
-              <div className="h-11 w-11 rounded-2xl bg-dark-border/40 animate-pulse" />
-            ) : viewer.user ? (
-              <Link
-                href="/settings"
-                aria-label="Open settings"
-                className="tap-button flex h-11 w-11 items-center justify-center rounded-2xl border border-dark-border bg-accent-blue/20 text-sm font-bold text-accent-blue"
-              >
-                {(viewer.profile?.name || viewer.user.email || "G").charAt(0).toUpperCase()}
-              </Link>
-            ) : (
-              <Link href="/upgrade" className="tap-button flex h-11 items-center justify-center rounded-2xl border border-accent-yellow/30 bg-accent-yellow/10 px-3 text-xs font-bold text-accent-yellow">
-                ⭐ PRO
-              </Link>
-            )}
+            right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
           >
-            <LeagueSwitcher active={sportLeague} onChange={setLeague} />
+            
           </PageHeader>
 
           <div className="space-y-5 px-4 lg:px-0">
@@ -348,21 +334,9 @@ export default function HomeContent() {
         <PageHeader
           title="Home"
           subtitle="Today’s edge, ranked and ready."
-          right={viewer.user ? (
-            <Link
-              href="/settings"
-              aria-label="Open settings"
-              className="tap-button flex h-11 w-11 items-center justify-center rounded-2xl border border-dark-border bg-accent-blue/20 text-sm font-bold text-accent-blue"
-            >
-              {(viewer.profile?.name || viewer.user.email || "G").charAt(0).toUpperCase()}
-            </Link>
-          ) : (
-            <Link href="/login" className="tap-button text-sm font-semibold text-accent-blue">
-              Sign In
-            </Link>
-          )}
+          right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
         >
-          <LeagueSwitcher active={sportLeague} onChange={setLeague} />
+          
         </PageHeader>
 
         <div className="grid gap-5 px-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start lg:px-0">
