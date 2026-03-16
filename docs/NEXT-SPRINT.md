@@ -321,3 +321,50 @@ Users can favorite items (⭐) as Quick Shortcuts (max 5).
 
 ### Action Item
 Marco: Create account at https://datagolf.com/api-access and get API key
+
+## Gamification (Sharp Tier — FUTURE, wait for Marco's go)
+
+### Leaderboard
+- Rank Sharp users by win rate (min 20 picks to qualify)
+- Weekly + monthly + all-time views
+- Show: rank, username, win %, net units, streak
+- Supabase: leaderboard view from user_picks aggregated
+
+### Streak Tracker
+- Track consecutive wins per user
+- "🔥 5-pick win streak!" notification
+- Streak broken → "Streak ended at 7. New record!"
+- Store in Supabase user profile: current_streak, best_streak
+
+### Accuracy Badges (earned, permanent)
+- 🎯 Sharpshooter: 70%+ win rate (50+ picks)
+- 🔫 Sniper: 80%+ win rate (30+ picks)
+- ⭐ Perfect Week: all picks in a week hit
+- 💯 Perfect Day: all 6 picks in a day hit
+- 🏆 Century Club: 100 picks tracked
+- 🔥 Hot Streak: 10+ consecutive wins
+- 💰 Big Winner: +50 units lifetime
+- 🪿 OG Goose: beta user badge (forever)
+
+### Monthly Report Card
+- Best sport, best prop type
+- P&L by month chart
+- Win rate trend over time
+- "Your edge: you're 12% better at NBA rebounds than average"
+
+### Gold Profile Badge
+- Sharp users: gold ring around avatar
+- Beta users: special OG badge
+- Free/Pro: default gray ring
+
+### Parlay of the Week
+- Users submit their best SGP
+- Community votes on best one
+- Winner gets featured on home page
+- Sharp-only feature
+
+### Implementation Notes
+- All stored in Supabase (user_picks, user_badges, user_streaks tables)
+- Badge check runs on each pick resolution
+- Leaderboard: materialized view or scheduled aggregate
+- Needs minimum user base (~50 users) before leaderboard is meaningful
