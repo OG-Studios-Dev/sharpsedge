@@ -7,6 +7,8 @@ const BASE_URL = "https://api.pointsbet.com/api/v2/competitions";
 const PATHS: Partial<Record<AggregatedSport, string>> = {
   NBA: "/7176/events/featured?includeLive=false",
   NHL: "/7160/events/featured?includeLive=false",
+  EPL: "/7228/events/featured?includeLive=false",
+  SERIE_A: "/7229/events/featured?includeLive=false",
   MLB: "/7594/events/featured?includeLive=false",
 };
 

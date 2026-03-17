@@ -5,6 +5,8 @@ import { isoNow, makeEmptyBookOdds, normalizeAmericanOdds, parseSpreadDetails, t
 const ESPN_ENDPOINTS: Partial<Record<AggregatedSport, string>> = {
   NBA: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard",
   NHL: "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard",
+  EPL: "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard",
+  SERIE_A: "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard",
   MLB: "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard",
 };
 

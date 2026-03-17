@@ -34,6 +34,8 @@ const ODDS_API_SPORT_KEYS: Partial<Record<AggregatedSport, string>> = {
   NBA: "basketball_nba",
   MLB: "baseball_mlb",
   NFL: "americanfootball_nfl",
+  EPL: "soccer_epl",
+  SERIE_A: "soccer_italy_serie_a",
 };
 
 function normalizeBookKey(book: string) {

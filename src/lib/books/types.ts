@@ -1,6 +1,6 @@
-export type AggregatedSport = "NHL" | "NBA" | "MLB" | "NFL" | "PGA";
+export type AggregatedSport = "NHL" | "NBA" | "MLB" | "NFL" | "PGA" | "EPL" | "SERIE_A";
 
-export const SUPPORTED_AGGREGATION_SPORTS: AggregatedSport[] = ["NHL", "NBA", "MLB", "NFL", "PGA"];
+export const SUPPORTED_AGGREGATION_SPORTS: AggregatedSport[] = ["NHL", "NBA", "MLB", "NFL", "PGA", "EPL", "SERIE_A"];
 
 export type AggregatedBookOdds = {
   book: string;

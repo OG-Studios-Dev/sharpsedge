@@ -165,12 +165,19 @@ export async function getSoccerOdds(league: SoccerLeague): Promise<OddsEvent[]> 
     return hit.data as OddsEvent[];
   }
 
-  const [espnOdds, oddsApiOdds] = await Promise.allSettled([
+  // Import aggregator dynamically to avoid circular deps
+  const { getAggregatedOddsEvents } = await import("@/lib/odds-aggregator");
+  const aggSport = league === "EPL" ? "EPL" as const : "SERIE_A" as const;
+
+  const [espnOdds, oddsApiOdds, aggregatorOdds] = await Promise.allSettled([
     getESPNOdds(league),
     getOddsApiOdds(league),
+    getAggregatedOddsEvents(aggSport),
   ]);
 
   const merged = [
+    // Aggregator first (primary source with 8 books)
+    ...(aggregatorOdds.status === "fulfilled" ? aggregatorOdds.value : []),
     ...(espnOdds.status === "fulfilled" ? espnOdds.value : []),
     ...(oddsApiOdds.status === "fulfilled" ? oddsApiOdds.value : []),
   ];

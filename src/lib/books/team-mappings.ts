@@ -79,11 +79,17 @@ const EXTRA_ALIASES: Partial<Record<AggregatedSport, Record<string, string[]>>> 
   },
 };
 
+// Soccer teams use full names from ESPN/books — minimal aliases needed
+const EPL_TEAM_NAME_MAP: Record<string, string[]> = {};
+const SERIE_A_TEAM_NAME_MAP: Record<string, string[]> = {};
+
 const SPORT_ALIAS_MAPS: Record<Exclude<AggregatedSport, "PGA">, Record<string, string[]>> = {
   NHL: NHL_TEAM_NAME_MAP,
   NBA: NBA_TEAM_NAME_MAP,
   MLB: MLB_TEAM_NAME_MAP,
   NFL: NFL_TEAM_NAME_MAP,
+  EPL: EPL_TEAM_NAME_MAP,
+  SERIE_A: SERIE_A_TEAM_NAME_MAP,
 };
 
 function normalizeToken(value: string) {
@@ -130,6 +136,8 @@ const ALIAS_LOOKUPS = {
   NBA: buildAliasLookup("NBA"),
   MLB: buildAliasLookup("MLB"),
   NFL: buildAliasLookup("NFL"),
+  EPL: buildAliasLookup("EPL"),
+  SERIE_A: buildAliasLookup("SERIE_A"),
 };
 
 export function normalizeTeamName(name: string, sport: AggregatedSport): string {

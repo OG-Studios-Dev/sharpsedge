@@ -9,6 +9,8 @@ const LEAGUE_IDS: Partial<Record<AggregatedSport, number>> = {
   NBA: 487,
   NHL: 1456,
   MLB: 246,
+  EPL: 1980,
+  SERIE_A: 2436,
 };
 
 let appKeyCache: { value: string | null; timestamp: number } | null = null;

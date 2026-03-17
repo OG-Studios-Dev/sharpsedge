@@ -8,6 +8,8 @@ const PATHS: Partial<Record<AggregatedSport, string>> = {
   NBA: "/basketball/nba?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
   NHL: "/hockey/nhl?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
   MLB: "/baseball/mlb?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
+  EPL: "/soccer/english-premier-league?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
+  SERIE_A: "/soccer/italian-serie-a?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
   NFL: "/football/nfl?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
   PGA: "/golf?marketFilterId=def&preMatchOnly=true&eventsLimit=50&lang=en",
 };
