@@ -777,7 +777,7 @@ export default function PicksPage() {
                     <div>
                       <p className="text-gray-300 text-xs font-semibold">{formatDate(date)}</p>
                       <p className="text-[10px] text-gray-500 mt-0.5">
-                        Running total {runningUnits > 0 ? "+" : ""}{runningUnits}u
+                        Running total {runningUnits > 0 ? "+" : ""}{runningUnits.toFixed(2)}u
                       </p>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase flex-wrap justify-end">
@@ -786,7 +786,7 @@ export default function PicksPage() {
                       {dailyRecord.pushes > 0 && <span className="text-yellow-400">{dailyRecord.pushes}P</span>}
                       {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending}⏳</span>}
                       <span className={dailyUnits >= 0 ? "text-emerald-400" : "text-red-400"}>
-                        {dailyUnits >= 0 ? "+" : ""}{dailyUnits}u
+                        {dailyUnits >= 0 ? "+" : ""}{dailyUnits.toFixed(2)}u
                       </span>
                       {dailyWinPct !== null && (
                         <span className={dailyWinPct >= 50 ? "text-emerald-400" : "text-red-400"}>
