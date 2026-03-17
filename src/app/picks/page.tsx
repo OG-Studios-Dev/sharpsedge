@@ -328,14 +328,22 @@ function computeRecord(picks: AIPick[]) {
   return computePickRecord(picks);
 }
 
+function oddsToProfit(odds: number, units: number): number {
+  // Calculate actual profit from American odds
+  if (odds >= 100) return (odds / 100) * units;   // +150 on 1u = +1.50u
+  if (odds <= -100) return (100 / Math.abs(odds)) * units; // -110 on 1u = +0.91u
+  return units; // fallback
+}
+
 function computeHistoryRecord(items: HistoryItem[]) {
   return items.reduce((record, item) => {
+    const odds = typeof item.odds === "number" && item.odds !== 0 ? item.odds : -110;
     if (item.result === "win") {
       record.wins += 1;
-      record.profitUnits += item.units;
+      record.profitUnits += oddsToProfit(odds, item.units);
     } else if (item.result === "loss") {
       record.losses += 1;
-      record.profitUnits -= item.units;
+      record.profitUnits -= item.units; // lose the stake
     } else if (item.result === "push") {
       record.pushes += 1;
     } else {
