@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { savePick } from "@/lib/picks-store";
 import { createServerClient } from "@/lib/supabase-server";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
@@ -17,21 +18,7 @@ function isRealNHLGameId(gameId?: string) {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerClient();
     const requestedDate = req.nextUrl.searchParams.get("date") || getDateKey();
-    
-    // Check for cached picks first
-    const { data: cachedPicks } = await supabase
-      .pickHistory
-      .select("*")
-      .eq("date", requestedDate)
-      .eq("result", "pending")
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    if (cachedPicks && cachedPicks.length > 0) {
-      return NextResponse.json({ picks: cachedPicks, date: requestedDate, source: "cached" });
-    }
 
     // Generate new picks only if no cached pending picks exist
     const data = await getLiveDashboardData();

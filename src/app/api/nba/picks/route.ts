@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
 import { selectNBATopPicks } from "@/lib/picks-engine";
 import { persistPicksToSupabase } from "@/lib/persist-picks";
@@ -24,22 +23,7 @@ function getActiveGameIds(schedule: any[], allowedDates: Set<string>): Set<strin
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient();
   const requestedDate = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), NBA_TIME_ZONE);
-  
-  // Check for cached picks first
-  const { data: cachedPicks } = await supabase
-    .pickHistory
-    .select("*")
-    .eq("date", requestedDate)
-    .eq("result", "pending")
-    .eq("league", "NBA")
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  if (cachedPicks && cachedPicks.length > 0) {
-    return NextResponse.json({ picks: cachedPicks, date: requestedDate, source: "cached" });
-  }
 
   const allowedDates = new Set([requestedDate]);
   const date = requestedDate;

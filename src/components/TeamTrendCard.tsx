@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { TeamTrend } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import { formatOdds } from "@/lib/edge-engine";
@@ -43,14 +44,14 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
         className="tap-button w-full p-4 text-left"
       >
         <div className="flex items-start gap-3">
-          <Link href={\`/team/\${trend.teamAbbrev || trend.team.replace(/\\s/g, '').slice(0,3).toUpperCase()}\`} className="tap-button -m-1 p-1 rounded-lg">
-  <TeamLogo team={trend.team} color={trend.teamColor} size={28} />
-</Link>
+          <Link href={`/team/${trend.team.replace(/\s/g, '').slice(0, 3).toUpperCase()}`} onClick={(e) => e.stopPropagation()} className="tap-button -m-1 p-1 rounded-lg">
+            <TeamLogo team={trend.team} color={trend.teamColor} size={28} />
+          </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <Link href={\`/team/\${trend.teamAbbrev || trend.team.replace(/[^A-Z]/g,'').slice(0,3)}\`} className="block">
-                  <span className="card-title truncate">{trend.team}</span>
+                <Link href={`/team/${trend.team.replace(/[^A-Z]/g, '').slice(0, 3)}`} onClick={(e) => e.stopPropagation()} className="block">
+                  <span className="card-title truncate underline decoration-transparent hover:decoration-white/30 transition-colors">{trend.team}</span>
                 </Link>
                 <div className="mt-1 text-xs text-gray-500">
                   {trend.team} {trend.isAway ? "@" : "vs"} {trend.opponent}
