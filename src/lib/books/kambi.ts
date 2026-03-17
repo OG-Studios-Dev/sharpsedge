@@ -7,9 +7,10 @@ const BASE_URL = "https://eu-offering-api.kambicdn.com/offering/v2018/ub/listVie
 const PATHS: Partial<Record<AggregatedSport, string>> = {
   NBA: "/basketball/nba.json?lang=en_US&market=US",
   NHL: "/ice_hockey/nhl.json?lang=en_US&market=US",
+  MLB: "/baseball/mlb.json?lang=en_US&market=US",
+  NFL: "/american_football/nfl.json?lang=en_US&market=US",
   EPL: "/football/england/premier_league.json?lang=en_US&market=US",
   SERIE_A: "/football/italy/serie_a.json?lang=en_US&market=US",
-  MLB: "/baseball/mlb.json?lang=en_US&market=US",
   PGA: "/golf.json?lang=en_US&market=US",
 };
 

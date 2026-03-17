@@ -7,7 +7,7 @@ export async function GET() {
   const start = Date.now();
   const results: Record<string, { games: number; books: string[]; latencyMs: number; status: string }> = {};
 
-  for (const sport of ["NHL", "NBA", "MLB", "EPL", "SERIE_A"] as const) {
+  for (const sport of ["NHL", "NBA", "MLB", "NFL", "EPL", "SERIE_A", "PGA"] as const) {
     const sportStart = Date.now();
     try {
       const events = await getAggregatedOddsEvents(sport);
