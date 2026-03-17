@@ -7,7 +7,7 @@ export async function GET() {
   const start = Date.now();
   const results: Record<string, { games: number; books: string[]; latencyMs: number; status: string }> = {};
 
-  for (const sport of ["NHL", "NBA", "MLB"] as const) {
+  for (const sport of ["NHL", "NBA", "MLB", "EPL", "SERIE_A"] as const) {
     const sportStart = Date.now();
     try {
       const events = await getAggregatedOddsEvents(sport);
@@ -32,6 +32,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    name: "The Goose Odds API",
     healthy: Object.values(results).some((r) => r.games > 0),
     totalLatencyMs: Date.now() - start,
     sports: results,
