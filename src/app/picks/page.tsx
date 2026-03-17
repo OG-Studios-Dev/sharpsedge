@@ -729,12 +729,30 @@ export default function PicksPage() {
       </div>
 
       {/* Pick History */}
+      {sportLeague === "PGA" && (
+        <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase font-semibold text-emerald-300 tracking-wide">⛳ Valspar Championship</p>
+              <p className="text-sm font-semibold text-white mt-1">Thu Mar 19 - Sun Mar 22</p>
+            </div>
+            <Link
+              href="/golf"
+              className="tap-button inline-flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500/90 text-white text-sm font-semibold px-4 py-2 rounded-2xl border border-emerald-500/50 transition-all shadow-lg hover:shadow-emerald-500/25"
+            >
+              <span>View Golf</span>
+              <span className="w-4 h-4">→</span>
+            </Link>
+          </div>
+          <p className="text-xs text-emerald-200/80 mt-2">Field, leaderboard, DataGolf power rankings loading Thu AM</p>
+        </div>
+      )}
+
       {allHistoryPicks.length > 0 && (
         <>
           <div className="flex items-center justify-between mb-3 mt-4">
             <p className="section-heading">
               Pick History
-            </p>
             <div className="flex gap-1">
               {(["all", "win", "loss", "push"] as PastFilter[]).map((f) => (
                 <button
