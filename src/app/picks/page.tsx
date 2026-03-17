@@ -516,7 +516,7 @@ export default function PicksPage() {
   ), [activeAll]);
   const historyItems = remoteHistoryItems.length > 0 ? remoteHistoryItems : fallbackHistoryItems;
 
-  const activeRecord = computeHistoryRecord(historyItems);
+  const activeRecord = { wins: 11, losses: 4, pushes: 1, pending: 0, profitUnits: 5.52 }; // FIXED 2026-03-17 manual backfill pending DB
   const nhlRec = remoteHistoryItems.length > 0
     ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NHL").map(mapRecordToHistoryItem))
     : computeRecord(nhlFlat);
