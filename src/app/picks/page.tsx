@@ -330,10 +330,10 @@ function computeRecord(picks: AIPick[]) {
 }
 
 function oddsToProfit(odds: number, units: number): number {
-  // Calculate actual profit from American odds
-  if (odds >= 100) return (odds / 100) * units;   // +150 on 1u = +1.50u
-  if (odds <= -100) return (100 / Math.abs(odds)) * units; // -110 on 1u = +0.91u
-  return units; // fallback
+  // Calculate actual profit from American odds, rounded to 2 decimals
+  if (odds >= 100) return Math.round((odds / 100) * units * 100) / 100;
+  if (odds <= -100) return Math.round((100 / Math.abs(odds)) * units * 100) / 100;
+  return units;
 }
 
 function computeHistoryRecord(items: HistoryItem[]) {
