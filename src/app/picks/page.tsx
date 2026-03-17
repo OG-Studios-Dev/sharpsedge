@@ -319,6 +319,7 @@ type HistoryItem = {
   pickLabel: string;
   hitRate: number;
   edge: number;
+  odds: number;
   result: AIPick["result"];
   units: number;
   teamColor?: string;
@@ -364,6 +365,7 @@ function mapLocalPickToHistoryItem(date: string, pick: AIPick): HistoryItem {
     pickLabel: pick.pickLabel,
     hitRate: pick.hitRate,
     edge: pick.edge,
+    odds: pick.odds,
     result: pick.result,
     units: pick.units,
     teamColor: pick.teamColor,
@@ -380,6 +382,7 @@ function mapRecordToHistoryItem(record: PickHistoryRecord): HistoryItem {
     pickLabel: record.pick_label,
     hitRate: typeof record.hit_rate === "number" ? record.hit_rate : 0,
     edge: typeof record.edge === "number" ? record.edge : 0,
+    odds: typeof record.odds === "number" ? record.odds : -110,
     result: record.result,
     units: typeof record.units === "number" && Number.isFinite(record.units) ? record.units : 1,
   };
