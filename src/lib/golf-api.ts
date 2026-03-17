@@ -529,7 +529,8 @@ async function getGolfLeaderboard(tour: GolfTourKey): Promise<GolfLeaderboard | 
     const scoreboard = await getGolfScoreboard(tour);
     const tourLabel = tour === "pga" ? "PGA" : "LIV";
     const events = Array.isArray(scoreboard?.events) ? scoreboard.events : [];
-    const activeEvent = events.find((event: any) => getTournamentStatus(event, event?.date, event?.endDate) !== "completed") ?? events[0];
+    // Only use an active (non-completed) event. If none, return null so the page shows upcoming instead.
+    const activeEvent = events.find((event: any) => getTournamentStatus(event, event?.date, event?.endDate) !== "completed");
 
     if (!activeEvent) {
       const schedule = await getGolfSchedule(tour);
@@ -569,6 +570,45 @@ async function getGolfLeaderboard(tour: GolfTourKey): Promise<GolfLeaderboard | 
   }
 }
 
+const PGA_2026_FALLBACK: GolfTournament[] = [
+  { id: "valspar-2026", name: "Valspar Championship", course: "Innisbrook Resort (Copperhead)", location: "Palm Harbor, FL", dates: "Mar 19 - Mar 22", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-03-19", endDate: "2026-03-22", current: true },
+  { id: "texas-childrens-2026", name: "Texas Children's Houston Open", course: "Memorial Park Golf Course", location: "Houston, TX", dates: "Mar 26 - Mar 29", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-03-26", endDate: "2026-03-29", current: false },
+  { id: "masters-2026", name: "Masters Tournament", course: "Augusta National Golf Club", location: "Augusta, GA", dates: "Apr 9 - Apr 12", purse: "$20,000,000", status: "upcoming", tour: "PGA", startDate: "2026-04-09", endDate: "2026-04-12", current: false },
+  { id: "rbc-heritage-2026", name: "RBC Heritage", course: "Harbour Town Golf Links", location: "Hilton Head Island, SC", dates: "Apr 17 - Apr 20", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-04-17", endDate: "2026-04-20", current: false },
+  { id: "wells-fargo-2026", name: "Wells Fargo Championship", course: "Quail Hollow Club", location: "Charlotte, NC", dates: "May 7 - May 10", purse: "$9,700,000", status: "upcoming", tour: "PGA", startDate: "2026-05-07", endDate: "2026-05-10", current: false },
+  { id: "colonial-2026", name: "Charles Schwab Challenge", course: "Colonial Country Club", location: "Fort Worth, TX", dates: "May 21 - May 24", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-05-21", endDate: "2026-05-24", current: false },
+  { id: "memorial-2026", name: "Memorial Tournament", course: "Muirfield Village Golf Club", location: "Dublin, OH", dates: "May 28 - Jun 1", purse: "$20,000,000", status: "upcoming", tour: "PGA", startDate: "2026-05-28", endDate: "2026-06-01", current: false },
+  { id: "us-open-2026", name: "U.S. Open", course: "Oakmont Country Club", location: "Oakmont, PA", dates: "Jun 11 - Jun 14", purse: "$21,500,000", status: "upcoming", tour: "PGA", startDate: "2026-06-11", endDate: "2026-06-14", current: false },
+  { id: "the-open-2026", name: "The Open Championship", course: "Royal Portrush", location: "Portrush, Northern Ireland", dates: "Jul 16 - Jul 19", purse: "$17,000,000", status: "upcoming", tour: "PGA", startDate: "2026-07-16", endDate: "2026-07-19", current: false },
+  { id: "tour-championship-2026", name: "TOUR Championship", course: "East Lake Golf Club", location: "Atlanta, GA", dates: "Aug 27 - Aug 30", purse: "$100,000,000", status: "upcoming", tour: "PGA", startDate: "2026-08-27", endDate: "2026-08-30", current: false },
+];
+
+function mergeFallbackSchedule(espnSchedule: GolfTournament[]): GolfTournament[] {
+  const now = Date.now();
+  // Update status of fallback events based on current date
+  const fallback = PGA_2026_FALLBACK.map((t) => {
+    const start = t.startDate ? new Date(t.startDate).getTime() : NaN;
+    const end = t.endDate ? new Date(t.endDate).getTime() : NaN;
+    let status: GolfTournamentStatus = "upcoming";
+    if (Number.isFinite(end) && end < now) status = "completed";
+    else if (Number.isFinite(start) && start <= now) status = "in-progress";
+    return { ...t, status, current: status === "in-progress" };
+  });
+
+  if (espnSchedule.length > 0) {
+    // Merge: ESPN data wins, but fill gaps with fallback events ESPN doesn't know about
+    const espnIds = new Set(espnSchedule.map((t) => t.id));
+    const espnNames = new Set(espnSchedule.map((t) => t.name.toLowerCase().slice(0, 15)));
+    const extra = fallback.filter((t) => !espnIds.has(t.id) && !espnNames.has(t.name.toLowerCase().slice(0, 15)));
+    return [...espnSchedule, ...extra].sort((a, b) => {
+      const at = a.startDate ? new Date(a.startDate).getTime() : Infinity;
+      const bt = b.startDate ? new Date(b.startDate).getTime() : Infinity;
+      return at - bt;
+    });
+  }
+  return fallback;
+}
+
 async function getGolfSchedule(tour: GolfTourKey): Promise<GolfTournament[]> {
   try {
     const scoreboard = await getGolfScoreboard(tour);
@@ -579,9 +619,9 @@ async function getGolfSchedule(tour: GolfTourKey): Promise<GolfTournament[]> {
         index < 4 ? enrichTournament(tournament, tour) : Promise.resolve(tournament)
       )),
     );
-    return enriched;
+    return tour === "pga" ? mergeFallbackSchedule(enriched) : enriched;
   } catch {
-    return [];
+    return tour === "pga" ? mergeFallbackSchedule([]) : [];
   }
 }
 
