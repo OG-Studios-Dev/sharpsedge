@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase-server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
 import { selectNBATopPicks } from "@/lib/picks-engine";
 import { persistPicksToSupabase } from "@/lib/persist-picks";
@@ -23,9 +24,25 @@ function getActiveGameIds(schedule: any[], allowedDates: Set<string>): Set<strin
 }
 
 export async function GET(req: NextRequest) {
-  const requestedDate = req.nextUrl.searchParams.get("date");
-  const allowedDates = new Set(requestedDate ? [requestedDate] : getPickDateKeys(new Date(), NBA_TIME_ZONE));
-  const date = requestedDate || getDateKey(new Date(), NBA_TIME_ZONE);
+  const supabase = createServerClient();
+  const requestedDate = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), NBA_TIME_ZONE);
+  
+  // Check for cached picks first
+  const { data: cachedPicks } = await supabase
+    .pickHistory
+    .select("*")
+    .eq("date", requestedDate)
+    .eq("result", "pending")
+    .eq("league", "NBA")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (cachedPicks && cachedPicks.length > 0) {
+    return NextResponse.json({ picks: cachedPicks, date: requestedDate, source: "cached" });
+  }
+
+  const allowedDates = new Set([requestedDate]);
+  const date = requestedDate;
 
   try {
     const data = await getNBADashboardData();
@@ -36,6 +53,10 @@ export async function GET(req: NextRequest) {
 
     const picks = selectNBATopPicks(todayProps, todayTrends, date);
 
+    if (picks.length === 0) {
+      return NextResponse.json({ picks: [], date, source: "no-qualifying" });
+    }
+
     try {
       await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: pick.league ?? "NBA" })));
     } catch (error) {
@@ -44,8 +65,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ picks, date });
-  } catch {
+    return NextResponse.json({ picks, date, source: "generated" });
+  } catch (error) {
+    console.error("[api/nba/picks] error:", error);
     return NextResponse.json({ picks: [], date });
   }
 }

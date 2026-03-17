@@ -166,7 +166,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
   });
 
   return {
-    id: `pick-${prop.id}-${date}`,
+    id: `pick-${btoa(\`\${prop.gameId || 'no-game'}-${prop.playerName.toLowerCase().replace(/[^a-z0-9]/g,'')}-${prop.propType}-${prop.line}-${date}\`).slice(0,36)}`,
     date: prop.gameDate || date,
     type: "player",
     playerId: prop.playerId,
@@ -201,7 +201,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
   });
 
   return {
-    id: `pick-${trend.id}-${date}`,
+    id: `pick-${btoa(\`\${trend.gameId || 'no-game'}-${trend.teamAbbrev?.toLowerCase().replace(/[^a-z0-9]/g,'') || trend.team.toLowerCase().replace(/[^a-z0-9]/g,'')}-${trend.betType || 'unknown'}-${trend.line || 0}-${date}\`).slice(0,36)}`,
     date: trend.gameDate || date,
     type: "team",
     team: trend.team,

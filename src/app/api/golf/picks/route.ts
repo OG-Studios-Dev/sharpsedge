@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase-server";
 import { getDateKey } from "@/lib/date-utils";
 import { getGolfTournamentPicks } from "@/lib/golf-live-data";
 import { persistPicksToSupabase } from "@/lib/persist-picks";
@@ -7,10 +8,29 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
+  const supabase = createServerClient();
   const date = req.nextUrl.searchParams.get("date") || getDateKey();
+
+  // Check for cached picks first
+  const { data: cachedPicks } = await supabase
+    .pickHistory
+    .select("*")
+    .eq("date", date)
+    .eq("result", "pending")
+    .eq("league", "PGA")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (cachedPicks && cachedPicks.length > 0) {
+    return NextResponse.json({ picks: cachedPicks, date, source: "cached" });
+  }
 
   try {
     const picks = await getGolfTournamentPicks(date);
+
+    if (picks.length === 0) {
+      return NextResponse.json({ picks: [], date, source: "no-qualifying" });
+    }
 
     try {
       await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: "PGA" })));
@@ -20,8 +40,9 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ picks, date });
-  } catch {
+    return NextResponse.json({ picks, date, source: "generated" });
+  } catch (error) {
+    console.error("[api/golf/picks] error:", error);
     return NextResponse.json({ picks: [], date });
   }
 }
