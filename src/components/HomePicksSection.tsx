@@ -53,6 +53,16 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
   );
 }
 
+function formatPickMatchup(pick: AIPick): string | null {
+  if (!pick.team || !pick.opponent) return null;
+  return `${pick.team} vs ${pick.opponent}`;
+}
+
+function formatPickDetail(pick: AIPick): string {
+  const matchup = formatPickMatchup(pick);
+  return matchup ? `${matchup} — ${pick.pickLabel}` : pick.pickLabel;
+}
+
 function PickRow({ pick }: { pick: AIPick }) {
   return (
     <div className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0">
@@ -60,13 +70,13 @@ function PickRow({ pick }: { pick: AIPick }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-white text-xs font-semibold truncate">
-            {pick.type === "player" ? pick.playerName : pick.team}
+            {pick.type === "player" ? pick.playerName : formatPickMatchup(pick) || pick.team}
           </p>
           {pick.league && (
             <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
           )}
         </div>
-        <p className="text-accent-blue text-[11px] truncate">{pick.pickLabel}</p>
+        <p className="text-accent-blue text-[11px] truncate">{pick.type === "player" ? formatPickDetail(pick) : pick.pickLabel}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
