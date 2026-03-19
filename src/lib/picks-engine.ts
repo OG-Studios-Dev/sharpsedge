@@ -13,10 +13,24 @@ function normalizePercentValue(value?: number): number {
 
 function parseTrendLine(line?: string): number | undefined {
   if (!line) return undefined;
-  const match = line.match(/([\d.]+)/);
-  if (!match) return undefined;
-  const parsed = parseFloat(match[1]);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  const normalized = line.trim();
+  if (!normalized) return undefined;
+
+  // Only parse actual market lines. Ignore descriptive labels like "L10", "W5 recent",
+  // "Home ML", or "Road ML" which are context strings, not betting lines.
+  const exactNumber = normalized.match(/^([+-]?\d+(?:\.\d+)?)$/);
+  if (exactNumber) {
+    const parsed = parseFloat(exactNumber[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  const prefixedNumber = normalized.match(/^(?:O\/U|Over|Under)\s+([+-]?\d+(?:\.\d+)?)$/i);
+  if (prefixedNumber) {
+    const parsed = parseFloat(prefixedNumber[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
 }
 
 function buildTeamPickLabel(trend: TeamTrend): string {
