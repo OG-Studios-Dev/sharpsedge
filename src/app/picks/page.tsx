@@ -751,8 +751,7 @@ export default function PicksPage() {
       {allHistoryPicks.length > 0 && (
         <>
           <div className="flex items-center justify-between mb-3 mt-4">
-            <p className="section-heading">
-              Pick History
+            <p className="section-heading">Pick History</p>
             <div className="flex gap-1">
               {(["all", "win", "loss", "push"] as PastFilter[]).map((f) => (
                 <button

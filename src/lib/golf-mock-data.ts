@@ -11,7 +11,7 @@ export const MOCK_VALSPAR_DATAGOLF = {
     // ... more
   ],
   courseFit: [
-    { name: "Sam Burns", name: "Sam Burns", fitScore: 92, fitRank: 1 },
+    { name: "Sam Burns", fitScore: 92, fitRank: 1 },
     { name: "Justin Thomas", fitScore: 89, fitRank: 2 },
     // Copperhead specialists
   ]

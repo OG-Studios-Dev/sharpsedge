@@ -100,6 +100,33 @@ function mapSavedPick(pick: SavedPick): PickHistoryRecord {
   };
 }
 
+function normalizePickHistoryRow(raw: any): PickHistoryRecord {
+  return {
+    id: String(raw?.id ?? raw?.pick_id ?? ""),
+    date: typeof raw?.date === "string" ? raw.date : "",
+    league: typeof raw?.league === "string" ? raw.league : "NHL",
+    pick_type: typeof raw?.pick_type === "string"
+      ? raw.pick_type
+      : typeof raw?.type === "string"
+        ? raw.type
+        : "player",
+    player_name: typeof raw?.player_name === "string" ? raw.player_name : null,
+    team: typeof raw?.team === "string" ? raw.team : "",
+    opponent: typeof raw?.opponent === "string" ? raw.opponent : null,
+    pick_label: typeof raw?.pick_label === "string" ? raw.pick_label : "",
+    hit_rate: typeof raw?.hit_rate === "number" ? raw.hit_rate : null,
+    edge: typeof raw?.edge === "number" ? raw.edge : null,
+    odds: typeof raw?.odds === "number" ? raw.odds : null,
+    book: typeof raw?.book === "string" ? raw.book : null,
+    result: raw?.result === "win" || raw?.result === "loss" || raw?.result === "push" ? raw.result : "pending",
+    game_id: typeof raw?.game_id === "string" ? raw.game_id : null,
+    reasoning: typeof raw?.reasoning === "string" ? raw.reasoning : null,
+    confidence: typeof raw?.confidence === "number" ? raw.confidence : null,
+    units: typeof raw?.units === "number" && Number.isFinite(raw.units) ? raw.units : 1,
+    created_at: typeof raw?.created_at === "string" ? raw.created_at : new Date(0).toISOString(),
+  };
+}
+
 async function getProfileById(id: string) {
   const rows = await postgrest<any[]>(
     `/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
@@ -172,7 +199,7 @@ async function listPickHistory(limit: number = 500) {
       `/rest/v1/pick_history?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 2000))}`,
     );
     if (Array.isArray(rows) && rows.length > 0) {
-      return rows as PickHistoryRecord[];
+      return rows.map(normalizePickHistoryRow);
     }
     // If Supabase returns empty, try fallback
     const fallback = await readPicks().catch(() => []);
@@ -185,18 +212,56 @@ async function listPickHistory(limit: number = 500) {
 }
 
 async function insertPickHistory(pick: Omit<PickHistoryRecord, "created_at">) {
-  const rows = await postgrest<PickHistoryRecord[]>(
-    "/rest/v1/pick_history",
-    {
-      method: "POST",
-      headers: {
-        Prefer: "return=representation",
+  try {
+    const rows = await postgrest<any[]>(
+      "/rest/v1/pick_history",
+      {
+        method: "POST",
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(pick),
       },
-      body: JSON.stringify(pick),
-    },
-  );
+    );
 
-  return rows[0] ?? null;
+    return rows[0] ? normalizePickHistoryRow(rows[0]) : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("pick_type")) throw error;
+
+    const legacyPick = {
+      pick_id: pick.id,
+      date: pick.date,
+      league: pick.league,
+      type: pick.pick_type,
+      player_name: pick.player_name ?? "",
+      team: pick.team,
+      opponent: pick.opponent,
+      pick_label: pick.pick_label,
+      hit_rate: pick.hit_rate,
+      edge: pick.edge,
+      odds: pick.odds,
+      book: pick.book,
+      result: pick.result,
+      game_id: pick.game_id,
+      reasoning: pick.reasoning,
+      confidence: pick.confidence,
+      units: pick.units,
+    };
+
+    const rows = await postgrest<any[]>(
+      "/rest/v1/pick_history",
+      {
+        method: "POST",
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify(legacyPick),
+      },
+    );
+
+    return rows[0] ? normalizePickHistoryRow(rows[0]) : null;
+  }
 }
 
 async function updatePickHistoryResult(id: string, result: PickHistoryRecord["result"]) {
