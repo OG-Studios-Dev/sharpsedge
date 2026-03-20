@@ -71,6 +71,20 @@ function scoreItem(hitRate?: number, edge?: number): number {
   return (hr / 100) * 0.6 + (e / 100) * 0.4;
 }
 
+function hasVerifiedSample(split?: { hits?: number; total?: number }): boolean {
+  if (!split) return false;
+  return typeof split.total === "number" && split.total > 0;
+}
+
+function isVerifiedTeamTrend(trend: TeamTrend): boolean {
+  const betType = (trend.betType || "").toLowerCase();
+  const requiresQuarterEvidence = betType.startsWith("1q") || betType.startsWith("1p");
+
+  if (!requiresQuarterEvidence) return true;
+
+  return (trend.splits || []).some(hasVerifiedSample);
+}
+
 function buildPlayerReasoning(prop: ScoredPlayerProp): string {
   const hr = normalizePercentValue(prop.hitRate);
   const edge = normalizePercentValue(prop.edge);
@@ -357,6 +371,7 @@ export function selectTopPicks(
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
+    .filter((t) => isVerifiedTeamTrend(t))
     .filter((t) => normalizePercentValue(t.hitRate) >= 60)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
@@ -446,6 +461,7 @@ export function selectNBATopPicks(
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
+    .filter((t) => isVerifiedTeamTrend(t))
     .filter((t) => normalizePercentValue(t.hitRate) >= 60)
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
