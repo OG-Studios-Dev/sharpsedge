@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
-import { readPicks, type SavedPick } from "@/lib/picks-store";
 import type { AuthSession, AuthUser, PickHistoryRecord, ProfileRecord } from "@/lib/supabase-types";
+import { listPickHistory as listAuthoritativePickHistory } from "@/lib/pick-history-store";
+import { normalizePickHistoryRow } from "@/lib/pick-history-integrity";
 import {
   ACCESS_COOKIE_NAME,
   REFRESH_COOKIE_NAME,
@@ -77,56 +78,6 @@ function sanitizeProfile(raw: any): ProfileRecord {
   };
 }
 
-function mapSavedPick(pick: SavedPick): PickHistoryRecord {
-  return {
-    id: pick.id,
-    date: pick.createdAt.slice(0, 10),
-    league: pick.sport,
-    pick_type: "player",
-    player_name: pick.playerName,
-    team: pick.team,
-    opponent: pick.opponent,
-    pick_label: pick.recommendation,
-    hit_rate: null,
-    edge: null,
-    odds: pick.odds,
-    book: null,
-    result: "pending",
-    game_id: pick.gameId ?? null,
-    reasoning: pick.reasoning,
-    confidence: pick.confidence,
-    units: 1,
-    created_at: pick.createdAt,
-  };
-}
-
-function normalizePickHistoryRow(raw: any): PickHistoryRecord {
-  return {
-    id: String(raw?.id ?? raw?.pick_id ?? ""),
-    date: typeof raw?.date === "string" ? raw.date : "",
-    league: typeof raw?.league === "string" ? raw.league : "NHL",
-    pick_type: typeof raw?.pick_type === "string"
-      ? raw.pick_type
-      : typeof raw?.type === "string"
-        ? raw.type
-        : "player",
-    player_name: typeof raw?.player_name === "string" ? raw.player_name : null,
-    team: typeof raw?.team === "string" ? raw.team : "",
-    opponent: typeof raw?.opponent === "string" ? raw.opponent : null,
-    pick_label: typeof raw?.pick_label === "string" ? raw.pick_label : "",
-    hit_rate: typeof raw?.hit_rate === "number" ? raw.hit_rate : null,
-    edge: typeof raw?.edge === "number" ? raw.edge : null,
-    odds: typeof raw?.odds === "number" ? raw.odds : null,
-    book: typeof raw?.book === "string" ? raw.book : null,
-    result: raw?.result === "win" || raw?.result === "loss" || raw?.result === "push" ? raw.result : "pending",
-    game_id: typeof raw?.game_id === "string" ? raw.game_id : null,
-    reasoning: typeof raw?.reasoning === "string" ? raw.reasoning : null,
-    confidence: typeof raw?.confidence === "number" ? raw.confidence : null,
-    units: typeof raw?.units === "number" && Number.isFinite(raw.units) ? raw.units : 1,
-    created_at: typeof raw?.created_at === "string" ? raw.created_at : new Date(0).toISOString(),
-  };
-}
-
 async function getProfileById(id: string) {
   const rows = await postgrest<any[]>(
     `/rest/v1/profiles?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
@@ -195,19 +146,11 @@ async function deleteProfileById(id: string) {
 
 async function listPickHistory(limit: number = 500) {
   try {
-    const rows = await postgrest<any[]>(
-      `/rest/v1/pick_history?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 2000))}`,
-    );
-    if (Array.isArray(rows) && rows.length > 0) {
-      return rows.map(normalizePickHistoryRow);
-    }
-    // If Supabase returns empty, try fallback
-    const fallback = await readPicks().catch(() => []);
-    return fallback.map(mapSavedPick);
+    return await listAuthoritativePickHistory(limit);
   } catch (err) {
-    console.warn("[supabase] listPickHistory failed:", err);
-    const fallback = await readPicks().catch(() => []);
-    return fallback.map(mapSavedPick);
+    const message = toErrorMessage(err);
+    if (message.includes("is not configured")) return [];
+    throw err;
   }
 }
 
@@ -247,6 +190,10 @@ async function insertPickHistory(pick: Omit<PickHistoryRecord, "created_at">) {
       reasoning: pick.reasoning,
       confidence: pick.confidence,
       units: pick.units,
+      provenance: pick.provenance,
+      provenance_note: pick.provenance_note,
+      pick_snapshot: pick.pick_snapshot,
+      updated_at: pick.updated_at,
     };
 
     const rows = await postgrest<any[]>(
@@ -265,18 +212,39 @@ async function insertPickHistory(pick: Omit<PickHistoryRecord, "created_at">) {
 }
 
 async function updatePickHistoryResult(id: string, result: PickHistoryRecord["result"]) {
-  const rows = await postgrest<PickHistoryRecord[]>(
-    `/rest/v1/pick_history?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: "PATCH",
-      headers: {
-        Prefer: "return=representation",
+  try {
+    const rows = await postgrest<any[]>(
+      `/rest/v1/pick_history?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          result,
+          updated_at: new Date().toISOString(),
+        }),
       },
-      body: JSON.stringify({ result }),
-    },
-  );
+    );
 
-  return rows[0] ?? null;
+    return rows[0] ? normalizePickHistoryRow(rows[0]) : null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("id")) throw error;
+
+    const rows = await postgrest<any[]>(
+      `/rest/v1/pick_history?pick_id=eq.${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({ result }),
+      },
+    );
+
+    return rows[0] ? normalizePickHistoryRow(rows[0]) : null;
+  }
 }
 
 async function getCurrentSession(): Promise<AuthSession | null> {

@@ -1,5 +1,6 @@
 import {
   AIPick,
+  GolfDGCacheSummary,
   GolfHeadToHeadPrediction,
   GolfLeaderboard,
   GolfOddsBoard,
@@ -9,9 +10,11 @@ import {
   GolfPlayerSeasonStats,
   GolfPrediction,
   GolfPredictionBoard,
+  GolfPredictionModelSource,
   GolfPredictionMarket,
   GolfValuePlay,
 } from "@/lib/types";
+import { getDGCache, getDGCacheSummary, type DGCache } from "./datagolf-cache";
 
 export const GOLF_PROP_TYPES = [
   "Tournament Winner",
@@ -54,6 +57,16 @@ function normalizeRate(rate?: number) {
   return Math.abs(rate) <= 1 ? rate : rate / 100;
 }
 
+type DGProbabilityScale = "fraction" | "percent";
+
+function normalizeProbability(value: number | null | undefined, scale: DGProbabilityScale = "fraction") {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
+  const normalized = scale === "percent"
+    ? value / 100
+    : value;
+  return clamp(normalized, 0, 1);
+}
+
 function normalizeName(value?: string) {
   return (value ?? "")
     .toLowerCase()
@@ -63,6 +76,10 @@ function normalizeName(value?: string) {
 
 function normalizeCourse(value?: string) {
   return normalizeName(value);
+}
+
+function formatSignedNumber(value: number) {
+  return `${value > 0 ? "+" : ""}${round(value, 2)}`;
 }
 
 function parseFinishValue(finish: string) {
@@ -151,6 +168,49 @@ function scoreCurrentPosition(player: GolfPlayer, fieldSize: number) {
   if (rank > fieldSize) return 0;
   if (fieldSize <= 1) return 50;
   return clamp(100 * (1 - ((rank - 1) / (fieldSize - 1))), 20, 100);
+}
+
+function scoreDGSkill(dg: DGEnrichedPlayer | null) {
+  if (!dg) return null;
+
+  const scores: number[] = [];
+  if (dg.dgRank !== null) {
+    scores.push(clamp(100 - ((dg.dgRank - 1) * 0.55), 25, 98));
+  }
+  if (dg.sgT2G !== null) {
+    scores.push(clamp(50 + (dg.sgT2G * 16), 20, 95));
+  }
+  if (dg.sgAPP !== null) {
+    scores.push(clamp(50 + (dg.sgAPP * 12), 20, 95));
+  }
+  if (dg.sgPUTT !== null) {
+    scores.push(clamp(50 + (dg.sgPUTT * 10), 20, 95));
+  }
+
+  const value = average(scores);
+  return value === null ? null : round(value);
+}
+
+function scoreDGCourseFit(dg: DGEnrichedPlayer | null) {
+  if (!dg || dg.dgCourseFit === null) return null;
+  const raw = dg.dgCourseFit;
+  if (Math.abs(raw) <= 1) return round(clamp(raw * 100, 20, 95));
+  if (Math.abs(raw) <= 10) return round(clamp(50 + (raw * 6), 20, 95));
+  return round(clamp(raw, 20, 95));
+}
+
+function detectDGProbabilityScale(cache: DGCache | null): DGProbabilityScale {
+  const probabilityValues = cache?.data.predictions.flatMap((prediction) => (
+    [
+      prediction.winProb,
+      prediction.top5Prob,
+      prediction.top10Prob,
+      prediction.top20Prob,
+      prediction.makeCutProb,
+    ].filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0)
+  )) ?? [];
+
+  return probabilityValues.some((value) => value > 1) ? "percent" : "fraction";
 }
 
 function buildCourseHistory(history: GolfPlayerHistoryResult[], course: string) {
@@ -389,25 +449,72 @@ function buildValuePlays(players: GolfPrediction[]): GolfValuePlay[] {
     ) || right.player.combinedScore - left.player.combinedScore);
 }
 
+function buildPredictionDataSources(params: {
+  leaderboard: GolfLeaderboard | null;
+  odds: GolfOddsBoard | null;
+  datagolf: GolfDGCacheSummary;
+  playersCount: number;
+}): NonNullable<GolfPredictionBoard["dataSources"]> {
+  let model: GolfPredictionModelSource = "pending-field";
+
+  if (params.leaderboard && params.playersCount > 0) {
+    model = params.datagolf.ready ? "datagolf-hybrid" : "espn-form";
+  }
+
+  return {
+    model,
+    odds: params.odds && (params.odds.outrights.length > 0 || params.odds.h2h.length > 0) ? "live-odds" : "model-only",
+    datagolf: params.datagolf,
+  };
+}
+
 export function buildGolfPredictionBoard(
   leaderboard: GolfLeaderboard | null,
   historyByPlayer: PlayerHistoryMap,
   odds: GolfOddsBoard | null = null,
 ): GolfPredictionBoard {
+  const generatedAt = new Date().toISOString();
+  const dgCache = getDGCache();
+  const activePlayers = leaderboard?.players.filter((player) => player.position !== "CUT" && player.position !== "MC") ?? [];
+  const datagolf = getDGCacheSummary({
+    cache: dgCache,
+    tournamentName: leaderboard?.tournament.name,
+    playerNames: activePlayers.map((player) => player.name),
+  });
+  const dataSources = buildPredictionDataSources({
+    leaderboard,
+    odds,
+    datagolf,
+    playersCount: activePlayers.length,
+  });
+
   if (!leaderboard) {
     return {
       tournament: null,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       players: [],
       bestValuePicks: [],
       h2hMatchups: [],
+      dataSources,
     };
   }
 
-  const activePlayers = leaderboard.players.filter((player) => player.position !== "CUT" && player.position !== "MC");
+  if (activePlayers.length === 0) {
+    return {
+      tournament: leaderboard.tournament,
+      generatedAt,
+      players: [],
+      bestValuePicks: [],
+      h2hMatchups: [],
+      dataSources,
+    };
+  }
+
   const courseFieldAverage = buildCourseFieldAverage(historyByPlayer, leaderboard.tournament.course);
   const seasonFieldAverage = buildSeasonFieldAverage(activePlayers, historyByPlayer);
   const fieldSize = Math.max(activePlayers.length, 1);
+  const shouldBlendDG = datagolf.ready;
+  const dgProbabilityScale = shouldBlendDG ? detectDGProbabilityScale(dgCache) : "fraction";
 
   const enrichedPlayers = activePlayers.map((player) => {
     const fullHistory = historyByPlayer[player.id] ?? [];
@@ -428,11 +535,16 @@ export function buildGolfPredictionBoard(
     const livePositionScore = leaderboard.tournament.status === "in-progress"
       ? scoreCurrentPosition(player, fieldSize)
       : null;
+    const dg = shouldBlendDG ? getDGEnrichmentFromCache(dgCache, player.name) : null;
+    const dgSkillScore = scoreDGSkill(dg);
+    const dgCourseFitScore = scoreDGCourseFit(dg);
+    const resolvedCourseFitScore = dgCourseFitScore === null
+      ? courseFitScore
+      : clamp((courseFitScore * 0.45) + (dgCourseFitScore * 0.55), 20, 95);
 
-    const baseCombinedScore = (formScore * 0.48)
-      + (courseHistoryScore * 0.22)
-      + (courseFitScore * 0.18)
-      + (seasonScore * 0.12);
+    const baseCombinedScore = dgSkillScore === null
+      ? (formScore * 0.48) + (courseHistoryScore * 0.22) + (resolvedCourseFitScore * 0.18) + (seasonScore * 0.12)
+      : (formScore * 0.36) + (courseHistoryScore * 0.18) + (resolvedCourseFitScore * 0.18) + (seasonScore * 0.12) + (dgSkillScore * 0.16);
     const combinedScore = livePositionScore === null
       ? baseCombinedScore
       : (baseCombinedScore * 0.82) + (livePositionScore * 0.18);
@@ -450,11 +562,19 @@ export function buildGolfPredictionBoard(
       outrightBook: outright?.book ?? null,
       formScore: round(formScore),
       courseHistoryScore: round(courseHistoryScore),
-      courseFitScore: round(courseFitScore),
+      courseFitScore: round(resolvedCourseFitScore),
       combinedScore: round(combinedScore),
       compositeScore: round(combinedScore),
       bookProb: bookProb === null ? null : round(bookProb, 4),
       bookOdds: outright?.odds ?? null,
+      dgRank: dg?.dgRank ?? null,
+      dgWinProb: normalizeProbability(dg?.dgWinProb, dgProbabilityScale),
+      dgTop5Prob: normalizeProbability(dg?.dgTop5Prob, dgProbabilityScale),
+      dgTop10Prob: normalizeProbability(dg?.dgTop10Prob, dgProbabilityScale),
+      dgTop20Prob: normalizeProbability(dg?.dgTop20Prob, dgProbabilityScale),
+      dgCourseFit: dg?.dgCourseFit ?? null,
+      sgTotal: dg?.sgTotal ?? null,
+      sgT2G: dg?.sgT2G ?? null,
       modelProb: 0,
       edge: null,
       top5Prob: 0,
@@ -464,22 +584,46 @@ export function buildGolfPredictionBoard(
   });
 
   const formScoreTotal = enrichedPlayers.reduce((sum, player) => sum + player.formScore, 0);
+  const dgWinProbTotal = enrichedPlayers.reduce((sum, player) => sum + (player.dgWinProb ?? 0), 0);
+  const seededPlayers = enrichedPlayers.map((player) => {
+    const fallbackModelProb = formScoreTotal > 0 ? player.formScore / formScoreTotal : 0;
+    const dgWinSeed = dgWinProbTotal > 0 && typeof player.dgWinProb === "number"
+      ? player.dgWinProb / dgWinProbTotal
+      : null;
+    const fallbackTopFinishProbabilities = buildTopFinishProbabilities({
+      modelProb: fallbackModelProb,
+      hitRates: player.hitRates,
+    });
 
-  const players = enrichedPlayers
-    .map((player) => {
-      const modelProb = formScoreTotal > 0 ? player.formScore / formScoreTotal : 0;
-      const topFinishProbabilities = buildTopFinishProbabilities({
-        modelProb,
-        hitRates: player.hitRates,
-      });
+    return {
+      player,
+      fallbackModelProb,
+      fallbackTopFinishProbabilities,
+      winSeed: dgWinSeed === null ? fallbackModelProb : (dgWinSeed * 0.75) + (fallbackModelProb * 0.25),
+    };
+  });
+  const totalWinSeed = seededPlayers.reduce((sum, entry) => sum + entry.winSeed, 0);
+
+  const players = seededPlayers
+    .map(({ player, fallbackTopFinishProbabilities, winSeed }) => {
+      const modelProb = totalWinSeed > 0 ? winSeed / totalWinSeed : 0;
+      const top5Prob = typeof player.dgTop5Prob !== "number"
+        ? fallbackTopFinishProbabilities.top5Prob
+        : round(clamp((player.dgTop5Prob * 0.75) + (fallbackTopFinishProbabilities.top5Prob * 0.25), modelProb, 0.75), 4);
+      const top10Prob = typeof player.dgTop10Prob !== "number"
+        ? fallbackTopFinishProbabilities.top10Prob
+        : round(clamp((player.dgTop10Prob * 0.75) + (fallbackTopFinishProbabilities.top10Prob * 0.25), top5Prob + 0.02, 0.88), 4);
+      const top20Prob = typeof player.dgTop20Prob !== "number"
+        ? fallbackTopFinishProbabilities.top20Prob
+        : round(clamp((player.dgTop20Prob * 0.75) + (fallbackTopFinishProbabilities.top20Prob * 0.25), top10Prob + 0.03, 0.94), 4);
 
       return {
         ...player,
         modelProb: round(modelProb, 4),
         edge: player.bookProb === null ? null : round(modelProb - player.bookProb, 4),
-        top5Prob: topFinishProbabilities.top5Prob,
-        top10Prob: topFinishProbabilities.top10Prob,
-        top20Prob: topFinishProbabilities.top20Prob,
+        top5Prob,
+        top10Prob,
+        top20Prob,
       } satisfies GolfPrediction;
     })
     .sort((left, right) => (
@@ -490,10 +634,11 @@ export function buildGolfPredictionBoard(
 
   return {
     tournament: leaderboard.tournament,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     players,
     bestValuePicks: buildValuePlays(players).slice(0, 12),
     h2hMatchups: buildHeadToHeadMatchups(players, odds).slice(0, 10),
+    dataSources,
   };
 }
 
@@ -530,6 +675,13 @@ function getProxyBookProbability(player: GolfPrediction, market: GolfPredictionM
   return buildOutrightProxyFinishProbabilities(player.bookProb)[market];
 }
 
+function getDGMarketProbability(player: GolfPrediction, market: GolfPredictionMarket) {
+  if (market === "Tournament Winner") return player.dgWinProb ?? null;
+  if (market === "Top 5 Finish") return player.dgTop5Prob ?? null;
+  if (market === "Top 10 Finish") return player.dgTop10Prob ?? null;
+  return player.dgTop20Prob ?? null;
+}
+
 function buildGolfPickReasoning(
   player: GolfPrediction,
   market: GolfPredictionMarket,
@@ -541,6 +693,15 @@ function buildGolfPickReasoning(
     `${player.name} rates ${formatProbability(getMarketProbability(player, market))} for ${market.toLowerCase()} at ${tournamentName}.`,
     `Form ${round(player.formScore)}, course history ${round(player.courseHistoryScore)}, course fit ${round(player.courseFitScore)}.`,
   ];
+
+  const dgMarketProbability = getDGMarketProbability(player, market);
+  if (typeof player.dgRank === "number" || dgMarketProbability !== null || typeof player.sgT2G === "number") {
+    const dgParts: string[] = [];
+    if (typeof player.dgRank === "number") dgParts.push(`DataGolf rank #${player.dgRank}`);
+    if (dgMarketProbability !== null) dgParts.push(`${market} model ${formatProbability(dgMarketProbability)}`);
+    if (typeof player.sgT2G === "number") dgParts.push(`SG T2G ${formatSignedNumber(player.sgT2G)}`);
+    parts.push(`${dgParts.join(" · ")}.`);
+  }
 
   if (player.position && player.position !== "CUT" && player.position !== "MC" && player.position !== "—") {
     parts.push(`Current position: ${player.position}.`);
@@ -575,6 +736,12 @@ function predictionToPick(
     : probabilityToAmericanOdds(displayProbability);
   const edge = proxyBookProbability === null ? 0 : modelProbability - proxyBookProbability;
 
+  // For golf, hitRate represents the confidence/composite score — NOT the raw probability.
+  // Raw win probabilities (e.g. 3.9%) are meaningful for golf but look terrible as "hit rates".
+  // The confidence score (combinedScore + modelProbability blend) maps to the 60-95 range
+  // that aligns with the hitRate display standard used by NHL/NBA picks.
+  const confidence = Math.round(clamp((player.combinedScore * 0.65) + (modelProbability * 100 * 0.35), 35, 95));
+
   return {
     id: `golf-${slugify(player.name)}-${slugify(market)}-${date}`,
     date,
@@ -589,8 +756,8 @@ function predictionToPick(
     direction: "Over",
     pickLabel: market === "Tournament Winner" ? `${player.name} to win` : `${player.name} ${market}`,
     edge: round(edge * 100, 1),
-    hitRate: round(modelProbability * 100, 1),
-    confidence: Math.round(clamp((player.combinedScore * 0.65) + (modelProbability * 100 * 0.35), 35, 95)),
+    hitRate: confidence,
+    confidence,
     reasoning: buildGolfPickReasoning(player, market, tournamentName, bookLabel, proxyBookProbability),
     result: "pending",
     units: 1,
@@ -712,15 +879,17 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
     }
   }
 
-  return picks.slice(0, 12);
+  // Enforce 60% confidence floor — only surface picks that meet quality bar
+  const MIN_GOLF_HIT_RATE = 60;
+  const qualifiedPicks = picks.filter((pick) => pick.hitRate >= MIN_GOLF_HIT_RATE);
+
+  return qualifiedPicks.slice(0, 12);
 }
 
 // --- DataGolf Integration ---
 
-import type { DGPlayerRanking, DGPrediction, DGCourseFit } from "./datagolf-scraper";
-import { getDGCache } from "./datagolf-cache";
-
 export interface DGEnrichedPlayer {
+  sgTotal: number | null;
   sgOTT: number | null;
   sgAPP: number | null;
   sgARG: number | null;
@@ -744,11 +913,7 @@ function findDGMatch<T extends { name: string }>(list: T[], playerName: string):
     || list.find((p) => normalizeDGName(p.name).includes(normalized) || normalized.includes(normalizeDGName(p.name)));
 }
 
-/**
- * Enrich a golf player with DataGolf strokes-gained data from cache.
- */
-export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
-  const cache = getDGCache();
+function getDGEnrichmentFromCache(cache: DGCache | null, playerName: string): DGEnrichedPlayer | null {
   if (!cache?.data) return null;
 
   const ranking = findDGMatch(cache.data.rankings, playerName);
@@ -758,6 +923,7 @@ export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
   if (!ranking && !prediction && !courseFit) return null;
 
   return {
+    sgTotal: ranking?.sgTotal ?? null,
     sgOTT: ranking?.sgOTT ?? null,
     sgAPP: ranking?.sgAPP ?? null,
     sgARG: ranking?.sgARG ?? null,
@@ -770,6 +936,13 @@ export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
     dgTop20Prob: prediction?.top20Prob ?? null,
     dgCourseFit: courseFit?.fitScore ?? null,
   };
+}
+
+/**
+ * Enrich a golf player with DataGolf strokes-gained data from cache.
+ */
+export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
+  return getDGEnrichmentFromCache(getDGCache(), playerName);
 }
 
 /**

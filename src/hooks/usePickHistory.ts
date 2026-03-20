@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { PickHistoryRecord } from "@/lib/supabase-types";
+import type { PickHistoryRecord, PickSlateRecord } from "@/lib/supabase-types";
 
 type PickHistoryState = {
   loading: boolean;
   picks: PickHistoryRecord[];
+  slates: PickSlateRecord[];
+  error: string | null;
 };
 
 const EMPTY_STATE: PickHistoryState = {
   loading: true,
   picks: [],
+  slates: [],
+  error: null,
 };
 
 export function usePickHistory() {
@@ -28,12 +32,16 @@ export function usePickHistory() {
         setState({
           loading: false,
           picks: Array.isArray(payload?.picks) ? payload.picks : [],
+          slates: Array.isArray(payload?.slates) ? payload.slates : [],
+          error: typeof payload?.error === "string" ? payload.error : response.ok ? null : "Pick history is unavailable",
         });
       } catch {
         if (cancelled) return;
         setState({
           loading: false,
           picks: [],
+          slates: [],
+          error: "Pick history is unavailable",
         });
       }
     }

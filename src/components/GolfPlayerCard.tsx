@@ -66,6 +66,14 @@ export default function GolfPlayerCard({ player }: { player: GolfPlayer }) {
 
       {(typeof player.modelProb === "number" || typeof player.courseFitScore === "number") && (
         <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+          {typeof player.dgRank === "number" && (
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300">DG #{player.dgRank}</span>
+          )}
+          {typeof player.sgT2G === "number" && (
+            <span className="rounded-full bg-dark-bg/60 px-2 py-0.5 text-gray-300">
+              SG T2G {player.sgT2G > 0 ? "+" : ""}{player.sgT2G.toFixed(2)}
+            </span>
+          )}
           {typeof player.modelProb === "number" && (
             <span className="rounded-full bg-dark-bg/60 px-2 py-0.5 text-gray-300">Win {probability(player.modelProb)}</span>
           )}

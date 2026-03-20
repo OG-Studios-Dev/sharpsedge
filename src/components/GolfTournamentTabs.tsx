@@ -7,7 +7,9 @@ import {
   formatGolfOdds,
   formatGolfPercent,
   formatGolfSignedPercent,
+  formatGolfUpdatedAt,
   getGolfPredictionProbability,
+  getGolfPredictionSourceLabel,
 } from "@/lib/golf-ui";
 import type {
   GolfLeaderboard,
@@ -222,6 +224,12 @@ function scoreTone(score: string) {
   return "text-white";
 }
 
+function statusChipTone(ready: boolean, fresh: boolean, populated: boolean) {
+  if (ready && fresh) return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200";
+  if (ready || populated) return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+  return "border-white/10 bg-white/[0.04] text-gray-300";
+}
+
 function PickCard({
   eyebrow,
   market,
@@ -295,9 +303,61 @@ export default function GolfTournamentTabs({
   const lockCards = buildLockCards(predictions?.players ?? []);
   const valueCards = buildValueCards(predictions?.players ?? [], predictions?.bestValuePicks ?? []);
   const leaderboardPlayers = topBoardPlayers(leaderboard);
+  const datagolf = predictions?.dataSources?.datagolf;
+  const predictionSourceLabel = getGolfPredictionSourceLabel(predictions);
 
   return (
     <section className="space-y-5">
+      <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Tournament Data State</p>
+            <h2 className="mt-1 text-xl font-semibold text-white">{predictionSourceLabel}</h2>
+            <p className="mt-3 max-w-3xl text-sm text-gray-400">
+              {predictions?.players.length
+                ? datagolf?.reason ?? "Current field and model data are loaded."
+                : leaderboardPlayers.length
+                  ? "Field data is present, but the contender board is still waiting on model inputs."
+                  : "The tournament page is waiting on ESPN to post the active field or a live leaderboard."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px]">
+            <span className={`rounded-full border px-2.5 py-1 ${statusChipTone(Boolean(datagolf?.ready), Boolean(datagolf?.fresh), Boolean(datagolf?.populated))}`}>
+              {datagolf?.ready
+                ? datagolf.fresh ? "DataGolf ready" : "DataGolf stale"
+                : datagolf?.populated ? "DataGolf partial" : "DataGolf unavailable"}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
+              {leaderboardPlayers.length} active players
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
+              {predictions?.dataSources?.odds === "live-odds" ? "Live outrights" : "Model odds"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Cache</p>
+            <p className="mt-2 text-sm font-medium text-white">
+              {datagolf?.lastScrape ? formatGolfUpdatedAt(datagolf.lastScrape) : "No scrape cached"}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Field Match</p>
+            <p className="mt-2 text-sm font-medium text-white">
+              {datagolf ? `${datagolf.matchedPlayers}/${datagolf.totalPlayers || leaderboardPlayers.length}` : `0/${leaderboardPlayers.length}`}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Rows Cached</p>
+            <p className="mt-2 text-sm font-medium text-white">
+              {datagolf ? `${datagolf.predictionsCount} predictions · ${datagolf.rankingsCount} rankings` : "0 rows"}
+            </p>
+          </div>
+        </div>
+      </section>
+
       <div className="overflow-x-auto">
         <div className="flex min-w-max gap-2">
           {TAB_ITEMS.map((item) => (
@@ -437,7 +497,7 @@ export default function GolfTournamentTabs({
 
           {contenderBoard.length === 0 ? (
             <div className="mt-5 rounded-[28px] border border-dashed border-white/10 px-4 py-6 text-sm text-gray-400">
-              Player cards unlock once the tournament field is available from ESPN.
+              {datagolf?.reason ?? "Player cards unlock once the tournament field is available from ESPN."}
             </div>
           ) : (
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -528,6 +588,16 @@ export default function GolfTournamentTabs({
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
+                    {player.dgRank ? (
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-emerald-200">
+                        DG #{player.dgRank}
+                      </span>
+                    ) : null}
+                    {typeof player.sgT2G === "number" ? (
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
+                        SG T2G {player.sgT2G > 0 ? "+" : ""}{player.sgT2G.toFixed(2)}
+                      </span>
+                    ) : null}
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
                       Form {player.formScore}
                     </span>

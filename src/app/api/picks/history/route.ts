@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase-server";
+import { listPickHistory, listPickSlates } from "@/lib/pick-history-store";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerClient();
-    const picks = await supabase.pickHistory.list(500);
+    const picks = await listPickHistory(500);
+    const slates = await listPickSlates(500, picks);
     const date = req.nextUrl.searchParams.get("date");
     const filtered = date ? picks.filter((p) => p.date === date) : picks;
-    return NextResponse.json({ picks: filtered });
-  } catch {
-    return NextResponse.json({ picks: [] });
+    const filteredSlates = date ? slates.filter((slate) => slate.date === date) : slates;
+    return NextResponse.json({ picks: filtered, slates: filteredSlates });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        picks: [],
+        slates: [],
+        error: error instanceof Error ? error.message : "Pick history is unavailable",
+      },
+      { status: 503 },
+    );
   }
 }

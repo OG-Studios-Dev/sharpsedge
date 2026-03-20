@@ -3,8 +3,10 @@ import { getPGALeaderboard, getPGASchedule, getPGATournamentLeaderboard } from "
 import { getGolfPredictionData } from "@/lib/golf-live-data";
 import { getGolfOdds } from "@/lib/golf-odds";
 import {
+  formatGolfUpdatedAt,
   formatGolfPercent,
   getGolfBadgeTone,
+  getGolfPredictionSourceLabel,
   getGolfRowTone,
   getGolfTournamentBadgeLabel,
   isGolfMajor,
@@ -68,12 +70,19 @@ export default async function GolfPage() {
       ? activeLeaderboard
       : await getPGATournamentLeaderboard(heroTournament.id)
     : null;
-  const predictions = activeLeaderboard ? await getGolfPredictionData(activeLeaderboard, odds) : null;
+  const predictions = await getGolfPredictionData(activeLeaderboard ?? null, odds);
   const heroPlayers = heroPreviewPlayers(heroLeaderboard);
   const upcoming = schedule
     .filter((tournament) => tournament.status === "upcoming" && tournament.id !== heroTournament?.id)
     .slice(0, 5);
   const rankingBoard = predictions?.players.slice(0, 10) ?? [];
+  const datagolf = predictions?.dataSources?.datagolf;
+  const predictionSourceLabel = getGolfPredictionSourceLabel(predictions);
+  const rankingSourceCopy = datagolf?.ready
+    ? `${predictionSourceLabel}${datagolf.fresh ? "" : " (stale cache)"} · ${datagolf.matchedPlayers}/${datagolf.totalPlayers} field matches`
+    : datagolf?.populated
+      ? datagolf.reason
+      : "No usable DataGolf cache yet";
   const winnerMap = await loadWinnerMap(schedule);
   const fullSeasonLabel = `Full ${seasonYear(schedule)} Season`;
 
@@ -205,8 +214,14 @@ export default async function GolfPage() {
                   <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Player Rankings</p>
                   <h2 className="mt-1 text-xl font-semibold text-white">Field power rankings</h2>
                 </div>
-                <span className="text-xs text-gray-500">DataGolf SG data updating daily</span>
+                <span className="text-xs text-gray-500">{rankingSourceCopy}</span>
               </div>
+
+              {datagolf?.lastScrape ? (
+                <p className="mt-3 text-xs text-gray-500">
+                  DataGolf cache {datagolf.fresh ? "updated" : "last updated"} {formatGolfUpdatedAt(datagolf.lastScrape)}
+                </p>
+              ) : null}
 
               {rankingBoard.length > 0 ? (
                 <div className="mt-4 space-y-2">
@@ -216,6 +231,7 @@ export default async function GolfPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-white">{player.name}</p>
                         <p className="mt-1 truncate text-xs text-gray-500">
+                          {player.dgRank ? `DG #${player.dgRank} · ` : ""}
                           Form {player.formScore} · Course fit {player.courseFitScore} · Win {formatGolfPercent(player.modelProb)}
                         </p>
                       </div>
@@ -225,7 +241,9 @@ export default async function GolfPage() {
                 </div>
               ) : (
                 <div className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-gray-400">
-                  OWGR + LIV Rankings coming soon. The proxy board populates when the live PGA field and model are both available.
+                  {heroLeaderboard?.players.length
+                    ? rankingSourceCopy
+                    : "ESPN has not posted the current field or live board yet, so the contender model is waiting on player data."}
                 </div>
               )}
             </section>

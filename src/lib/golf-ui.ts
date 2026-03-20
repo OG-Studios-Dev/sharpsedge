@@ -1,6 +1,7 @@
 import type {
   GolfLeaderboard,
   GolfPrediction,
+  GolfPredictionBoard,
   GolfPredictionMarket,
   GolfTournament,
 } from "@/lib/types";
@@ -72,6 +73,26 @@ export function formatGolfSignedPercent(value?: number | null, digits = 1) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "Model only";
   const percent = value * 100;
   return `${percent > 0 ? "+" : ""}${percent.toFixed(digits)}%`;
+}
+
+export function formatGolfUpdatedAt(value?: string | null) {
+  if (!value) return "Update pending";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Update pending";
+  return `${parsed.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  })} ET`;
+}
+
+export function getGolfPredictionSourceLabel(predictions?: GolfPredictionBoard | null) {
+  const modelSource = predictions?.dataSources?.model;
+  if (modelSource === "datagolf-hybrid") return "DataGolf + ESPN";
+  if (modelSource === "espn-form") return "ESPN history model";
+  return "Field pending";
 }
 
 export function getGolfPredictionProbability(player: GolfPrediction, market: GolfPredictionMarket) {

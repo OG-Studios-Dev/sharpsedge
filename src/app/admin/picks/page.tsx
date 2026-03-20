@@ -9,6 +9,12 @@ function resultTone(result: string) {
   return "text-gray-400";
 }
 
+function provenanceTone(provenance: string) {
+  if (provenance === "manual_repair") return "border-blue-400/30 bg-blue-500/10 text-blue-200";
+  if (provenance === "reconstructed") return "border-amber-400/30 bg-amber-500/10 text-amber-200";
+  return "border-emerald-400/20 bg-emerald-500/10 text-emerald-200";
+}
+
 export default async function AdminPicksPage() {
   const picks = await getAdminPicks();
 
@@ -16,7 +22,7 @@ export default async function AdminPicksPage() {
     <section className="space-y-4">
       <div>
         <h2 className="text-xl font-bold text-white">Pick History</h2>
-        <p className="text-sm text-gray-400">Supabase `pick_history` is preferred. The file-backed store is used when the table is empty or unavailable.</p>
+        <p className="text-sm text-gray-400">Supabase `pick_history` is authoritative. Reconstructed dates and incomplete slates must stay explicitly labeled.</p>
       </div>
 
       {picks.length === 0 ? (
@@ -41,7 +47,12 @@ export default async function AdminPicksPage() {
               <span className="text-sm text-gray-300">{pick.date}</span>
               <span className="text-sm text-gray-300">{pick.league}</span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">{pick.pick_label}</p>
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-medium text-white">{pick.pick_label}</p>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] ${provenanceTone(pick.provenance)}`}>
+                    {pick.provenance === "manual_repair" ? "repair" : pick.provenance === "reconstructed" ? "backfill" : "original"}
+                  </span>
+                </div>
                 <p className="truncate text-xs text-gray-500">{pick.team}{pick.opponent ? ` vs ${pick.opponent}` : ""}</p>
               </div>
               <span className="text-sm text-gray-300">{typeof pick.odds === "number" ? pick.odds : "—"}</span>

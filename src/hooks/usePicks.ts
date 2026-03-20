@@ -222,5 +222,21 @@ export function useMLBPicks() {
 }
 
 export function useGolfPicks() {
-  return usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", null, APP_TIME_ZONE);
+  const result = usePicksForLeague(GOLF_STORAGE_KEY, "/api/golf/picks", null, APP_TIME_ZONE);
+
+  // Golf picks are tournament-scoped: they may be stored under the tournament start date
+  // (e.g. Thursday) rather than today's date. If todayPicks is empty, find the most recent
+  // pick slate in the store (which is the active tournament's picks).
+  const todayPicks = result.todayPicks.length > 0
+    ? result.todayPicks
+    : (() => {
+        const dates = Object.keys(result.allPicks).sort().reverse();
+        for (const date of dates) {
+          const picks = result.allPicks[date];
+          if (picks && picks.length > 0) return picks;
+        }
+        return [];
+      })();
+
+  return { ...result, todayPicks };
 }

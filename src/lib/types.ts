@@ -305,6 +305,14 @@ export type GolfPlayer = {
   top5Prob?: number | null;
   top10Prob?: number | null;
   top20Prob?: number | null;
+  dgRank?: number | null;
+  dgWinProb?: number | null;
+  dgTop5Prob?: number | null;
+  dgTop10Prob?: number | null;
+  dgTop20Prob?: number | null;
+  dgCourseFit?: number | null;
+  sgTotal?: number | null;
+  sgT2G?: number | null;
 };
 
 export type GolfLeaderboard = {
@@ -379,12 +387,35 @@ export type GolfHeadToHeadPrediction = {
   disagreement: boolean;
 };
 
+export type GolfDGCacheSummary = {
+  available: boolean;
+  populated: boolean;
+  fresh: boolean;
+  ready: boolean;
+  lastScrape: string | null;
+  tournament: string | null;
+  rankingsCount: number;
+  predictionsCount: number;
+  courseFitCount: number;
+  fieldCount: number;
+  matchedPlayers: number;
+  totalPlayers: number;
+  reason: string;
+};
+
+export type GolfPredictionModelSource = "pending-field" | "espn-form" | "datagolf-hybrid";
+
 export type GolfPredictionBoard = {
   tournament: GolfTournament | null;
   generatedAt: string;
   players: GolfPrediction[];
   bestValuePicks: GolfValuePlay[];
   h2hMatchups: GolfHeadToHeadPrediction[];
+  dataSources?: {
+    model: GolfPredictionModelSource;
+    odds: "live-odds" | "model-only";
+    datagolf: GolfDGCacheSummary;
+  };
 };
 
 export type GolfDashboardData = {

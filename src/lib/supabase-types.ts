@@ -1,3 +1,5 @@
+import type { AIPick } from "@/lib/types";
+
 export type ProfileRole = "user" | "admin";
 export type ProfileTier = "free" | "pro" | "sharp" | "beta";
 export type SubscriptionStatus =
@@ -22,6 +24,10 @@ export type ProfileRecord = {
   email?: string | null;
 };
 
+export type PickHistoryProvenance = "original" | "reconstructed" | "manual_repair";
+export type PickSlateStatus = "locked" | "incomplete";
+export type PickHistoryIntegrityStatus = "ok" | "reconstructed" | "incomplete";
+
 export type PickHistoryRecord = {
   id: string;
   date: string;
@@ -41,6 +47,25 @@ export type PickHistoryRecord = {
   confidence: number | null;
   units: number;
   created_at: string;
+  provenance: PickHistoryProvenance;
+  provenance_note: string | null;
+  pick_snapshot: AIPick | null;
+  updated_at: string | null;
+};
+
+export type PickSlateRecord = {
+  date: string;
+  league: string;
+  status: PickSlateStatus;
+  provenance: PickHistoryProvenance;
+  provenance_note: string | null;
+  expected_pick_count: number;
+  pick_count: number;
+  status_note: string | null;
+  integrity_status: PickHistoryIntegrityStatus;
+  locked_at: string;
+  created_at: string;
+  updated_at: string | null;
 };
 
 export type AuthUser = {

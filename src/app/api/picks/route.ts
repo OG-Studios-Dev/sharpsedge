@@ -3,8 +3,8 @@ import { savePick } from "@/lib/picks-store";
 import { createServerClient } from "@/lib/supabase-server";
 import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
-import { getDateKey, getPickDateKeys } from "@/lib/date-utils";
-import { persistPicksToSupabase } from "@/lib/persist-picks";
+import { getDateKey } from "@/lib/date-utils";
+import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
 
 function normalizeGameId(value?: string | number | null) {
   const normalized = String(value ?? "").trim();
@@ -19,8 +19,20 @@ function isRealNHLGameId(gameId?: string) {
 export async function GET(req: NextRequest) {
   try {
     const requestedDate = req.nextUrl.searchParams.get("date") || getDateKey();
+    const lockedSlate = await getStoredPickSlate(requestedDate, "NHL");
 
-    // Generate new picks only if no cached pending picks exist
+    if (lockedSlate.slate) {
+      return NextResponse.json(
+        {
+          picks: lockedSlate.picks,
+          date: requestedDate,
+          source: "history_locked",
+          integrity: lockedSlate.slate,
+        },
+        { status: lockedSlate.slate.integrity_status === "incomplete" ? 409 : 200 },
+      );
+    }
+
     const data = await getLiveDashboardData();
     const allowedDates = new Set([requestedDate]);
     const date = requestedDate;
@@ -47,18 +59,32 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ picks: [], date, source: "no-qualifying" });
     }
 
-    try {
-      await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: pick.league ?? "NHL" })));
-    } catch (error) {
-      console.warn("[api/picks] failed to persist picks", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const normalizedPicks = picks.map((pick) => ({ ...pick, league: pick.league ?? "NHL" }));
+    const stored = await storeDailyPickSlate(normalizedPicks, {
+      date,
+      league: "NHL",
+    });
 
-    return NextResponse.json({ picks, date, source: "generated" });
+    return NextResponse.json(
+      {
+        picks: stored.picks,
+        date,
+        source: stored.source === "existing" ? "history_locked" : "generated_locked",
+        integrity: stored.slate,
+      },
+      { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
+    );
   } catch (error) {
     console.error("[api/picks] error:", error);
-    return NextResponse.json({ picks: [], date: getDateKey() });
+    return NextResponse.json(
+      {
+        picks: [],
+        date: req.nextUrl.searchParams.get("date") || getDateKey(),
+        source: "integrity_error",
+        error: error instanceof Error ? error.message : "Failed to load authoritative picks",
+      },
+      { status: 503 },
+    );
   }
 }
 
@@ -94,6 +120,10 @@ export async function POST(req: NextRequest) {
         reasoning: typeof body.reasoning === "string" ? body.reasoning : "",
         confidence: typeof body.confidence === "number" ? body.confidence : null,
         units: 1,
+        provenance: "manual_repair",
+        provenance_note: "Saved manually from the picks API.",
+        pick_snapshot: null,
+        updated_at: new Date().toISOString(),
       });
 
       return NextResponse.json({ ok: true, pick: saved }, { status: 201 });

@@ -18,7 +18,7 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
 
   const tournament = leaderboard?.tournament ?? scheduleTournament;
   const isActiveEvent = Boolean(activeLeaderboard?.tournament.id === eventId);
-  const predictions = leaderboard ? await getGolfPredictionData(leaderboard, isActiveEvent ? odds : null) : null;
+  const predictions = await getGolfPredictionData(leaderboard ?? null, isActiveEvent ? odds : null);
   const latestWinner = tournament?.status === "completed" && leaderboard
     ? (() => {
         const winner = leaderboard.players.find((player) => player.position === "1" || player.position === "T1") ?? leaderboard.players[0];

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import { computePickHistorySummary } from "@/lib/pick-history";
-import type { PickHistoryRecord } from "@/lib/supabase-types";
+import type { PickHistoryRecord, PickSlateRecord } from "@/lib/supabase-types";
 import TeamLogo from "@/components/TeamLogo";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
@@ -41,8 +41,21 @@ function ResultBadge({ result }: { result: PickHistoryRecord["result"] }) {
   return <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>;
 }
 
+function slateBadgeTone(slate: PickSlateRecord) {
+  if (slate.integrity_status === "incomplete") return "border-red-500/30 bg-red-500/10 text-red-300";
+  if (slate.provenance !== "original") return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+  return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+}
+
+function slateBadgeLabel(slate: PickSlateRecord) {
+  if (slate.integrity_status === "incomplete") return `${slate.league} incomplete`;
+  if (slate.provenance === "manual_repair") return `${slate.league} manual repair`;
+  if (slate.provenance === "reconstructed") return `${slate.league} backfill`;
+  return `${slate.league} locked`;
+}
+
 export default function PickHistoryPage() {
-  const { picks: historyPicks, loading } = usePickHistory();
+  const { picks: historyPicks, slates, loading, error } = usePickHistory();
   const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [monthFilter, setMonthFilter] = useState<string>("all");
 
@@ -78,6 +91,28 @@ export default function PickHistoryPage() {
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [filtered]);
 
+  const filteredSlates = useMemo(() => (
+    slates.filter((slate) => {
+      if (sportFilter !== "all" && slate.league !== sportFilter) return false;
+      if (monthFilter !== "all" && getMonthKey(slate.date) !== monthFilter) return false;
+      return true;
+    })
+  ), [monthFilter, slates, sportFilter]);
+
+  const slatesByDate = useMemo(() => {
+    const map = new Map<string, PickSlateRecord[]>();
+    for (const slate of filteredSlates) {
+      const bucket = map.get(slate.date) ?? [];
+      bucket.push(slate);
+      map.set(slate.date, bucket);
+    }
+    return map;
+  }, [filteredSlates]);
+
+  const integrityIssues = useMemo(() => (
+    filteredSlates.filter((slate) => slate.integrity_status !== "ok")
+  ), [filteredSlates]);
+
   return (
     <main className="min-h-screen bg-dark-bg pb-24">
       <PageHeader
@@ -87,6 +122,30 @@ export default function PickHistoryPage() {
 
       <div className="mx-auto max-w-2xl px-4 py-4">
         <Link href="/picks" className="tap-button mb-4 inline-flex text-xs font-medium text-accent-blue">← Back to Picks</Link>
+
+      {error && (
+        <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error}
+        </div>
+      )}
+
+      {integrityIssues.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Integrity Review</p>
+          <div className="mt-3 space-y-2">
+            {integrityIssues.map((slate) => (
+              <div key={`${slate.date}-${slate.league}`} className="rounded-xl border border-amber-500/15 bg-dark-bg/40 px-3 py-2 text-sm text-amber-100">
+                <p className="font-medium">{formatDate(slate.date)} · {slate.league}</p>
+                <p className="mt-1 text-xs text-amber-100/80">
+                  {slate.status_note || slate.provenance_note || (slate.integrity_status === "incomplete"
+                    ? `Only ${slate.pick_count} of ${slate.expected_pick_count} picks are recorded.`
+                    : "This slate is reconstructed and should stay labeled as such.")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Overall Stats */}
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 mb-4">
@@ -184,11 +243,22 @@ export default function PickHistoryPage() {
             const dayWinPct = (dayRecord.wins + dayRecord.losses) > 0
               ? Math.round((dayRecord.wins / (dayRecord.wins + dayRecord.losses)) * 100)
               : null;
+            const daySlates = slatesByDate.get(date) || [];
             return (
               <div key={date} className="rounded-2xl border border-dark-border/70 bg-dark-surface/40 overflow-hidden">
                 {/* Day header */}
                 <div className="flex items-center justify-between px-4 py-2.5 bg-dark-bg/40 border-b border-dark-border/40">
-                  <p className="text-gray-300 text-xs font-semibold">{formatDate(date)}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-gray-300 text-xs font-semibold">{formatDate(date)}</p>
+                    {daySlates.map((slate) => (
+                      <span
+                        key={`${slate.date}-${slate.league}`}
+                        className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] ${slateBadgeTone(slate)}`}
+                      >
+                        {slateBadgeLabel(slate)}
+                      </span>
+                    ))}
+                  </div>
                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
                     <span className="text-emerald-400">{dayRecord.wins}W</span>
                     <span className="text-red-400">{dayRecord.losses}L</span>
@@ -218,9 +288,14 @@ export default function PickHistoryPage() {
                     >
                       <TeamLogo team={pick.team} size={24} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
                           <p className="text-white text-xs font-medium truncate">{pick.pick_label}</p>
                           <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+                          {pick.provenance !== "original" && (
+                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-amber-200">
+                              {pick.provenance === "manual_repair" ? "repair" : "backfill"}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent || "TBD"}</p>

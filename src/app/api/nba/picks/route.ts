@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNBADashboardData } from "@/lib/nba-live-data";
 import { selectNBATopPicks } from "@/lib/picks-engine";
-import { persistPicksToSupabase } from "@/lib/persist-picks";
-import { getDateKey, getPickDateKeys, NBA_TIME_ZONE } from "@/lib/date-utils";
+import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
+import { getDateKey, NBA_TIME_ZONE } from "@/lib/date-utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,6 +29,19 @@ export async function GET(req: NextRequest) {
   const date = requestedDate;
 
   try {
+    const lockedSlate = await getStoredPickSlate(date, "NBA");
+    if (lockedSlate.slate) {
+      return NextResponse.json(
+        {
+          picks: lockedSlate.picks,
+          date,
+          source: "history_locked",
+          integrity: lockedSlate.slate,
+        },
+        { status: lockedSlate.slate.integrity_status === "incomplete" ? 409 : 200 },
+      );
+    }
+
     const data = await getNBADashboardData();
 
     const todayIds = getActiveGameIds(data.schedule || [], allowedDates);
@@ -41,18 +54,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ picks: [], date, source: "no-qualifying" });
     }
 
-    try {
-      await persistPicksToSupabase(picks.map((pick) => ({ ...pick, league: pick.league ?? "NBA" })));
-    } catch (error) {
-      console.warn("[api/nba/picks] failed to persist picks", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    const stored = await storeDailyPickSlate(
+      picks.map((pick) => ({ ...pick, league: pick.league ?? "NBA" })),
+      {
+        date,
+        league: "NBA",
+      },
+    );
 
-    return NextResponse.json({ picks, date, source: "generated" });
+    return NextResponse.json(
+      {
+        picks: stored.picks,
+        date,
+        source: stored.source === "existing" ? "history_locked" : "generated_locked",
+        integrity: stored.slate,
+      },
+      { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
+    );
   } catch (error) {
     console.error("[api/nba/picks] error:", error);
-    return NextResponse.json({ picks: [], date });
+    return NextResponse.json(
+      {
+        picks: [],
+        date,
+        source: "integrity_error",
+        error: error instanceof Error ? error.message : "Failed to load authoritative picks",
+      },
+      { status: 503 },
+    );
   }
 }
 // force redeploy 1773534840

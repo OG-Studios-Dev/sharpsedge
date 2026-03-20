@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import { useLeague } from "@/hooks/useLeague";
-import { AIPick } from "@/lib/types";
+import { AIPick, GolfDashboardData, GolfTournament } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
 import { computePickRecord } from "@/lib/pick-record";
 import type { PickHistoryRecord } from "@/lib/supabase-types";
@@ -21,6 +21,12 @@ import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/d
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { createDraftFromAIPick } from "@/lib/my-picks";
 import { getStaggerStyle } from "@/lib/stagger-style";
+import {
+  formatGolfUpdatedAt,
+  getGolfBadgeTone,
+  getGolfPredictionSourceLabel,
+  getGolfTournamentBadgeLabel,
+} from "@/lib/golf-ui";
 
 function ResultPill({ result }: { result: AIPick["result"] }) {
   const styles: Record<AIPick["result"], string> = {
@@ -50,6 +56,39 @@ function displayEdge(val: number): string {
 
 function formatAmericanOdds(odds: number): string {
   return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function resolveGolfTournament(dashboard: GolfDashboardData | null): GolfTournament | null {
+  if (dashboard?.leaderboard?.tournament) return dashboard.leaderboard.tournament;
+  const schedule = dashboard?.schedule ?? [];
+  return schedule.find((tournament) => tournament.current)
+    ?? schedule.find((tournament) => tournament.status === "upcoming")
+    ?? schedule[0]
+    ?? null;
+}
+
+function buildGolfBannerCopy(dashboard: GolfDashboardData | null, tournament: GolfTournament | null) {
+  const leaderboardPlayers = dashboard?.leaderboard?.players.length ?? 0;
+  const predictions = dashboard?.predictions;
+  const datagolf = predictions?.dataSources?.datagolf;
+  const predictionSource = getGolfPredictionSourceLabel(predictions);
+
+  if (!tournament) {
+    return "Tournament status pending while the PGA feed loads.";
+  }
+  if (tournament.status === "completed") {
+    return leaderboardPlayers > 0
+      ? `Final leaderboard posted for ${leaderboardPlayers} players.`
+      : "This event is complete.";
+  }
+  if (leaderboardPlayers > 0 && datagolf?.ready) {
+    const cacheTime = datagolf.lastScrape ? ` · cache ${formatGolfUpdatedAt(datagolf.lastScrape)}` : "";
+    return `Live board for ${leaderboardPlayers} players. ${predictionSource} matched ${datagolf.matchedPlayers}/${datagolf.totalPlayers} players${cacheTime}.`;
+  }
+  if (leaderboardPlayers > 0) {
+    return `Live board for ${leaderboardPlayers} players. ${datagolf?.reason ?? "DataGolf cache is not ready, so picks are using the ESPN fallback model."}`;
+  }
+  return "Waiting for ESPN to post the field or live leaderboard before the tournament picks board can fully unlock.";
 }
 
 function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
@@ -422,6 +461,26 @@ export default function PicksPage() {
   const { picks: historyPicks = [] } = usePickHistory();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
+  const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
+
+  useEffect(() => {
+    if (sportLeague !== "PGA") return undefined;
+
+    let cancelled = false;
+
+    fetch("/api/golf/dashboard")
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload: GolfDashboardData | null) => {
+        if (!cancelled) setGolfDashboard(payload);
+      })
+      .catch(() => {
+        if (!cancelled) setGolfDashboard(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sportLeague]);
 
   const todayKey = todayKeyForLeague(sportLeague);
 
@@ -468,6 +527,8 @@ export default function PicksPage() {
       : sportLeague === "All"
         ? (nhlLoading || nbaLoading || mlbLoading)
         : nhlLoading;
+  const golfTournament = resolveGolfTournament(golfDashboard);
+  const golfBannerCopy = buildGolfBannerCopy(golfDashboard, golfTournament);
 
   // Per-league records for combined view
   const nhlFlat = Object.values(nhlAll).flat();
@@ -709,7 +770,7 @@ export default function PicksPage() {
               eyebrow="AI Picks"
               title={`No ${sportLeague === "All" ? "" : sportLeague + " "}picks today`}
               body={sportLeague === "PGA"
-                ? "The PGA picks board populates when ESPN posts a field or live leaderboard for the current event."
+                ? golfBannerCopy
                 : "Check back when games are scheduled to see today's top AI picks."}
             />
           ) : (
@@ -731,20 +792,31 @@ export default function PicksPage() {
       {/* Pick History */}
       {sportLeague === "PGA" && (
         <div className="mt-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase font-semibold text-emerald-300 tracking-wide">⛳ Valspar Championship</p>
-              <p className="text-sm font-semibold text-white mt-1">Thu Mar 19 - Sun Mar 22</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs uppercase font-semibold text-emerald-300 tracking-wide">
+                  ⛳ {golfTournament?.name ?? "PGA Tour"}
+                </p>
+                {golfTournament ? (
+                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${getGolfBadgeTone(golfTournament)}`}>
+                    {getGolfTournamentBadgeLabel(golfTournament, golfDashboard?.leaderboard ?? undefined)}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-sm font-semibold text-white mt-1">
+                {golfTournament?.dates ?? "Current tournament dates pending"}
+              </p>
             </div>
             <Link
-              href="/golf"
+              href={golfTournament ? `/golf/tournament/${golfTournament.id}` : "/golf"}
               className="tap-button inline-flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500/90 text-white text-sm font-semibold px-4 py-2 rounded-2xl border border-emerald-500/50 transition-all shadow-lg hover:shadow-emerald-500/25"
             >
-              <span>View Golf</span>
+              <span>{golfTournament ? "View Tournament" : "View Golf"}</span>
               <span className="w-4 h-4">→</span>
             </Link>
           </div>
-          <p className="text-xs text-emerald-200/80 mt-2">Field, leaderboard, DataGolf power rankings loading Thu AM</p>
+          <p className="text-xs text-emerald-200/80 mt-2">{golfBannerCopy}</p>
         </div>
       )}
 

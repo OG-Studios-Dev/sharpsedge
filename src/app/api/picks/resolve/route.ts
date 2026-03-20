@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { findBestFuzzyNameMatch } from "@/lib/name-match";
-import { persistPicksToSupabase } from "@/lib/persist-picks";
+import { updatePickResultsInSupabase } from "@/lib/pick-history-store";
 import { AIPick } from "@/lib/types";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
@@ -501,7 +501,7 @@ async function persistResolvedPickResults(previous: AIPick[], resolved: AIPick[]
   if (!updates.length) return;
 
   try {
-    await persistPicksToSupabase(updates);
+    await updatePickResultsInSupabase(updates);
   } catch (error) {
     console.warn("[picks-resolve] failed to persist resolved results", {
       error: error instanceof Error ? error.message : String(error),
