@@ -197,6 +197,10 @@ export type MLBGame = {
   status: string;
   statusDetail: string;
   inning?: string;
+  venue?: {
+    id?: string;
+    name?: string;
+  };
   oddsEventId?: string;
   awayTeam: {
     id: string;

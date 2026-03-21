@@ -276,6 +276,10 @@ function parseScheduleGame(game: any): MLBGame {
     status: status.status,
     statusDetail: status.statusDetail,
     inning: status.inning,
+    venue: {
+      id: game?.venue?.id != null ? String(game.venue.id) : undefined,
+      name: game?.venue?.name || game?.teams?.home?.team?.venue?.name || undefined,
+    },
     awayTeam,
     homeTeam,
     awayScore: game?.teams?.away?.score != null ? toNumber(game.teams.away.score) : null,
