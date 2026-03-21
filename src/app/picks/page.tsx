@@ -469,8 +469,8 @@ export default function PicksPage() {
   const { picks: historyPicks = [] } = usePickHistory();
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
+  const [recordSport, setRecordSport] = useState(sportLeague === "All" ? "All" : sportLeague);
   const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
-  const [recordSport, setRecordSport] = useState("All");
 
   useEffect(() => {
     if (sportLeague !== "PGA") return undefined;
@@ -571,14 +571,21 @@ export default function PicksPage() {
     ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "PGA").map(mapRecordToHistoryItem))
     : computeRecord(golfFlat);
 
-  const picksRecordMap: Record<string, typeof activeRecord> = {
+  const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
+    All: { icon: "🏆", label: "All" },
+    NHL: { icon: "🏒", label: "NHL" },
+    NBA: { icon: "🏀", label: "NBA" },
+    MLB: { icon: "⚾", label: "MLB" },
+    PGA: { icon: "⛳", label: "PGA" },
+  };
+  const recordMap: Record<string, typeof activeRecord> = {
     All: activeRecord,
     NHL: nhlRec,
     NBA: nbaRec,
     MLB: mlbRec,
     PGA: golfRec,
   };
-  const picksDisplayRecord = picksRecordMap[recordSport] || activeRecord;
+  const displayRecord = recordMap[recordSport] || activeRecord;
 
   const pastHistoryItems = useMemo(() => (
     historyItems.filter((item) => item.date !== todayKey)
@@ -715,33 +722,33 @@ export default function PicksPage() {
             </div>
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <p className="text-accent-green font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).wins}</p>
+                <p className="text-accent-green font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).wins}</p>
                 <p className="text-gray-500 text-[10px] uppercase">W</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-red font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).losses}</p>
+                <p className="text-accent-red font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).losses}</p>
                 <p className="text-gray-500 text-[10px] uppercase">L</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-yellow font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).pushes}</p>
+                <p className="text-accent-yellow font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).pushes}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Push</p>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).pending}</p>
+                <p className="text-gray-400 font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).pending}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Pending</p>
               </div>
               <div className="ml-auto text-right">
                 <p
                   className={`font-bold text-lg ${
-                    (sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits > 0
+                    (sportLeague === "All" ? displayRecord : activeRecord).profitUnits > 0
                       ? "text-accent-green"
-                      : (sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits < 0
+                      : (sportLeague === "All" ? displayRecord : activeRecord).profitUnits < 0
                         ? "text-accent-red"
                         : "text-gray-400"
                   }`}
                 >
-                  {(sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits > 0 ? "+" : ""}
-                  {((sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits || 0).toFixed(2)}u
+                  {(sportLeague === "All" ? displayRecord : activeRecord).profitUnits > 0 ? "+" : ""}
+                  {((sportLeague === "All" ? displayRecord : activeRecord).profitUnits || 0).toFixed(2)}u
                 </p>
                 <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
               </div>
