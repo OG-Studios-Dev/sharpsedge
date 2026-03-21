@@ -110,6 +110,14 @@ function mergeBookOdds(primary: AggregatedBookOdds, secondary: AggregatedBookOdd
     homeSpreadOdds: primary.homeSpreadOdds ?? secondary.homeSpreadOdds,
     awaySpread: primary.awaySpread ?? secondary.awaySpread,
     awaySpreadOdds: primary.awaySpreadOdds ?? secondary.awaySpreadOdds,
+    firstQuarterHomeSpread: primary.firstQuarterHomeSpread ?? secondary.firstQuarterHomeSpread,
+    firstQuarterHomeSpreadOdds: primary.firstQuarterHomeSpreadOdds ?? secondary.firstQuarterHomeSpreadOdds,
+    firstQuarterAwaySpread: primary.firstQuarterAwaySpread ?? secondary.firstQuarterAwaySpread,
+    firstQuarterAwaySpreadOdds: primary.firstQuarterAwaySpreadOdds ?? secondary.firstQuarterAwaySpreadOdds,
+    thirdQuarterHomeSpread: primary.thirdQuarterHomeSpread ?? secondary.thirdQuarterHomeSpread,
+    thirdQuarterHomeSpreadOdds: primary.thirdQuarterHomeSpreadOdds ?? secondary.thirdQuarterHomeSpreadOdds,
+    thirdQuarterAwaySpread: primary.thirdQuarterAwaySpread ?? secondary.thirdQuarterAwaySpread,
+    thirdQuarterAwaySpreadOdds: primary.thirdQuarterAwaySpreadOdds ?? secondary.thirdQuarterAwaySpreadOdds,
     total: primary.total ?? secondary.total,
     overOdds: primary.overOdds ?? secondary.overOdds,
     underOdds: primary.underOdds ?? secondary.underOdds,
@@ -150,6 +158,10 @@ function aggregateEntries(sport: AggregatedSport, entries: BookEventOdds[]): Agg
         bestAway: null,
         bestHomeSpread: null,
         bestAwaySpread: null,
+        bestHomeFirstQuarterSpread: null,
+        bestAwayFirstQuarterSpread: null,
+        bestHomeThirdQuarterSpread: null,
+        bestAwayThirdQuarterSpread: null,
         bestOver: null,
         bestUnder: null,
       });
@@ -178,6 +190,10 @@ function aggregateEntries(sport: AggregatedSport, entries: BookEventOdds[]): Agg
       bestAway: pickBestSide(books, (book) => book.awayML),
       bestHomeSpread: pickBestSpread(books, (book) => book.homeSpreadOdds, (book) => book.homeSpread),
       bestAwaySpread: pickBestSpread(books, (book) => book.awaySpreadOdds, (book) => book.awaySpread),
+      bestHomeFirstQuarterSpread: pickBestSpread(books, (book) => book.firstQuarterHomeSpreadOdds, (book) => book.firstQuarterHomeSpread),
+      bestAwayFirstQuarterSpread: pickBestSpread(books, (book) => book.firstQuarterAwaySpreadOdds, (book) => book.firstQuarterAwaySpread),
+      bestHomeThirdQuarterSpread: pickBestSpread(books, (book) => book.thirdQuarterHomeSpreadOdds, (book) => book.thirdQuarterHomeSpread),
+      bestAwayThirdQuarterSpread: pickBestSpread(books, (book) => book.thirdQuarterAwaySpreadOdds, (book) => book.thirdQuarterAwaySpread),
       bestOver: pickBestTotal(books, (book) => book.overOdds),
       bestUnder: pickBestTotal(books, (book) => book.underOdds),
     };
@@ -220,7 +236,9 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
       const moneylineMarket = bookmaker.markets.find((market) => market.key === "h2h");
       const spreadMarket = bookmaker.markets.find((market) => market.key === "spreads");
       const totalMarket = bookmaker.markets.find((market) => market.key === "totals");
-      if (!moneylineMarket && !spreadMarket && !totalMarket) continue;
+      const firstQuarterSpreadMarket = bookmaker.markets.find((market) => market.key === "spreads_q1");
+      const thirdQuarterSpreadMarket = bookmaker.markets.find((market) => market.key === "spreads_q3");
+      if (!moneylineMarket && !spreadMarket && !totalMarket && !firstQuarterSpreadMarket && !thirdQuarterSpreadMarket) continue;
 
       const odds = {
         ...makeEmptyBookOdds(bookmaker.title, isoNow()),
@@ -232,6 +250,14 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
         homeSpreadOdds: spreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.price ?? null,
         awaySpread: spreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.point ?? null,
         awaySpreadOdds: spreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.price ?? null,
+        firstQuarterHomeSpread: firstQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.point ?? null,
+        firstQuarterHomeSpreadOdds: firstQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.price ?? null,
+        firstQuarterAwaySpread: firstQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.point ?? null,
+        firstQuarterAwaySpreadOdds: firstQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.price ?? null,
+        thirdQuarterHomeSpread: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.point ?? null,
+        thirdQuarterHomeSpreadOdds: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.price ?? null,
+        thirdQuarterAwaySpread: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.point ?? null,
+        thirdQuarterAwaySpreadOdds: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.price ?? null,
         total: totalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.point ?? null,
         overOdds: totalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.price ?? null,
         underOdds: totalMarket?.outcomes.find((outcome) => outcome.name === "Under")?.price ?? null,
@@ -259,10 +285,17 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
 /** Rotate between available Odds API keys to double quota */
 function getOddsApiKeys(): string[] {
   const keys: string[] = [];
-  const k1 = process.env.ODDS_API_KEY;
-  const k2 = process.env.ODDS_API_KEY_2;
-  if (k1 && k1 !== "your_key_here") keys.push(k1);
-  if (k2 && k2 !== "your_key_here") keys.push(k2);
+  const candidates = [
+    process.env.ODDS_API_KEY,
+    process.env.ODDS_API_KEY_2,
+    process.env.ODDS_API_KEY_3,
+  ];
+
+  for (const key of candidates) {
+    if (!key || key === "your_key_here" || keys.includes(key)) continue;
+    keys.push(key);
+  }
+
   return keys;
 }
 
@@ -273,13 +306,19 @@ async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds
   const keys = getOddsApiKeys();
   if (!sportKey || keys.length === 0) return [];
 
+  const marketKeys = ["h2h", "spreads", "totals"];
+  if (sport === "NBA") {
+    marketKeys.push("spreads_q1", "spreads_q3");
+  }
+  const marketsParam = marketKeys.join(",");
+
   // Round-robin across available keys
   const apiKey = keys[oddsApiKeyIndex % keys.length];
   oddsApiKeyIndex++;
 
   try {
     const res = await fetch(
-      `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`,
+      `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
       { next: { revalidate: 900 } },
     );
     if (!res.ok) {
@@ -288,7 +327,7 @@ async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds
         const fallbackKey = keys[(oddsApiKeyIndex) % keys.length];
         oddsApiKeyIndex++;
         const res2 = await fetch(
-          `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${fallbackKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`,
+          `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${fallbackKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
           { next: { revalidate: 900 } },
         );
         if (!res2.ok) return [];
@@ -386,6 +425,40 @@ export function aggregatedOddsToOddsEvent(event: AggregatedOdds): OddsEvent {
               : []),
             ...(typeof book.awaySpread === "number" && typeof book.awaySpreadOdds === "number"
               ? [{ name: event.awayTeam, price: book.awaySpreadOdds, point: book.awaySpread }]
+              : []),
+          ],
+        });
+      }
+
+      if (
+        (typeof book.firstQuarterHomeSpread === "number" && typeof book.firstQuarterHomeSpreadOdds === "number")
+        || (typeof book.firstQuarterAwaySpread === "number" && typeof book.firstQuarterAwaySpreadOdds === "number")
+      ) {
+        markets.push({
+          key: "spreads_q1",
+          outcomes: [
+            ...(typeof book.firstQuarterHomeSpread === "number" && typeof book.firstQuarterHomeSpreadOdds === "number"
+              ? [{ name: event.homeTeam, price: book.firstQuarterHomeSpreadOdds, point: book.firstQuarterHomeSpread }]
+              : []),
+            ...(typeof book.firstQuarterAwaySpread === "number" && typeof book.firstQuarterAwaySpreadOdds === "number"
+              ? [{ name: event.awayTeam, price: book.firstQuarterAwaySpreadOdds, point: book.firstQuarterAwaySpread }]
+              : []),
+          ],
+        });
+      }
+
+      if (
+        (typeof book.thirdQuarterHomeSpread === "number" && typeof book.thirdQuarterHomeSpreadOdds === "number")
+        || (typeof book.thirdQuarterAwaySpread === "number" && typeof book.thirdQuarterAwaySpreadOdds === "number")
+      ) {
+        markets.push({
+          key: "spreads_q3",
+          outcomes: [
+            ...(typeof book.thirdQuarterHomeSpread === "number" && typeof book.thirdQuarterHomeSpreadOdds === "number"
+              ? [{ name: event.homeTeam, price: book.thirdQuarterHomeSpreadOdds, point: book.thirdQuarterHomeSpread }]
+              : []),
+            ...(typeof book.thirdQuarterAwaySpread === "number" && typeof book.thirdQuarterAwaySpreadOdds === "number"
+              ? [{ name: event.awayTeam, price: book.thirdQuarterAwaySpreadOdds, point: book.thirdQuarterAwaySpread }]
               : []),
           ],
         });

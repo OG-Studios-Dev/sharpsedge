@@ -12,6 +12,14 @@ export type AggregatedBookOdds = {
   homeSpreadOdds: number | null;
   awaySpread: number | null;
   awaySpreadOdds: number | null;
+  firstQuarterHomeSpread: number | null;
+  firstQuarterHomeSpreadOdds: number | null;
+  firstQuarterAwaySpread: number | null;
+  firstQuarterAwaySpreadOdds: number | null;
+  thirdQuarterHomeSpread: number | null;
+  thirdQuarterHomeSpreadOdds: number | null;
+  thirdQuarterAwaySpread: number | null;
+  thirdQuarterAwaySpreadOdds: number | null;
   total: number | null;
   overOdds: number | null;
   underOdds: number | null;
@@ -49,6 +57,10 @@ export type AggregatedOdds = {
   bestAway: AggregatedSidePrice | null;
   bestHomeSpread: AggregatedSpreadPrice | null;
   bestAwaySpread: AggregatedSpreadPrice | null;
+  bestHomeFirstQuarterSpread: AggregatedSpreadPrice | null;
+  bestAwayFirstQuarterSpread: AggregatedSpreadPrice | null;
+  bestHomeThirdQuarterSpread: AggregatedSpreadPrice | null;
+  bestAwayThirdQuarterSpread: AggregatedSpreadPrice | null;
   bestOver: AggregatedTotalPrice | null;
   bestUnder: AggregatedTotalPrice | null;
 };

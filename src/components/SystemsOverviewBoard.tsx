@@ -39,6 +39,11 @@ function formatUnits(value: number | null) {
   return `${value.toFixed(1)}u`;
 }
 
+function formatResult(value?: string | null) {
+  if (!value || value === "pending") return "Pending";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function MetricCard({
   label,
   value,
@@ -61,30 +66,36 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
   if (system.records.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-400">
-        No tracked rows yet. This first pass ships the system definition and store shape, but quarter spread line ingestion still needs to be wired before results can be trusted.
+        No qualifying Goose rows have been stored yet. Use the refresh path to build today’s qualifiers when NBA games and quarter lines are available.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-dark-border bg-dark-surface/70">
-      <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+    <div className="overflow-x-auto rounded-2xl border border-dark-border bg-dark-surface/70">
+      <div className="grid min-w-[980px] grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.7fr_0.8fr_0.8fr_0.8fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
         <span>Matchup</span>
         <span>Date</span>
-        <span>FG Spread</span>
+        <span>FG</span>
         <span>1Q</span>
         <span>3Q</span>
+        <span>Bet 1</span>
+        <span>Sequence</span>
+        <span>Units</span>
       </div>
       {system.records.map((record) => (
-        <div key={record.id} className="grid grid-cols-[1.2fr_1fr_0.8fr_0.8fr_0.8fr] gap-3 px-4 py-3 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/70">
+        <div key={record.id} className="grid min-w-[980px] grid-cols-[1.2fr_0.8fr_0.7fr_0.7fr_0.7fr_0.8fr_0.8fr_0.8fr] gap-3 px-4 py-3 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/70">
           <div>
             <p className="font-medium text-white">{record.matchup}</p>
-            <p className="mt-1 text-xs text-gray-500">{record.notes || "Manual row"}</p>
+            <p className="mt-1 text-xs text-gray-500">{record.notes || record.source || "Stored row"}</p>
           </div>
           <span>{record.gameDate || "—"}</span>
           <span>{record.closingSpread ?? "—"}</span>
           <span>{record.firstQuarterSpread ?? "—"}</span>
           <span>{record.thirdQuarterSpread ?? "—"}</span>
+          <span>{formatResult(record.bet1Result)}</span>
+          <span>{formatResult(record.sequenceResult)}</span>
+          <span>{formatUnits(record.estimatedNetUnits ?? null)}</span>
         </div>
       ))}
     </div>
@@ -100,7 +111,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt }: Props) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-blue/80">Systems Tracking</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white lg:text-4xl">Public lab for repeatable betting systems.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300 lg:text-base">
-              This board is where Goosalytics can publish system definitions, qualifier logic, and honest tracking status. It is intentionally conservative right now: no fake precision, no backfilled win rates pretending quarter-line data already exists.
+              This board is where Goosalytics can publish system definitions, qualifier logic, and honest tracking status. Metrics below only move when stored Goose rows have real quarter lines and real quarter scoring behind them.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
@@ -138,9 +149,11 @@ export default function SystemsOverviewBoard({ systems, updatedAt }: Props) {
               </div>
 
               <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 lg:max-w-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">First-pass honesty check</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-200">Honesty check</p>
                 <p className="mt-2 text-sm leading-6 text-amber-100/90">
-                  Quarter spread line ingestion is not wired yet. Until 1Q and 3Q lines are stored per qualifying game, tracked performance cards stay placeholder or partial on purpose.
+                  {metricsAwaitingLines
+                    ? "Goose rows are stored conservatively. If a qualifying game is missing quarter lines or ESPN quarter scores, that row stays unresolved."
+                    : "Performance cards below are driven by stored Goose rows with captured quarter lines, and sequences settle only when ESPN quarter linescores are available."}
                 </p>
               </div>
             </div>
@@ -231,12 +244,12 @@ export default function SystemsOverviewBoard({ systems, updatedAt }: Props) {
             <div>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <p className="section-heading">Placeholder Metrics</p>
+                  <p className="section-heading">Goose Metrics</p>
                   <h3 className="mt-2 text-lg font-semibold text-white">Performance board</h3>
                   <p className="mt-1 text-sm text-gray-400">
                     {metricsAwaitingLines
-                      ? "Awaiting consistent 1Q and 3Q line capture before publishing real performance stats."
-                      : "Derived only from stored rows that include both quarter lines and settled sequence results."}
+                      ? "Still partial: some qualifying rows are missing 1Q and/or 3Q lines, so unresolved sequences remain excluded from reported performance."
+                      : "Derived only from stored rows that include quarter lines and settled sequence results."}
                   </p>
                 </div>
                 <div className="rounded-full border border-dark-border bg-dark-bg/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
@@ -272,7 +285,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt }: Props) {
               <div>
                 <p className="section-heading">Tracked Rows</p>
                 <h3 className="mt-2 text-lg font-semibold text-white">Stored system records</h3>
-                <p className="mt-1 text-sm text-gray-400">The table is ready for manual backfills or future automated ingestion.</p>
+                <p className="mt-1 text-sm text-gray-400">Rows are refreshed from live NBA odds plus ESPN quarter scoring when available.</p>
               </div>
               <TrackingRecordTable system={system} />
             </div>

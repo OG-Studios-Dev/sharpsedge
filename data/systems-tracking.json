@@ -1,12 +1,12 @@
 {
-  "updatedAt": "2026-03-21T14:53:00.000Z",
+  "updatedAt": "2026-03-21T15:14:20.880Z",
   "systems": [
     {
       "id": "nba-goose-system",
       "name": "NBA Goose System",
       "sport": "NBA",
       "owner": "Goosalytics Lab",
-      "status": "awaiting_data",
+      "status": "tracking",
       "summary": "Quarter ATS chase built around road favorites laying -5.5 or more, with a first-quarter entry and a third-quarter double-down only if the opener loses.",
       "definition": "Track every NBA game where the road team closes as a favorite of -5.5 or more. Bet the road favorite 1Q ATS. If that leg wins, stop. If it loses, double the original stake and bet the road favorite 3Q ATS.",
       "qualifierRules": [
@@ -39,26 +39,50 @@
         },
         {
           "label": "1Q ATS line",
-          "status": "pending",
-          "detail": "Not wired yet. Required to know whether Bet 1 actually qualified and how it closed."
+          "status": "partial",
+          "detail": "No qualifying row has a captured 1Q spread yet."
         },
         {
           "label": "3Q ATS line",
-          "status": "pending",
-          "detail": "Not wired yet. Required for the double-down leg after a first-quarter loss."
+          "status": "partial",
+          "detail": "No qualifying row has a captured 3Q spread yet."
         },
         {
           "label": "Quarter settlement outcomes",
           "status": "partial",
-          "detail": "Can be inferred only if quarter score data and matching lines exist for the same game."
+          "detail": "Qualifiers exist, but at least one required quarter score or quarter line is still missing."
         }
       ],
       "trackingNotes": [
-        "First pass only: quarter spread ingestion is explicitly not automated yet.",
-        "Performance cards should be treated as placeholders until quarter lines are stored consistently.",
-        "Manual backfills can populate historical rows later without changing the page shape."
+        "Rows are generated from live NBA odds aggregation and stored in data/systems-tracking.json.",
+        "Bet 1 uses the away team 1Q spread. Bet 2 only settles after a Bet 1 loss and available 3Q scoring.",
+        "If lines or quarter scores are missing, the row stays unresolved rather than being backfilled with guesses."
       ],
-      "records": []
+      "records": [
+        {
+          "id": "nba-goose:NBA:OKC@WAS:na",
+          "gameId": "NBA:OKC@WAS:na",
+          "oddsEventId": null,
+          "gameDate": "2026-03-21",
+          "matchup": "Oklahoma City Thunder @ Washington Wizards",
+          "roadTeam": "Oklahoma City Thunder",
+          "homeTeam": "Washington Wizards",
+          "closingSpread": -21,
+          "firstQuarterSpread": null,
+          "thirdQuarterSpread": null,
+          "firstQuarterRoadScore": null,
+          "firstQuarterHomeScore": null,
+          "thirdQuarterRoadScore": null,
+          "thirdQuarterHomeScore": null,
+          "bet1Result": "pending",
+          "bet2Result": null,
+          "sequenceResult": "pending",
+          "estimatedNetUnits": null,
+          "source": "The Odds API + ESPN summary",
+          "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
+          "lastSyncedAt": "2026-03-21T15:14:20.880Z"
+        }
+      ]
     }
   ]
 }
