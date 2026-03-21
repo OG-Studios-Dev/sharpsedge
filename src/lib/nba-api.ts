@@ -25,7 +25,7 @@ import { BookOddsBySide } from "@/lib/types";
 import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE } from "@/lib/date-utils";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
-const ESPN_BASE_V2 = "https://site.api.espn.com/apis/v2/sports/basketball/nba";
+const ESPN_BASE_V2 = "https://site.web.api.espn.com/apis/v2/sports/basketball/nba";
 const BDL_BASE = "https://api.balldontlie.io/v1";
 const CACHE_TTL = 15 * 60 * 1000;
 
