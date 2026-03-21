@@ -27,6 +27,12 @@ export async function GET() {
             fetchedAt: null,
             teamCount: 0,
           },
+          news: {
+            provider: "nhl.com",
+            kind: "unavailable",
+            fetchedAt: new Date().toISOString(),
+            note: "Official team news adapter unavailable because the context board failed to build.",
+          },
         },
         notes: [
           "NHL context board failed to build for this request.",

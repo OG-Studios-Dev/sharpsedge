@@ -42,7 +42,20 @@ This repo now ships a first NHL context rail built around two cheap, reusable in
 - Label playoff pressure as a **heuristic** until a stricter standings model exists.
 - Treat MoneyPuck input as a team snapshot, not as a full game prediction model.
 
+## Current expansion: goalie + lightweight official news context
+- **Goalie rail**
+  - sourced from NHL API gamecenter goalie data already used elsewhere in the repo
+  - keeps the raw starter object separate from lightweight derived flags like:
+    - starter confirmed vs probable
+    - backup / limited-sample alerts
+- **News rail**
+  - minimal adapter against official `nhl.com/{team}/news`
+  - only extracts official article links when available
+  - derived labels are title-based only (for example `game_day_post`, `roster_move_post`)
+  - no quote parsing, no sentiment, no inferred injuries
+  - timestamps may be null when the official page does not expose them cleanly server-side
+
 ## Follow-up ideas
 - Replace the mirror path with a first-party MoneyPuck ingest if runtime access becomes reliable.
 - Add stricter wildcard / tie-breaker logic for late-season urgency.
-- Layer in goalie confirmation and injury/news rails separately rather than blending them into this module.
+- If a reliable official/API-grade NHL news feed becomes available, upgrade the lightweight team-site adapter to include structured timestamps and article types without brittle scraping.

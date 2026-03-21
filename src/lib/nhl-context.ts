@@ -1,7 +1,8 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { getDateKey } from "@/lib/date-utils";
-import { getUpcomingSchedule } from "@/lib/nhl-api";
+import { getUpcomingSchedule, getGameGoalies } from "@/lib/nhl-api";
+import type { GoalieStarter } from "@/lib/nhl-api";
 import type { NHLGame } from "@/lib/types";
 
 type CacheEntry<T> = { value: T; expiresAt: number };
@@ -97,6 +98,47 @@ type DerivedPlayoffPressure = {
   reason: string;
 };
 
+type SourcedGoalieContext = {
+  starter: GoalieStarter | null;
+  source: "nhl-api";
+  fetchedAt: string;
+};
+
+type DerivedGoalieContext = {
+  starterStatus: GoalieStarter["status"] | "unavailable";
+  isConfirmed: boolean;
+  isBackup: boolean;
+  experienceTier: "starter" | "limited-sample" | "unknown";
+  sampleDecisionCount: number | null;
+  alertFlags: string[];
+};
+
+type SourcedNewsItem = {
+  title: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: string | null;
+  articleType: "team-site" | "league-site";
+};
+
+type SourcedNewsContext = {
+  items: SourcedNewsItem[];
+  source: {
+    provider: "nhl.com";
+    kind: "team-site-links" | "unavailable";
+    url: string | null;
+    fetchedAt: string;
+    note: string;
+  };
+};
+
+type DerivedNewsContext = {
+  recentItemCount: number;
+  hasGameDayPost: boolean;
+  hasRosterMovePost: boolean;
+  labels: string[];
+};
+
 export type NHLContextTeamBoardEntry = {
   role: "away" | "home";
   teamAbbrev: string;
@@ -124,6 +166,8 @@ export type NHLContextTeamBoardEntry = {
       fetchedAt: string | null;
       source: MoneyPuckSnapshotResult["source"];
     } | null;
+    goalie: SourcedGoalieContext;
+    news: SourcedNewsContext;
   };
   derived: {
     rest: DerivedRestContext;
@@ -131,6 +175,8 @@ export type NHLContextTeamBoardEntry = {
     playoffPressure: DerivedPlayoffPressure;
     fatigueScore: number | null;
     fatigueFlags: string[];
+    goalie: DerivedGoalieContext;
+    news: DerivedNewsContext;
   };
 };
 
@@ -172,6 +218,12 @@ export type NHLContextBoardResponse = {
         asOf: string | null;
         fetchedAt: string | null;
         teamCount: number;
+      };
+      news: {
+        provider: "nhl.com";
+        kind: "team-site-links" | "unavailable";
+        fetchedAt: string;
+        note: string;
       };
     };
     notes: string[];
@@ -523,6 +575,165 @@ function buildPlayoffPressure(teamAbbrev: string, standings: RawStanding[]): Der
   };
 }
 
+const NHL_TEAM_SITE_SLUGS: Record<string, string> = {
+  ANA: "ducks",
+  BOS: "bruins",
+  BUF: "sabres",
+  CGY: "flames",
+  CAR: "hurricanes",
+  CHI: "blackhawks",
+  COL: "avalanche",
+  CBJ: "bluejackets",
+  DAL: "stars",
+  DET: "redwings",
+  EDM: "oilers",
+  FLA: "panthers",
+  LAK: "kings",
+  MIN: "wild",
+  MTL: "canadiens",
+  NSH: "predators",
+  NJD: "devils",
+  NYI: "islanders",
+  NYR: "rangers",
+  OTT: "senators",
+  PHI: "flyers",
+  PIT: "penguins",
+  SEA: "kraken",
+  SJS: "sharks",
+  STL: "blues",
+  TBL: "lightning",
+  TOR: "mapleleafs",
+  UTA: "utah",
+  VAN: "canucks",
+  VGK: "goldenknights",
+  WPG: "jets",
+  WSH: "capitals",
+};
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalieContext {
+  if (!starter) {
+    return {
+      starterStatus: "unavailable",
+      isConfirmed: false,
+      isBackup: false,
+      experienceTier: "unknown",
+      sampleDecisionCount: null,
+      alertFlags: ["goalie_unavailable"],
+    };
+  }
+
+  const sampleDecisionCount = starter.wins + starter.losses + starter.otLosses;
+  const alertFlags: string[] = [];
+  if (starter.status !== "confirmed") alertFlags.push("starter_not_confirmed");
+  if (starter.isBackup) alertFlags.push("backup_goalie");
+  if (sampleDecisionCount < 10) alertFlags.push("limited_sample");
+
+  return {
+    starterStatus: starter.status,
+    isConfirmed: starter.status === "confirmed",
+    isBackup: starter.isBackup,
+    experienceTier: sampleDecisionCount >= 10 ? "starter" : "limited-sample",
+    sampleDecisionCount,
+    alertFlags,
+  };
+}
+
+async function loadTeamNews(teamAbbrev: string): Promise<SourcedNewsContext> {
+  const fetchedAt = new Date().toISOString();
+  const slug = NHL_TEAM_SITE_SLUGS[teamAbbrev];
+  if (!slug) {
+    return {
+      items: [],
+      source: {
+        provider: "nhl.com",
+        kind: "unavailable",
+        url: null,
+        fetchedAt,
+        note: `No official nhl.com team-site slug is configured for ${teamAbbrev}.`,
+      },
+    };
+  }
+
+  const url = `https://www.nhl.com/${slug}/news`;
+  try {
+    const html = await cachedTextFetch(url, DEFAULT_TTL_MS);
+    const linkPattern = /href="([^"]*\/news\/[^"#?]+)"/g;
+    const seen = new Set<string>();
+    const items: SourcedNewsItem[] = [];
+
+    for (let match = linkPattern.exec(html); match; match = linkPattern.exec(html)) {
+      const href = match[1];
+      const absoluteUrl = href.startsWith("http") ? href : `https://www.nhl.com${href.startsWith("/") ? href : `/${href}`}`;
+      if (seen.has(absoluteUrl)) continue;
+      seen.add(absoluteUrl);
+
+      const slugPart = absoluteUrl.split("/news/")[1] || "";
+      const title = decodeHtml(slugPart.split("?")[0].split("#")[0].replace(/[-_]+/g, " ").trim());
+      if (!title) continue;
+
+      items.push({
+        title,
+        url: absoluteUrl,
+        sourceLabel: `${teamAbbrev} official team site`,
+        publishedAt: null,
+        articleType: "team-site",
+      });
+
+      if (items.length >= 5) break;
+    }
+
+    return {
+      items,
+      source: {
+        provider: "nhl.com",
+        kind: items.length ? "team-site-links" : "unavailable",
+        url,
+        fetchedAt,
+        note: items.length
+          ? "Official nhl.com team news links only. Titles come from URL slugs; timestamps are omitted when the page does not expose them cleanly server-side."
+          : "Official nhl.com team news page loaded, but no article links were extracted server-side.",
+      },
+    };
+  } catch {
+    return {
+      items: [],
+      source: {
+        provider: "nhl.com",
+        kind: "unavailable",
+        url,
+        fetchedAt,
+        note: "Official nhl.com team news page was unavailable from this runtime.",
+      },
+    };
+  }
+}
+
+function buildNewsDerivedContext(items: SourcedNewsItem[]): DerivedNewsContext {
+  const labels = new Set<string>();
+  for (const item of items) {
+    const title = item.title.toLowerCase();
+    if (title.includes("game day")) labels.add("game_day_post");
+    if (/(sign|re-sign|trade|recall|assign|waiv|loan|activate|activate d|roster)/.test(title)) labels.add("roster_move_post");
+  }
+
+  return {
+    recentItemCount: items.length,
+    hasGameDayPost: labels.has("game_day_post"),
+    hasRosterMovePost: labels.has("roster_move_post"),
+    labels: Array.from(labels),
+  };
+}
+
 function buildFatigue(rest: DerivedRestContext, travel: DerivedTravelContext) {
   if (rest.restDays === null) {
     return { fatigueScore: null, fatigueFlags: [] as string[] };
@@ -568,6 +779,9 @@ function buildTeamBoardEntry(params: {
   standingsByTeam: Map<string, RawStanding>;
   standingsFetchedAt: string;
   moneyPuck: MoneyPuckSnapshotResult;
+  goalie: GoalieStarter | null;
+  goalieFetchedAt: string;
+  news: SourcedNewsContext;
 }): NHLContextTeamBoardEntry {
   const {
     role,
@@ -579,6 +793,9 @@ function buildTeamBoardEntry(params: {
     standingsByTeam,
     standingsFetchedAt,
     moneyPuck,
+    goalie,
+    goalieFetchedAt,
+    news,
   } = params;
 
   const teamSchedule = schedulesByTeam.get(teamAbbrev) || [];
@@ -592,6 +809,8 @@ function buildTeamBoardEntry(params: {
   const travel = buildTravelContext(teamAbbrev, teamSchedule, currentGame);
   const playoffPressure = buildPlayoffPressure(teamAbbrev, sameConferenceStandings);
   const fatigue = buildFatigue(rest, travel);
+  const derivedGoalie = buildGoalieDerivedContext(goalie);
+  const derivedNews = buildNewsDerivedContext(news.items);
 
   return {
     role,
@@ -620,6 +839,12 @@ function buildTeamBoardEntry(params: {
         fetchedAt: moneyPuck.sourcedAt,
         source: moneyPuck.source,
       },
+      goalie: {
+        starter: goalie,
+        source: "nhl-api",
+        fetchedAt: goalieFetchedAt,
+      },
+      news,
     },
     derived: {
       rest,
@@ -627,6 +852,8 @@ function buildTeamBoardEntry(params: {
       playoffPressure,
       fatigueScore: fatigue.fatigueScore,
       fatigueFlags: fatigue.fatigueFlags,
+      goalie: derivedGoalie,
+      news: derivedNews,
     },
   };
 }
@@ -647,51 +874,88 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
   const games = schedule.games.filter((game) => getDateKey(new Date(game.startTimeUTC)) === boardDate);
   const uniqueTeams = Array.from(new Set(games.flatMap((game) => [game.awayTeam.abbrev, game.homeTeam.abbrev])));
 
-  const schedules = await Promise.all(uniqueTeams.map(async (teamAbbrev) => {
-    const data = await getClubSchedule(teamAbbrev, inferSeason());
-    return [teamAbbrev, data.games || []] as const;
-  }));
+  const [schedules, goalieEntries, teamNewsEntries] = await Promise.all([
+    Promise.all(uniqueTeams.map(async (teamAbbrev) => {
+      const data = await getClubSchedule(teamAbbrev, inferSeason());
+      return [teamAbbrev, data.games || []] as const;
+    })),
+    Promise.all(games.map(async (game) => {
+      const goalieData = await getGameGoalies(game.id).catch(() => ({ gameId: game.id, home: null, away: null }));
+      return [game.id, goalieData] as const;
+    })),
+    Promise.all(uniqueTeams.map(async (teamAbbrev) => [teamAbbrev, await loadTeamNews(teamAbbrev)] as const)),
+  ]);
 
   const schedulesByTeam = new Map<string, ClubScheduleGame[]>(schedules);
+  const goaliesByGame = new Map<number, { gameId: number; home: GoalieStarter | null; away: GoalieStarter | null }>(goalieEntries);
+  const newsByTeam = new Map<string, SourcedNewsContext>(teamNewsEntries);
   const standingsByTeam = new Map<string, RawStanding>(
     (rawStandings.standings || []).map((standing) => [normalizeStandingTeamAbbrev(standing.teamAbbrev), standing]),
   );
 
   const standingsFetchedAt = builtAt;
-  const boardGames: NHLContextBoardGame[] = games.map((game) => ({
-    gameId: game.id,
-    gameDate: getDateKey(new Date(game.startTimeUTC)),
-    startTimeUTC: game.startTimeUTC,
-    gameState: game.gameState,
-    matchup: {
-      awayTeam: { abbrev: game.awayTeam.abbrev, name: game.awayTeam.name || game.awayTeam.abbrev },
-      homeTeam: { abbrev: game.homeTeam.abbrev, name: game.homeTeam.name || game.homeTeam.abbrev },
-    },
-    teams: {
-      away: buildTeamBoardEntry({
-        role: "away",
-        teamAbbrev: game.awayTeam.abbrev,
-        teamName: game.awayTeam.name || game.awayTeam.abbrev,
-        opponentAbbrev: game.homeTeam.abbrev,
-        currentGame: game,
-        schedulesByTeam,
-        standingsByTeam,
-        standingsFetchedAt,
-        moneyPuck,
-      }),
-      home: buildTeamBoardEntry({
-        role: "home",
-        teamAbbrev: game.homeTeam.abbrev,
-        teamName: game.homeTeam.name || game.homeTeam.abbrev,
-        opponentAbbrev: game.awayTeam.abbrev,
-        currentGame: game,
-        schedulesByTeam,
-        standingsByTeam,
-        standingsFetchedAt,
-        moneyPuck,
-      }),
-    },
-  }));
+  const goalieFetchedAt = builtAt;
+  const boardGames: NHLContextBoardGame[] = games.map((game) => {
+    const gameGoalies = goaliesByGame.get(game.id) || { gameId: game.id, home: null, away: null };
+    return {
+      gameId: game.id,
+      gameDate: getDateKey(new Date(game.startTimeUTC)),
+      startTimeUTC: game.startTimeUTC,
+      gameState: game.gameState,
+      matchup: {
+        awayTeam: { abbrev: game.awayTeam.abbrev, name: game.awayTeam.name || game.awayTeam.abbrev },
+        homeTeam: { abbrev: game.homeTeam.abbrev, name: game.homeTeam.name || game.homeTeam.abbrev },
+      },
+      teams: {
+        away: buildTeamBoardEntry({
+          role: "away",
+          teamAbbrev: game.awayTeam.abbrev,
+          teamName: game.awayTeam.name || game.awayTeam.abbrev,
+          opponentAbbrev: game.homeTeam.abbrev,
+          currentGame: game,
+          schedulesByTeam,
+          standingsByTeam,
+          standingsFetchedAt,
+          moneyPuck,
+          goalie: gameGoalies.away,
+          goalieFetchedAt,
+          news: newsByTeam.get(game.awayTeam.abbrev) || {
+            items: [],
+            source: {
+              provider: "nhl.com",
+              kind: "unavailable",
+              url: null,
+              fetchedAt: builtAt,
+              note: `Official team news unavailable for ${game.awayTeam.abbrev}.`,
+            },
+          },
+        }),
+        home: buildTeamBoardEntry({
+          role: "home",
+          teamAbbrev: game.homeTeam.abbrev,
+          teamName: game.homeTeam.name || game.homeTeam.abbrev,
+          opponentAbbrev: game.awayTeam.abbrev,
+          currentGame: game,
+          schedulesByTeam,
+          standingsByTeam,
+          standingsFetchedAt,
+          moneyPuck,
+          goalie: gameGoalies.home,
+          goalieFetchedAt,
+          news: newsByTeam.get(game.homeTeam.abbrev) || {
+            items: [],
+            source: {
+              provider: "nhl.com",
+              kind: "unavailable",
+              url: null,
+              fetchedAt: builtAt,
+              note: `Official team news unavailable for ${game.homeTeam.abbrev}.`,
+            },
+          },
+        }),
+      },
+    };
+  });
 
   const response: NHLContextBoardResponse = {
     date: boardDate,
@@ -717,9 +981,17 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           fetchedAt: moneyPuck.sourcedAt,
           teamCount: moneyPuck.teams.length,
         },
+        news: {
+          provider: "nhl.com",
+          kind: boardGames.some((game) => game.teams.away.sourced.news.items.length || game.teams.home.sourced.news.items.length) ? "team-site-links" : "unavailable",
+          fetchedAt: builtAt,
+          note: "News context is limited to official nhl.com team-site article links and simple source-labeled tags. No sentiment or quote inference is used.",
+        },
       },
       notes: [
         "MoneyPuck values are sourced inputs; rest/travel/playoff-pressure are derived heuristics.",
+        "Goalie context uses NHL API starter status and season stat lines; derived goalie flags are lightweight labels only.",
+        "News context is limited to official nhl.com team-site links when available, with source-labeled derived tags from article titles only.",
         "No coach sentiment, injury sentiment, or locker-room narrative is inferred here.",
         "Playoff pressure uses a simple conference top-8 cutline heuristic, not full tie-breaker or clinch math.",
       ],
