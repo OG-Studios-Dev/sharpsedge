@@ -1,0 +1,270 @@
+{
+  "season": "20252026",
+  "asOf": "2026-03-21",
+  "sourcedAt": "2026-03-21T18:45:00.000Z",
+  "source": {
+    "name": "MoneyPuck daily team snapshot mirror",
+    "kind": "github-mirror",
+    "upstream": "MoneyPuck",
+    "url": "https://raw.githubusercontent.com/jmbarton04/nhl_odds_moneypuck/main/data/moneypuck_today.csv",
+    "notes": "Bundled fallback snapshot for startup mode when live fetches are unavailable."
+  },
+  "teams": [
+    {
+      "teamAbbrev": "ANA",
+      "xGoalsPercentage": 0.5,
+      "xGoalsFor": 232.87,
+      "xGoalsAgainst": 232.87,
+      "scoreVenueAdjustedXGoalsFor": 231.67,
+      "goalsFor": 221
+    },
+    {
+      "teamAbbrev": "BOS",
+      "xGoalsPercentage": 0.47,
+      "xGoalsFor": 207.65,
+      "xGoalsAgainst": 234.16,
+      "scoreVenueAdjustedXGoalsFor": 208.13,
+      "goalsFor": 227
+    },
+    {
+      "teamAbbrev": "BUF",
+      "xGoalsPercentage": 0.49,
+      "xGoalsFor": 220.67,
+      "xGoalsAgainst": 229.68,
+      "scoreVenueAdjustedXGoalsFor": 221.78,
+      "goalsFor": 238
+    },
+    {
+      "teamAbbrev": "CAR",
+      "xGoalsPercentage": 0.56,
+      "xGoalsFor": 248.08,
+      "xGoalsAgainst": 194.92,
+      "scoreVenueAdjustedXGoalsFor": 249.64,
+      "goalsFor": 240
+    },
+    {
+      "teamAbbrev": "CBJ",
+      "xGoalsPercentage": 0.5,
+      "xGoalsFor": 219.4,
+      "xGoalsAgainst": 219.4,
+      "scoreVenueAdjustedXGoalsFor": 221.06,
+      "goalsFor": 217
+    },
+    {
+      "teamAbbrev": "CGY",
+      "xGoalsPercentage": 0.47,
+      "xGoalsFor": 199.17,
+      "xGoalsAgainst": 224.6,
+      "scoreVenueAdjustedXGoalsFor": 198.96,
+      "goalsFor": 170
+    },
+    {
+      "teamAbbrev": "CHI",
+      "xGoalsPercentage": 0.45,
+      "xGoalsFor": 184.82,
+      "xGoalsAgainst": 225.89,
+      "scoreVenueAdjustedXGoalsFor": 184.85,
+      "goalsFor": 178
+    },
+    {
+      "teamAbbrev": "COL",
+      "xGoalsPercentage": 0.57,
+      "xGoalsFor": 251.6,
+      "xGoalsAgainst": 189.8,
+      "scoreVenueAdjustedXGoalsFor": 254.8,
+      "goalsFor": 251
+    },
+    {
+      "teamAbbrev": "DAL",
+      "xGoalsPercentage": 0.54,
+      "xGoalsFor": 220.3,
+      "xGoalsAgainst": 187.66,
+      "scoreVenueAdjustedXGoalsFor": 222.61,
+      "goalsFor": 232
+    },
+    {
+      "teamAbbrev": "DET",
+      "xGoalsPercentage": 0.52,
+      "xGoalsFor": 219.81,
+      "xGoalsAgainst": 202.9,
+      "scoreVenueAdjustedXGoalsFor": 220.54,
+      "goalsFor": 201
+    },
+    {
+      "teamAbbrev": "EDM",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 235.93,
+      "xGoalsAgainst": 226.68,
+      "scoreVenueAdjustedXGoalsFor": 236.86,
+      "goalsFor": 243
+    },
+    {
+      "teamAbbrev": "FLA",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 225.36,
+      "xGoalsAgainst": 216.52,
+      "scoreVenueAdjustedXGoalsFor": 225.21,
+      "goalsFor": 202
+    },
+    {
+      "teamAbbrev": "LAK",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 205.53,
+      "xGoalsAgainst": 197.47,
+      "scoreVenueAdjustedXGoalsFor": 205.34,
+      "goalsFor": 179
+    },
+    {
+      "teamAbbrev": "MIN",
+      "xGoalsPercentage": 0.52,
+      "xGoalsFor": 222.67,
+      "xGoalsAgainst": 205.54,
+      "scoreVenueAdjustedXGoalsFor": 224.21,
+      "goalsFor": 227
+    },
+    {
+      "teamAbbrev": "MTL",
+      "xGoalsPercentage": 0.5,
+      "xGoalsFor": 222.58,
+      "xGoalsAgainst": 222.58,
+      "scoreVenueAdjustedXGoalsFor": 223.31,
+      "goalsFor": 235
+    },
+    {
+      "teamAbbrev": "NJD",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 216.03,
+      "xGoalsAgainst": 207.56,
+      "scoreVenueAdjustedXGoalsFor": 215.61,
+      "goalsFor": 183
+    },
+    {
+      "teamAbbrev": "NSH",
+      "xGoalsPercentage": 0.49,
+      "xGoalsFor": 212.83,
+      "xGoalsAgainst": 221.52,
+      "scoreVenueAdjustedXGoalsFor": 211.52,
+      "goalsFor": 198
+    },
+    {
+      "teamAbbrev": "NYI",
+      "xGoalsPercentage": 0.48,
+      "xGoalsFor": 209.78,
+      "xGoalsAgainst": 227.26,
+      "scoreVenueAdjustedXGoalsFor": 210.2,
+      "goalsFor": 198
+    },
+    {
+      "teamAbbrev": "NYR",
+      "xGoalsPercentage": 0.46,
+      "xGoalsFor": 196.37,
+      "xGoalsAgainst": 230.52,
+      "scoreVenueAdjustedXGoalsFor": 196.94,
+      "goalsFor": 193
+    },
+    {
+      "teamAbbrev": "OTT",
+      "xGoalsPercentage": 0.55,
+      "xGoalsFor": 220.91,
+      "xGoalsAgainst": 180.74,
+      "scoreVenueAdjustedXGoalsFor": 222.68,
+      "goalsFor": 226
+    },
+    {
+      "teamAbbrev": "PHI",
+      "xGoalsPercentage": 0.49,
+      "xGoalsFor": 191.72,
+      "xGoalsAgainst": 199.55,
+      "scoreVenueAdjustedXGoalsFor": 191.68,
+      "goalsFor": 189
+    },
+    {
+      "teamAbbrev": "PIT",
+      "xGoalsPercentage": 0.52,
+      "xGoalsFor": 228.71,
+      "xGoalsAgainst": 211.12,
+      "scoreVenueAdjustedXGoalsFor": 230.93,
+      "goalsFor": 234
+    },
+    {
+      "teamAbbrev": "SEA",
+      "xGoalsPercentage": 0.47,
+      "xGoalsFor": 191.2,
+      "xGoalsAgainst": 215.61,
+      "scoreVenueAdjustedXGoalsFor": 190.67,
+      "goalsFor": 193
+    },
+    {
+      "teamAbbrev": "SJS",
+      "xGoalsPercentage": 0.48,
+      "xGoalsFor": 200.29,
+      "xGoalsAgainst": 216.98,
+      "scoreVenueAdjustedXGoalsFor": 200.19,
+      "goalsFor": 205
+    },
+    {
+      "teamAbbrev": "STL",
+      "xGoalsPercentage": 0.46,
+      "xGoalsFor": 176.07,
+      "xGoalsAgainst": 206.69,
+      "scoreVenueAdjustedXGoalsFor": 176.56,
+      "goalsFor": 177
+    },
+    {
+      "teamAbbrev": "TBL",
+      "xGoalsPercentage": 0.54,
+      "xGoalsFor": 235.93,
+      "xGoalsAgainst": 200.98,
+      "scoreVenueAdjustedXGoalsFor": 238.29,
+      "goalsFor": 239
+    },
+    {
+      "teamAbbrev": "TOR",
+      "xGoalsPercentage": 0.47,
+      "xGoalsFor": 204.15,
+      "xGoalsAgainst": 230.21,
+      "scoreVenueAdjustedXGoalsFor": 203.86,
+      "goalsFor": 218
+    },
+    {
+      "teamAbbrev": "UTA",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 221.13,
+      "xGoalsAgainst": 212.46,
+      "scoreVenueAdjustedXGoalsFor": 222.48,
+      "goalsFor": 219
+    },
+    {
+      "teamAbbrev": "VAN",
+      "xGoalsPercentage": 0.45,
+      "xGoalsFor": 197.53,
+      "xGoalsAgainst": 241.43,
+      "scoreVenueAdjustedXGoalsFor": 195.39,
+      "goalsFor": 173
+    },
+    {
+      "teamAbbrev": "VGK",
+      "xGoalsPercentage": 0.54,
+      "xGoalsFor": 220.28,
+      "xGoalsAgainst": 187.65,
+      "scoreVenueAdjustedXGoalsFor": 219.57,
+      "goalsFor": 219
+    },
+    {
+      "teamAbbrev": "WPG",
+      "xGoalsPercentage": 0.48,
+      "xGoalsFor": 204.35,
+      "xGoalsAgainst": 221.38,
+      "scoreVenueAdjustedXGoalsFor": 204.53,
+      "goalsFor": 191
+    },
+    {
+      "teamAbbrev": "WSH",
+      "xGoalsPercentage": 0.51,
+      "xGoalsFor": 233.47,
+      "xGoalsAgainst": 224.31,
+      "scoreVenueAdjustedXGoalsFor": 233.91,
+      "goalsFor": 217
+    }
+  ]
+}
