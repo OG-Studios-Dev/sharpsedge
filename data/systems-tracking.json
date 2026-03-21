@@ -1,16 +1,20 @@
 {
-  "updatedAt": "2026-03-21T15:14:20.880Z",
+  "updatedAt": "2026-03-21T17:36:09.327Z",
   "systems": [
     {
       "id": "nba-goose-system",
+      "slug": "nba-goose-system",
       "name": "NBA Goose System",
-      "sport": "NBA",
+      "league": "NBA",
+      "category": "native",
       "owner": "Goosalytics Lab",
       "status": "tracking",
-      "summary": "Quarter ATS chase built around road favorites laying -5.5 or more, with a first-quarter entry and a third-quarter double-down only if the opener loses.",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Road favorite quarter ATS chase: 1Q first, then 3Q only if the opener loses.",
+      "snapshot": "Live Goose rows only; no backfilled performance.",
       "definition": "Track every NBA game where the road team closes as a favorite of -5.5 or more. Bet the road favorite 1Q ATS. If that leg wins, stop. If it loses, double the original stake and bet the road favorite 3Q ATS.",
       "qualifierRules": [
-        "Sport must be NBA.",
+        "League must be NBA.",
         "Road team must close as the favorite.",
         "Full-game spread must be -5.5 or shorter for the road favorite (for example -6.0, -7.5, -10.0).",
         "Sequence is only trackable once 1Q and 3Q ATS lines are available."
@@ -30,7 +34,19 @@
           "stopIf": "Always stop after this leg"
         }
       ],
-      "thesis": "The angle is that strong road favorites should win this two-step sequence above 60% over time, but the thesis cannot be validated honestly without quarter spread line capture and settled quarter results.",
+      "thesis": "The angle is that strong road favorites should control stretches of the game often enough to make the two-step sequence viable, but that thesis is only worth discussing when quarter lines and quarter scoring are captured honestly.",
+      "sourceNotes": [
+        {
+          "label": "Native model",
+          "detail": "This is a Goosalytics-owned system tracked from internal qualifier logic rather than copied in from a tout sheet."
+        },
+        {
+          "label": "Settlement policy",
+          "detail": "Rows stay unresolved if quarter lines or ESPN quarter scores are missing. No guessed fills, no fake closes."
+        }
+      ],
+      "automationStatusLabel": "Live qualifier refresh + partial settlement",
+      "automationStatusDetail": "Qualifiers are generated from live NBA odds aggregation and settled only when real quarter lines and ESPN linescores are present.",
       "dataRequirements": [
         {
           "label": "Closing full-game spread",
@@ -53,6 +69,7 @@
           "detail": "Qualifiers exist, but at least one required quarter score or quarter line is still missing."
         }
       ],
+      "unlockNotes": [],
       "trackingNotes": [
         "Rows are generated from live NBA odds aggregation and stored in data/systems-tracking.json.",
         "Bet 1 uses the away team 1Q spread. Bet 2 only settles after a Bet 1 loss and available 3Q scoring.",
@@ -67,6 +84,14 @@
           "matchup": "Oklahoma City Thunder @ Washington Wizards",
           "roadTeam": "Oklahoma City Thunder",
           "homeTeam": "Washington Wizards",
+          "recordKind": null,
+          "marketType": null,
+          "alertLabel": null,
+          "starterName": null,
+          "starterEra": null,
+          "currentMoneyline": null,
+          "priorGameDate": null,
+          "priorStartSummary": null,
           "closingSpread": -21,
           "firstQuarterSpread": null,
           "thirdQuarterSpread": null,
@@ -80,9 +105,770 @@
           "estimatedNetUnits": null,
           "source": "The Odds API + ESPN summary",
           "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
-          "lastSyncedAt": "2026-03-21T15:14:20.880Z"
+          "lastSyncedAt": "2026-03-21T17:36:08.987Z"
         }
       ]
+    },
+    {
+      "id": "beefs-bounce-back",
+      "slug": "beefs-bounce-back-big-ats-loss",
+      "name": "Beefs Bounce-Back / Big ATS Loss",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_verification",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "NBA revenge-cover angle for teams coming off a brutal ATS miss, cataloged honestly as blocked until prior-game line history is wired in.",
+      "snapshot": "Blocked: prior-game ATS result feed not connected.",
+      "definition": "Flag NBA teams that were blown out relative to the market in their previous game, then test whether the next spot creates an actionable bounce-back cover setup.",
+      "qualifierRules": [
+        "Previous game must qualify as a major ATS miss, not just a straight-up loss.",
+        "The follow-up game needs spread and opponent-strength filters so this is not an auto-bet on any embarrassed team.",
+        "Back-to-back and travel context likely matter and should be part of the final screen."
+      ],
+      "progressionLogic": [],
+      "thesis": "Markets can overreact to public ugly losses, but the angle only deserves tracking once prior-game ATS margin and next-game pricing can be reproduced mechanically.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Cataloged as a future bounce-back system, not as a live or backtested model."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Needs prior-game closing spread archive, ATS result history, and rest/travel context before honest screening.",
+      "dataRequirements": [
+        {
+          "label": "Previous-game closing spread archive",
+          "status": "pending",
+          "detail": "Required to quantify what counts as a big ATS loss."
+        },
+        {
+          "label": "Previous-game ATS result history",
+          "status": "pending",
+          "detail": "Need game-by-game close versus final margin inputs."
+        },
+        {
+          "label": "Rest/travel context",
+          "status": "pending",
+          "detail": "Back-to-back and travel filters are likely necessary to avoid fake edges."
+        }
+      ],
+      "unlockNotes": [
+        "Previous-game closing spread archive required.",
+        "Reliable ATS result history feed required.",
+        "Rest/travel schedule context required."
+      ],
+      "trackingNotes": [
+        "Do not publish performance until the ATS-loss trigger is mechanically reproducible."
+      ],
+      "records": []
+    },
+    {
+      "id": "the-blowout",
+      "slug": "the-blowout",
+      "name": "The Blowout",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Neutral NBA watchlist for teams coming off a massive recent result, tracked honestly as qualifiers until direction and pricing rules are proven.",
+      "snapshot": "Watchlist only: qualifier rows, not picks.",
+      "definition": "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "Qualified team’s most recent completed game must have ended within the last 3 days.",
+        "That most recent game margin must be at least 18 points either for or against the qualified team.",
+        "Next-game spread from the qualified team perspective must have absolute value <= 6.5.",
+        "Opponent season win percentage must be >= .450.",
+        "Direction stays unresolved for v1, so rows are stored as watchlist qualifiers only rather than auto-picks."
+      ],
+      "progressionLogic": [],
+      "thesis": "Huge recent results can distort the next-game narrative, but without a settled bet-direction rule this belongs in honest qualifier tracking first, not pick marketing.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Implemented as a neutral qualifier tracker first because the bet direction after a blowout is still unresolved."
+        }
+      ],
+      "automationStatusLabel": "Awaiting fresh qualifiers",
+      "automationStatusDetail": "Qualifiers are generated from live NBA schedule, standings, recent results, and current spreads. Stored rows stay directional-neutral.",
+      "dataRequirements": [
+        {
+          "label": "Recent NBA results",
+          "status": "ready",
+          "detail": "Used to confirm the most recent game margin and recency window."
+        },
+        {
+          "label": "Current full-game spread",
+          "status": "ready",
+          "detail": "Used to confirm the next-game spread stays within +/-6.5 from the qualified team perspective."
+        },
+        {
+          "label": "Opponent season win percentage",
+          "status": "ready",
+          "detail": "Used to keep the watchlist from firing on bottom-tier opponents."
+        },
+        {
+          "label": "Bet-direction rulebook",
+          "status": "partial",
+          "detail": "Still unresolved, so the product stores qualifier/watchlist rows instead of picks."
+        }
+      ],
+      "unlockNotes": [
+        "Bet-direction logic still needs proof before this can become a picks system.",
+        "Historical close-versus-margin work would strengthen the blowout trigger later."
+      ],
+      "trackingNotes": [
+        "Rows are stored per qualifying team, so a single game can produce two watchlist rows if both clubs meet the blowout criteria.",
+        "Spread is recorded from the qualifying team perspective to keep the neutral watchlist honest."
+      ],
+      "records": []
+    },
+    {
+      "id": "hot-teams-matchup",
+      "slug": "hot-teams-matchup",
+      "name": "Hot Teams Matchup",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "NBA form-collision watchlist for games where two legitimately hot teams meet on a playable number with a posted total.",
+      "snapshot": "Watchlist only: hot-team qualifiers, not picks.",
+      "definition": "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "Both teams must have won at least 4 of their last 5 completed games.",
+        "Both teams must have season win percentages of .550 or better.",
+        "Current full-game spread must be within +/-5.5.",
+        "A game total must be available.",
+        "Direction stays unresolved for v1, so rows are stored as matchup watchlist qualifiers only."
+      ],
+      "progressionLogic": [],
+      "thesis": "When two genuinely hot teams collide, the market can struggle to price whether form carries, cancels out, or spills into the total. Until that direction is proven, this should stay a tracked discovery system.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Implemented as a single-row matchup watchlist so the qualifier can be logged without pretending the bet direction is solved."
+        }
+      ],
+      "automationStatusLabel": "Awaiting fresh qualifiers",
+      "automationStatusDetail": "Qualifiers are generated from live NBA standings, recent results, and current odds. Stored rows remain direction-neutral.",
+      "dataRequirements": [
+        {
+          "label": "Recent last-5 results",
+          "status": "ready",
+          "detail": "Used to confirm both teams are at least 4-1 in their last five completed games."
+        },
+        {
+          "label": "Season win percentages",
+          "status": "ready",
+          "detail": "Used to confirm both teams clear the .550 quality threshold."
+        },
+        {
+          "label": "Current spread and total",
+          "status": "ready",
+          "detail": "Used to confirm the spread band and that a posted total exists."
+        },
+        {
+          "label": "Bet-direction rulebook",
+          "status": "partial",
+          "detail": "Still unresolved, so the product stores qualifier/watchlist rows rather than picks."
+        }
+      ],
+      "unlockNotes": [
+        "Need proof on whether this is a side, total, or pass framework before it can graduate from watchlist to picks."
+      ],
+      "trackingNotes": [
+        "Rows are stored once per game to avoid duplicate qualifiers from both team perspectives.",
+        "The total line is noted in row metadata because totals availability is part of the v1 qualifier."
+      ],
+      "records": []
+    },
+    {
+      "id": "fat-tonys-fade",
+      "slug": "fat-tonys-fade",
+      "name": "Fat Tonys Fade",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "Contrarian NBA fade concept blocked until a credible public-betting splits source is attached.",
+      "snapshot": "Blocked: betting splits source required.",
+      "definition": "Fade inflated NBA sides where the public piles into a trendy favorite and price drift overshoots the true edge.",
+      "qualifierRules": [
+        "Must be grounded in public tickets and preferably handle splits, not social-media vibes.",
+        "Needs line-move context so steam and stale public bias are not treated the same.",
+        "Should include a minimum market consensus threshold."
+      ],
+      "progressionLogic": [],
+      "thesis": "A public-fade angle is only real if the public-position input is real. Without trustworthy splits, this is just theater.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Saved as a real catalog item, but blocked until a defensible splits feed is chosen."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Public betting handle splits source required, plus line-move history to separate narrative from price action.",
+      "dataRequirements": [
+        {
+          "label": "Public betting handle splits",
+          "status": "pending",
+          "detail": "Need a trustworthy source for public betting percentage by game."
+        },
+        {
+          "label": "Line-move history",
+          "status": "pending",
+          "detail": "Need open-to-close movement to identify overpriced public sides."
+        }
+      ],
+      "unlockNotes": [
+        "Public betting handle splits source required.",
+        "Line-move history feed required."
+      ],
+      "trackingNotes": [
+        "Do not fake 'public is on X' claims without an actual source."
+      ],
+      "records": []
+    },
+    {
+      "id": "coaches-fuming-scoring-drought",
+      "slug": "coaches-fuming-scoring-drought",
+      "name": "Coaches Fuming Scoring Drought",
+      "league": "NHL",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "NHL buy-low frustration spot blocked until quote/news tagging and a repeatable scoring-drought trigger exist.",
+      "snapshot": "Blocked: quote/news tagging required.",
+      "definition": "Target NHL teams with solid underlying creation that just endured a loud scoring drought, especially when coach or player frustration becomes part of the next-game story.",
+      "qualifierRules": [
+        "Needs a repeatable definition of a scoring drought, not just 'they didn't score much.'",
+        "Requires structured coach/player frustration tagging from trustworthy news sources.",
+        "Should include a baseline offensive-quality filter so weak attacks are excluded."
+      ],
+      "progressionLogic": [],
+      "thesis": "The next-game rebound story can be real when the market overweights one ugly offensive night, but only if drought and frustration inputs are captured systematically.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Cataloged honestly as blocked until the news-tagging and drought logic are measurable."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Reliable coach-quote/news tagging required, plus a concrete scoring-drought event definition.",
+      "dataRequirements": [
+        {
+          "label": "Scoring-drought event flag",
+          "status": "pending",
+          "detail": "Need a repeatable shot/chance drought definition."
+        },
+        {
+          "label": "Coach/player quote tagging",
+          "status": "pending",
+          "detail": "Reliable coach-quote/news tagging required."
+        },
+        {
+          "label": "Offensive baseline filter",
+          "status": "pending",
+          "detail": "Need an offensive-quality input so bad offenses are not mislabeled as buy-low spots."
+        }
+      ],
+      "unlockNotes": [
+        "Reliable coach-quote/news tagging required.",
+        "Concrete scoring-drought event definition required."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "swaggy-stretch-drive",
+      "slug": "swaggy-stretch-drive",
+      "name": "Swaggy Stretch Drive",
+      "league": "NHL",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "Late-season NHL urgency concept parked until stretch-run motivation rules are specific enough to survive automation.",
+      "snapshot": "Parked in research.",
+      "definition": "Look for late-season NHL teams with real standings urgency, style edges, or playoff-race pressure that may not be fully priced into the market.",
+      "qualifierRules": [
+        "Need exact standings-pressure thresholds rather than a generic 'must-win' label.",
+        "Need a rule for whether travel/rest/goalie confirmation are mandatory inputs.",
+        "Need a real pricing discipline rule so urgency alone does not become the bet."
+      ],
+      "progressionLogic": [],
+      "thesis": "Urgency can matter down the stretch, but the public also loves obvious playoff-race narratives. This stays parked until the actual filters are written down.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Cataloged as research only until the stretch-drive rulebook becomes precise."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Precise stretch-drive motivation rules still need to be defined honestly.",
+      "dataRequirements": [
+        {
+          "label": "Standings urgency rules",
+          "status": "pending",
+          "detail": "Need explicit clinch/elimination/seed-pressure thresholds."
+        },
+        {
+          "label": "Goalie and rest rulebook",
+          "status": "pending",
+          "detail": "Need to decide whether confirmed starters and schedule fatigue are mandatory."
+        }
+      ],
+      "unlockNotes": [
+        "Precise rules still not defined enough to automate honestly.",
+        "Need exact standings-urgency thresholds."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "veal-bangers-zig-playoff-zigzag",
+      "slug": "veal-bangers-zig-playoff-zigzag",
+      "name": "Veal Bangers Playoff ZigZag",
+      "league": "NHL",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "Classic playoff zig-zag riff preserved exactly by name, but parked until the real rematch filters are defined beyond old-school folklore.",
+      "snapshot": "Parked in research; no playoff-series rulebook yet.",
+      "definition": "A playoff zig-zag style concept for NHL series where the market may overreact to the previous game’s margin, puck luck, or special-teams noise before the next matchup in the same series.",
+      "qualifierRules": [
+        "Applies only in playoff series rematches.",
+        "Needs a clear definition for what counts as an overreaction spot rather than assuming every loser auto-bounces.",
+        "Should include series state, venue, and price discipline before tracking."
+      ],
+      "progressionLogic": [],
+      "thesis": "Playoff rematches compress information and can invite narrative overreaction, but the old zig-zag story is too blunt without better filters.",
+      "sourceNotes": [
+        {
+          "label": "Historical framework",
+          "detail": "This belongs in the catalog as a classic playoff concept, not as a currently automated Goosalytics model."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Needs playoff-series state, price thresholds, and matchup filters before honest tracking.",
+      "dataRequirements": [
+        {
+          "label": "Series-state inputs",
+          "status": "pending",
+          "detail": "Need game number, prior result, and home/road sequence context."
+        },
+        {
+          "label": "Overreaction rule set",
+          "status": "pending",
+          "detail": "Need exact line-move or prior-game trigger rules."
+        }
+      ],
+      "unlockNotes": [
+        "Precise playoff zig-zag rules still not defined enough to automate honestly.",
+        "Need playoff-series state and price-threshold rules."
+      ],
+      "trackingNotes": [
+        "Exact user naming preserved as requested."
+      ],
+      "records": []
+    },
+    {
+      "id": "bigcat-bonaza-puckluck",
+      "slug": "bigcat-bonaza-puckluck",
+      "name": "BigCat Bonaza PuckLuck",
+      "league": "NHL",
+      "category": "external",
+      "owner": "External source",
+      "status": "source_based",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "External-style puck-luck concept blocked until a real xG/finishing-luck source and exact public rules are attached.",
+      "snapshot": "Blocked: puck-luck data feed required.",
+      "definition": "An externally inspired NHL concept around variance, finishing luck, and short-term puck-luck narratives. Included in the catalog so users can see the definition and sourcing without mistaking it for a verified in-house edge.",
+      "qualifierRules": [
+        "Do not present as a native Goosalytics model.",
+        "Would need explicit public-source rules before any automated screening.",
+        "If tracked later, results must be tagged separately from internal systems."
+      ],
+      "progressionLogic": [],
+      "thesis": "Puck-luck framing can be useful, but unless the public-source rules are specific and an xG/luck feed exists, it stays a reference model instead of a performance claim.",
+      "sourceNotes": [
+        {
+          "label": "External/source-based",
+          "detail": "Included as a cataloged outside-style model. No Goosalytics-owned track record is implied."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Needs public source rule capture plus a reliable xG / finishing-luck feed.",
+      "dataRequirements": [
+        {
+          "label": "Public rule capture",
+          "status": "pending",
+          "detail": "Need the exact outside-source criteria before screening."
+        },
+        {
+          "label": "xG / finishing-luck feed",
+          "status": "pending",
+          "detail": "Need a reliable public data source for shot-quality and shooting/save percentage luck context."
+        }
+      ],
+      "unlockNotes": [
+        "Reliable xG / finishing-luck source required.",
+        "Public source rule capture required."
+      ],
+      "trackingNotes": [
+        "External/source-based label should remain prominent."
+      ],
+      "records": []
+    },
+    {
+      "id": "tonys-hot-bats",
+      "slug": "tonys-hot-bats",
+      "name": "Tony’s Hot Bats",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "MLB lineup-form angle blocked until confirmed lineups, recent hitting form, and weather/park context are actually wired in.",
+      "snapshot": "Blocked: lineup and rolling-form feeds required.",
+      "definition": "A hitting-form concept designed to capture teams whose current contact, power, or lineup health creates a stronger run-production environment than season-long priors suggest.",
+      "qualifierRules": [
+        "Needs lineup confirmation and a recency window definition.",
+        "Should separate genuine form shifts from unsustainable BABIP noise.",
+        "Market context matters; totals and moneyline pricing both need rules."
+      ],
+      "progressionLogic": [],
+      "thesis": "The MLB market can lag when lineup quality changes faster than baseline team stats, but the trigger has to be tighter than 'team scored a lot lately.'",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Catalog placeholder only until MLB-specific inputs and logging are wired in."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Confirmed lineups, rolling hitting form, and weather/park context are required before honest automation.",
+      "dataRequirements": [
+        {
+          "label": "Confirmed lineups",
+          "status": "pending",
+          "detail": "Need day-of projected/confirmed lineup inputs."
+        },
+        {
+          "label": "Rolling offense form model",
+          "status": "pending",
+          "detail": "Need a defined recent-hitting and power form feed."
+        },
+        {
+          "label": "Weather / park context",
+          "status": "pending",
+          "detail": "Need temperature, wind, and park-factor context for offense-heavy flags."
+        }
+      ],
+      "unlockNotes": [
+        "Confirmed lineups required.",
+        "Rolling offense form model required.",
+        "Weather / park context required."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "falcons-fight-pummeled-pitchers",
+      "slug": "falcons-fight-pummeled-pitchers",
+      "name": "Falcons Fight Pummeled Pitchers",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "MLB qualifier tracker for probable starters coming off a recent shelling, filtered by listed ERA and current moneyline. Alerts first, not official picks.",
+      "snapshot": "Tracking qualifiers and alert rows only; no published picks or backfilled claims.",
+      "definition": "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
+      "qualifierRules": [
+        "Upcoming MLB game must list a probable starter.",
+        "That same starter must have a prior start within the last 10 days.",
+        "The prior start counts as 'pummeled' if earned runs >= 5, hits allowed >= 8, or innings pitched < 4.0.",
+        "Listed ERA must be 4.50 or lower when MLB provides an ERA; missing ERA stays unresolved instead of guessed.",
+        "Current moneyline for the starter's team must be between -140 and +125."
+      ],
+      "progressionLogic": [],
+      "thesis": "Markets can overreact to one loud blow-up outing from a still-competent starter, but the product should only log the setup honestly first and let users inspect the evidence before anyone calls it a picks engine.",
+      "sourceNotes": [
+        {
+          "label": "Native qualifier tracker",
+          "detail": "This is a Goosalytics-owned MLB system slice built from probable starters, MLB pitching game logs, and current odds."
+        },
+        {
+          "label": "Honesty policy",
+          "detail": "Rows are alerts/qualifiers only. Missing probable starters, ERA, prior-start context, or price inputs stay unresolved rather than guessed."
+        }
+      ],
+      "automationStatusLabel": "Awaiting fresh qualifiers",
+      "automationStatusDetail": "Refresh scans probable starters, prior pitching logs, listed ERA, and current moneyline for live qualifier rows.",
+      "dataRequirements": [
+        {
+          "label": "Probable pitchers feed",
+          "status": "ready",
+          "detail": "MLB schedule hydrate exposes probable starters when listed on the board."
+        },
+        {
+          "label": "Prior-start damage log",
+          "status": "partial",
+          "detail": "Pitching game logs are connected, but no current-day qualifier has been stored yet."
+        },
+        {
+          "label": "Current moneyline",
+          "status": "pending",
+          "detail": "No qualifying starter has met the live moneyline band yet."
+        }
+      ],
+      "unlockNotes": [],
+      "trackingNotes": [
+        "Rows represent tracked qualifiers and alerts, not auto-published bets.",
+        "If a probable starter changes or odds move outside the band, the next refresh can remove the qualifier for that date.",
+        "When ERA is missing from the MLB probable-starter payload, the row can still qualify but the missing ERA stays called out in the notes."
+      ],
+      "records": []
+    },
+    {
+      "id": "falcons-fight-big-upset-follow-ups",
+      "slug": "falcons-fight-big-upset-follow-ups",
+      "name": "Falcons Fight Big Upset Follow-Ups",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "MLB post-upset follow-up concept parked until the actual upset threshold and next-game action are specified.",
+      "snapshot": "Parked in research.",
+      "definition": "Track teams after a loud underdog upset to see whether the next market overvalues momentum or underprices letdown.",
+      "qualifierRules": [
+        "Need a strict definition of what counts as a big upset using pregame moneyline.",
+        "Need to decide whether the angle fades the upset winner, backs the opponent, or changes by matchup context.",
+        "Pitching and bullpen carryover rules likely matter and are not finalized."
+      ],
+      "progressionLogic": [],
+      "thesis": "The public can chase a headline upset too far, but this system is still parked because the follow-up action and thresholds are not locked.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Stored as research so the catalog is complete without pretending the rulebook exists."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Need exact upset thresholds and next-game bet rules before honest tracking.",
+      "dataRequirements": [
+        {
+          "label": "Upset threshold definition",
+          "status": "pending",
+          "detail": "Need exact moneyline bands for what qualifies as a major upset."
+        },
+        {
+          "label": "Next-game action rules",
+          "status": "pending",
+          "detail": "Need the real follow-up betting logic."
+        }
+      ],
+      "unlockNotes": [
+        "Precise rules still not defined enough to automate honestly.",
+        "Need exact upset threshold and follow-up action rules."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "quick-rips-f5",
+      "slug": "quick-rips-f5",
+      "name": "Quick Rips F5",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "First-five MLB ripper concept blocked until F5 lines, probable pitchers, and a stable entry model exist in the pipeline.",
+      "snapshot": "Blocked: F5 lines + probable pitchers required.",
+      "definition": "An MLB first-five system intended to attack early-game pricing before bullpen variance takes over, likely driven by starter mismatch and opening-through-F5 market shape.",
+      "qualifierRules": [
+        "Needs a declared F5 market scope: side, total, or both.",
+        "Probable pitchers and lineup confirmation have to be locked before pricing is trusted.",
+        "Starter mismatch rules need to be defined explicitly."
+      ],
+      "progressionLogic": [],
+      "thesis": "There is a real case for isolating first-five edges in baseball, but only if the app can capture the actual F5 prices and starter inputs instead of guessing them.",
+      "sourceNotes": [
+        {
+          "label": "Internal concept",
+          "detail": "Cataloged now, blocked honestly until F5-specific data exists."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "F5 lines + probable pitchers required, along with a real starter-mismatch model.",
+      "dataRequirements": [
+        {
+          "label": "F5 lines",
+          "status": "pending",
+          "detail": "F5 lines + totals feed required."
+        },
+        {
+          "label": "Probable pitchers",
+          "status": "pending",
+          "detail": "Need reliable probable-pitcher inputs and confirmations."
+        },
+        {
+          "label": "Starter-mismatch model",
+          "status": "pending",
+          "detail": "Need the actual rule set for what counts as a quick-rip edge."
+        }
+      ],
+      "unlockNotes": [
+        "F5 lines + probable pitchers required.",
+        "Starter-mismatch model required."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "warren-sharp-computer-totals-model",
+      "slug": "warren-sharp-computer-totals-model",
+      "name": "Warren Sharp Computer Totals Model",
+      "league": "NFL",
+      "category": "external",
+      "owner": "External source",
+      "status": "source_based",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "External-model totals concept blocked until an actual projections feed and line archive are attached.",
+      "snapshot": "Blocked: external totals projections feed required.",
+      "definition": "A catalog entry for externally sourced NFL totals-model thinking. Included for attribution and idea coverage, not as a claimed native Goosalytics record.",
+      "qualifierRules": [
+        "Must remain labeled as external/source-based unless Goosalytics builds its own totals model.",
+        "Requires actual model projection numbers and timestamps, not article blurbs.",
+        "If later tracked, source-based results must remain separate from native systems."
+      ],
+      "progressionLogic": [],
+      "thesis": "Projection-driven totals can be worth surfacing, but only when a real model feed exists. Otherwise it is just branded commentary.",
+      "sourceNotes": [
+        {
+          "label": "External/source-based",
+          "detail": "Reference concept only. No Goosalytics-owned totals model or verified record is implied."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "External model projections feed required, plus totals open/close archive for honest logging.",
+      "dataRequirements": [
+        {
+          "label": "External totals projections",
+          "status": "pending",
+          "detail": "External model projections feed required."
+        },
+        {
+          "label": "Totals line archive",
+          "status": "pending",
+          "detail": "Need opening/closing totals history and timestamps."
+        }
+      ],
+      "unlockNotes": [
+        "External model projections feed required.",
+        "Totals line archive required."
+      ],
+      "trackingNotes": [
+        "Keep this separated from native Goosalytics systems if ever activated."
+      ],
+      "records": []
+    },
+    {
+      "id": "fly-low-goose",
+      "slug": "fly-low-goose",
+      "name": "Fly Low Goose",
+      "league": "NFL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "Reserved NFL Goose-family slot parked until the actual qualifier logic exists on paper.",
+      "snapshot": "Parked: NFL Goose rules not finalized.",
+      "definition": "A placeholder for a future NFL Goose-family system, likely centered on low-event or under-the-radar game states once the real entry criteria are finalized.",
+      "qualifierRules": [
+        "Do not track until the true qualifier rules are written down.",
+        "Bet type, market timing, and any progression logic must be explicit before performance is published."
+      ],
+      "progressionLogic": [],
+      "thesis": "There may be an NFL Goose cousin worth shipping later, but right now this is a named slot in the catalog, not a live system.",
+      "sourceNotes": [
+        {
+          "label": "Native placeholder",
+          "detail": "Included so the product can support future Goose-family systems without pretending the NFL version already exists."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Precise rules still not defined enough to automate honestly.",
+      "dataRequirements": [
+        {
+          "label": "True qualifier rules",
+          "status": "pending",
+          "detail": "Need the actual NFL Goose entry logic."
+        }
+      ],
+      "unlockNotes": [
+        "Precise rules still not defined enough to automate honestly.",
+        "Need the real NFL Goose qualifier rules."
+      ],
+      "trackingNotes": [],
+      "records": []
+    },
+    {
+      "id": "tonys-teaser-pleaser",
+      "slug": "tonys-teaser-pleaser",
+      "name": "Tony’s Teaser Pleaser",
+      "league": "NFL",
+      "category": "external",
+      "owner": "External source",
+      "status": "source_based",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "Source-based NFL teaser framework blocked until teaser prices, leg rules, and key-number screening are actually stored.",
+      "snapshot": "Blocked: teaser ledger required.",
+      "definition": "A catalog slot for classic teaser heuristics and Warren Sharp-style teaser screening ideas. Included for definition and sourcing, not as a claimed in-house record.",
+      "qualifierRules": [
+        "Must remain labeled as external/source-based unless Goosalytics creates its own explicit variant.",
+        "Key-number crossing rules need to be documented clearly.",
+        "If later tracked, teaser legs and pricing assumptions need their own separate ledger."
+      ],
+      "progressionLogic": [],
+      "thesis": "Teaser logic can be useful as a screening framework, but users should never confuse source-based heuristics with a native Goosalytics dataset.",
+      "sourceNotes": [
+        {
+          "label": "External/source-based",
+          "detail": "Explicitly references public teaser concepts rather than a verified Goosalytics-owned performance model."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Need teaser prices, leg-level settlement handling, and explicit key-number rule capture.",
+      "dataRequirements": [
+        {
+          "label": "Teaser price ledger",
+          "status": "pending",
+          "detail": "Need distinct teaser pricing and grading inputs."
+        },
+        {
+          "label": "Key-number rule capture",
+          "status": "pending",
+          "detail": "Need explicit teaser-entry logic crossing through 3, 7, and related numbers."
+        }
+      ],
+      "unlockNotes": [
+        "Teaser price ledger required.",
+        "Explicit key-number rule capture required."
+      ],
+      "trackingNotes": [
+        "Keep Warren Sharp-style framing in source notes, not as implied ownership."
+      ],
+      "records": []
     }
   ]
 }
