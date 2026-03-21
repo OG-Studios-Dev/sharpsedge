@@ -33,3 +33,6 @@
 - [x] Surface open bugs as a dedicated unfixed queue
 - [x] Add cron schedule section with add/edit controls
 - [x] Build and verify admin routes
+- [x] Add incident tracking section
+- [x] Add cron run-health metadata (last run / success / failure / consecutive failures)
+- [x] Add deploy/system snapshot cards (git + vercel cron visibility)

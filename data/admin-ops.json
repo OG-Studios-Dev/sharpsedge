@@ -38,20 +38,31 @@
       "purpose": "Run structured QA checks across pages, picks, APIs, and odds coverage.",
       "owner": "QA team",
       "target": "Site + API sweep",
+      "path": "/heartbeat",
       "enabled": true,
+      "lastRunAt": null,
+      "lastSuccessAt": null,
+      "lastFailureAt": null,
+      "consecutiveFailures": 0,
       "notes": "Keep this aligned with heartbeat + any Vercel cron coverage.",
       "updatedAt": "2026-03-21T13:05:00.000Z"
     },
     {
       "id": "cron_pga_scrape",
       "name": "PGA DataGolf scrape",
-      "schedule": "6AM ET (tournament windows)",
+      "schedule": "0 10 * * 2,3,4",
       "purpose": "Refresh cached tournament data before picks generation.",
       "owner": "Golf pipeline",
       "target": "datagolf_cache",
+      "path": "/api/golf/scrape?cron=true",
       "enabled": true,
-      "notes": "Needs monitoring when source pages change.",
+      "lastRunAt": null,
+      "lastSuccessAt": null,
+      "lastFailureAt": null,
+      "consecutiveFailures": 0,
+      "notes": "Backed by vercel.json cron during tournament windows.",
       "updatedAt": "2026-03-21T13:05:00.000Z"
     }
-  ]
+  ],
+  "incidents": []
 }

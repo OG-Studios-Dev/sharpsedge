@@ -1,3 +1,6 @@
+import { execSync } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { createServerClient } from "@/lib/supabase-server";
 import { readAdminOpsData } from "@/lib/admin-ops-store";
 import type { PickHistoryRecord, ProfileRecord, SystemHealthCheck } from "@/lib/supabase-types";
@@ -74,13 +77,36 @@ export async function getSystemHealth() {
   ]);
 }
 
+async function getCronDefinitions() {
+  try {
+    const vercelPath = path.join(process.cwd(), "vercel.json");
+    const raw = await fs.readFile(vercelPath, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.crons) ? parsed.crons : [];
+  } catch {
+    return [];
+  }
+}
+
+function getGitSnapshot() {
+  try {
+    const sha = execSync("git rev-parse --short HEAD", { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const subject = execSync("git log -1 --pretty=%s", { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const committedAt = execSync("git log -1 --date=iso --pretty=%cd", { cwd: process.cwd(), stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    return { sha, subject, committedAt };
+  } catch {
+    return null;
+  }
+}
+
 export async function getAdminOverviewData() {
   const supabase = createServerClient();
-  const [users, picks, healthChecks, opsData] = await Promise.all([
+  const [users, picks, healthChecks, opsData, crons] = await Promise.all([
     supabase.profiles.list(),
     supabase.pickHistory.list(),
     getSystemHealth(),
     readAdminOpsData(),
+    getCronDefinitions(),
   ]);
 
   const pickSummary = summarizePickHistory(picks);
@@ -88,6 +114,9 @@ export async function getAdminOverviewData() {
     const created = new Date(user.created_at).getTime();
     return Number.isFinite(created) && created >= daysAgo(7);
   }).length;
+
+  const cronIssues = opsData.cronSchedules.filter((cron) => (cron.consecutiveFailures ?? 0) > 0 || (!cron.lastSuccessAt && Boolean(cron.lastFailureAt))).length;
+  const activeIncidents = opsData.incidents.filter((incident) => incident.status !== "resolved").length;
 
   return {
     totalUsers: users.length,
@@ -97,10 +126,14 @@ export async function getAdminOverviewData() {
     pickSummary,
     healthChecks,
     healthyApis: healthChecks.filter((check) => check.ok).length,
+    gitSnapshot: getGitSnapshot(),
+    vercelCronCount: crons.length,
     opsSummary: {
       totalBugs: opsData.bugs.length,
       openBugs: opsData.bugs.filter((bug) => bug.status !== "fixed").length,
       cronSchedules: opsData.cronSchedules.length,
+      cronIssues,
+      activeIncidents,
       lastReviewedAt: opsData.lastReviewedAt,
     },
   };
@@ -114,4 +147,22 @@ export async function getAdminUsers(): Promise<ProfileRecord[]> {
 export async function getAdminPicks(): Promise<PickHistoryRecord[]> {
   const supabase = createServerClient();
   return supabase.pickHistory.list();
+}
+
+export async function getAdminSystemData() {
+  const [healthChecks, envStatus, opsData, crons] = await Promise.all([
+    getSystemHealth(),
+    Promise.resolve(getEnvironmentStatus()),
+    readAdminOpsData(),
+    getCronDefinitions(),
+  ]);
+
+  return {
+    healthChecks,
+    envStatus,
+    gitSnapshot: getGitSnapshot(),
+    vercelCrons: crons,
+    trackedCrons: opsData.cronSchedules,
+    activeIncidents: opsData.incidents.filter((incident) => incident.status !== "resolved"),
+  };
 }

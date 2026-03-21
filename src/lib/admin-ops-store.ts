@@ -3,6 +3,8 @@ import path from "path";
 
 export type BugStatus = "open" | "in_progress" | "fixed" | "deferred";
 export type BugSeverity = "critical" | "high" | "medium" | "low";
+export type IncidentStatus = "investigating" | "monitoring" | "resolved";
+export type IncidentSeverity = "sev1" | "sev2" | "sev3";
 
 export type AdminBug = {
   id: string;
@@ -26,8 +28,27 @@ export type CronScheduleItem = {
   purpose: string;
   owner: string;
   target: string;
+  path?: string;
   enabled: boolean;
+  lastRunAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastFailureAt?: string | null;
+  consecutiveFailures?: number;
   notes: string;
+  updatedAt: string;
+};
+
+export type AdminIncident = {
+  id: string;
+  title: string;
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  owner: string;
+  summary: string;
+  impact: string;
+  startedAt: string;
+  resolvedAt?: string | null;
+  notes?: string;
   updatedAt: string;
 };
 
@@ -35,10 +56,15 @@ export type AdminOpsData = {
   lastReviewedAt: string | null;
   bugs: AdminBug[];
   cronSchedules: CronScheduleItem[];
+  incidents: AdminIncident[];
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const OPS_PATH = path.join(DATA_DIR, "admin-ops.json");
+
+function nowIso() {
+  return new Date().toISOString();
+}
 
 const DEFAULT_DATA: AdminOpsData = {
   lastReviewedAt: null,
@@ -55,7 +81,7 @@ const DEFAULT_DATA: AdminOpsData = {
       dueAt: null,
       notes: "Fixed by making generic team pages detect league and support MLB data paths.",
       foundAt: "2026-03-21T05:40:00.000Z",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso(),
     },
     {
       id: "bug_full_site_qa_backlog",
@@ -68,8 +94,8 @@ const DEFAULT_DATA: AdminOpsData = {
       source: "Marco request",
       dueAt: null,
       notes: "Initial admin ops surface created, but should keep evolving with more operational controls.",
-      foundAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      foundAt: nowIso(),
+      updatedAt: nowIso(),
     },
   ],
   cronSchedules: [
@@ -80,22 +106,33 @@ const DEFAULT_DATA: AdminOpsData = {
       purpose: "Run structured QA checks across pages, picks, APIs, and odds coverage.",
       owner: "QA team",
       target: "Site + API sweep",
+      path: "/heartbeat",
       enabled: true,
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      consecutiveFailures: 0,
       notes: "Keep this aligned with heartbeat + any Vercel cron coverage.",
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso(),
     },
     {
       id: "cron_pga_scrape",
       name: "PGA DataGolf scrape",
-      schedule: "6AM ET (tournament windows)",
+      schedule: "0 10 * * 2,3,4",
       purpose: "Refresh cached tournament data before picks generation.",
       owner: "Golf pipeline",
       target: "datagolf_cache",
+      path: "/api/golf/scrape?cron=true",
       enabled: true,
-      notes: "Needs monitoring when source pages change.",
-      updatedAt: new Date().toISOString(),
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastFailureAt: null,
+      consecutiveFailures: 0,
+      notes: "Backed by vercel.json cron during tournament windows.",
+      updatedAt: nowIso(),
     },
   ],
+  incidents: [],
 };
 
 async function ensureStore() {
@@ -107,6 +144,41 @@ async function ensureStore() {
   }
 }
 
+function normalizeCron(item: Partial<CronScheduleItem>): CronScheduleItem {
+  return {
+    id: item.id || makeId("cron"),
+    name: item.name || "Unnamed cron",
+    schedule: item.schedule || "",
+    purpose: item.purpose || "",
+    owner: item.owner || "Unassigned",
+    target: item.target || "",
+    path: item.path || "",
+    enabled: Boolean(item.enabled),
+    lastRunAt: item.lastRunAt ?? null,
+    lastSuccessAt: item.lastSuccessAt ?? null,
+    lastFailureAt: item.lastFailureAt ?? null,
+    consecutiveFailures: Number.isFinite(item.consecutiveFailures) ? Number(item.consecutiveFailures) : 0,
+    notes: item.notes || "",
+    updatedAt: item.updatedAt || nowIso(),
+  };
+}
+
+function normalizeIncident(item: Partial<AdminIncident>): AdminIncident {
+  return {
+    id: item.id || makeId("incident"),
+    title: item.title || "Untitled incident",
+    severity: (item.severity as IncidentSeverity) || "sev3",
+    status: (item.status as IncidentStatus) || "investigating",
+    owner: item.owner || "Unassigned",
+    summary: item.summary || "",
+    impact: item.impact || "",
+    startedAt: item.startedAt || nowIso(),
+    resolvedAt: item.resolvedAt ?? null,
+    notes: item.notes || "",
+    updatedAt: item.updatedAt || nowIso(),
+  };
+}
+
 export async function readAdminOpsData(): Promise<AdminOpsData> {
   await ensureStore();
   const raw = await fs.readFile(OPS_PATH, "utf8");
@@ -116,7 +188,8 @@ export async function readAdminOpsData(): Promise<AdminOpsData> {
     return {
       lastReviewedAt: parsed?.lastReviewedAt ?? null,
       bugs: Array.isArray(parsed?.bugs) ? parsed.bugs : [],
-      cronSchedules: Array.isArray(parsed?.cronSchedules) ? parsed.cronSchedules : [],
+      cronSchedules: Array.isArray(parsed?.cronSchedules) ? parsed.cronSchedules.map(normalizeCron) : [],
+      incidents: Array.isArray(parsed?.incidents) ? parsed.incidents.map(normalizeIncident) : [],
     };
   } catch {
     return DEFAULT_DATA;
@@ -134,7 +207,7 @@ function makeId(prefix: string) {
 
 export async function addBug(input: Omit<AdminBug, "id" | "foundAt" | "updatedAt">) {
   const data = await readAdminOpsData();
-  const now = new Date().toISOString();
+  const now = nowIso();
   const bug: AdminBug = {
     id: makeId("bug"),
     foundAt: now,
@@ -150,7 +223,7 @@ export async function addBug(input: Omit<AdminBug, "id" | "foundAt" | "updatedAt
 
 export async function updateBug(id: string, updates: Partial<Omit<AdminBug, "id" | "foundAt">>) {
   const data = await readAdminOpsData();
-  const now = new Date().toISOString();
+  const now = nowIso();
   data.bugs = data.bugs.map((bug) => (bug.id === id ? { ...bug, ...updates, updatedAt: now } : bug));
   data.lastReviewedAt = now;
   await writeAdminOpsData(data);
@@ -159,12 +232,12 @@ export async function updateBug(id: string, updates: Partial<Omit<AdminBug, "id"
 
 export async function addCronSchedule(input: Omit<CronScheduleItem, "id" | "updatedAt">) {
   const data = await readAdminOpsData();
-  const now = new Date().toISOString();
-  const item: CronScheduleItem = {
+  const now = nowIso();
+  const item: CronScheduleItem = normalizeCron({
     id: makeId("cron"),
     updatedAt: now,
     ...input,
-  };
+  });
 
   data.cronSchedules.unshift(item);
   data.lastReviewedAt = now;
@@ -174,8 +247,35 @@ export async function addCronSchedule(input: Omit<CronScheduleItem, "id" | "upda
 
 export async function updateCronSchedule(id: string, updates: Partial<Omit<CronScheduleItem, "id">>) {
   const data = await readAdminOpsData();
-  const now = new Date().toISOString();
-  data.cronSchedules = data.cronSchedules.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: now } : item));
+  const now = nowIso();
+  data.cronSchedules = data.cronSchedules.map((item) => (item.id === id ? normalizeCron({ ...item, ...updates, updatedAt: now }) : item));
+  data.lastReviewedAt = now;
+  await writeAdminOpsData(data);
+  return data;
+}
+
+export async function addIncident(input: Omit<AdminIncident, "id" | "startedAt" | "updatedAt">) {
+  const data = await readAdminOpsData();
+  const now = nowIso();
+  const incident: AdminIncident = normalizeIncident({
+    id: makeId("incident"),
+    startedAt: now,
+    updatedAt: now,
+    ...input,
+  });
+
+  data.incidents.unshift(incident);
+  data.lastReviewedAt = now;
+  await writeAdminOpsData(data);
+  return incident;
+}
+
+export async function updateIncident(id: string, updates: Partial<Omit<AdminIncident, "id" | "startedAt">>) {
+  const data = await readAdminOpsData();
+  const now = nowIso();
+  data.incidents = data.incidents.map((incident) =>
+    incident.id === id ? normalizeIncident({ ...incident, ...updates, updatedAt: now }) : incident,
+  );
   data.lastReviewedAt = now;
   await writeAdminOpsData(data);
   return data;
