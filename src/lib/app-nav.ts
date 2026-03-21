@@ -13,6 +13,7 @@ export type AppNavItemId =
   | "my-picks"
   | "search"
   | "teams"
+  | "systems"
   | "settings"
   | "admin";
 
@@ -142,6 +143,15 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Teams",
     shortLabel: "Teams",
     emoji: "👥",
+    group: "tools",
+    shortcutEligible: true,
+  },
+  {
+    id: "systems",
+    href: "/systems",
+    label: "Systems Tracking",
+    shortLabel: "Systems",
+    emoji: "🪿",
     group: "tools",
     shortcutEligible: true,
   },

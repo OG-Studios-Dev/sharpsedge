@@ -49,3 +49,19 @@
 - [x] Add incident tracking section
 - [x] Add cron run-health metadata (last run / success / failure / consecutive failures)
 - [x] Add deploy/system snapshot cards (git + vercel cron visibility)
+
+# Systems Tracking first pass — 2026-03-21
+- [x] Inspect existing app structure, nav config, styling patterns, and admin-ops store pattern
+- [x] Design a minimal file-backed systems tracking model and seed data
+- [x] Add `data/systems-tracking.json` with NBA Goose System seed
+- [x] Implement systems tracking store + derived metrics helper
+- [x] Build public `/systems` page using existing design language
+- [x] Add nav entry in the obvious shared nav config
+- [x] Make the UI explicit about missing quarter spread line ingestion and placeholder metrics
+- [x] Run `npm run build` and fix any issues
+- [x] Commit changes locally with a clear message
+
+## Systems Review
+- `npm run build` passed locally.
+- `/systems` now reads from a file-backed store and ships an honest first-pass state for the NBA Goose System.
+- Metrics intentionally remain placeholder/awaiting data unless quarter-line-backed rows exist in the store.

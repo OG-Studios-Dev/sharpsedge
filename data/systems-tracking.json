@@ -1,0 +1,64 @@
+{
+  "updatedAt": "2026-03-21T14:53:00.000Z",
+  "systems": [
+    {
+      "id": "nba-goose-system",
+      "name": "NBA Goose System",
+      "sport": "NBA",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "summary": "Quarter ATS chase built around road favorites laying -5.5 or more, with a first-quarter entry and a third-quarter double-down only if the opener loses.",
+      "definition": "Track every NBA game where the road team closes as a favorite of -5.5 or more. Bet the road favorite 1Q ATS. If that leg wins, stop. If it loses, double the original stake and bet the road favorite 3Q ATS.",
+      "qualifierRules": [
+        "Sport must be NBA.",
+        "Road team must close as the favorite.",
+        "Full-game spread must be -5.5 or shorter for the road favorite (for example -6.0, -7.5, -10.0).",
+        "Sequence is only trackable once 1Q and 3Q ATS lines are available."
+      ],
+      "progressionLogic": [
+        {
+          "step": "Bet 1",
+          "label": "Road favorite 1Q ATS",
+          "stake": "1x base unit",
+          "stopIf": "Wins or pushes"
+        },
+        {
+          "step": "Bet 2",
+          "label": "Road favorite 3Q ATS",
+          "stake": "2x base unit",
+          "trigger": "Only after Bet 1 loses",
+          "stopIf": "Always stop after this leg"
+        }
+      ],
+      "thesis": "The angle is that strong road favorites should win this two-step sequence above 60% over time, but the thesis cannot be validated honestly without quarter spread line capture and settled quarter results.",
+      "dataRequirements": [
+        {
+          "label": "Closing full-game spread",
+          "status": "ready",
+          "detail": "Needed to confirm the -5.5 road favorite qualifier."
+        },
+        {
+          "label": "1Q ATS line",
+          "status": "pending",
+          "detail": "Not wired yet. Required to know whether Bet 1 actually qualified and how it closed."
+        },
+        {
+          "label": "3Q ATS line",
+          "status": "pending",
+          "detail": "Not wired yet. Required for the double-down leg after a first-quarter loss."
+        },
+        {
+          "label": "Quarter settlement outcomes",
+          "status": "partial",
+          "detail": "Can be inferred only if quarter score data and matching lines exist for the same game."
+        }
+      ],
+      "trackingNotes": [
+        "First pass only: quarter spread ingestion is explicitly not automated yet.",
+        "Performance cards should be treated as placeholders until quarter lines are stored consistently.",
+        "Manual backfills can populate historical rows later without changing the page shape."
+      ],
+      "records": []
+    }
+  ]
+}
