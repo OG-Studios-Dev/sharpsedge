@@ -256,17 +256,47 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
   return entries;
 }
 
+/** Rotate between available Odds API keys to double quota */
+function getOddsApiKeys(): string[] {
+  const keys: string[] = [];
+  const k1 = process.env.ODDS_API_KEY;
+  const k2 = process.env.ODDS_API_KEY_2;
+  if (k1 && k1 !== "your_key_here") keys.push(k1);
+  if (k2 && k2 !== "your_key_here") keys.push(k2);
+  return keys;
+}
+
+let oddsApiKeyIndex = 0;
+
 async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds[]> {
   const sportKey = ODDS_API_SPORT_KEYS[sport];
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!sportKey || !apiKey || apiKey === "your_key_here") return [];
+  const keys = getOddsApiKeys();
+  if (!sportKey || keys.length === 0) return [];
+
+  // Round-robin across available keys
+  const apiKey = keys[oddsApiKeyIndex % keys.length];
+  oddsApiKeyIndex++;
 
   try {
     const res = await fetch(
       `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`,
       { next: { revalidate: 900 } },
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      // If quota exhausted (401/429), try the other key
+      if ((res.status === 401 || res.status === 429) && keys.length > 1) {
+        const fallbackKey = keys[(oddsApiKeyIndex) % keys.length];
+        oddsApiKeyIndex++;
+        const res2 = await fetch(
+          `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${fallbackKey}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`,
+          { next: { revalidate: 900 } },
+        );
+        if (!res2.ok) return [];
+        const events2 = await res2.json() as OddsEvent[];
+        return normalizeOddsApiEvents(sport, Array.isArray(events2) ? events2 : []);
+      }
+      return [];
+    }
     const events = await res.json() as OddsEvent[];
     return normalizeOddsApiEvents(sport, Array.isArray(events) ? events : []);
   } catch {
