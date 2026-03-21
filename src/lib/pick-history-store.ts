@@ -311,8 +311,10 @@ async function patchPickHistoryRow(filterColumn: "id" | "pick_id", pickId: strin
 }
 
 function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord[]): PickSlateFetchResult {
+  const mergedSlate = mergeSlateRecords(slate ? [slate] : [], records)[0] ?? null;
+
   return {
-    slate: slate ?? (records.length ? buildSyntheticSlateRecord(records[0].date, records[0].league, records) : null),
+    slate: mergedSlate,
     records,
     picks: records.map(mapPickHistoryRecordToAIPick),
   };
