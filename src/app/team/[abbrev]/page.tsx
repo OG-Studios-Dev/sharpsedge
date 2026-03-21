@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import TeamLogo from "@/components/TeamLogo";
 import { NHL_TEAM_COLORS } from "@/lib/nhl-api";
+import { MLB_TEAM_COLORS } from "@/lib/mlb-api";
 import type { TeamStandingRow, TeamRecentGame } from "@/lib/nhl-api";
 
 type RosterPlayer = {
@@ -16,6 +17,7 @@ type RosterPlayer = {
 };
 
 type TeamData = {
+  league?: string;
   standing: TeamStandingRow | null;
   recentGames: TeamRecentGame[];
   roster: RosterPlayer[];
@@ -46,9 +48,11 @@ export default function TeamPage() {
   }, [abbrev]);
 
   const st = data?.standing;
-  const color = NHL_TEAM_COLORS[abbrev] || "#4a9eff";
-  const goalsPerGame = st ? (st.goalsFor / st.gamesPlayed).toFixed(1) : "-";
-  const goalsAgainstPerGame = st ? (st.goalsAgainst / st.gamesPlayed).toFixed(1) : "-";
+  const teamLeague = data?.league || "NHL";
+  const isMLB = teamLeague === "MLB";
+  const color = isMLB ? (MLB_TEAM_COLORS[abbrev] || "#4a9eff") : (NHL_TEAM_COLORS[abbrev] || "#4a9eff");
+  const goalsPerGame = st && st.gamesPlayed > 0 ? (st.goalsFor / st.gamesPlayed).toFixed(1) : "-";
+  const goalsAgainstPerGame = st && st.gamesPlayed > 0 ? (st.goalsAgainst / st.gamesPlayed).toFixed(1) : "-";
 
   const streakType = st?.streakCode?.charAt(0);
   const streakColor =
@@ -56,13 +60,15 @@ export default function TeamPage() {
     streakType === "L" ? "bg-accent-red/20 text-accent-red border-accent-red/30" :
     "bg-dark-bg text-gray-400 border-dark-border";
 
-  const skaters = (data?.roster || []).filter((p) => p.positionCode !== "G").slice(0, 10);
+  const rosterPlayers = isMLB
+    ? (data?.roster || []).slice(0, 15)
+    : (data?.roster || []).filter((p) => p.positionCode !== "G").slice(0, 10);
 
   return (
     <div>
       <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-3">
         <div className="flex items-center gap-3">
-          <Link href="/leagues/nhl" className="text-gray-400 hover:text-white transition-colors">
+          <Link href={isMLB ? "/schedule" : "/leagues/nhl"} className="text-gray-400 hover:text-white transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
@@ -89,14 +95,19 @@ export default function TeamPage() {
           {/* Record */}
           <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
             <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Record</div>
-            <div className="grid grid-cols-5 gap-2 text-center">
-              {[
+            <div className={`grid ${isMLB ? "grid-cols-4" : "grid-cols-5"} gap-2 text-center`}>
+              {(isMLB ? [
+                { label: "GP", val: st.gamesPlayed },
+                { label: "W", val: st.wins },
+                { label: "L", val: st.losses },
+                { label: "PCT", val: st.gamesPlayed > 0 ? (st.wins / st.gamesPlayed).toFixed(3) : ".000" },
+              ] : [
                 { label: "GP", val: st.gamesPlayed },
                 { label: "W", val: st.wins },
                 { label: "L", val: st.losses },
                 { label: "OTL", val: st.otLosses },
                 { label: "PTS", val: st.points },
-              ].map((s) => (
+              ]).map((s) => (
                 <div key={s.label}>
                   <div className="text-[10px] text-gray-500 uppercase">{s.label}</div>
                   <div className="text-lg text-white font-bold">{s.val}</div>
@@ -105,20 +116,26 @@ export default function TeamPage() {
             </div>
           </div>
 
-          {/* Home / Road splits */}
-          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Home / Road Splits</div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Home</div>
-                <div className="text-white font-semibold">{st.homeWins}-{st.homeLosses}-{st.homeOtLosses}</div>
-              </div>
-              <div>
-                <div className="text-gray-400 text-xs mb-1">Road</div>
-                <div className="text-white font-semibold">{st.roadWins}-{st.roadLosses}-{st.roadOtLosses}</div>
+          {/* Home / Road splits (NHL has OTL, MLB does not) */}
+          {(st.homeWins != null || st.roadWins != null) && (
+            <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+              <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Home / Road Splits</div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-400 text-xs mb-1">Home</div>
+                  <div className="text-white font-semibold">
+                    {st.homeWins ?? 0}-{st.homeLosses ?? 0}{!isMLB ? `-${st.homeOtLosses ?? 0}` : ""}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs mb-1">Road</div>
+                  <div className="text-white font-semibold">
+                    {st.roadWins ?? 0}-{st.roadLosses ?? 0}{!isMLB ? `-${st.roadOtLosses ?? 0}` : ""}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Streak */}
           <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
@@ -133,11 +150,11 @@ export default function TeamPage() {
             <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Stats</div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="text-gray-400 text-xs mb-1">Goals / Game</div>
+                <div className="text-gray-400 text-xs mb-1">{isMLB ? "Runs / Game" : "Goals / Game"}</div>
                 <div className="text-white font-semibold">{goalsPerGame}</div>
               </div>
               <div>
-                <div className="text-gray-400 text-xs mb-1">Goals Against / Game</div>
+                <div className="text-gray-400 text-xs mb-1">{isMLB ? "Runs Against / Game" : "Goals Against / Game"}</div>
                 <div className="text-white font-semibold">{goalsAgainstPerGame}</div>
               </div>
             </div>
@@ -169,11 +186,11 @@ export default function TeamPage() {
           )}
 
           {/* Players */}
-          {skaters.length > 0 && (
+          {rosterPlayers.length > 0 && (
             <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
               <div className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Players</div>
               <div className="space-y-1">
-                {skaters.map((p) => (
+                {rosterPlayers.map((p) => (
                   <Link
                     key={p.id}
                     href={`/player/${p.id}`}
