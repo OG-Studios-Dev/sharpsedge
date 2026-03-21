@@ -348,6 +348,14 @@ function todayKeyForLeague(league: string) {
   return getDateKey(new Date(), timeZone);
 }
 
+const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
+  All: { icon: "🏆", label: "All" },
+  NHL: { icon: "🏒", label: "NHL" },
+  NBA: { icon: "🏀", label: "NBA" },
+  MLB: { icon: "⚾", label: "MLB" },
+  PGA: { icon: "⛳", label: "PGA" },
+};
+
 type PastFilter = "all" | "win" | "loss" | "push";
 type HistoryItem = {
   id: string;
@@ -462,6 +470,7 @@ export default function PicksPage() {
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
   const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
+  const [recordSport, setRecordSport] = useState("All");
 
   useEffect(() => {
     if (sportLeague !== "PGA") return undefined;
@@ -561,6 +570,15 @@ export default function PicksPage() {
   const golfRec = remoteHistoryItems.length > 0
     ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "PGA").map(mapRecordToHistoryItem))
     : computeRecord(golfFlat);
+
+  const picksRecordMap: Record<string, typeof activeRecord> = {
+    All: activeRecord,
+    NHL: nhlRec,
+    NBA: nbaRec,
+    MLB: mlbRec,
+    PGA: golfRec,
+  };
+  const picksDisplayRecord = picksRecordMap[recordSport] || activeRecord;
 
   const pastHistoryItems = useMemo(() => (
     historyItems.filter((item) => item.date !== todayKey)
@@ -665,75 +683,70 @@ export default function PicksPage() {
 
       <div className="mb-6 grid gap-4 px-4 pt-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-0">
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
+          {/* Sport icon filters (when viewing All) */}
+          {sportLeague === "All" && (
+            <div className="flex items-center gap-1.5 mb-3">
+              {Object.entries(SPORT_ICONS).map(([key, { icon }]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setRecordSport(key)}
+                  className={`tap-button flex items-center justify-center w-9 h-9 rounded-xl text-base transition-all ${
+                    recordSport === key
+                      ? "bg-accent-blue/20 border border-accent-blue/50 scale-110 shadow-lg shadow-accent-blue/10"
+                      : "bg-dark-bg/40 border border-dark-border/40 hover:border-gray-500"
+                  }`}
+                  aria-label={`Show ${key} record`}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+          )}
+
           <Link href="/picks/history" className="tap-button block rounded-xl">
             <div className="mb-3 flex items-center justify-between">
               <p className="section-heading">
-                {sportLeague === "All" ? "Combined" : sportLeague} Season Record
+                {sportLeague === "All"
+                  ? (recordSport === "All" ? "Combined" : recordSport)
+                  : sportLeague} Season Record
               </p>
               <span className="text-[10px] font-medium text-accent-blue">View History →</span>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <p className="text-accent-green font-bold text-lg">{activeRecord.wins}</p>
+                <p className="text-accent-green font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).wins}</p>
                 <p className="text-gray-500 text-[10px] uppercase">W</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-red font-bold text-lg">{activeRecord.losses}</p>
+                <p className="text-accent-red font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).losses}</p>
                 <p className="text-gray-500 text-[10px] uppercase">L</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-yellow font-bold text-lg">{activeRecord.pushes}</p>
+                <p className="text-accent-yellow font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).pushes}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Push</p>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 font-bold text-lg">{activeRecord.pending}</p>
+                <p className="text-gray-400 font-bold text-lg">{(sportLeague === "All" ? picksDisplayRecord : activeRecord).pending}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Pending</p>
               </div>
               <div className="ml-auto text-right">
                 <p
                   className={`font-bold text-lg ${
-                    activeRecord.profitUnits > 0
+                    (sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits > 0
                       ? "text-accent-green"
-                      : activeRecord.profitUnits < 0
+                      : (sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits < 0
                         ? "text-accent-red"
                         : "text-gray-400"
                   }`}
                 >
-                  {activeRecord.profitUnits > 0 ? "+" : ""}
-                  {(activeRecord.profitUnits || 0).toFixed(2)}u
+                  {(sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits > 0 ? "+" : ""}
+                  {((sportLeague === "All" ? picksDisplayRecord : activeRecord).profitUnits || 0).toFixed(2)}u
                 </p>
                 <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
               </div>
             </div>
           </Link>
-            {sportLeague === "All" && (
-              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-dark-border/40 pt-3">
-                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
-                  <span className="text-[10px] font-semibold text-gray-500">🏒 NHL</span>
-                  <span className="text-emerald-400 text-[11px] font-bold">{nhlRec.wins}W</span>
-                  <span className="text-red-400 text-[11px] font-bold">{nhlRec.losses}L</span>
-                  <span className={`ml-auto text-[11px] font-bold ${nhlRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {nhlRec.profitUnits >= 0 ? "+" : ""}{(nhlRec.profitUnits || 0).toFixed(2)}u
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
-                  <span className="text-[10px] font-semibold text-gray-500">🏀 NBA</span>
-                  <span className="text-emerald-400 text-[11px] font-bold">{nbaRec.wins}W</span>
-                  <span className="text-red-400 text-[11px] font-bold">{nbaRec.losses}L</span>
-                  <span className={`ml-auto text-[11px] font-bold ${nbaRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {nbaRec.profitUnits >= 0 ? "+" : ""}{(nbaRec.profitUnits || 0).toFixed(2)}u
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 rounded-xl border border-dark-border/40 bg-dark-bg/40 px-2.5 py-1.5">
-                  <span className="text-[10px] font-semibold text-gray-500">⚾ MLB</span>
-                  <span className="text-emerald-400 text-[11px] font-bold">{mlbRec.wins}W</span>
-                  <span className="text-red-400 text-[11px] font-bold">{mlbRec.losses}L</span>
-                  <span className={`ml-auto text-[11px] font-bold ${mlbRec.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {mlbRec.profitUnits >= 0 ? "+" : ""}{(mlbRec.profitUnits || 0).toFixed(2)}u
-                  </span>
-                </div>
-              </div>
-            )}
             {activeStalePickCount > 0 && (
               <div className="mt-3 flex items-center justify-between gap-3 border-t border-dark-border/40 pt-3">
                 <p className="text-[11px] text-amber-400">

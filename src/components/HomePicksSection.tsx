@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
@@ -94,6 +95,14 @@ function computeRecord(picks: AIPick[]) {
   return computePickRecord(picks);
 }
 
+const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
+  All: { icon: "🏆", label: "All" },
+  NHL: { icon: "🏒", label: "NHL" },
+  NBA: { icon: "🏀", label: "NBA" },
+  MLB: { icon: "⚾", label: "MLB" },
+  PGA: { icon: "⛳", label: "PGA" },
+};
+
 export default function HomePicksSection({ league = "NHL" }: { league?: string }) {
   const nhl = usePicks();
   const nba = useNBAPicks();
@@ -129,6 +138,16 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
   const golfRecord = hasRemoteHistory
     ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "PGA"))
     : localGolfRecord;
+
+  const [recordSport, setRecordSport] = useState(league === "All" ? "All" : league);
+  const recordMap: Record<string, typeof allRecord> = {
+    All: allRecord,
+    NHL: nhlRecord,
+    NBA: nbaRecord,
+    MLB: mlbRecord,
+    PGA: golfRecord,
+  };
+  const displayRecord = recordMap[recordSport] || allRecord;
 
   // Which today picks to show
   const displayPicks =
@@ -171,36 +190,27 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
         <Link href="/picks" className="text-xs text-accent-blue font-medium">View all →</Link>
       </div>
 
-      {/* Record bar */}
+      {/* Record bar with sport icon filter */}
       {league === "All" ? (
-        <div className="space-y-1.5">
-          <RecordBar {...allRecord} label="All" />
-          <div className="grid grid-cols-3 gap-1.5">
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">🏒 NHL</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{nhlRecord.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{nhlRecord.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${nhlRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nhlRecord.profitUnits >= 0 ? "+" : ""}{(nhlRecord.profitUnits || 0).toFixed(2)}u
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">🏀 NBA</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{nbaRecord.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{nbaRecord.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${nbaRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {nbaRecord.profitUnits >= 0 ? "+" : ""}{(nbaRecord.profitUnits || 0).toFixed(2)}u
-              </span>
-            </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-dark-bg/40 border border-dark-border/40">
-              <span className="text-[10px] text-gray-500 font-semibold">⚾ MLB</span>
-              <span className="text-emerald-400 text-[11px] font-bold">{mlbRecord.wins}W</span>
-              <span className="text-red-400 text-[11px] font-bold">{mlbRecord.losses}L</span>
-              <span className={`ml-auto text-[11px] font-bold ${mlbRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {mlbRecord.profitUnits >= 0 ? "+" : ""}{(mlbRecord.profitUnits || 0).toFixed(2)}u
-              </span>
-            </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            {Object.entries(SPORT_ICONS).map(([key, { icon }]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setRecordSport(key)}
+                className={`tap-button flex items-center justify-center w-9 h-9 rounded-xl text-base transition-all ${
+                  recordSport === key
+                    ? "bg-accent-blue/20 border border-accent-blue/50 scale-110 shadow-lg shadow-accent-blue/10"
+                    : "bg-dark-bg/40 border border-dark-border/40 hover:border-gray-500"
+                }`}
+                aria-label={`Show ${key} record`}
+              >
+                {icon}
+              </button>
+            ))}
           </div>
+          <RecordBar {...displayRecord} label={recordSport === "All" ? "All Sports" : recordSport} />
         </div>
       ) : (
         <RecordBar {...record} />
