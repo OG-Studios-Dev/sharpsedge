@@ -394,41 +394,61 @@
       "owner": "Goosalytics Lab",
       "status": "definition_only",
       "trackabilityBucket": "parked_definition_only",
-      "summary": "Late-season NHL urgency concept parked until stretch-run motivation rules are specific enough to survive automation.",
-      "snapshot": "Parked in research.",
+      "summary": "Late-season NHL urgency concept now shows live context rails, but the betting rulebook still is not strict enough to automate honestly.",
+      "snapshot": "Live context board wired; final betting rules still parked in research.",
       "definition": "Look for late-season NHL teams with real standings urgency, style edges, or playoff-race pressure that may not be fully priced into the market.",
       "qualifierRules": [
+        "Use sourced goalie status plus derived rest/travel/fatigue/playoff-pressure as context, not as standalone bet triggers.",
         "Need exact standings-pressure thresholds rather than a generic 'must-win' label.",
-        "Need a rule for whether travel/rest/goalie confirmation are mandatory inputs.",
+        "Need a rule for whether confirmed starters, fatigue bands, and official-team news are mandatory inputs or tie-breakers only.",
         "Need a real pricing discipline rule so urgency alone does not become the bet."
       ],
       "progressionLogic": [],
-      "thesis": "Urgency can matter down the stretch, but the public also loves obvious playoff-race narratives. This stays parked until the actual filters are written down.",
+      "thesis": "Urgency can matter down the stretch, especially when goalie quality and schedule fatigue are misaligned, but the public also loves obvious playoff-race narratives. Swaggy is smarter now because those rails are visible; it still stays parked until the actual betting filters are written down.",
       "sourceNotes": [
         {
           "label": "Internal concept",
           "detail": "Cataloged as research only until the stretch-drive rulebook becomes precise."
+        },
+        {
+          "label": "Live context rails",
+          "detail": "Detail page now surfaces sourced MoneyPuck/goalie/news inputs alongside derived rest, travel, fatigue, and playoff-pressure heuristics. Visibility improved; auto-betting did not."
         }
       ],
-      "automationStatusLabel": "Parked / definition only",
-      "automationStatusDetail": "Precise stretch-drive motivation rules still need to be defined honestly.",
+      "automationStatusLabel": "Context live, bet logic parked",
+      "automationStatusDetail": "Swaggy now shows live goalie, rest/travel/fatigue, playoff-pressure, and lightweight official-team news context, but precise entry and pricing rules still are not defined honestly.",
       "dataRequirements": [
         {
           "label": "Standings urgency rules",
-          "status": "pending",
-          "detail": "Need explicit clinch/elimination/seed-pressure thresholds."
+          "status": "partial",
+          "detail": "Heuristic conference-cutline pressure is now live, but exact clinch/elimination/seed-pressure thresholds still need a real rulebook."
         },
         {
-          "label": "Goalie and rest rulebook",
+          "label": "Goalie + fatigue context rail",
+          "status": "ready",
+          "detail": "Starter status plus derived rest/travel/fatigue context is now visible on the Swaggy detail page."
+        },
+        {
+          "label": "Official-team news rail",
+          "status": "partial",
+          "detail": "Lightweight NHL.com team-site/news links are live, but coach-quote and roster-impact tagging remain shallow."
+        },
+        {
+          "label": "Pricing discipline",
           "status": "pending",
-          "detail": "Need to decide whether confirmed starters and schedule fatigue are mandatory."
+          "detail": "Need explicit market thresholds so Swaggy does not become a narrative-only playoff-pressure angle."
         }
       ],
       "unlockNotes": [
         "Precise rules still not defined enough to automate honestly.",
-        "Need exact standings-urgency thresholds."
+        "Need exact standings-urgency thresholds.",
+        "Need to decide whether goalie confirmation, fatigue bands, and official-team news are hard filters or only supporting context."
       ],
-      "trackingNotes": [],
+      "trackingNotes": [
+        "Swaggy detail page now pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
+        "MoneyPuck/goalie/news stay sourced; rest/travel/fatigue/playoff-pressure remain explicitly derived heuristics.",
+        "No claimed track record or auto-generated picks are shown because the final price/entry rulebook still is not defined."
+      ],
       "records": []
     },
     {

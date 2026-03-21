@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import SystemDetailBoard from "@/components/SystemDetailBoard";
-import { getTrackedSystemBySlug, readSystemsTrackingData, refreshTrackableSystems } from "@/lib/systems-tracking-store";
+import { getTodayNHLContextBoard } from "@/lib/nhl-context";
+import { getTrackedSystemBySlug, readSystemsTrackingData, refreshTrackableSystems, refreshTrackedSystem } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,13 @@ type Props = {
 
 export default async function SystemDetailPage({ params }: Props) {
   await refreshTrackableSystems().catch(() => null);
-  const [data, system] = await Promise.all([
+  if (params.slug === "tonys-hot-bats") {
+    await refreshTrackedSystem("tonys-hot-bats").catch(() => null);
+  }
+  const [data, system, nhlContextBoard] = await Promise.all([
     readSystemsTrackingData(),
     getTrackedSystemBySlug(params.slug),
+    params.slug === "swaggy-stretch-drive" ? getTodayNHLContextBoard().catch(() => null) : Promise.resolve(null),
   ]);
 
   if (!system) notFound();
@@ -27,7 +32,7 @@ export default async function SystemDetailPage({ params }: Props) {
         subtitle={`${system.league} • ${system.category} • ${system.status.replaceAll("_", " ")}`}
       />
 
-      <SystemDetailBoard system={system} updatedAt={data.updatedAt} />
+      <SystemDetailBoard system={system} updatedAt={data.updatedAt} nhlContextBoard={nhlContextBoard} />
     </main>
   );
 }

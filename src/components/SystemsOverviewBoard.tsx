@@ -137,9 +137,11 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
           filteredSystems.map((system) => {
             const metrics = getSystemDerivedMetrics(system);
             const snapshot = getSystemSnapshot(system);
-            const compactUnlock = system.trackabilityBucket === "trackable_now"
-              ? "Live rows are tracked honestly; missing fields stay unresolved instead of guessed."
-              : (system.unlockNotes[0] || system.automationStatusDetail);
+            const compactUnlock = system.slug === "swaggy-stretch-drive"
+              ? "Now surfaces live goalie, rest/travel/fatigue, playoff-pressure, and official-team news context on the detail page — still not an auto-bet system."
+              : system.trackabilityBucket === "trackable_now"
+                ? "Live rows are tracked honestly; missing fields stay unresolved instead of guessed."
+                : (system.unlockNotes[0] || system.automationStatusDetail);
 
             return (
               <Link

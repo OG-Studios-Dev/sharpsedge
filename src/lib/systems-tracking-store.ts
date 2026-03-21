@@ -1659,6 +1659,14 @@ export async function getTrackedSystemBySlug(slug: string): Promise<TrackedSyste
 
 export function getSystemSnapshot(system: TrackedSystem) {
   const metrics = getSystemDerivedMetrics(system);
+  if (system.id === TONYS_HOT_BATS_SYSTEM_ID) {
+    if (metrics.qualifiedGames > 0) {
+      const officialLineups = system.records.filter((record) => record.lineupStatus?.toLowerCase().includes("official")).length;
+      const weatherRows = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
+      return `${metrics.qualifiedGames} MLB context row${metrics.qualifiedGames === 1 ? "" : "s"} stored, ${officialLineups} with official lineup confirmation language, ${weatherRows} with weather context.`;
+    }
+    return system.snapshot || "No tracked sample yet.";
+  }
   if (system.progressionLogic.length === 0) {
     if (metrics.qualifiedGames > 0) {
       const moneylineRows = system.records.filter((record) => record.currentMoneyline != null).length;
