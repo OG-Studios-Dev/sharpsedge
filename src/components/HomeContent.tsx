@@ -20,6 +20,7 @@ import HomePicksSection from "./HomePicksSection";
 import LeagueDropdown from "./LeagueDropdown";
 import SectionHeader from "./SectionHeader";
 import SGPCard from "./SGPCard";
+import SwipeCarousel from "./SwipeCarousel";
 import TrendRow from "./TrendRow";
 import PageHeader from "@/components/PageHeader";
 import LockedFeature from "@/components/LockedFeature";
@@ -218,15 +219,15 @@ export default function HomeContent() {
   const { viewer } = useAppChrome();
 
   const clubRows = useMemo(
-    () => buildClubRows(dashboards.props, dashboards.teamTrends).slice(0, 5),
+    () => buildClubRows(dashboards.props, dashboards.teamTrends).slice(0, 10),
     [dashboards.props, dashboards.teamTrends],
   );
   const quickHitters = useMemo(
-    () => buildQuickHitters(dashboards.props, 5, dashboards.teamTrends),
+    () => buildQuickHitters(dashboards.props, 10, dashboards.teamTrends),
     [dashboards.props],
   );
   const sgps = useMemo(
-    () => buildSGPSuggestions(dashboards.props, 3),
+    () => buildSGPSuggestions(dashboards.props, 10),
     [dashboards.props],
   );
   const trendingRows = useMemo(
@@ -444,13 +445,11 @@ export default function HomeContent() {
                     className="mx-0 mt-0"
                   />
                 ) : (
-                  <div className="space-y-3">
-                    {clubRows.map((row, index) => (
-                      <div key={row.id} className="stagger-in" style={getStaggerStyle(index)}>
-                        <TrendRow row={row} />
-                      </div>
+                  <SwipeCarousel dots={clubRows.length > 1}>
+                    {clubRows.map((row) => (
+                      <TrendRow key={row.id} row={row} />
                     ))}
-                  </div>
+                  </SwipeCarousel>
                 )}
               </HomeSection>
             </LockedFeature>
@@ -474,13 +473,11 @@ export default function HomeContent() {
                     className="mx-0 mt-0"
                   />
                 ) : (
-                  <div className="space-y-3">
-                    {quickHitters.map((row, index) => (
-                      <div key={row.id} className="stagger-in" style={getStaggerStyle(index)}>
-                        <QuickHitterCard row={row} />
-                      </div>
+                  <SwipeCarousel dots={quickHitters.length > 1}>
+                    {quickHitters.map((row) => (
+                      <QuickHitterCard key={row.id} row={row} />
                     ))}
-                  </div>
+                  </SwipeCarousel>
                 )}
               </HomeSection>
             </LockedFeature>
@@ -507,13 +504,11 @@ export default function HomeContent() {
                     className="mx-0 mt-0"
                   />
                 ) : (
-                  <div className="space-y-3">
-                    {sgps.map((sgp, index) => (
-                      <div key={sgp.id} className="stagger-in" style={getStaggerStyle(index)}>
-                        <SGPCard sgp={sgp} />
-                      </div>
+                  <SwipeCarousel dots={sgps.length > 1}>
+                    {sgps.map((sgp) => (
+                      <SGPCard key={sgp.id} sgp={sgp} />
                     ))}
-                  </div>
+                  </SwipeCarousel>
                 )}
               </HomeSection>
             </LockedFeature>
