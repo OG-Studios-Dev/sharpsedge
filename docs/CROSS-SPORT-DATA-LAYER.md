@@ -47,6 +47,15 @@ Next sensible steps on top of this brick:
 3. compute simple movement deltas and stale-source warnings
 4. let system trackers query snapshot history instead of only current board state
 
+## Current live cadence
+- Vercel cron now captures `NHL,NBA,MLB` aggregated-board snapshots once per hour at minute 17 via `/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB`.
+- This is intentionally conservative: enough to start building line-history without burning unnecessary upstream calls or pretending we have a full intraday warehouse.
+- The route stays failure-safe:
+  - cron auth still honors `CRON_SECRET`
+  - read-only serverless filesystems fall back to in-memory persistence instead of crashing
+  - missing Supabase service-role env skips durable writes rather than failing the request
+  - responses include lightweight warnings when the board is empty, books are missing, sources are stale, or durable persistence failed
+
 ## Non-goals for this pass
 - premium vendor integration
 - full warehouse/star-schema modeling

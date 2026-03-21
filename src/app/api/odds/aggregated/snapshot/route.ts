@@ -58,6 +58,13 @@ function buildSummary(result: Awaited<ReturnType<typeof captureMarketSnapshot>>,
     sourceSummary: snapshot.sourceSummary,
     sportBreakdown: snapshot.sportBreakdown,
     persistence,
+    warnings: [
+      ...(snapshot.gameCount === 0 ? ["Snapshot captured with zero games on board."] : []),
+      ...(snapshot.sourceSummary.bookCount === 0 ? ["Snapshot captured with zero books available from upstream sources."] : []),
+      ...(persistence.file.status === "memory_fallback" ? ["Filesystem archive unavailable; snapshot kept in memory only for this runtime."] : []),
+      ...(persistence.supabase.status === "error" ? [`Supabase persistence failed: ${persistence.supabase.error ?? "unknown error"}`] : []),
+      ...(snapshot.freshness.staleSourceCount > 0 ? [`${snapshot.freshness.staleSourceCount} upstream source entries were older than 30 minutes at capture time.`] : []),
+    ],
   };
 }
 
@@ -79,8 +86,9 @@ export async function GET(request: NextRequest) {
     }
 
     const board = await getAggregatedOddsBoard(sports);
+    const scopedBoard = Object.fromEntries(sports.map((sport) => [sport, board[sport] || []])) as Partial<Record<AggregatedSport, Awaited<ReturnType<typeof getAggregatedOddsBoard>>[AggregatedSport]>>;
     const result = await captureMarketSnapshot({
-      board,
+      board: scopedBoard,
       trigger: request.nextUrl.searchParams.get("cron") === "true" ? "cron" : "manual",
       reason: request.nextUrl.searchParams.get("reason") || null,
     });
@@ -99,8 +107,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const sports = parseSportsParam(typeof body?.sports === "string" ? body.sports : null);
     const board = await getAggregatedOddsBoard(sports);
+    const scopedBoard = Object.fromEntries(sports.map((sport) => [sport, board[sport] || []])) as Partial<Record<AggregatedSport, Awaited<ReturnType<typeof getAggregatedOddsBoard>>[AggregatedSport]>>;
     const result = await captureMarketSnapshot({
-      board,
+      board: scopedBoard,
       trigger: "api",
       reason: typeof body?.reason === "string" ? body.reason : null,
     });

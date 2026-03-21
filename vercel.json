@@ -11,6 +11,10 @@
       "schedule": "0 10 * * 2,3,4"
     },
     {
+      "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB",
+      "schedule": "17 * * * *"
+    },
+    {
       "path": "/api/systems/refresh?cron=true",
       "schedule": "0 15 * * *"
     }
