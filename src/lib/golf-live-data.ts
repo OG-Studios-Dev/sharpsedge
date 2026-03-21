@@ -1,4 +1,5 @@
 import { getGolfOdds } from "@/lib/golf-odds";
+import { getDGCache } from "@/lib/datagolf-cache";
 import { buildGolfPredictionBoard, buildGolfTournamentPicks } from "@/lib/golf-stats-engine";
 import { getPGALeaderboard, getPGASchedule, getPlayerTournamentHistory } from "@/lib/golf-api";
 import { getDateKey } from "@/lib/date-utils";
@@ -22,8 +23,12 @@ export async function getGolfPredictionData(
     typeof oddsOverride === "undefined" ? getGolfOdds() : Promise.resolve(oddsOverride),
   ]);
 
-  const historyByPlayer = await loadHistoryByPlayer(resolvedLeaderboard);
-  return buildGolfPredictionBoard(resolvedLeaderboard, historyByPlayer, resolvedOdds);
+  const [historyByPlayer, dgCache] = await Promise.all([
+    loadHistoryByPlayer(resolvedLeaderboard),
+    getDGCache(),
+  ]);
+
+  return buildGolfPredictionBoard(resolvedLeaderboard, historyByPlayer, resolvedOdds, dgCache);
 }
 
 /**

@@ -4,5 +4,11 @@
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/golf/scrape?cron=true",
+      "schedule": "0 10 * * 2,3,4"
+    }
+  ]
 }

@@ -14,7 +14,7 @@ import {
   GolfPredictionMarket,
   GolfValuePlay,
 } from "@/lib/types";
-import { getDGCache, getDGCacheSummary, type DGCache } from "./datagolf-cache";
+import { getDGCache, summarizeDGCache, type DGCache } from "./datagolf-cache";
 
 export const GOLF_PROP_TYPES = [
   "Tournament Winner",
@@ -472,11 +472,11 @@ export function buildGolfPredictionBoard(
   leaderboard: GolfLeaderboard | null,
   historyByPlayer: PlayerHistoryMap,
   odds: GolfOddsBoard | null = null,
+  dgCache: DGCache | null = null,
 ): GolfPredictionBoard {
   const generatedAt = new Date().toISOString();
-  const dgCache = getDGCache();
   const activePlayers = leaderboard?.players.filter((player) => player.position !== "CUT" && player.position !== "MC") ?? [];
-  const datagolf = getDGCacheSummary({
+  const datagolf = summarizeDGCache({
     cache: dgCache,
     tournamentName: leaderboard?.tournament.name,
     playerNames: activePlayers.map((player) => player.name),
@@ -645,8 +645,9 @@ export function buildGolfPredictionBoard(
 export function buildGolfPlayerInsights(
   leaderboard: GolfLeaderboard | null,
   historyByPlayer: PlayerHistoryMap,
+  dgCache: DGCache | null = null,
 ): GolfPlayer[] {
-  return buildGolfPredictionBoard(leaderboard, historyByPlayer).players;
+  return buildGolfPredictionBoard(leaderboard, historyByPlayer, null, dgCache).players;
 }
 
 export function buildGolfHeadToHeadLean(playerA: GolfPlayer, playerB: GolfPlayer) {
@@ -941,8 +942,8 @@ function getDGEnrichmentFromCache(cache: DGCache | null, playerName: string): DG
 /**
  * Enrich a golf player with DataGolf strokes-gained data from cache.
  */
-export function getDGEnrichment(playerName: string): DGEnrichedPlayer | null {
-  return getDGEnrichmentFromCache(getDGCache(), playerName);
+export async function getDGEnrichment(playerName: string): Promise<DGEnrichedPlayer | null> {
+  return getDGEnrichmentFromCache(await getDGCache(), playerName);
 }
 
 /**

@@ -150,20 +150,55 @@ function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function extractJsonParseVariable<T = unknown>(html: string, variableNames: string[]): T | null {
-  for (const variableName of variableNames) {
-    const regex = new RegExp(
-      `(?:(?:var|let|const)\\s+)?${escapeRegex(variableName)}\\s*=\\s*JSON\\.parse\\('([\\s\\S]*?)'\\);`,
-      "m",
-    );
-    const match = html.match(regex);
-    if (!match?.[1]) continue;
+type JsonParseAssignment = {
+  name: string;
+  value: unknown;
+};
+
+type CourseFitCandidate = {
+  path: string;
+  rows: Array<Record<string, unknown>>;
+};
+
+const COURSE_FIT_SCORE_KEYS = [
+  "total_comp",
+  "total_adjustment",
+  "total_adj",
+  "course_fit",
+  "course_fit_adjustment",
+  "fit_score",
+  "fit",
+  "total",
+] as const;
+
+function extractJsonParseAssignments(html: string): JsonParseAssignment[] {
+  const regex = /(?:(?:var|let|const)\s+)?([\w$]+)\s*=\s*JSON\.parse\((['"])([\s\S]*?)\2\);/gm;
+  const matches: JsonParseAssignment[] = [];
+
+  for (const match of Array.from(html.matchAll(regex))) {
+    const name = match[1];
+    const rawValue = match[3];
+    if (!name || !rawValue) continue;
 
     try {
-      return JSON.parse(match[1]) as T;
+      matches.push({
+        name,
+        value: JSON.parse(rawValue),
+      });
     } catch (err) {
-      console.error(`[DG Scraper] Failed to parse JSON.parse payload for ${variableName}:`, err);
+      console.error(`[DG Scraper] Failed to parse JSON.parse payload for ${name}:`, err);
     }
+  }
+
+  return matches;
+}
+
+function extractJsonParseVariable<T = unknown>(html: string, variableNames: string[]): T | null {
+  const assignments = extractJsonParseAssignments(html);
+
+  for (const variableName of variableNames) {
+    const assignment = assignments.find((entry) => entry.name === variableName);
+    if (assignment) return assignment.value as T;
   }
 
   return null;
@@ -179,6 +214,89 @@ function extractTitleTournament($: cheerio.CheerioAPI): string {
   const title = $("title").text().trim();
   if (!title) return "";
   return title.split("|")[0]?.trim() || title;
+}
+
+function isRecordArray(value: unknown): value is Array<Record<string, unknown>> {
+  return Array.isArray(value) && value.every((entry) => Boolean(entry) && typeof entry === "object" && !Array.isArray(entry));
+}
+
+function getCourseFitScore(row: Record<string, unknown>): number | null {
+  for (const key of COURSE_FIT_SCORE_KEYS) {
+    const value = parseNumber(row[key]);
+    if (value !== null) return value;
+  }
+
+  return null;
+}
+
+function mapCourseFitRows(rows: Array<Record<string, unknown>>): DGCourseFit[] {
+  const rankedRows = uniqueByName(rows.map((row) => ({
+    name: normalizePlayerName(row.player_name ?? row.pga_name ?? row.player ?? row.name),
+    fitScore: getCourseFitScore(row),
+  }))).filter((row) => row.name && row.fitScore !== null)
+    .sort((left, right) => (right.fitScore ?? Number.NEGATIVE_INFINITY) - (left.fitScore ?? Number.NEGATIVE_INFINITY));
+
+  return rankedRows.map((row, index) => ({
+    name: row.name,
+    fitScore: row.fitScore,
+    fitRank: index + 1,
+  }));
+}
+
+function collectCourseFitCandidates(
+  value: unknown,
+  path: string,
+  results: CourseFitCandidate[] = [],
+): CourseFitCandidate[] {
+  if (isRecordArray(value)) {
+    results.push({ path, rows: value });
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => {
+      collectCourseFitCandidates(entry, `${path}[${index}]`, results);
+    });
+    return results;
+  }
+
+  if (!value || typeof value !== "object") return results;
+
+  for (const [key, child] of Object.entries(value)) {
+    collectCourseFitCandidates(child, `${path}.${key}`, results);
+  }
+
+  return results;
+}
+
+function scoreCourseFitCandidate(candidate: CourseFitCandidate, currentCourse: string | null) {
+  const names = candidate.rows.filter((row) => Boolean(normalizePlayerName(row.player_name ?? row.pga_name ?? row.player ?? row.name))).length;
+  const fitScores = candidate.rows.filter((row) => getCourseFitScore(row) !== null).length;
+  const normalizedPath = candidate.path.toLowerCase();
+  const normalizedCourse = currentCourse?.toLowerCase() ?? "";
+
+  let score = fitScores * 5 + names;
+  if (normalizedPath.includes("player")) score += 30;
+  if (normalizedPath.includes("course_fit") || normalizedPath.includes("fit")) score += 20;
+  if (normalizedCourse && normalizedPath.includes(normalizedCourse)) score += 50;
+
+  return score;
+}
+
+function extractBestCourseFitRows(value: unknown, currentCourse: string | null): DGCourseFit[] {
+  const candidates = collectCourseFitCandidates(value, "root")
+    .map((candidate) => ({
+      candidate,
+      score: scoreCourseFitCandidate(candidate, currentCourse),
+    }))
+    .filter(({ candidate, score }) => candidate.rows.length >= 4 && score > 0)
+    .sort((left, right) => right.score - left.score);
+
+  for (const { candidate } of candidates) {
+    const rows = mapCourseFitRows(candidate.rows);
+    if (rows.length > 0) return rows;
+  }
+
+  return [];
 }
 
 // --- Scraper Functions ---
@@ -256,31 +374,32 @@ export async function fetchDGCourseFit(): Promise<DGCourseFit[]> {
       event_name?: string;
     };
   }>(page.html, ["reload_data"]);
+  const assignments = extractJsonParseAssignments(page.html);
 
-  if (!payload) return [];
+  if (payload) {
+    const directRows = Array.isArray(payload.players?.data)
+      ? payload.players.data
+      : (
+        currentCourse && isRecordArray(payload[currentCourse]?.data)
+          ? payload[currentCourse].data
+          : undefined
+      );
 
-  const currentData = (currentCourse && payload[currentCourse])
-    ? payload[currentCourse]
-    : Object.values(payload).find((entry) => Array.isArray(entry?.data));
+    if (directRows) {
+      const mappedRows = mapCourseFitRows(directRows);
+      if (mappedRows.length > 0) return mappedRows;
+    }
 
-  const rows = Array.isArray(payload.players?.data)
-    ? payload.players.data
-    : currentData?.data;
-  if (!Array.isArray(rows)) return [];
+    const fallbackRows = extractBestCourseFitRows(payload, currentCourse);
+    if (fallbackRows.length > 0) return fallbackRows;
+  }
 
-  const rankedRows = rows
-    .map((row) => ({
-      name: normalizePlayerName(row.player_name ?? row.name),
-      fitScore: parseNumber(row.total_comp),
-    }))
-    .filter((row) => row.name)
-    .sort((left, right) => (right.fitScore ?? Number.NEGATIVE_INFINITY) - (left.fitScore ?? Number.NEGATIVE_INFINITY));
+  for (const assignment of assignments) {
+    const rows = extractBestCourseFitRows(assignment.value, currentCourse);
+    if (rows.length > 0) return rows;
+  }
 
-  return rankedRows.map((row, index) => ({
-    name: row.name,
-    fitScore: row.fitScore,
-    fitRank: index + 1,
-  }));
+  return [];
 }
 
 export async function fetchDGField(): Promise<DGFieldPlayer[]> {

@@ -1,0 +1,28 @@
+create table if not exists public.datagolf_cache (
+  id uuid primary key default gen_random_uuid(),
+  tournament text not null,
+  data jsonb not null,
+  last_scrape timestamptz not null,
+  created_at timestamptz not null default now(),
+  unique (tournament)
+);
+
+create index if not exists datagolf_cache_last_scrape_idx
+  on public.datagolf_cache (last_scrape desc);
+
+alter table public.datagolf_cache enable row level security;
+
+drop policy if exists "Anyone can read datagolf cache" on public.datagolf_cache;
+drop policy if exists "Service role manages datagolf cache" on public.datagolf_cache;
+
+create policy "Anyone can read datagolf cache"
+  on public.datagolf_cache
+  for select
+  using (true);
+
+create policy "Service role manages datagolf cache"
+  on public.datagolf_cache
+  for all
+  to service_role
+  using (true)
+  with check (true);

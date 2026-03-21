@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGolfTournamentPicks, getTournamentDateKey } from "@/lib/golf-live-data";
 import { getPGALeaderboard } from "@/lib/golf-api";
+import { getDGCacheSummary } from "@/lib/datagolf-cache";
 import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +10,10 @@ export const revalidate = 0;
 export async function GET(req: NextRequest) {
   try {
     // Resolve the tournament start date as the canonical date key for PGA picks.
-    // This ensures picks generated on Thursday persist through the entire tournament
-    // instead of regenerating every day when the client sends today's date.
     const leaderboard = await getPGALeaderboard();
     const tournamentDateKey = getTournamentDateKey(leaderboard?.tournament);
 
+    // Check for locked slate first (already generated picks persist)
     const lockedSlate = await getStoredPickSlate(tournamentDateKey, "PGA");
     if (lockedSlate.slate) {
       return NextResponse.json(
@@ -25,6 +25,18 @@ export async function GET(req: NextRequest) {
         },
         { status: lockedSlate.slate.integrity_status === "incomplete" ? 409 : 200 },
       );
+    }
+
+    // Guard: Don't generate PGA picks if DataGolf data isn't ready.
+    // Without good DG data, hitRates are garbage (3-11%).
+    const dgStatus = await getDGCacheSummary();
+    if (!dgStatus.ready) {
+      return NextResponse.json({
+        picks: [],
+        date: tournamentDateKey,
+        source: "dg-not-ready",
+        reason: dgStatus.reason,
+      });
     }
 
     const result = await getGolfTournamentPicks(tournamentDateKey);
