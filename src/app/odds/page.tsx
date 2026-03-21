@@ -188,67 +188,85 @@ function BestLineSummary({ game }: { game: AggregatedOdds }) {
 
 
 function MovementTab({ games }: { games: AggregatedOdds[] }) {
-  // Detect line movement by comparing odds spread across books
-  // When books disagree significantly, it signals line movement
-  const movements = games.flatMap((game) => {
-    const items: Array<{ game: string; market: string; direction: string; detail: string; severity: "high" | "medium" | "low" }> = [];
-    const books = game.books || [];
-    if (books.length < 2) return items;
+  // Build per-game line comparison cards showing highest/lowest for each market
+  const gameCards = games
+    .filter((g) => (g.books || []).length >= 2)
+    .map((game) => {
+      const books = game.books || [];
+      type LineRow = { market: string; high: { odds: string; book: string }; low: { odds: string; book: string }; spread: number };
+      const lines: LineRow[] = [];
 
-    // Check ML spread between books
-    const awayMLs = books.map(b => b.awayML).filter((v): v is number => v != null);
-    const homeMLs = books.map(b => b.homeML).filter((v): v is number => v != null);
-
-    if (awayMLs.length >= 2) {
-      const spread = Math.max(...awayMLs) - Math.min(...awayMLs);
-      if (spread >= 15) {
-        const bestBook = books.find(b => b.awayML === Math.max(...awayMLs));
-        const worstBook = books.find(b => b.awayML === Math.min(...awayMLs));
-        items.push({
-          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
-          market: `${game.awayAbbrev} ML`,
-          direction: spread >= 30 ? "📈 Big Move" : "↗️ Moving",
-          detail: `${formatOdds(Math.min(...awayMLs))} → ${formatOdds(Math.max(...awayMLs))} (${spread}¢ spread across books)`,
-          severity: spread >= 30 ? "high" : spread >= 20 ? "medium" : "low",
-        });
+      // Away ML
+      const awayMLs = books.map(b => ({ ml: b.awayML, book: b.book })).filter(b => b.ml != null) as Array<{ ml: number; book: string }>;
+      if (awayMLs.length >= 2) {
+        const best = awayMLs.reduce((a, b) => a.ml > b.ml ? a : b);
+        const worst = awayMLs.reduce((a, b) => a.ml < b.ml ? a : b);
+        if (best.ml !== worst.ml) {
+          lines.push({
+            market: `${game.awayAbbrev} ML`,
+            high: { odds: formatOdds(best.ml), book: shortBookName(best.book) },
+            low: { odds: formatOdds(worst.ml), book: shortBookName(worst.book) },
+            spread: best.ml - worst.ml,
+          });
+        }
       }
-    }
 
-    if (homeMLs.length >= 2) {
-      const spread = Math.max(...homeMLs) - Math.min(...homeMLs);
-      if (spread >= 15) {
-        items.push({
-          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
-          market: `${game.homeAbbrev} ML`,
-          direction: spread >= 30 ? "📈 Big Move" : "↗️ Moving",
-          detail: `${formatOdds(Math.min(...homeMLs))} → ${formatOdds(Math.max(...homeMLs))} (${spread}¢ spread across books)`,
-          severity: spread >= 30 ? "high" : spread >= 20 ? "medium" : "low",
-        });
+      // Home ML
+      const homeMLs = books.map(b => ({ ml: b.homeML, book: b.book })).filter(b => b.ml != null) as Array<{ ml: number; book: string }>;
+      if (homeMLs.length >= 2) {
+        const best = homeMLs.reduce((a, b) => a.ml > b.ml ? a : b);
+        const worst = homeMLs.reduce((a, b) => a.ml < b.ml ? a : b);
+        if (best.ml !== worst.ml) {
+          lines.push({
+            market: `${game.homeAbbrev} ML`,
+            high: { odds: formatOdds(best.ml), book: shortBookName(best.book) },
+            low: { odds: formatOdds(worst.ml), book: shortBookName(worst.book) },
+            spread: best.ml - worst.ml,
+          });
+        }
       }
-    }
 
-    // Check total spread
-    const totals = books.map(b => b.total).filter((v): v is number => v != null);
-    if (totals.length >= 2) {
-      const unique = Array.from(new Set(totals));
-      if (unique.length > 1) {
-        items.push({
-          game: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
-          market: "Total",
-          direction: "↕️ Split",
-          detail: `Books disagree: ${unique.sort().join(" vs ")}`,
-          severity: "medium",
-        });
+      // Totals (O/U line)
+      const totals = books.map(b => ({ total: b.total, overOdds: b.overOdds, underOdds: b.underOdds, book: b.book })).filter(b => b.total != null) as Array<{ total: number; overOdds: number | null; underOdds: number | null; book: string }>;
+      if (totals.length >= 2) {
+        const unique = Array.from(new Set(totals.map(t => t.total)));
+        if (unique.length > 1) {
+          const highest = totals.reduce((a, b) => a.total > b.total ? a : b);
+          const lowest = totals.reduce((a, b) => a.total < b.total ? a : b);
+          lines.push({
+            market: "Total O/U",
+            high: { odds: String(highest.total), book: shortBookName(highest.book) },
+            low: { odds: String(lowest.total), book: shortBookName(lowest.book) },
+            spread: highest.total - lowest.total,
+          });
+        }
       }
-    }
 
-    return items;
-  }).sort((a, b) => {
-    const order = { high: 0, medium: 1, low: 2 };
-    return order[a.severity] - order[b.severity];
-  });
+      // Spreads
+      const spreads = books.map(b => ({ spread: b.homeSpread, odds: b.homeSpreadOdds, book: b.book })).filter(b => b.spread != null) as Array<{ spread: number; odds: number | null; book: string }>;
+      if (spreads.length >= 2) {
+        const unique = Array.from(new Set(spreads.map(s => s.spread)));
+        if (unique.length > 1) {
+          const highest = spreads.reduce((a, b) => a.spread > b.spread ? a : b);
+          const lowest = spreads.reduce((a, b) => a.spread < b.spread ? a : b);
+          lines.push({
+            market: "Spread",
+            high: { odds: `${highest.spread > 0 ? "+" : ""}${highest.spread}`, book: shortBookName(highest.book) },
+            low: { odds: `${lowest.spread > 0 ? "+" : ""}${lowest.spread}`, book: shortBookName(lowest.book) },
+            spread: Math.abs(highest.spread - lowest.spread),
+          });
+        }
+      }
 
-  if (movements.length === 0) {
+      if (lines.length === 0) return null;
+
+      const maxSpread = Math.max(...lines.map(l => l.spread));
+      return { game, lines, maxSpread };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b!.maxSpread - a!.maxSpread) as Array<{ game: AggregatedOdds; lines: Array<{ market: string; high: { odds: string; book: string }; low: { odds: string; book: string }; spread: number }>; maxSpread: number }>;
+
+  if (gameCards.length === 0) {
     return (
       <EmptyStateCard
         eyebrow="Movement"
@@ -259,21 +277,35 @@ function MovementTab({ games }: { games: AggregatedOdds[] }) {
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Odds discrepancies across books — potential movement signals</p>
-      {movements.map((m, i) => (
-        <div key={i} className={`rounded-xl border px-4 py-3 ${
-          m.severity === "high" ? "border-accent-red/30 bg-accent-red/5" :
-          m.severity === "medium" ? "border-accent-yellow/30 bg-accent-yellow/5" :
-          "border-dark-border bg-dark-surface/70"
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-white">{m.game}</span>
-            <span className={`text-[10px] font-bold uppercase ${
-              m.severity === "high" ? "text-accent-red" : m.severity === "medium" ? "text-accent-yellow" : "text-gray-400"
-            }`}>{m.direction}</span>
+    <div className="space-y-3">
+      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Line comparison across books — highest vs lowest</p>
+      {gameCards.map(({ game, lines }) => (
+        <div key={game.gameId} className="rounded-xl border border-dark-border bg-dark-surface/70 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-dark-border/50">
+            <span className="text-sm font-bold text-white">{game.awayAbbrev} @ {game.homeAbbrev}</span>
+            <span className="text-[10px] text-gray-500">{game.books.length} books</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">{m.market}: {m.detail}</p>
+          <div className="divide-y divide-dark-border/30">
+            {/* Header */}
+            <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-1.5">
+              <span className="text-[9px] text-gray-600 uppercase">Market</span>
+              <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▲ Highest</span>
+              <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▼ Lowest</span>
+            </div>
+            {lines.map((line, i) => (
+              <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-2 items-center">
+                <span className="text-xs text-gray-300 font-medium">{line.market}</span>
+                <div className="text-right w-[90px]">
+                  <span className="text-xs font-semibold text-emerald-400">{line.high.odds}</span>
+                  <span className="text-[9px] text-gray-500 ml-1">{line.high.book}</span>
+                </div>
+                <div className="text-right w-[90px]">
+                  <span className="text-xs font-semibold text-accent-red">{line.low.odds}</span>
+                  <span className="text-[9px] text-gray-500 ml-1">{line.low.book}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ))}
     </div>
