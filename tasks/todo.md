@@ -33,6 +33,12 @@
 - Local verification passed: `node --test --experimental-strip-types src/lib/pick-history-integrity.test.mts`, `npx tsc --noEmit`, and `npm run build`.
 - Manual follow-up is still required in live Supabase: run the updated `scripts/setup-supabase.sql`, then explicitly relabel/seed the 2026-03-17 and 2026-03-18 reconstructed slates in `pick_history`/`pick_slates`.
 
+# Pick performance KPIs — 2026-03-21
+- [x] Add shared win % / sample-size helper for pick records
+- [x] Show win % beside net units on home record bar
+- [x] Show win % beside net units on picks page season record
+- [x] Build + verify live UI paths
+
 # Admin ops page — 2026-03-21
 - [x] Inspect current admin dashboard structure and nav
 - [x] Add IT leader / ops review page in admin

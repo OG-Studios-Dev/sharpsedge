@@ -7,7 +7,7 @@ import { usePickHistory } from "@/hooks/usePickHistory";
 import { useLeague } from "@/hooks/useLeague";
 import { AIPick, GolfDashboardData, GolfTournament } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
-import { computePickRecord } from "@/lib/pick-record";
+import { computePickRecord, computePickWinRateStats } from "@/lib/pick-record";
 import type { PickHistoryRecord } from "@/lib/supabase-types";
 import LeagueDropdown from "@/components/LeagueDropdown";
 import TeamLogo from "@/components/TeamLogo";
@@ -587,6 +587,8 @@ export default function PicksPage() {
     PGA: golfRec,
   };
   const displayRecord = recordMap[recordSport] || activeRecord;
+  const currentSeasonRecord = sportLeague === "All" ? displayRecord : activeRecord;
+  const currentSeasonWinStats = computePickWinRateStats(currentSeasonRecord);
 
   const pastHistoryItems = useMemo(() => (
     historyItems.filter((item) => item.date !== todayKey)
@@ -723,35 +725,41 @@ export default function PicksPage() {
             </div>
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <p className="text-accent-green font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).wins}</p>
+                <p className="text-accent-green font-bold text-lg">{currentSeasonRecord.wins}</p>
                 <p className="text-gray-500 text-[10px] uppercase">W</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-red font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).losses}</p>
+                <p className="text-accent-red font-bold text-lg">{currentSeasonRecord.losses}</p>
                 <p className="text-gray-500 text-[10px] uppercase">L</p>
               </div>
               <div className="text-center">
-                <p className="text-accent-yellow font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).pushes}</p>
+                <p className="text-accent-yellow font-bold text-lg">{currentSeasonRecord.pushes}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Push</p>
               </div>
               <div className="text-center">
-                <p className="text-gray-400 font-bold text-lg">{(sportLeague === "All" ? displayRecord : activeRecord).pending}</p>
+                <p className="text-gray-400 font-bold text-lg">{currentSeasonRecord.pending}</p>
                 <p className="text-gray-500 text-[10px] uppercase">Pending</p>
               </div>
-              <div className="ml-auto text-right">
-                <p
-                  className={`font-bold text-lg ${
-                    (sportLeague === "All" ? displayRecord : activeRecord).profitUnits > 0
-                      ? "text-accent-green"
-                      : (sportLeague === "All" ? displayRecord : activeRecord).profitUnits < 0
-                        ? "text-accent-red"
-                        : "text-gray-400"
-                  }`}
-                >
-                  {(sportLeague === "All" ? displayRecord : activeRecord).profitUnits > 0 ? "+" : ""}
-                  {((sportLeague === "All" ? displayRecord : activeRecord).profitUnits || 0).toFixed(2)}u
-                </p>
-                <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
+              <div className="ml-auto flex items-center gap-4">
+                <div className="text-right">
+                  <p className="font-bold text-lg text-white">{currentSeasonWinStats.winPct.toFixed(1)}%</p>
+                  <p className="text-gray-500 text-[10px] uppercase">Win % · {currentSeasonWinStats.settled}</p>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`font-bold text-lg ${
+                      currentSeasonRecord.profitUnits > 0
+                        ? "text-accent-green"
+                        : currentSeasonRecord.profitUnits < 0
+                          ? "text-accent-red"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {currentSeasonRecord.profitUnits > 0 ? "+" : ""}
+                    {(currentSeasonRecord.profitUnits || 0).toFixed(2)}u
+                  </p>
+                  <p className="text-gray-500 text-[10px] uppercase">Net Units</p>
+                </div>
               </div>
             </div>
           </Link>

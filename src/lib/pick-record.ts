@@ -8,6 +8,11 @@ export type PickRecord = {
   profitUnits: number;
 };
 
+export type PickWinRateStats = {
+  settled: number;
+  winPct: number;
+};
+
 /**
  * Calculate payout based on American odds.
  * Negative odds (favorite): payout = 100 / |odds| × units
@@ -44,6 +49,14 @@ export function computePickRecord(picks: AIPick[]): PickRecord {
 
     return record;
   }, { wins: 0, losses: 0, pushes: 0, pending: 0, profitUnits: 0 });
+}
+
+export function computePickWinRateStats(record: { wins: number; losses: number }): PickWinRateStats {
+  const settled = record.wins + record.losses;
+  return {
+    settled,
+    winPct: settled > 0 ? Number(((record.wins / settled) * 100).toFixed(1)) : 0,
+  };
 }
 
 /** Export for use in other modules */

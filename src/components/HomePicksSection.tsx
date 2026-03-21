@@ -6,7 +6,7 @@ import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePic
 import { usePickHistory } from "@/hooks/usePickHistory";
 import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
-import { computePickRecord } from "@/lib/pick-record";
+import { computePickRecord, computePickWinRateStats } from "@/lib/pick-record";
 import { computePickHistorySummary } from "@/lib/pick-history";
 import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 
@@ -26,6 +26,7 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
   wins: number; losses: number; pushes: number; pending: number; profitUnits: number; label?: string;
 }) {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
+  const { settled, winPct } = computePickWinRateStats({ wins, losses });
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-2.5 rounded-xl bg-dark-bg/60 border border-dark-border/50 sm:flex-nowrap sm:gap-4 sm:px-3 sm:py-2">
       {label && <span className="text-[10px] text-gray-500 font-semibold uppercase mr-1 shrink-0">{label}</span>}
@@ -45,11 +46,17 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
         <p className="text-gray-400 font-bold text-sm sm:text-sm">{pending}</p>
         <p className="text-[9px] text-gray-500 uppercase">Pend</p>
       </div>
-      <div className="ml-auto text-right shrink-0">
-        <p className={`font-bold text-sm ${unitColor}`}>
-          {profitUnits > 0 ? "+" : ""}{(profitUnits || 0).toFixed(2)}u
-        </p>
-        <p className="text-[9px] text-gray-500 uppercase">Net</p>
+      <div className="ml-auto flex items-center gap-3 shrink-0">
+        <div className="text-right">
+          <p className="font-bold text-sm text-white">{winPct.toFixed(1)}%</p>
+          <p className="text-[9px] text-gray-500 uppercase">Win % · {settled}</p>
+        </div>
+        <div className="text-right">
+          <p className={`font-bold text-sm ${unitColor}`}>
+            {profitUnits > 0 ? "+" : ""}{(profitUnits || 0).toFixed(2)}u
+          </p>
+          <p className="text-[9px] text-gray-500 uppercase">Net</p>
+        </div>
       </div>
     </div>
   );
