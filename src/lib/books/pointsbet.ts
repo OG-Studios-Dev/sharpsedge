@@ -1,4 +1,5 @@
 import { buildAggregatedGameId, getCanonicalTeamName, isKnownSportTeam, normalizeTeamName } from "@/lib/books/team-mappings";
+import { extractPointsBetMLBF5Odds } from "@/lib/books/mlb-f5-augment";
 import type { AggregatedSport, BookEventOdds } from "@/lib/books/types";
 import { decimalToAmerican, isoNow, makeEmptyBookOdds, toNumber } from "@/lib/books/utils";
 
@@ -118,9 +119,11 @@ export async function fetchOdds(sport: AggregatedSport): Promise<BookEventOdds[]
     if (!res.ok) throw new Error(`PointsBet ${sport} error ${res.status}`);
     const payload = await res.json();
     const events = Array.isArray(payload) ? payload : Array.isArray(payload?.events) ? payload.events : [];
-    return events
-      .map((event: any) => parseEvent(event, sport))
-      .filter((entry: BookEventOdds | null): entry is BookEventOdds => Boolean(entry));
+    return events.flatMap((event: any) => {
+      const base = parseEvent(event, sport);
+      const extras = sport === "MLB" ? extractPointsBetMLBF5Odds(event) : [];
+      return [base, ...extras].filter((entry: BookEventOdds | null): entry is BookEventOdds => Boolean(entry));
+    });
   } catch {
     return [];
   }

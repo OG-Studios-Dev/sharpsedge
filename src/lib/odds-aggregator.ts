@@ -477,6 +477,29 @@ export function aggregatedOddsToOddsEvent(event: AggregatedOdds): OddsEvent {
         });
       }
 
+      if (typeof book.firstFiveHomeML === "number" || typeof book.firstFiveAwayML === "number") {
+        markets.push({
+          key: "h2h_1st_5_innings",
+          outcomes: [
+            ...(typeof book.firstFiveHomeML === "number" ? [{ name: event.homeTeam, price: book.firstFiveHomeML }] : []),
+            ...(typeof book.firstFiveAwayML === "number" ? [{ name: event.awayTeam, price: book.firstFiveAwayML }] : []),
+          ],
+        });
+      }
+
+      if (
+        typeof book.firstFiveTotal === "number"
+        && ((typeof book.firstFiveOverOdds === "number") || (typeof book.firstFiveUnderOdds === "number"))
+      ) {
+        markets.push({
+          key: "totals_1st_5_innings",
+          outcomes: [
+            ...(typeof book.firstFiveOverOdds === "number" ? [{ name: "Over", price: book.firstFiveOverOdds, point: book.firstFiveTotal }] : []),
+            ...(typeof book.firstFiveUnderOdds === "number" ? [{ name: "Under", price: book.firstFiveUnderOdds, point: book.firstFiveTotal }] : []),
+          ],
+        });
+      }
+
       return {
         key: normalizeBookKey(book.book),
         title: book.book,

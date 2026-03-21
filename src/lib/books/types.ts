@@ -20,6 +20,11 @@ export type AggregatedBookOdds = {
   thirdQuarterHomeSpreadOdds: number | null;
   thirdQuarterAwaySpread: number | null;
   thirdQuarterAwaySpreadOdds: number | null;
+  firstFiveHomeML: number | null;
+  firstFiveAwayML: number | null;
+  firstFiveTotal: number | null;
+  firstFiveOverOdds: number | null;
+  firstFiveUnderOdds: number | null;
   total: number | null;
   overOdds: number | null;
   underOdds: number | null;
