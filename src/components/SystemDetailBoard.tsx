@@ -118,6 +118,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
                 {renderContextPill("Park", record.parkFactorSummary)}
                 {renderContextPill("Bullpen", record.bullpenSummary)}
                 {renderContextPill("F5", record.f5Summary)}
+                {renderContextPill("Markets", record.marketAvailability)}
               </div>
               <p className="text-xs leading-6 text-gray-400">{record.notes || record.source || "Stored qualifier"}</p>
             </div>

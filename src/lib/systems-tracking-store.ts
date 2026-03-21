@@ -65,6 +65,7 @@ export type SystemTrackingRecord = {
   parkFactorSummary?: string | null;
   bullpenSummary?: string | null;
   f5Summary?: string | null;
+  marketAvailability?: string | null;
   closingSpread?: number | null;
   firstQuarterSpread?: number | null;
   thirdQuarterSpread?: number | null;
@@ -1912,6 +1913,7 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       parkFactorSummary,
       bullpenSummary,
       f5Summary,
+      marketAvailability,
       source: "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
       notes,
       lastSyncedAt: new Date().toISOString(),
