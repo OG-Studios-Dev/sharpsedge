@@ -196,6 +196,9 @@ function normalizeScrapeResult(value: unknown, fallbackTournament?: string | nul
     tournament: typeof value.tournament === "string"
       ? value.tournament
       : (fallbackTournament ?? "Unknown"),
+    venue: isObject(value.venue) && typeof (value.venue as Record<string, unknown>).courseName === "string"
+      ? value.venue as unknown as DGScrapeResult["venue"]
+      : null,
     rankings: Array.isArray(value.rankings) ? value.rankings as DGScrapeResult["rankings"] : [],
     predictions: Array.isArray(value.predictions) ? value.predictions as DGScrapeResult["predictions"] : [],
     courseFit: Array.isArray(value.courseFit) ? value.courseFit as DGScrapeResult["courseFit"] : [],
@@ -294,6 +297,12 @@ export async function getDGCache(): Promise<DGCache | null> {
   }
 
   return readTmpCache();
+}
+
+/** Get venue info (course name + location) from DG cache if available */
+export async function getDGVenueInfo(): Promise<{ courseName: string; location: string } | null> {
+  const cache = await getDGCache();
+  return cache?.data?.venue ?? null;
 }
 
 export function summarizeDGCache(params?: {

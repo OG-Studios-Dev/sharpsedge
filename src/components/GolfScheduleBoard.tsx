@@ -1,23 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { GolfDashboardData, GolfTournament } from "@/lib/types";
 import { CardSkeleton } from "@/components/LoadingSkeleton";
 import { getGolfBadgeTone, getGolfTournamentBadgeLabel, isGolfMajor } from "@/lib/golf-ui";
 
-function TournamentCard({ tournament, muted = false }: { tournament: GolfTournament; muted?: boolean }) {
+function TournamentCard({ tournament }: { tournament: GolfTournament }) {
   return (
     <Link
       key={tournament.id}
       href={`/golf/tournament/${tournament.id}`}
-      className={`rounded-2xl border p-4 transition hover:border-white/20 hover:bg-white/[0.06] ${
+      className={`rounded-2xl border p-4 ${
         tournament.current
           ? "border-emerald-500/30 bg-emerald-500/5"
-          : muted
-            ? "border-dark-border/60 bg-dark-surface/40 opacity-80"
+          : tournament.status === "completed"
+            ? "border-white/5 bg-white/[0.02] opacity-75"
             : "border-dark-border bg-dark-surface/70"
-      }`}
+      } transition hover:border-white/20 hover:bg-white/[0.06]`}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -28,7 +28,7 @@ function TournamentCard({ tournament, muted = false }: { tournament: GolfTournam
           </h3>
           <p className="mt-1 text-sm text-gray-400">{tournament.course}</p>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getGolfBadgeTone(tournament)}`}>
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${getGolfBadgeTone(tournament)}`}>
           {getGolfTournamentBadgeLabel(tournament, undefined, "season")}
         </span>
       </div>
@@ -75,22 +75,8 @@ export default function GolfScheduleBoard({
       .catch(() => setLoading(false));
   }, [controlledLoading, tournaments]);
 
-  const { upcoming, past } = useMemo(() => {
-    const now = new Date();
-    const upcomingList: GolfTournament[] = [];
-    const pastList: GolfTournament[] = [];
-
-    for (const t of schedule) {
-      const isPast = t.status === "completed" || (t.endDate && new Date(t.endDate) < now && !t.current);
-      if (isPast) {
-        pastList.push(t);
-      } else {
-        upcomingList.push(t);
-      }
-    }
-
-    return { upcoming: upcomingList, past: pastList };
-  }, [schedule]);
+  const upcoming = schedule.filter((t) => t.status !== "completed" || t.current);
+  const past = schedule.filter((t) => t.status === "completed" && !t.current);
 
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
@@ -114,25 +100,19 @@ export default function GolfScheduleBoard({
         </div>
       ) : (
         <>
-          {/* Upcoming / Current / In-Progress */}
-          {upcoming.length > 0 ? (
+          {upcoming.length > 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
               {upcoming.map((tournament) => (
                 <TournamentCard key={tournament.id} tournament={tournament} />
               ))}
             </div>
-          ) : (
-            <div className="py-4 text-center">
-              <p className="text-sm text-gray-400">No upcoming tournaments on the board right now.</p>
-            </div>
           )}
 
-          {/* Past Tournaments Toggle */}
           {past.length > 0 && (
             <div className="mt-4">
               <button
-                onClick={() => setShowPast((prev) => !prev)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dark-border/60 bg-white/[0.02] px-4 py-2.5 text-sm text-gray-400 transition hover:border-white/20 hover:bg-white/[0.05] hover:text-white"
+                onClick={() => setShowPast(!showPast)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-gray-400 transition hover:border-white/15 hover:text-white"
               >
                 <span>Past Tournaments ({past.length})</span>
                 <svg
@@ -149,7 +129,7 @@ export default function GolfScheduleBoard({
               {showPast && (
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {past.map((tournament) => (
-                    <TournamentCard key={tournament.id} tournament={tournament} muted />
+                    <TournamentCard key={tournament.id} tournament={tournament} />
                   ))}
                 </div>
               )}

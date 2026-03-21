@@ -237,6 +237,49 @@ function getCourseYardage(event: any) {
   );
 }
 
+/** Fallback course/location data for well-known PGA events when ESPN API returns no venue. */
+const KNOWN_COURSES: Record<string, { course: string; location: string; par?: number; yardage?: number }> = {
+  "valspar championship": { course: "Innisbrook Resort (Copperhead)", location: "Palm Harbor, FL", par: 71, yardage: 7340 },
+  "the sentry": { course: "Kapalua Plantation Course", location: "Kapalua, Maui, HI", par: 73, yardage: 7596 },
+  "sony open in hawaii": { course: "Waialae Country Club", location: "Honolulu, HI", par: 70, yardage: 7044 },
+  "the american express": { course: "PGA West (Stadium Course)", location: "La Quinta, CA", par: 72, yardage: 7147 },
+  "farmers insurance open": { course: "Torrey Pines (South)", location: "San Diego, CA", par: 72, yardage: 7698 },
+  "at&t pebble beach pro-am": { course: "Pebble Beach Golf Links", location: "Pebble Beach, CA", par: 72, yardage: 6972 },
+  "waste management phoenix open": { course: "TPC Scottsdale (Stadium)", location: "Scottsdale, AZ", par: 71, yardage: 7261 },
+  "genesis invitational": { course: "Riviera Country Club", location: "Pacific Palisades, CA", par: 71, yardage: 7322 },
+  "the honda classic": { course: "PGA National (Champion)", location: "Palm Beach Gardens, FL", par: 70, yardage: 7125 },
+  "arnold palmer invitational": { course: "Bay Hill Club & Lodge", location: "Orlando, FL", par: 72, yardage: 7466 },
+  "the players championship": { course: "TPC Sawgrass (Stadium)", location: "Ponte Vedra Beach, FL", par: 72, yardage: 7189 },
+  "masters tournament": { course: "Augusta National Golf Club", location: "Augusta, GA", par: 72, yardage: 7510 },
+  "pga championship": { course: "Quail Hollow Club", location: "Charlotte, NC", par: 72, yardage: 7600 },
+  "u.s. open": { course: "Oakmont Country Club", location: "Oakmont, PA", par: 70, yardage: 7255 },
+  "the open championship": { course: "Royal Portrush", location: "Portrush, Northern Ireland", par: 71, yardage: 7317 },
+  "the memorial tournament": { course: "Muirfield Village Golf Club", location: "Dublin, OH", par: 72, yardage: 7571 },
+  "rocket mortgage classic": { course: "Detroit Golf Club", location: "Detroit, MI", par: 72, yardage: 7370 },
+  "travelers championship": { course: "TPC River Highlands", location: "Cromwell, CT", par: 70, yardage: 6841 },
+  "rbc canadian open": { course: "Hamilton Golf & CC", location: "Hamilton, ON, Canada", par: 70, yardage: 6968 },
+  "the cj cup byron nelson": { course: "TPC Craig Ranch", location: "McKinney, TX", par: 72, yardage: 7468 },
+  "charles schwab challenge": { course: "Colonial Country Club", location: "Fort Worth, TX", par: 70, yardage: 7209 },
+  "rbc heritage": { course: "Harbour Town Golf Links", location: "Hilton Head, SC", par: 71, yardage: 7099 },
+  "zurich classic of new orleans": { course: "TPC Louisiana", location: "Avondale, LA", par: 72, yardage: 7425 },
+  "wells fargo championship": { course: "Quail Hollow Club", location: "Charlotte, NC", par: 72, yardage: 7600 },
+  "tour championship": { course: "East Lake Golf Club", location: "Atlanta, GA", par: 70, yardage: 7346 },
+};
+
+function applyCourseFallback(tournament: GolfTournament): GolfTournament {
+  if (tournament.course !== "Course TBD" && tournament.location) return tournament;
+  const key = tournament.name.toLowerCase().trim();
+  const fallback = KNOWN_COURSES[key];
+  if (!fallback) return tournament;
+  return {
+    ...tournament,
+    course: tournament.course === "Course TBD" ? fallback.course : tournament.course,
+    location: tournament.location || fallback.location,
+    coursePar: tournament.coursePar ?? fallback.par ?? null,
+    courseYardage: tournament.courseYardage ?? fallback.yardage ?? null,
+  };
+}
+
 function getTournamentLocation(event: any) {
   const address = event?.competitions?.[0]?.venue?.address ?? event?.venue?.address ?? {};
   return [safeString(address.city), safeString(address.state), safeString(address.country)].filter(Boolean).join(", ");
@@ -289,7 +332,7 @@ function parseTournamentFromEvent(event: any, tour: "PGA" | "LIV"): GolfTourname
     current: true,
   };
 
-  return tournament;
+  return applyCourseFallback(tournament);
 }
 
 function computePositions(players: GolfPlayer[]) {
@@ -409,9 +452,9 @@ function parseScheduleFromScoreboard(scoreboard: any, tour: "PGA" | "LIV", inclu
       const startDate = firstString(entry?.startDate, event?.date);
       const endDate = firstString(entry?.endDate, event?.endDate, startDate);
       const status = getTournamentStatus(event, startDate, endDate);
-      const tournament = event
+      const rawTournament = event
         ? parseTournamentFromEvent(event, tour)
-        : {
+        : applyCourseFallback({
             id,
             name: firstString(entry?.label, "Tournament"),
             dates: formatTournamentDates(startDate, endDate),
@@ -422,11 +465,11 @@ function parseScheduleFromScoreboard(scoreboard: any, tour: "PGA" | "LIV", inclu
             startDate,
             endDate,
             current: status === "in-progress",
-          } satisfies GolfTournament;
+          } satisfies GolfTournament);
 
       return {
-        ...tournament,
-        current: tournament.current || status === "in-progress",
+        ...rawTournament,
+        current: rawTournament.current || status === "in-progress",
       };
     })
     .filter((tournament: GolfTournament) => Boolean(tournament.id))
@@ -677,7 +720,26 @@ export async function getPGALeaderboard() {
 }
 
 export async function getPGASchedule() {
-  return getGolfSchedule("pga");
+  const schedule = await getGolfSchedule("pga");
+
+  // Patch "Course TBD" using DataGolf venue data for current/upcoming tournaments
+  const hasTBD = schedule.some((t) => t.course === "Course TBD" && (t.current || t.status !== "completed"));
+  if (hasTBD) {
+    try {
+      const { getDGVenueInfo } = await import("./datagolf-cache");
+      const venue = await getDGVenueInfo();
+      if (venue?.courseName) {
+        for (const t of schedule) {
+          if (t.course === "Course TBD" && (t.current || t.status === "in-progress")) {
+            t.course = venue.courseName;
+            if (!t.location && venue.location) t.location = venue.location;
+          }
+        }
+      }
+    } catch { /* DG cache unavailable, keep TBD */ }
+  }
+
+  return schedule;
 }
 
 export async function getPGATournamentLeaderboard(eventId: string) {

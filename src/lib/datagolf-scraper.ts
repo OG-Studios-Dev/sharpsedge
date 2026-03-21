@@ -91,9 +91,15 @@ export interface DGFieldPlayer {
   worldRank: number | null;
 }
 
+export interface DGVenueInfo {
+  courseName: string;
+  location: string;
+}
+
 export interface DGScrapeResult {
   timestamp: string;
   tournament: string;
+  venue: DGVenueInfo | null;
   rankings: DGPlayerRanking[];
   predictions: DGPrediction[];
   courseFit: DGCourseFit[];
@@ -402,23 +408,78 @@ export async function fetchDGCourseFit(): Promise<DGCourseFit[]> {
   return [];
 }
 
-export async function fetchDGField(): Promise<DGFieldPlayer[]> {
+export interface DGFieldResult {
+  players: DGFieldPlayer[];
+  venue: DGVenueInfo | null;
+}
+
+export async function fetchDGField(): Promise<DGFieldResult> {
   await delay(DELAY_MS);
   const page = await fetchPage("/fields/pga-tour");
-  if (!page) return [];
+  if (!page) return { players: [], venue: null };
 
-  const payload = extractJsonParseVariable<{
+  // Extract venue metadata from the "data" variable (contains course_name in tee times + location)
+  const dataPayload = extractJsonParseVariable<Record<string, unknown>>(page.html, ["data"]);
+  let venue: DGVenueInfo | null = null;
+
+  if (dataPayload && typeof dataPayload === "object") {
+    // Try to get course_name from first player's tee time
+    const tourData = (dataPayload as Record<string, unknown>)["pga"] as Record<string, unknown> | undefined;
+    const fieldData = tourData?.["data"] as Array<Record<string, unknown>> | undefined;
+    let courseName = "";
+
+    if (Array.isArray(fieldData)) {
+      for (const player of fieldData) {
+        const teetimes = player?.teetimes as Record<string, Record<string, unknown>> | undefined;
+        if (teetimes) {
+          const firstRound = Object.values(teetimes)[0];
+          if (firstRound?.course_name && typeof firstRound.course_name === "string") {
+            courseName = firstRound.course_name;
+            break;
+          }
+        }
+      }
+    }
+
+    // Location from the hourly weather data (has "Palm Harbor, FL" format in field_avgs header)
+    const hourlyPayload = extractJsonParseVariable<Record<string, unknown>>(page.html, ["hourly"]);
+    let location = "";
+
+    // The hourly variable doesn't have location directly, but the page title / data variable might
+    // Check if there's a location in the cheerio-parsed page
+    if (page.$ && typeof page.$.html === "function") {
+      const headerText = page.$(".event-info, .event-header, .event-location, h2, h3").text();
+      const locationMatch = headerText.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})/);
+      if (locationMatch) location = locationMatch[1];
+    }
+
+    // Also check if the hourly data has it as a string somewhere
+    if (!location && hourlyPayload) {
+      const raw = JSON.stringify(hourlyPayload).slice(0, 500);
+      const locMatch = raw.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s*[A-Z]{2})/);
+      if (locMatch) location = locMatch[1];
+    }
+
+    if (courseName) {
+      venue = { courseName, location };
+    }
+  }
+
+  // Extract players from the hourly variable (existing logic)
+  const hourlyPayload = extractJsonParseVariable<{
     players?: Array<Record<string, unknown>>;
   }>(page.html, ["hourly"]);
 
-  const rows = payload?.players;
-  if (!Array.isArray(rows)) return [];
+  const rows = hourlyPayload?.players;
+  const players = Array.isArray(rows)
+    ? uniqueByName(rows.map((row) => ({
+        name: normalizePlayerName(row.player_name ?? row.name),
+        country: typeof row.flag === "string" ? row.flag : "",
+        worldRank: parseNumber(row.owgr ?? row.world_rank),
+      }))).filter((player) => player.name)
+    : [];
 
-  return uniqueByName(rows.map((row) => ({
-    name: normalizePlayerName(row.player_name ?? row.name),
-    country: typeof row.flag === "string" ? row.flag : "",
-    worldRank: parseNumber(row.owgr ?? row.world_rank),
-  }))).filter((player) => player.name);
+  return { players, venue };
 }
 
 /**
@@ -444,25 +505,26 @@ export async function fullScrape(): Promise<DGScrapeResult> {
     return [] as DGCourseFit[];
   });
 
-  const field = await fetchDGField().catch((e) => {
+  const fieldResult = await fetchDGField().catch((e) => {
     errors.push(`field: ${e}`);
-    return [] as DGFieldPlayer[];
+    return { players: [], venue: null } as DGFieldResult;
   });
 
   if (rankings.length === 0) errors.push("rankings: no rows parsed from /datagolf-rankings");
   if (predictionResult.predictions.length === 0) errors.push("predictions: no rows parsed from /predictions/pga-tour");
   if (courseFit.length === 0) errors.push("courseFit: no rows parsed from /course-fit-tool");
-  if (field.length === 0) errors.push("field: no rows parsed from /fields/pga-tour");
+  if (fieldResult.players.length === 0) errors.push("field: no rows parsed from /fields/pga-tour");
 
   const tournament = predictionResult.tournament || "Unknown";
 
   return {
     timestamp,
     tournament,
+    venue: fieldResult.venue,
     rankings,
     predictions: predictionResult.predictions,
     courseFit,
-    field,
+    field: fieldResult.players,
     errors,
   };
 }
