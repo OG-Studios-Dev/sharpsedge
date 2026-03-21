@@ -1,5 +1,7 @@
 import Link from "next/link";
+import type { NHLContextBoardResponse } from "@/lib/nhl-context";
 import { getSystemDerivedMetrics, type DataRequirementStatus, type TrackedSystem } from "@/lib/systems-tracking-store";
+import SystemNhlContextBoard from "@/components/SystemNhlContextBoard";
 
 function statusPill(status: TrackedSystem["status"]) {
   if (status === "tracking") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
@@ -63,6 +65,15 @@ function MetricCard({ label, value, note }: { label: string; value: string; note
   );
 }
 
+function renderContextPill(label: string, value?: string | null) {
+  if (!value) return null;
+  return (
+    <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[10px] font-semibold text-gray-300">
+      <span className="text-gray-500">{label}:</span> {value}
+    </span>
+  );
+}
+
 function TrackingRecordTable({ system }: { system: TrackedSystem }) {
   if (system.records.length === 0) {
     return (
@@ -100,7 +111,16 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
               <p>{record.priorGameDate || "—"}</p>
               <p className="mt-1 text-xs text-gray-500">{record.priorStartSummary || "Prior-start summary unavailable"}</p>
             </div>
-            <p className="text-xs leading-6 text-gray-400">{record.notes || record.source || "Stored qualifier"}</p>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {renderContextPill("Lineup", record.lineupStatus)}
+                {renderContextPill("Weather", record.weatherSummary)}
+                {renderContextPill("Park", record.parkFactorSummary)}
+                {renderContextPill("Bullpen", record.bullpenSummary)}
+                {renderContextPill("F5", record.f5Summary)}
+              </div>
+              <p className="text-xs leading-6 text-gray-400">{record.notes || record.source || "Stored qualifier"}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -138,7 +158,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
   );
 }
 
-export default function SystemDetailBoard({ system, updatedAt }: { system: TrackedSystem; updatedAt: string }) {
+export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }: { system: TrackedSystem; updatedAt: string; nhlContextBoard?: NHLContextBoardResponse | null }) {
   const metrics = getSystemDerivedMetrics(system);
   const metricsAwaitingLines = !metrics.trackableGames;
   const isTrackableNow = system.trackabilityBucket === "trackable_now";
@@ -245,6 +265,23 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
             <p className="section-heading">Rationale / Thesis</p>
             <p className="mt-3 text-sm leading-7 text-gray-300">{system.thesis}</p>
           </section>
+
+          {system.slug === "swaggy-stretch-drive" && (
+            <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="section-heading">Live context rails</p>
+                  <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
+                </div>
+                <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
+                  sourced + derived
+                </span>
+              </div>
+              <div className="mt-4">
+                <SystemNhlContextBoard board={nhlContextBoard ?? null} />
+              </div>
+            </section>
+          )}
 
           <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
             <div className="flex items-center justify-between gap-3">

@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { AggregatedOdds } from "@/lib/books/types";
 import { getMLBPlayerGameLog, getMLBSchedule } from "@/lib/mlb-api";
+import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
 import { getBestOdds } from "@/lib/odds-api";
@@ -59,6 +60,11 @@ export type SystemTrackingRecord = {
   currentMoneyline?: number | null;
   priorGameDate?: string | null;
   priorStartSummary?: string | null;
+  lineupStatus?: string | null;
+  weatherSummary?: string | null;
+  parkFactorSummary?: string | null;
+  bullpenSummary?: string | null;
+  f5Summary?: string | null;
   closingSpread?: number | null;
   firstQuarterSpread?: number | null;
   thirdQuarterSpread?: number | null;
@@ -142,6 +148,7 @@ const NBA_GOOSE_SYSTEM_ID = "nba-goose-system";
 const THE_BLOWOUT_SYSTEM_ID = "the-blowout";
 const HOT_TEAMS_MATCHUP_SYSTEM_ID = "hot-teams-matchup";
 const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitchers";
+const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
 
@@ -458,35 +465,47 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "definition_only",
       trackabilityBucket: "parked_definition_only",
-      summary: "Late-season NHL urgency concept parked until stretch-run motivation rules are specific enough to survive automation.",
-      snapshot: "Parked in research.",
+      summary: "Late-season NHL urgency concept now shows live context rails, but the betting rulebook still is not strict enough to automate honestly.",
+      snapshot: "Live context board wired; final betting rules still parked in research.",
       definition:
         "Look for late-season NHL teams with real standings urgency, style edges, or playoff-race pressure that may not be fully priced into the market.",
       qualifierRules: [
+        "Use sourced goalie status plus derived rest/travel/fatigue/playoff-pressure as context, not as standalone bet triggers.",
         "Need exact standings-pressure thresholds rather than a generic 'must-win' label.",
-        "Need a rule for whether travel/rest/goalie confirmation are mandatory inputs.",
+        "Need a rule for whether confirmed starters, fatigue bands, and official-team news are mandatory inputs or tie-breakers only.",
         "Need a real pricing discipline rule so urgency alone does not become the bet.",
       ],
       progressionLogic: [],
       thesis:
-        "Urgency can matter down the stretch, but the public also loves obvious playoff-race narratives. This stays parked until the actual filters are written down.",
+        "Urgency can matter down the stretch, especially when goalie quality and schedule fatigue are misaligned, but the public also loves obvious playoff-race narratives. Swaggy is smarter now because those rails are visible; it still stays parked until the actual betting filters are written down.",
       sourceNotes: [
         {
           label: "Internal concept",
           detail: "Cataloged as research only until the stretch-drive rulebook becomes precise.",
         },
+        {
+          label: "Live context rails",
+          detail: "Detail page now surfaces sourced MoneyPuck/goalie/news inputs alongside derived rest, travel, fatigue, and playoff-pressure heuristics. Visibility improved; auto-betting did not.",
+        },
       ],
-      automationStatusLabel: "Parked / definition only",
-      automationStatusDetail: "Precise stretch-drive motivation rules still need to be defined honestly.",
+      automationStatusLabel: "Context live, bet logic parked",
+      automationStatusDetail: "Swaggy now shows live goalie, rest/travel/fatigue, playoff-pressure, and lightweight official-team news context, but precise entry and pricing rules still are not defined honestly.",
       dataRequirements: [
-        { label: "Standings urgency rules", status: "pending", detail: "Need explicit clinch/elimination/seed-pressure thresholds." },
-        { label: "Goalie and rest rulebook", status: "pending", detail: "Need to decide whether confirmed starters and schedule fatigue are mandatory." },
+        { label: "Standings urgency rules", status: "partial", detail: "Heuristic conference-cutline pressure is now live, but exact clinch/elimination/seed-pressure thresholds still need a real rulebook." },
+        { label: "Goalie + fatigue context rail", status: "ready", detail: "Starter status plus derived rest/travel/fatigue context is now visible on the Swaggy detail page." },
+        { label: "Official-team news rail", status: "partial", detail: "Lightweight NHL.com team-site/news links are live, but coach-quote and roster-impact tagging remain shallow." },
+        { label: "Pricing discipline", status: "pending", detail: "Need explicit market thresholds so Swaggy does not become a narrative-only playoff-pressure angle." },
       ],
       unlockNotes: [
         "Precise rules still not defined enough to automate honestly.",
         "Need exact standings-urgency thresholds.",
+        "Need to decide whether goalie confirmation, fatigue bands, and official-team news are hard filters or only supporting context.",
       ],
-      trackingNotes: [],
+      trackingNotes: [
+        "Swaggy detail page now pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
+        "MoneyPuck/goalie/news stay sourced; rest/travel/fatigue/playoff-pressure remain explicitly derived heuristics.",
+        "No claimed track record or auto-generated picks are shown because the final price/entry rulebook still is not defined.",
+      ],
       records: [],
     },
     {
@@ -578,37 +597,48 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "blocked_missing_data",
-      summary: "MLB lineup-form angle blocked until confirmed lineups, recent hitting form, and weather/park context are actually wired in.",
-      snapshot: "Blocked: lineup and rolling-form feeds required.",
+      summary: "MLB hitting-context foundation now surfaces lineup confirmation, venue/weather, park factor, bullpen workload, and market availability — but the actual rolling offense model is still intentionally not claimed.",
+      snapshot: "Foundation live: context board only, not a picks engine.",
       definition:
         "A hitting-form concept designed to capture teams whose current contact, power, or lineup health creates a stronger run-production environment than season-long priors suggest.",
       qualifierRules: [
-        "Needs lineup confirmation and a recency window definition.",
-        "Should separate genuine form shifts from unsustainable BABIP noise.",
-        "Market context matters; totals and moneyline pricing both need rules.",
+        "Use official MLB live-feed lineup status only; unconfirmed orders stay explicitly unconfirmed.",
+        "Context rows can surface weather, park factor, bullpen workload, and market availability before a final offense trigger exists.",
+        "A real Tony's Hot Bats qualifier still needs a defined recent-offense window and a noise-control rule for BABIP / short-term variance.",
+        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them.",
       ],
       progressionLogic: [],
       thesis:
         "The MLB market can lag when lineup quality changes faster than baseline team stats, but the trigger has to be tighter than 'team scored a lot lately.'",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Catalog placeholder only until MLB-specific inputs and logging are wired in.",
+          label: "Native context foundation",
+          detail: "This board now uses the MLB enrichment rail for official lineup status, weather, park factor, bullpen workload, and market availability context.",
+        },
+        {
+          label: "Honesty policy",
+          detail: "Rows are evidence/context only until a real rolling-offense trigger exists. Missing lineups or markets stay unresolved instead of being guessed.",
         },
       ],
-      automationStatusLabel: "Blocked by missing data",
-      automationStatusDetail: "Confirmed lineups, rolling hitting form, and weather/park context are required before honest automation.",
+      automationStatusLabel: "Foundation context board live",
+      automationStatusDetail: "The app can now refresh a daily Tony's Hot Bats foundation board from MLB enrichment rails, but it still does not claim a rolling offense model or official picks.",
       dataRequirements: [
-        { label: "Confirmed lineups", status: "pending", detail: "Need day-of projected/confirmed lineup inputs." },
-        { label: "Rolling offense form model", status: "pending", detail: "Need a defined recent-hitting and power form feed." },
-        { label: "Weather / park context", status: "pending", detail: "Need temperature, wind, and park-factor context for offense-heavy flags." },
+        { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected, but pregame confirmation stays conservative until MLB actually publishes a usable order." },
+        { label: "Weather / park context", status: "ready", detail: "Temperature, wind, and seeded park factors are now attached per game when available." },
+        { label: "Bullpen workload context", status: "ready", detail: "Last-three-day bullpen usage context is attached as a workload rail, not a predictive claim." },
+        { label: "Market availability context", status: "partial", detail: "Moneyline, total, and F5 availability are surfaced only when the books expose them." },
+        { label: "Rolling offense form model", status: "pending", detail: "Still need the actual recent-contact / power / lineup-quality trigger logic before honest qualifiers exist." },
       ],
       unlockNotes: [
-        "Confirmed lineups required.",
         "Rolling offense form model required.",
-        "Weather / park context required.",
+        "Need a defined recent-hitting window and noise-control rule before calling any row a Hot Bats qualifier.",
+        "Official lineup status remains conservative when MLB has not published a batting order yet.",
       ],
-      trackingNotes: [],
+      trackingNotes: [
+        "Rows are daily context snapshots, not bets, not backtests, and not a claim that the full Tony's Hot Bats model is complete.",
+        "Lineup status comes only from MLB's live feed; no third-party lineup scrape is used to fake certainty.",
+        "Market availability notes stay tied to posted books/markets. No synthetic F5 or total lines are created.",
+      ],
       records: [],
     },
     {
@@ -645,17 +675,24 @@ function seededCatalog(): TrackedSystem[] {
         },
       ],
       automationStatusLabel: "Live qualifier tracking + alert rows",
-      automationStatusDetail: "The app can now refresh and store qualified MLB rebound spots from probable starters, prior pitching logs, and current moneyline pricing.",
+      automationStatusDetail: "The app can now refresh and store qualified MLB rebound spots from probable starters, prior pitching logs, current moneyline pricing, and day-of enrichment context rails.",
       dataRequirements: [
         { label: "Probable pitchers feed", status: "ready", detail: "MLB schedule hydrate exposes day-of probable starters when listed." },
         { label: "Prior-start damage log", status: "ready", detail: "Starter pitching game logs provide earned runs, hits allowed, and innings pitched for the prior outing." },
         { label: "Current moneyline", status: "ready", detail: "Best available moneyline is pulled from the aggregated MLB odds feed when books are posting." },
+        { label: "Lineup status/context", status: "partial", detail: "MLB live feed lineup state is attached only when a batting order is exposed; otherwise the row stays explicitly unconfirmed." },
+        { label: "Weather", status: "partial", detail: "Open-Meteo forecast context is attached for mapped parks, with indoor/retractable caveats preserved." },
+        { label: "Park factors", status: "ready", detail: "Seeded Baseball Savant park-factor context is available when the home venue mapping exists." },
+        { label: "Bullpen fatigue", status: "partial", detail: "Recent bullpen workload context is derived from MLB boxscores and attached when the team board can be built." },
+        { label: "F5 market availability", status: "partial", detail: "First-five pricing is surfaced only when books explicitly post F5 markets; nothing is inferred from full-game lines." },
       ],
       unlockNotes: [],
       trackingNotes: [
         "Rows represent tracked qualifiers and alerts, not auto-published bets.",
         "If a probable starter changes or odds move outside the band, the next refresh can remove the qualifier for that date.",
         "When ERA is missing from the MLB probable-starter payload, the row can still qualify but the missing ERA stays called out in the notes.",
+        "MLB enrichment rails add context only; they do not currently change Falcons qualification thresholds.",
+        "Missing lineup/weather/park/bullpen/F5 signals are labeled as unavailable or unconfirmed instead of inferred.",
       ],
       records: [],
     },
@@ -876,6 +913,9 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   [FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID]: {
     refresh: refreshFalconsFightPummeledPitchersSystemData,
   },
+  [TONYS_HOT_BATS_SYSTEM_ID]: {
+    refresh: refreshTonysHotBatsSystemData,
+  },
 };
 
 function defaultData(): SystemsTrackingData {
@@ -919,6 +959,11 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     currentMoneyline: typeof record.currentMoneyline === "number" ? record.currentMoneyline : null,
     priorGameDate: record.priorGameDate || null,
     priorStartSummary: record.priorStartSummary || null,
+    lineupStatus: record.lineupStatus || null,
+    weatherSummary: record.weatherSummary || null,
+    parkFactorSummary: record.parkFactorSummary || null,
+    bullpenSummary: record.bullpenSummary || null,
+    f5Summary: record.f5Summary || null,
     closingSpread: typeof record.closingSpread === "number" ? record.closingSpread : null,
     firstQuarterSpread: typeof record.firstQuarterSpread === "number" ? record.firstQuarterSpread : null,
     thirdQuarterSpread: typeof record.thirdQuarterSpread === "number" ? record.thirdQuarterSpread : null,
@@ -1058,6 +1103,14 @@ function getFalconsFightPummeledPitchersSystem(data: SystemsTrackingData) {
   );
 }
 
+function getTonysHotBatsSystem(data: SystemsTrackingData) {
+  return getTrackedSystem(
+    data,
+    TONYS_HOT_BATS_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(TONYS_HOT_BATS_SYSTEM_ID)!),
+  );
+}
+
 function getEventDate(commenceTime: string | null, fallbackDate?: string) {
   if (fallbackDate) return fallbackDate;
   if (!commenceTime) return "";
@@ -1160,6 +1213,11 @@ function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
   const qualifiers = system.records.length;
   const withEra = system.records.filter((record) => record.starterEra != null).length;
   const withMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
+  const withLineups = system.records.filter((record) => record.lineupStatus && !record.lineupStatus.toLowerCase().includes("unavailable")).length;
+  const withWeather = system.records.filter((record) => record.weatherSummary && !record.weatherSummary.toLowerCase().includes("unavailable")).length;
+  const withParkFactors = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("unavailable")).length;
+  const withBullpen = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
+  const withF5 = system.records.filter((record) => record.f5Summary && !record.f5Summary.toLowerCase().includes("rail unavailable")).length;
 
   system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
 
@@ -1189,16 +1247,128 @@ function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
         : "No qualifying starter has met the live moneyline band yet.";
   }
 
+  const lineupRequirement = findRequirement(system, "Lineup status/context");
+  if (lineupRequirement) {
+    lineupRequirement.status = withLineups > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    lineupRequirement.detail = withLineups > 0
+      ? `Lineup context was attached to ${withLineups} tracked qualifier${withLineups === 1 ? "" : "s"}, while missing or unconfirmed lineups stay labeled explicitly.`
+      : qualifiers > 0
+        ? "Qualifier rows exist, but MLB did not expose a usable lineup state for at least one row."
+        : "No current qualifier rows yet to attach lineup context.";
+  }
+
+  const weatherRequirement = findRequirement(system, "Weather");
+  if (weatherRequirement) {
+    weatherRequirement.status = withWeather > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    weatherRequirement.detail = withWeather > 0
+      ? `Weather context was attached to ${withWeather} tracked qualifier${withWeather === 1 ? "" : "s"}; indoor/retractable cases stay contextual instead of assumed open-air.`
+      : qualifiers > 0
+        ? "Weather rail was unavailable or intentionally inapplicable on at least one stored row."
+        : "No current qualifier rows yet to attach weather context.";
+  }
+
+  const parkRequirement = findRequirement(system, "Park factors");
+  if (parkRequirement) {
+    parkRequirement.status = withParkFactors > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    parkRequirement.detail = withParkFactors > 0
+      ? `Seeded park-factor context was attached to ${withParkFactors} tracked qualifier${withParkFactors === 1 ? "" : "s"}.`
+      : qualifiers > 0
+        ? "At least one stored row could not be matched to a seeded park-factor context."
+        : "No current qualifier rows yet to attach park-factor context.";
+  }
+
+  const bullpenRequirement = findRequirement(system, "Bullpen fatigue");
+  if (bullpenRequirement) {
+    bullpenRequirement.status = withBullpen > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    bullpenRequirement.detail = withBullpen > 0
+      ? `Bullpen workload context was attached to ${withBullpen} tracked qualifier${withBullpen === 1 ? "" : "s"}.`
+      : qualifiers > 0
+        ? "Bullpen fatigue context was unavailable for at least one stored qualifier."
+        : "No current qualifier rows yet to attach bullpen context.";
+  }
+
+  const f5Requirement = findRequirement(system, "F5 market availability");
+  if (f5Requirement) {
+    f5Requirement.status = withF5 > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    f5Requirement.detail = withF5 > 0
+      ? `Explicit first-five market availability was checked for ${withF5} tracked qualifier${withF5 === 1 ? "" : "s"}; no synthetic F5 pricing is inferred.`
+      : qualifiers > 0
+        ? "Stored qualifier rows were checked for F5 pricing, but books did not expose usable first-five markets."
+        : "No current qualifier rows yet to evaluate F5 availability.";
+  }
+
   system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + alert rows" : "Awaiting fresh qualifiers";
   system.automationStatusDetail = qualifiers > 0
-    ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. ${withEra} with listed ERA and ${withMoneyline} with captured moneyline.`
-    : "Refresh scans probable starters, prior pitching logs, listed ERA, and current moneyline for live qualifier rows.";
+    ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. ${withEra} with listed ERA, ${withMoneyline} with captured moneyline, ${withLineups} with lineup context, ${withWeather} with weather, ${withParkFactors} with park context, ${withBullpen} with bullpen context, and ${withF5} checked for F5 availability.`
+    : "Refresh scans probable starters, prior pitching logs, listed ERA, moneyline, lineup status, weather, park factors, bullpen workload, and explicit F5 market availability for live qualifier rows.";
 }
 
 function applySimpleWatchlistReadiness(system: TrackedSystem) {
   const qualifiers = system.records.length;
   system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
   system.automationStatusLabel = qualifiers > 0 ? "Live qualifier watchlist" : "Awaiting fresh qualifiers";
+}
+
+function applyTonysHotBatsReadiness(system: TrackedSystem) {
+  const rows = system.records.length;
+  const officialLineups = system.records.filter((record) => record.lineupStatus === "official").length;
+  const partialLineups = system.records.filter((record) => record.lineupStatus === "partial").length;
+  const weatherReady = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
+  const parkReady = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("missing")).length;
+  const bullpenReady = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
+  const marketReady = system.records.filter((record) => record.marketType || record.currentMoneyline != null || record.f5Summary).length;
+
+  system.status = rows > 0 ? "tracking" : "awaiting_data";
+  system.automationStatusLabel = rows > 0 ? "Foundation context board live" : "Awaiting today's MLB board";
+  system.automationStatusDetail = rows > 0
+    ? `${rows} MLB game context row${rows === 1 ? "" : "s"} stored. ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
+    : "Refresh will build a same-day MLB context board from lineups, weather, park factors, bullpen usage, and posted markets when games exist.";
+
+  const lineupRequirement = findRequirement(system, "Official lineup status");
+  if (lineupRequirement) {
+    lineupRequirement.status = officialLineups > 0 ? "ready" : partialLineups > 0 || rows > 0 ? "partial" : "pending";
+    lineupRequirement.detail = officialLineups > 0
+      ? `${officialLineups} stored row${officialLineups === 1 ? " has" : "s have"} an official batting order from the MLB live feed.`
+      : rows > 0
+        ? "The board is loading lineup status, but today's games are still partial/unconfirmed in MLB's live feed."
+        : "No same-day MLB board has been stored yet.";
+  }
+
+  const weatherRequirement = findRequirement(system, "Weather / park context");
+  if (weatherRequirement) {
+    weatherRequirement.status = rows > 0 && weatherReady > 0 && parkReady > 0 ? "ready" : rows > 0 ? "partial" : "pending";
+    weatherRequirement.detail = rows > 0
+      ? `${weatherReady} row${weatherReady === 1 ? "" : "s"} include weather context and ${parkReady} include seeded park-factor context.`
+      : "No same-day MLB board has been stored yet.";
+  }
+
+  const bullpenRequirement = findRequirement(system, "Bullpen workload context");
+  if (bullpenRequirement) {
+    bullpenRequirement.status = bullpenReady > 0 ? "ready" : rows > 0 ? "partial" : "pending";
+    bullpenRequirement.detail = bullpenReady > 0
+      ? `${bullpenReady} stored row${bullpenReady === 1 ? " includes" : "s include"} last-three-day bullpen workload context.`
+      : rows > 0
+        ? "Today's board exists, but bullpen context was unavailable for at least one side."
+        : "No same-day MLB board has been stored yet.";
+  }
+
+  const marketRequirement = findRequirement(system, "Market availability context");
+  if (marketRequirement) {
+    marketRequirement.status = marketReady > 0 ? "ready" : rows > 0 ? "partial" : "pending";
+    marketRequirement.detail = marketReady > 0
+      ? `${marketReady} stored row${marketReady === 1 ? " carries" : "s carry"} posted moneyline/total/F5 context from available books.`
+      : rows > 0
+        ? "Games are on the board, but posted market context is still thin or unavailable from the feeds."
+        : "No same-day MLB board has been stored yet.";
+  }
+
+  const offenseRequirement = findRequirement(system, "Rolling offense form model");
+  if (offenseRequirement) {
+    offenseRequirement.status = "pending";
+    offenseRequirement.detail = rows > 0
+      ? "Context rails are now live, but the actual recent-offense trigger logic is still not defined enough to label any row a Hot Bats qualifier."
+      : "Need the actual recent-offense trigger logic before honest qualifiers can exist.";
+  }
 }
 
 function getTeamPerspectiveSpread(event: AggregatedOdds, teamAbbrev: string) {
@@ -1509,6 +1679,48 @@ function getTrackableSystems(data: SystemsTrackingData) {
   return data.systems.filter((system) => system.trackabilityBucket === "trackable_now" && Boolean(SYSTEM_TRACKERS[system.id]));
 }
 
+function summarizeLineupStatus(status?: string | null) {
+  if (!status) return "unconfirmed";
+  return status;
+}
+
+function summarizeWeather(weather: any) {
+  if (!weather) return "Weather context unavailable.";
+  if (weather.note && (!weather.temperatureF && !weather.windSpeedMph)) return weather.note;
+  const bits: string[] = [];
+  if (typeof weather.temperatureF === "number") bits.push(`${Math.round(weather.temperatureF)}°F`);
+  if (typeof weather.windSpeedMph === "number") bits.push(`${Math.round(weather.windSpeedMph)} mph wind`);
+  if (typeof weather.windDirectionLabel === "string" && weather.windDirectionLabel) bits.push(weather.windDirectionLabel);
+  if (typeof weather.condition === "string" && weather.condition) bits.push(weather.condition);
+  return bits.length ? bits.join(" • ") : (weather.note || "Weather context unavailable.");
+}
+
+function summarizeParkFactor(parkFactor: any) {
+  if (!parkFactor || parkFactor.status === "missing" || !parkFactor.metrics) return "Park factor missing from current seed.";
+  const runs = typeof parkFactor.metrics.runs === "number" ? parkFactor.metrics.runs : null;
+  const hr = typeof parkFactor.metrics.homeRuns === "number" ? parkFactor.metrics.homeRuns : null;
+  const bits = [
+    runs != null ? `Runs ${runs}` : null,
+    hr != null ? `HR ${hr}` : null,
+  ].filter(Boolean);
+  return bits.length ? `${parkFactor.venueName}: ${bits.join(" • ")}` : `${parkFactor.venueName}: factor seed loaded.`;
+}
+
+function summarizeBullpen(team: any) {
+  if (!team?.bullpen) return "Bullpen context unavailable.";
+  return team.bullpen.summary || "Bullpen workload context loaded.";
+}
+
+function summarizeMarketAvailability(game: any) {
+  const bits: string[] = [];
+  if (typeof game?.bestMoneyline?.team === "string" && typeof game?.bestMoneyline?.price === "number") {
+    bits.push(`${game.bestMoneyline.team} ML ${game.bestMoneyline.price > 0 ? "+" : ""}${game.bestMoneyline.price}`);
+  }
+  if (typeof game?.bestTotalLine === "number") bits.push(`Total ${game.bestTotalLine}`);
+  if (typeof game?.markets?.f5?.completeness === "string") bits.push(`F5 ${game.markets.f5.completeness}`);
+  return bits.length ? bits.join(" • ") : "Posted market context unavailable.";
+}
+
 async function refreshGooseSystemData(data: SystemsTrackingData, options: RefreshGooseOptions = {}): Promise<TrackedSystem> {
   const system = getGooseSystem(data);
   const targetDate = options.date || new Date().toISOString().slice(0, 10);
@@ -1579,6 +1791,11 @@ async function buildFalconsQualifierRecord(input: {
   earnedRuns: number;
   hitsAllowed: number;
   moneylineBook?: string | null;
+  lineupStatus?: string | null;
+  weatherSummary?: string | null;
+  parkFactorSummary?: string | null;
+  bullpenSummary?: string | null;
+  f5Summary?: string | null;
 }) {
   const priorStats = {
     inningsPitched: input.inningsPitched,
@@ -1591,6 +1808,11 @@ async function buildFalconsQualifierRecord(input: {
     `Prior start ${input.priorGameDate}: ${formatPitchingSummary(priorStats)}${pummeledReasons.length ? ` (${pummeledReasons.join(", ")})` : ""}.`,
     input.starterEra != null ? `Listed ERA ${input.starterEra.toFixed(2)}.` : "Listed ERA unavailable from probable-starter feed.",
     `Current moneyline ${input.currentMoneyline > 0 ? "+" : ""}${input.currentMoneyline}${input.moneylineBook ? ` (${input.moneylineBook})` : ""}.`,
+    input.lineupStatus || "Lineup status unavailable.",
+    input.weatherSummary || "Weather context unavailable.",
+    input.parkFactorSummary || "Park-factor context unavailable.",
+    input.bullpenSummary || "Bullpen context unavailable.",
+    input.f5Summary || "F5 market context unavailable.",
   ];
 
   return normalizeRecord({
@@ -1609,25 +1831,108 @@ async function buildFalconsQualifierRecord(input: {
     currentMoneyline: input.currentMoneyline,
     priorGameDate: input.priorGameDate,
     priorStartSummary: formatPitchingSummary(priorStats),
-    source: "MLB Stats API probable starters + pitching game logs + aggregated odds",
+    lineupStatus: input.lineupStatus ?? null,
+    weatherSummary: input.weatherSummary ?? null,
+    parkFactorSummary: input.parkFactorSummary ?? null,
+    bullpenSummary: input.bullpenSummary ?? null,
+    f5Summary: input.f5Summary ?? null,
+    source: "MLB Stats API probable starters + pitching game logs + aggregated odds + MLB enrichment rails",
     notes: notes.join(" • "),
     lastSyncedAt: new Date().toISOString(),
   });
 }
 
+async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getTrackedSystem(data, TONYS_HOT_BATS_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(TONYS_HOT_BATS_SYSTEM_ID)!));
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const board = await getMLBEnrichmentBoard(targetDate);
+
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  const freshRecords: SystemTrackingRecord[] = (board.games ?? []).map((game: any) => {
+    const lineupStatuses = [game?.lineups?.away?.status, game?.lineups?.home?.status].filter(Boolean);
+    const officialCount = lineupStatuses.filter((status: string) => status === "official").length;
+    const partialCount = lineupStatuses.filter((status: string) => status === "partial").length;
+    const lineupStatus = officialCount === 2
+      ? "Both lineups official in MLB live feed."
+      : officialCount > 0
+        ? `${officialCount} lineup official, ${partialCount} partial, remainder unconfirmed.`
+        : partialCount > 0
+          ? `${partialCount} lineup partial, remainder unconfirmed.`
+          : "Both lineups still unconfirmed in MLB live feed.";
+
+    const weatherSummary = summarizeWeather(game?.weather?.forecast ? {
+      ...game.weather.forecast,
+      note: game?.weather?.note,
+      condition: game?.weather?.forecast?.condition,
+    } : game?.weather);
+    const parkFactorSummary = summarizeParkFactor(game?.parkFactor);
+    const bullpenSummary = [
+      `${game?.matchup?.away?.abbreviation || "Away"}: ${summarizeBullpen(game?.matchup?.away)}`,
+      `${game?.matchup?.home?.abbreviation || "Home"}: ${summarizeBullpen(game?.matchup?.home)}`,
+    ].join(" • ");
+    const marketAvailability = summarizeMarketAvailability(game);
+    const currentMoneyline = typeof game?.bestMoneyline?.price === "number" ? game.bestMoneyline.price : null;
+    const totalLine = typeof game?.bestTotalLine === "number" ? game.bestTotalLine : null;
+    const f5Summary = typeof game?.markets?.f5?.completeness === "string"
+      ? `F5 ${game.markets.f5.completeness}${Array.isArray(game?.markets?.f5?.supportedMarkets) && game.markets.f5.supportedMarkets.length ? ` (${game.markets.f5.supportedMarkets.join(", ")})` : ""}.`
+      : "F5 market context unavailable.";
+
+    const notes = [
+      "Foundation row only — not an official pick.",
+      `Lineups: ${lineupStatus}`,
+      `Weather: ${weatherSummary}`,
+      `Park: ${parkFactorSummary}`,
+      `Bullpen: ${bullpenSummary}`,
+      `Markets: ${marketAvailability}`,
+      `Scope: ${board.scope?.lineups || "Lineup status is conservative."}`,
+    ].join(" • ");
+
+    return normalizeRecord({
+      id: `${TONYS_HOT_BATS_SYSTEM_ID}:${game.gameId}`,
+      gameId: game.gameId,
+      oddsEventId: game?.oddsEventId ?? null,
+      gameDate: game.date,
+      matchup: `${game?.matchup?.away?.abbreviation || "AWAY"} @ ${game?.matchup?.home?.abbreviation || "HOME"}`,
+      roadTeam: game?.matchup?.away?.abbreviation || "AWAY",
+      homeTeam: game?.matchup?.home?.abbreviation || "HOME",
+      recordKind: "qualifier",
+      marketType: totalLine != null ? "context-total-board" : "context-board",
+      alertLabel: "Context foundation / not a pick",
+      currentMoneyline,
+      lineupStatus,
+      weatherSummary,
+      parkFactorSummary,
+      bullpenSummary,
+      f5Summary,
+      source: "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
+      notes,
+      lastSyncedAt: new Date().toISOString(),
+    });
+  });
+
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
+  });
+  applyTonysHotBatsReadiness(system);
+  return system;
+}
+
 async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
   const system = getFalconsFightPummeledPitchersSystem(data);
   const targetDate = options.date || new Date().toISOString().slice(0, 10);
-  const [schedule, oddsEvents] = await Promise.all([
+  const [schedule, oddsEvents, enrichmentBoard] = await Promise.all([
     getMLBSchedule(options.daysAhead ?? 1),
     getMLBOdds(),
+    getMLBEnrichmentBoard(targetDate),
   ]);
 
   const targetGames = schedule.filter((game) => game.date === targetDate && game.status !== "Final");
+  const enrichmentByGameId = new Map((enrichmentBoard.games ?? []).map((game) => [game.gameId, game]));
   const freshRecords: SystemTrackingRecord[] = [];
 
   for (const game of targetGames) {
     const event = findMLBOddsForGame(oddsEvents, game.homeTeam.abbreviation, game.awayTeam.abbreviation);
+    const enrichment = enrichmentByGameId.get(game.id);
     const starterCandidates = [
       {
         side: "away" as const,
@@ -1647,6 +1952,32 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
       const starter = candidate.starter;
       if (!starter?.id || !starter.name) continue;
       if (starter.era != null && starter.era > 4.5) continue;
+
+      const lineupSide = candidate.side === "away" ? enrichment?.lineups?.away : enrichment?.lineups?.home;
+      const bullpenSide = candidate.side === "away" ? enrichment?.matchup?.away?.bullpen : enrichment?.matchup?.home?.bullpen;
+      const lineupStatus = lineupSide
+        ? `${candidate.teamAbbrev} lineup ${lineupSide.status}${lineupSide.players.length ? ` (${lineupSide.players.length}/9 hitters exposed)` : ""}${lineupSide.note ? ` — ${lineupSide.note}` : ""}.`
+        : "Lineup rail unavailable for this game.";
+      const weatherSummary = enrichment?.weather
+        ? enrichment.weather.status === "available"
+          ? `${enrichment.weather.venue?.name || game.venue?.name || game.homeTeam.fullName}: ${enrichment.weather.forecast?.temperatureF ?? "—"}°F, wind ${enrichment.weather.forecast?.windSpeedMph ?? "—"} mph, precip ${enrichment.weather.forecast?.precipitationProbability ?? "—"}%${enrichment.weather.note ? ` — ${enrichment.weather.note}` : ""}.`
+          : enrichment.weather.status === "indoor"
+            ? enrichment.weather.note || "Indoor/retractable venue context only."
+            : enrichment.weather.note || "Weather unavailable."
+        : "Weather rail unavailable for this game.";
+      const parkFactorSummary = enrichment?.parkFactor
+        ? enrichment.parkFactor.status === "available"
+          ? enrichment.parkFactor.summary || `${game.homeTeam.abbreviation} park factor available.`
+          : enrichment.parkFactor.note || "Park factor unavailable."
+        : "Park-factor rail unavailable for this game.";
+      const bullpenSummary = bullpenSide
+        ? `${candidate.teamAbbrev} bullpen ${bullpenSide.level} fatigue: ${bullpenSide.summary}`
+        : `${candidate.teamAbbrev} bullpen fatigue unavailable.`;
+      const f5Summary = enrichment?.markets?.f5
+        ? enrichment.markets.f5.available
+          ? `F5 ${enrichment.markets.f5.supportedMarkets.join(" + ")} available (${enrichment.markets.f5.completeness}).`
+          : `F5 not posted: ${enrichment.markets.f5.source.notes.join(" ")}`
+        : "F5 rail unavailable for this game.";
 
       const moneyline = event
         ? getBestOdds(event, "h2h", candidate.side === "away" ? event.away_team : event.home_team)
@@ -1674,6 +2005,11 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
         earnedRuns: priorStart.earnedRuns,
         hitsAllowed: priorStart.hitsAllowed,
         moneylineBook: moneyline?.book,
+        lineupStatus,
+        weatherSummary,
+        parkFactorSummary,
+        bullpenSummary,
+        f5Summary,
       }));
     }
   }
