@@ -657,9 +657,11 @@ export default function PicksPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24 lg:px-0">
-            <PageHeader title="" subtitle="">
-        <LeagueDropdown active={sportLeague} onChange={setLeague} />
-      </PageHeader>
+      <PageHeader
+        title="Picks"
+        subtitle="Today's strongest plays, with reasoning and record tracking."
+        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+      />
 
       <div className="mb-6 grid gap-4 px-4 pt-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-0">
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30 lg:sticky lg:top-24">
