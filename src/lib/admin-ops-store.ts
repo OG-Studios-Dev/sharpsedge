@@ -112,7 +112,7 @@ const DEFAULT_DATA: AdminOpsData = {
       lastSuccessAt: null,
       lastFailureAt: null,
       consecutiveFailures: 0,
-      notes: "Keep this aligned with heartbeat + any Vercel cron coverage.",
+      notes: "Keep this aligned with heartbeat + any Vercel cron coverage. Production must set CRON_SECRET or cron-mode requests should fail closed.",
       updatedAt: nowIso(),
     },
     {

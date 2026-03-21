@@ -13,7 +13,9 @@ function authorizeCron(request: NextRequest) {
   if (request.nextUrl.searchParams.get("cron") !== "true") return null;
 
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return null;
+  if (!cronSecret) {
+    return NextResponse.json({ ok: false, error: "CRON_SECRET is not configured for cron requests" }, { status: 503 });
+  }
 
   const authHeader = request.headers.get("authorization");
   if (authHeader === `Bearer ${cronSecret}`) return null;
