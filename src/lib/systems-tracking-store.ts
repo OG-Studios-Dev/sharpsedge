@@ -114,9 +114,15 @@ type QuarterScores = {
   thirdQuarterHomeScore: number | null;
 };
 
-type RefreshGooseOptions = {
+export type SystemRefreshOptions = {
   date?: string;
   daysAhead?: number;
+};
+
+type RefreshGooseOptions = SystemRefreshOptions;
+
+type SystemTracker = {
+  refresh: (data: SystemsTrackingData, options?: SystemRefreshOptions) => Promise<TrackedSystem>;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -823,6 +829,11 @@ function seededCatalog(): TrackedSystem[] {
 
 const SYSTEM_TEMPLATES = seededCatalog();
 const SYSTEM_TEMPLATE_MAP = new Map(SYSTEM_TEMPLATES.map((system) => [system.id, system]));
+const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
+  [NBA_GOOSE_SYSTEM_ID]: {
+    refresh: refreshGooseSystemData,
+  },
+};
 
 function defaultData(): SystemsTrackingData {
   return {
@@ -1182,8 +1193,11 @@ export function getSystemSnapshot(system: TrackedSystem) {
   return system.snapshot || "No tracked sample yet.";
 }
 
-export async function refreshTodayGooseSystem(options: RefreshGooseOptions = {}): Promise<TrackedSystem> {
-  const data = await readSystemsTrackingData();
+function getTrackableSystems(data: SystemsTrackingData) {
+  return data.systems.filter((system) => system.trackabilityBucket === "trackable_now" && Boolean(SYSTEM_TRACKERS[system.id]));
+}
+
+async function refreshGooseSystemData(data: SystemsTrackingData, options: RefreshGooseOptions = {}): Promise<TrackedSystem> {
   const system = getGooseSystem(data);
   const targetDate = options.date || new Date().toISOString().slice(0, 10);
   const schedule = await getNBASchedule(options.daysAhead ?? 1);
@@ -1209,8 +1223,44 @@ export async function refreshTodayGooseSystem(options: RefreshGooseOptions = {})
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
   });
   applyGooseReadiness(system);
+  return system;
+}
+
+export async function refreshTrackedSystem(systemId: string, options: SystemRefreshOptions = {}): Promise<TrackedSystem | null> {
+  const tracker = SYSTEM_TRACKERS[systemId];
+  if (!tracker) return null;
+
+  const data = await readSystemsTrackingData();
+  const system = await tracker.refresh(data, options);
   data.updatedAt = new Date().toISOString();
   await writeSystemsTrackingData(data);
+  return system;
+}
+
+export async function refreshTrackableSystems(options: SystemRefreshOptions = {}): Promise<TrackedSystem[]> {
+  const data = await readSystemsTrackingData();
+  const systems = getTrackableSystems(data);
+  const refreshed: TrackedSystem[] = [];
+
+  for (const system of systems) {
+    const tracker = SYSTEM_TRACKERS[system.id];
+    if (!tracker) continue;
+    refreshed.push(await tracker.refresh(data, options));
+  }
+
+  if (refreshed.length > 0) {
+    data.updatedAt = new Date().toISOString();
+    await writeSystemsTrackingData(data);
+  }
+
+  return refreshed;
+}
+
+export async function refreshTodayGooseSystem(options: RefreshGooseOptions = {}): Promise<TrackedSystem> {
+  const system = await refreshTrackedSystem(NBA_GOOSE_SYSTEM_ID, options);
+  if (!system) {
+    throw new Error(`No tracker registered for ${NBA_GOOSE_SYSTEM_ID}`);
+  }
   return system;
 }
 

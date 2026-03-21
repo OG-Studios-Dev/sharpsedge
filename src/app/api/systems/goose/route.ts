@@ -1,13 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { readSystemsTrackingData, refreshTodayGooseSystem } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const shouldRefresh = ["1", "true", "yes"].includes((searchParams.get("refresh") || searchParams.get("cron") || "").toLowerCase());
-    const date = searchParams.get("date") || undefined;
+    const shouldRefresh = ["1", "true", "yes"].includes((request.nextUrl.searchParams.get("refresh") || request.nextUrl.searchParams.get("cron") || "").toLowerCase());
+    const date = request.nextUrl.searchParams.get("date") || undefined;
+
+    if (request.nextUrl.searchParams.get("cron") === "true") {
+      const cronSecret = process.env.CRON_SECRET;
+      if (cronSecret) {
+        const authHeader = request.headers.get("authorization");
+        if (authHeader !== `Bearer ${cronSecret}`) {
+          return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+        }
+      }
+    }
 
     const system = shouldRefresh
       ? await refreshTodayGooseSystem({ date })
