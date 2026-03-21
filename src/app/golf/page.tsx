@@ -226,7 +226,7 @@ export default async function GolfPage() {
               {rankingBoard.length > 0 ? (
                 <div className="mt-4 space-y-2">
                   {rankingBoard.map((player, index) => (
-                    <div key={`${player.id}-${index}`} className="grid grid-cols-[28px_minmax(0,1fr)_68px] items-center gap-3 rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
+                    <div key={`${player.id}-${index}`} className={`grid grid-cols-[28px_minmax(0,1fr)_68px] items-center gap-3 rounded-2xl border border-white/8 px-4 py-3 ${index % 2 === 0 ? "bg-black/20" : "bg-white/[0.03]"}`}>
                       <p className="text-sm font-semibold text-gray-400">{index + 1}</p>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-white">{player.name}</p>
