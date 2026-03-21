@@ -25,6 +25,7 @@ export type TrendRow = {
   recordLabel: string;
   lineType: "main" | "alt";
   gameId?: string;
+  playerId?: number;
   score: number;
 };
 
@@ -111,6 +112,7 @@ function propToTrendRow(prop: PlayerProp): TrendRow | null {
     recordLabel: sample.total > 0 ? `${sample.hits}/${sample.total}` : `${Math.round(hitRate)}%`,
     lineType: classifyPropLine(prop),
     gameId: prop.gameId,
+    playerId: prop.playerId,
     score: computeTrendScore(hitRate, sample.total, prop.edge ?? prop.edgePct),
   };
 }

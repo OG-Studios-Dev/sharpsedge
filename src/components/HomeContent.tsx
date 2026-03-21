@@ -28,41 +28,51 @@ import { TrendRowSkeleton } from "@/components/LoadingSkeleton";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { getStaggerStyle } from "@/lib/stagger-style";
 
+function getQuickHitterHref(row: QuickHitterRow): string {
+  if (row.kind === "player" && row.playerId) return `/player/${row.playerId}`;
+  if (row.kind === "team" && row.team) {
+    return row.league?.toLowerCase() === "nba" ? `/nba/team/${row.team}` : `/team/${row.team}`;
+  }
+  return "/props";
+}
+
 function QuickHitterCard({ row }: { row: QuickHitterRow }) {
   return (
-    <div className="tap-card rounded-2xl border border-dark-border bg-dark-surface/80 p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent-blue/10 text-lg text-accent-blue">
-          ϟ
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="card-title truncate">{row.title}</p>
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
-              row.paceLabel === "LOW" 
-                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                : "border-accent-blue/20 bg-accent-blue/10 text-accent-blue"
-            }`}>
-              {row.paceLabel === "LOW" ? "EZ" : row.paceLabel}
-            </span>
-            <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
+    <Link href={getQuickHitterHref(row)} className="block group">
+      <div className="tap-card rounded-2xl border border-dark-border bg-dark-surface/80 p-4 transition-colors group-hover:border-accent-blue/40 group-hover:bg-dark-surface">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent-blue/10 text-lg text-accent-blue">
+            ϟ
           </div>
-          <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
-            <TeamLogo team={row.team} size={20} color={row.teamColor} />
-            <span>{row.subtitle}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="card-title truncate group-hover:text-accent-blue transition-colors">{row.title}</p>
+              <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                row.paceLabel === "LOW" 
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                  : "border-accent-blue/20 bg-accent-blue/10 text-accent-blue"
+              }`}>
+                {row.paceLabel === "LOW" ? "EZ" : row.paceLabel}
+              </span>
+              <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
+              <TeamLogo team={row.team} size={20} color={row.teamColor} />
+              <span>{row.subtitle}</span>
+            </div>
+            <p className="mt-2 text-sm text-gray-200">{row.marketLabel}</p>
           </div>
-          <p className="mt-2 text-sm text-gray-200">{row.marketLabel}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          {typeof row.odds === "number" && (
-            <p className="text-xs font-semibold text-white">{formatOdds(row.odds)}</p>
-          )}
-          <p className="mt-1 rounded-full border border-accent-green/20 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
-            {Math.round(row.hitRate)}%
-          </p>
+          <div className="shrink-0 text-right">
+            {typeof row.odds === "number" && (
+              <p className="text-xs font-semibold text-white">{formatOdds(row.odds)}</p>
+            )}
+            <p className="mt-1 rounded-full border border-accent-green/20 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
+              {Math.round(row.hitRate)}%
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
