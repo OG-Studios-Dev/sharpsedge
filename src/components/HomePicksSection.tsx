@@ -27,25 +27,25 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
 }) {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
   return (
-    <div className="flex items-center gap-4 px-3 py-2 rounded-xl bg-dark-bg/60 border border-dark-border/50">
-      {label && <span className="text-[10px] text-gray-500 font-semibold uppercase mr-1">{label}</span>}
-      <div className="text-center">
-        <p className="text-emerald-400 font-bold text-sm">{wins}</p>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-2.5 rounded-xl bg-dark-bg/60 border border-dark-border/50 sm:flex-nowrap sm:gap-4 sm:px-3 sm:py-2">
+      {label && <span className="text-[10px] text-gray-500 font-semibold uppercase mr-1 shrink-0">{label}</span>}
+      <div className="text-center min-w-[28px]">
+        <p className="text-emerald-400 font-bold text-sm sm:text-sm">{wins}</p>
         <p className="text-[9px] text-gray-500 uppercase">W</p>
       </div>
-      <div className="text-center">
-        <p className="text-red-400 font-bold text-sm">{losses}</p>
+      <div className="text-center min-w-[28px]">
+        <p className="text-red-400 font-bold text-sm sm:text-sm">{losses}</p>
         <p className="text-[9px] text-gray-500 uppercase">L</p>
       </div>
-      <div className="text-center">
-        <p className="text-yellow-400 font-bold text-sm">{pushes}</p>
+      <div className="text-center min-w-[28px]">
+        <p className="text-yellow-400 font-bold text-sm sm:text-sm">{pushes}</p>
         <p className="text-[9px] text-gray-500 uppercase">Push</p>
       </div>
-      <div className="text-center">
-        <p className="text-gray-400 font-bold text-sm">{pending}</p>
+      <div className="text-center min-w-[28px]">
+        <p className="text-gray-400 font-bold text-sm sm:text-sm">{pending}</p>
         <p className="text-[9px] text-gray-500 uppercase">Pend</p>
       </div>
-      <div className="ml-auto text-right">
+      <div className="ml-auto text-right shrink-0">
         <p className={`font-bold text-sm ${unitColor}`}>
           {profitUnits > 0 ? "+" : ""}{(profitUnits || 0).toFixed(2)}u
         </p>
@@ -70,20 +70,24 @@ function PickRow({ pick }: { pick: AIPick }) {
   const drillHref = pick.type === "player" && pick.playerId ? getPlayerHref(pick.playerId) : teamHref;
 
   return (
-    <Link href={drillHref} className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0 group">
-      <TeamLogo team={pick.team} size={28} color={pick.teamColor} />
+    <Link href={drillHref} className="flex items-start gap-3 py-3 border-b border-dark-border/40 last:border-0 group sm:items-center sm:py-2.5">
+      <TeamLogo team={pick.team} size={30} color={pick.teamColor} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-white text-xs font-semibold truncate group-hover:text-emerald-300 transition-colors">
+          <p className="text-white text-[13px] sm:text-xs font-semibold truncate group-hover:text-emerald-300 transition-colors">
             {pick.type === "player" ? pick.playerName : formatPickMatchup(pick) || pick.team}
           </p>
           {pick.league && (
             <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
           )}
         </div>
-        <p className="text-accent-blue text-[11px] truncate">{pick.type === "player" ? formatPickDetail(pick) : pick.pickLabel}</p>
+        <p className="text-accent-blue text-xs sm:text-[11px] truncate mt-0.5">{pick.type === "player" ? formatPickDetail(pick) : pick.pickLabel}</p>
+        <div className="flex items-center gap-2 mt-1.5 sm:hidden">
+          <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
+          <ResultPill result={pick.result} />
+        </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="hidden sm:flex items-center gap-2 shrink-0 pl-2">
         <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
         <ResultPill result={pick.result} />
       </div>
@@ -176,7 +180,7 @@ export default function HomePicksSection({ league = "NHL" }: { league?: string }
     league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
 
   return (
-    <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4">
+    <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 sm:p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
