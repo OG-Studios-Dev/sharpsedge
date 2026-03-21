@@ -8,6 +8,7 @@ import {
   mergeSlateRecords,
   normalizePickHistoryRow,
   normalizePickSlateRow,
+  shouldRecoverStoredSlate,
 } from "./pick-history-integrity.ts";
 
 test("legacy reconstructed dates are labeled and keep stored snapshots", () => {
@@ -164,4 +165,35 @@ test("explicit slate rows are preserved when merged with synthetic history data"
   assert.equal(merged.length, 2);
   assert.equal(merged.find((slate) => slate.date === "2026-03-18")?.status_note, "Backfill missing from live history.");
   assert.equal(merged.find((slate) => slate.date === "2026-03-19")?.pick_count, 1);
+});
+
+test("empty original incomplete slates are marked recoverable", () => {
+  const slate = normalizePickSlateRow({
+    date: "2026-03-21",
+    league: "NHL",
+    status: "incomplete",
+    provenance: "original",
+    expected_pick_count: 3,
+    pick_count: 0,
+    status_note: "pick_history integrity columns are missing. Run scripts/setup-supabase.sql before generating picks.",
+    locked_at: "2026-03-21T04:27:45.449Z",
+    created_at: "2026-03-21T04:27:45.525Z",
+  });
+
+  assert.equal(shouldRecoverStoredSlate(slate, []), true);
+  assert.equal(shouldRecoverStoredSlate(slate, [
+    normalizePickHistoryRow({
+      id: "pick-d",
+      date: "2026-03-21",
+      league: "NHL",
+      pick_type: "team",
+      team: "TOR",
+      opponent: "BUF",
+      pick_label: "TOR Win ML",
+    }),
+  ]), false);
+  assert.equal(shouldRecoverStoredSlate(normalizePickSlateRow({
+    ...slate,
+    provenance: "reconstructed",
+  }), []), false);
 });

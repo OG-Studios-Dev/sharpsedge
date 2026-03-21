@@ -300,3 +300,12 @@ export function mergeSlateRecords(explicitSlates: PickSlateRecord[], records: Pi
 export function isSlateIncomplete(slate: PickSlateRecord) {
   return slate.integrity_status === "incomplete";
 }
+
+export function shouldRecoverStoredSlate(slate: PickSlateRecord | null, records: PickHistoryRecord[]) {
+  if (!slate) return false;
+  if (records.length > 0) return false;
+  if (slate.integrity_status !== "incomplete") return false;
+  if (slate.provenance !== "original") return false;
+  if (slate.pick_count > 0) return false;
+  return true;
+}

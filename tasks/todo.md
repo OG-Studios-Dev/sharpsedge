@@ -1,3 +1,10 @@
+# Today picks pipeline hardening — 2026-03-21
+- [x] Reproduce why 2026-03-21 NHL slate is empty/incomplete on production
+- [x] Patch API so persistence/integrity drift cannot silently zero out the live slate
+- [x] Add self-healing/backfill behavior for incomplete empty slates where safe
+- [x] Verify build + regression tests locally (live endpoint behavior to re-check after deploy)
+- [ ] Deploy fix and re-check live today picks endpoint
+
 # Reagan QA todo — 2026-03-19
 
 - [x] Inspect live Goosalytics picks endpoints/pages for NHL and NBA today

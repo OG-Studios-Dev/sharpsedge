@@ -5,6 +5,7 @@ import { getLiveDashboardData } from "@/lib/live-data";
 import { selectTopPicks } from "@/lib/picks-engine";
 import { getDateKey } from "@/lib/date-utils";
 import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
+import { shouldRecoverStoredSlate } from "@/lib/pick-history-integrity";
 
 function normalizeGameId(value?: string | number | null) {
   const normalized = String(value ?? "").trim();
@@ -16,12 +17,34 @@ function isRealNHLGameId(gameId?: string) {
   return Boolean(gameId && /^\d{10}$/.test(gameId));
 }
 
+function buildEphemeralIntegrity(
+  date: string,
+  pickCount: number,
+  message: string,
+  priorIntegrity?: Record<string, unknown> | null,
+) {
+  const previous = (priorIntegrity ?? {}) as Record<string, unknown>;
+  const expectedPickCount = typeof previous.expected_pick_count === "number" ? previous.expected_pick_count : pickCount;
+
+  return {
+    ...previous,
+    date,
+    league: "NHL",
+    status: pickCount >= expectedPickCount ? "locked" : "incomplete",
+    provenance: "original",
+    expected_pick_count: expectedPickCount,
+    pick_count: pickCount,
+    integrity_status: pickCount >= expectedPickCount ? "ok" : "incomplete",
+    status_note: message,
+  };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const requestedDate = req.nextUrl.searchParams.get("date") || getDateKey();
     const lockedSlate = await getStoredPickSlate(requestedDate, "NHL");
 
-    if (lockedSlate.slate) {
+    if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
       return NextResponse.json(
         {
           picks: lockedSlate.picks,
@@ -60,20 +83,36 @@ export async function GET(req: NextRequest) {
     }
 
     const normalizedPicks = picks.map((pick) => ({ ...pick, league: pick.league ?? "NHL" }));
-    const stored = await storeDailyPickSlate(normalizedPicks, {
-      date,
-      league: "NHL",
-    });
 
-    return NextResponse.json(
-      {
-        picks: stored.picks,
+    try {
+      const stored = await storeDailyPickSlate(normalizedPicks, {
         date,
-        source: stored.source === "existing" ? "history_locked" : "generated_locked",
-        integrity: stored.slate,
-      },
-      { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
-    );
+        league: "NHL",
+      });
+
+      return NextResponse.json(
+        {
+          picks: stored.picks,
+          date,
+          source: stored.source === "existing" ? "history_locked" : stored.source === "repaired" ? "generated_repaired" : "generated_locked",
+          integrity: stored.slate,
+        },
+        { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to persist authoritative picks";
+      console.error("[api/picks] persistence degraded, serving generated picks:", error);
+      return NextResponse.json(
+        {
+          picks: normalizedPicks,
+          date,
+          source: "generated_unlocked",
+          integrity: buildEphemeralIntegrity(date, normalizedPicks.length, `Serving generated picks without persistence: ${message}`, lockedSlate.slate),
+          warning: message,
+        },
+        { status: 200 },
+      );
+    }
   } catch (error) {
     console.error("[api/picks] error:", error);
     return NextResponse.json(

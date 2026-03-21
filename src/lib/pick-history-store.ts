@@ -7,6 +7,7 @@ import {
   mergeSlateRecords,
   normalizePickHistoryRow,
   normalizePickSlateRow,
+  shouldRecoverStoredSlate,
 } from "@/lib/pick-history-integrity";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
 
@@ -19,7 +20,7 @@ type PickSlateFetchResult = {
 };
 
 type StoreDailyPickSlateResult = PickSlateFetchResult & {
-  source: "existing" | "stored";
+  source: "existing" | "stored" | "repaired";
 };
 
 type StoreDailyPickSlateOptions = {
@@ -282,6 +283,51 @@ function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord
   };
 }
 
+async function hydrateRecoverableSlate(
+  existing: PickSlateFetchResult,
+  picks: AIPick[],
+  options: StoreDailyPickSlateOptions,
+): Promise<StoreDailyPickSlateResult> {
+  const mode = options.mode ?? "original";
+  const provenance = options.provenance ?? (mode === "manual_repair" ? "manual_repair" : "original");
+  const provenanceNote = options.provenanceNote ?? existing.slate?.provenance_note ?? null;
+
+  try {
+    const records = await insertPickHistory(picks, provenance, provenanceNote);
+    const slate = await patchPickSlate(options.date, options.league, {
+      status: records.length >= EXPECTED_DAILY_PICK_COUNT ? "locked" : "incomplete",
+      provenance,
+      provenance_note: provenanceNote,
+      pick_count: records.length,
+      status_note: records.length >= EXPECTED_DAILY_PICK_COUNT
+        ? null
+        : `Only ${records.length} of ${EXPECTED_DAILY_PICK_COUNT} picks were persisted.`,
+    });
+
+    return {
+      source: "repaired",
+      ...toFetchResult(slate, records),
+    };
+  } catch (error) {
+    const message = toErrorMessage(error, "Recoverable slate exists but pick rows were not persisted.");
+    await tryPatchPickSlate(options.date, options.league, {
+      status: "incomplete",
+      pick_count: 0,
+      status_note: message,
+    });
+
+    if (isConflictError(message)) {
+      const refreshed = await getStoredPickSlate(options.date, options.league);
+      return {
+        source: "existing",
+        ...refreshed,
+      };
+    }
+
+    throw error;
+  }
+}
+
 export async function getStoredPickSlate(date: string, league: string): Promise<PickSlateFetchResult> {
   const [slate, records] = await Promise.all([
     readPickSlate(date, league),
@@ -310,6 +356,10 @@ export async function storeDailyPickSlate(
     if (!isConflictError(message)) throw error;
 
     const existing = await getStoredPickSlate(options.date, options.league);
+    if (shouldRecoverStoredSlate(existing.slate, existing.records)) {
+      return hydrateRecoverableSlate(existing, picks, options);
+    }
+
     return {
       source: "existing",
       ...existing,
