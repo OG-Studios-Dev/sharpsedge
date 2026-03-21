@@ -78,11 +78,10 @@ function buildPickHistoryRows(
   picks: AIPick[],
   provenance: PickHistoryProvenance,
   provenanceNote: string | null,
-  useLegacyPickType: boolean,
+  mode: "modern" | "legacy" | "legacy_minimal",
 ) {
   return picks.map((pick) => {
     const base = {
-      id: pick.id,
       date: pick.date,
       league: pick.league || "NHL",
       player_name: pick.playerName || null,
@@ -98,20 +97,33 @@ function buildPickHistoryRows(
       reasoning: pick.reasoning || null,
       confidence: typeof pick.confidence === "number" ? pick.confidence : null,
       units: pick.units || 1,
+    };
+
+    if (mode === "legacy_minimal") {
+      return {
+        ...base,
+        pick_id: pick.id,
+        type: pick.type,
+      };
+    }
+
+    const enriched = {
+      ...base,
       provenance,
       provenance_note: provenanceNote,
       pick_snapshot: pick,
       updated_at: new Date().toISOString(),
     };
 
-    return useLegacyPickType
+    return mode === "legacy"
       ? {
-        ...base,
+        ...enriched,
         pick_id: pick.id,
         type: pick.type,
       }
       : {
-        ...base,
+        ...enriched,
+        id: pick.id,
         pick_type: pick.type,
       };
   });
@@ -228,7 +240,7 @@ async function insertPickHistory(picks: AIPick[], provenance: PickHistoryProvena
         headers: {
           Prefer: "return=representation",
         },
-        body: JSON.stringify(buildPickHistoryRows(picks, provenance, provenanceNote, false)),
+        body: JSON.stringify(buildPickHistoryRows(picks, provenance, provenanceNote, "modern")),
       },
     );
 
@@ -236,29 +248,52 @@ async function insertPickHistory(picks: AIPick[], provenance: PickHistoryProvena
   } catch (error) {
     const message = toErrorMessage(error);
 
-    if (
+    const needsLegacyFallback =
       isMissingColumnError(message, "pick_snapshot")
       || isMissingColumnError(message, "provenance")
       || isMissingColumnError(message, "updated_at")
       || isMissingColumnError(message, "id")
-    ) {
-      throw new Error("pick_history integrity columns are missing. Run scripts/setup-supabase.sql before generating picks.");
-    }
+      || isMissingColumnError(message, "pick_type");
 
-    if (!isMissingColumnError(message, "pick_type")) throw error;
+    if (!needsLegacyFallback) throw error;
 
-    const rows = await postgrest<any[]>(
-      "/rest/v1/pick_history",
-      {
-        method: "POST",
-        headers: {
-          Prefer: "return=representation",
+    try {
+      const rows = await postgrest<any[]>(
+        "/rest/v1/pick_history",
+        {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(buildPickHistoryRows(picks, provenance, provenanceNote, "legacy")),
         },
-        body: JSON.stringify(buildPickHistoryRows(picks, provenance, provenanceNote, true)),
-      },
-    );
+      );
 
-    return rows.map(normalizePickHistoryRow);
+      return rows.map(normalizePickHistoryRow);
+    } catch (legacyError) {
+      const legacyMessage = toErrorMessage(legacyError);
+      if (
+        !isMissingColumnError(legacyMessage, "pick_snapshot")
+        && !isMissingColumnError(legacyMessage, "provenance")
+        && !isMissingColumnError(legacyMessage, "updated_at")
+        && !isMissingColumnError(legacyMessage, "id")
+      ) {
+        throw legacyError;
+      }
+
+      const rows = await postgrest<any[]>(
+        "/rest/v1/pick_history",
+        {
+          method: "POST",
+          headers: {
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify(buildPickHistoryRows(picks, provenance, provenanceNote, "legacy_minimal")),
+        },
+      );
+
+      return rows.map(normalizePickHistoryRow);
+    }
   }
 }
 
