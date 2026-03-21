@@ -119,10 +119,21 @@ function mergeBookOdds(primary: AggregatedBookOdds, secondary: AggregatedBookOdd
 
 function aggregateEntries(sport: AggregatedSport, entries: BookEventOdds[]): AggregatedOdds[] {
   const grouped = new Map<string, AggregatedOdds>();
+  // Secondary index: matchup key (sport:away@home) → first gameId, for merging
+  // entries that differ only in dateBucket (e.g. "na" vs "2026-03-21T20")
+  const matchupIndex = new Map<string, string>();
 
   for (const entry of entries) {
     const gameId = entry.gameId || buildAggregatedGameId(sport, entry.homeAbbrev, entry.awayAbbrev, entry.commenceTime);
-    const existing = grouped.get(gameId);
+    const awayNorm = normalizeTeamName(entry.awayAbbrev, sport);
+    const homeNorm = normalizeTeamName(entry.homeAbbrev, sport);
+    const matchupKey = `${sport}:${awayNorm}@${homeNorm}`;
+
+    // Try exact gameId first, then fall back to matchup-level merge
+    let existing = grouped.get(gameId);
+    if (!existing && matchupIndex.has(matchupKey)) {
+      existing = grouped.get(matchupIndex.get(matchupKey)!);
+    }
 
     if (!existing) {
       grouped.set(gameId, {
@@ -142,6 +153,9 @@ function aggregateEntries(sport: AggregatedSport, entries: BookEventOdds[]): Agg
         bestOver: null,
         bestUnder: null,
       });
+      if (!matchupIndex.has(matchupKey)) {
+        matchupIndex.set(matchupKey, gameId);
+      }
       continue;
     }
 
