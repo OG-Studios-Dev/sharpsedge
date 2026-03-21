@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import SystemDetailBoard from "@/components/SystemDetailBoard";
-import { getTrackedSystemBySlug, readSystemsTrackingData, refreshTodayGooseSystem } from "@/lib/systems-tracking-store";
+import { getTrackedSystemBySlug, readSystemsTrackingData, refreshTrackableSystems } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ type Props = {
 };
 
 export default async function SystemDetailPage({ params }: Props) {
-  await refreshTodayGooseSystem().catch(() => null);
+  await refreshTrackableSystems().catch(() => null);
   const [data, system] = await Promise.all([
     readSystemsTrackingData(),
     getTrackedSystemBySlug(params.slug),

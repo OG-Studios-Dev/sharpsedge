@@ -1,8 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { AggregatedOdds } from "@/lib/books/types";
+import { getMLBPlayerGameLog, getMLBSchedule } from "@/lib/mlb-api";
+import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
+import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
+import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
-import { getNBAGameSummary, getNBASchedule } from "@/lib/nba-api";
 
 export type SystemLeague = "NBA" | "NHL" | "MLB" | "NFL" | string;
 export type SystemCategory = "native" | "historical" | "external";
@@ -48,6 +51,14 @@ export type SystemTrackingRecord = {
   matchup: string;
   roadTeam: string;
   homeTeam: string;
+  recordKind?: "progression" | "qualifier" | "alert" | null;
+  marketType?: string | null;
+  alertLabel?: string | null;
+  starterName?: string | null;
+  starterEra?: number | null;
+  currentMoneyline?: number | null;
+  priorGameDate?: string | null;
+  priorStartSummary?: string | null;
   closingSpread?: number | null;
   firstQuarterSpread?: number | null;
   thirdQuarterSpread?: number | null;
@@ -128,6 +139,9 @@ type SystemTracker = {
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_PATH = path.join(DATA_DIR, "systems-tracking.json");
 const NBA_GOOSE_SYSTEM_ID = "nba-goose-system";
+const THE_BLOWOUT_SYSTEM_ID = "the-blowout";
+const HOT_TEAMS_MATCHUP_SYSTEM_ID = "hot-teams-matchup";
+const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitchers";
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
 
@@ -266,38 +280,45 @@ function seededCatalog(): TrackedSystem[] {
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
-      status: "definition_only",
-      trackabilityBucket: "parked_definition_only",
-      summary: "Public-facing blowout-response concept parked in research because the actual next-game rules are still too fuzzy to automate honestly.",
-      snapshot: "Parked in research; trigger still too vague.",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary: "Neutral NBA watchlist for teams coming off a massive recent result, tracked honestly as qualifiers until direction and pricing rules are proven.",
+      snapshot: "Watchlist only: qualifier rows, not picks.",
       definition:
-        "A next-game NBA angle built around teams coming off massive wins or losses where the market may overprice the recency narrative.",
+        "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
       qualifierRules: [
-        "Need a formal definition for what counts as a blowout relative to closing line, not just raw margin.",
-        "Need to decide whether the system fades the blowout winner, backs the loser, or screens both depending on price.",
-        "Opponent class and scheduling context need to be written into the rule set.",
+        "League must be NBA.",
+        "Qualified team’s most recent completed game must have ended within the last 3 days.",
+        "That most recent game margin must be at least 18 points either for or against the qualified team.",
+        "Next-game spread from the qualified team perspective must have absolute value <= 6.5.",
+        "Opponent season win percentage must be >= .450.",
+        "Direction stays unresolved for v1, so rows are stored as watchlist qualifiers only rather than auto-picks.",
       ],
       progressionLogic: [],
       thesis:
-        "Recency bias after a loud result can be exploitable, but right now the system is still a concept headline instead of a reproducible rulebook.",
+        "Huge recent results can distort the next-game narrative, but without a settled bet-direction rule this belongs in honest qualifier tracking first, not pick marketing.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Intentionally parked until the definition becomes precise enough to track without hand-curation.",
+          detail: "Implemented as a neutral qualifier tracker first because the bet direction after a blowout is still unresolved.",
         },
       ],
-      automationStatusLabel: "Parked / definition only",
-      automationStatusDetail: "Precise rules still not defined enough to automate honestly.",
+      automationStatusLabel: "Live qualifier watchlist",
+      automationStatusDetail: "Qualifiers are generated from live NBA schedule, standings, recent results, and current spreads. Stored rows stay directional-neutral.",
       dataRequirements: [
-        { label: "Blowout trigger definition", status: "pending", detail: "Need exact margin-versus-close logic." },
-        { label: "Next-game entry rules", status: "pending", detail: "Need the actual bet direction and price bands." },
+        { label: "Recent NBA results", status: "ready", detail: "Used to confirm the most recent game margin and recency window." },
+        { label: "Current full-game spread", status: "ready", detail: "Used to confirm the next-game spread stays within +/-6.5 from the qualified team perspective." },
+        { label: "Opponent season win percentage", status: "ready", detail: "Used to keep the watchlist from firing on bottom-tier opponents." },
+        { label: "Bet-direction rulebook", status: "partial", detail: "Still unresolved, so the product stores qualifier/watchlist rows instead of picks." },
       ],
       unlockNotes: [
-        "Precise rules still not defined enough to automate honestly.",
-        "Need exact blowout threshold versus closing line.",
-        "Need next-game bet-direction and price rules.",
+        "Bet-direction logic still needs proof before this can become a picks system.",
+        "Historical close-versus-margin work would strengthen the blowout trigger later.",
       ],
-      trackingNotes: ["Keep this in research until the qualifier can be logged by script rather than vibes."],
+      trackingNotes: [
+        "Rows are stored per qualifying team, so a single game can produce two watchlist rows if both clubs meet the blowout criteria.",
+        "Spread is recorded from the qualifying team perspective to keep the neutral watchlist honest.",
+      ],
       records: [],
     },
     {
@@ -307,37 +328,44 @@ function seededCatalog(): TrackedSystem[] {
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
-      status: "definition_only",
-      trackabilityBucket: "parked_definition_only",
-      summary: "Temperature-check matchup concept for when two in-form NBA teams collide, parked until form and fade rules are actually codified.",
-      snapshot: "Parked: form logic not codified.",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary: "NBA form-collision watchlist for games where two legitimately hot teams meet on a playable number with a posted total.",
+      snapshot: "Watchlist only: hot-team qualifiers, not picks.",
       definition:
-        "Track NBA matchups where both teams enter on strong form and the market may misprice the sustainability or collision of those streaks.",
+        "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
       qualifierRules: [
-        "Need a strict definition of 'hot' based on recent ATS, straight-up form, efficiency, or some blend.",
-        "Need to decide whether the system looks for continuation, fade, or totals spillover.",
-        "Need injury and opponent-quality adjustments in the final spec.",
+        "League must be NBA.",
+        "Both teams must have won at least 4 of their last 5 completed games.",
+        "Both teams must have season win percentages of .550 or better.",
+        "Current full-game spread must be within +/-5.5.",
+        "A game total must be available.",
+        "Direction stays unresolved for v1, so rows are stored as matchup watchlist qualifiers only.",
       ],
       progressionLogic: [],
       thesis:
-        "Form-versus-form games are attractive on paper, but a system like this is fake unless the exact temperature metric and market reaction rules are nailed down.",
+        "When two genuinely hot teams collide, the market can struggle to price whether form carries, cancels out, or spills into the total. Until that direction is proven, this should stay a tracked discovery system.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Cataloged to preserve the idea, not to imply a live dataset exists.",
+          detail: "Implemented as a single-row matchup watchlist so the qualifier can be logged without pretending the bet direction is solved.",
         },
       ],
-      automationStatusLabel: "Parked / definition only",
-      automationStatusDetail: "Precise form and matchup rules are not defined enough yet.",
+      automationStatusLabel: "Live qualifier watchlist",
+      automationStatusDetail: "Qualifiers are generated from live NBA standings, recent results, and current odds. Stored rows remain direction-neutral.",
       dataRequirements: [
-        { label: "Hot-team scoring rubric", status: "pending", detail: "Need exact form inputs and lookback windows." },
-        { label: "Bet-direction logic", status: "pending", detail: "Need a real rule for side versus total versus pass." },
+        { label: "Recent last-5 results", status: "ready", detail: "Used to confirm both teams are at least 4-1 in their last five completed games." },
+        { label: "Season win percentages", status: "ready", detail: "Used to confirm both teams clear the .550 quality threshold." },
+        { label: "Current spread and total", status: "ready", detail: "Used to confirm the spread band and that a posted total exists." },
+        { label: "Bet-direction rulebook", status: "partial", detail: "Still unresolved, so the product stores qualifier/watchlist rows rather than picks." },
       ],
       unlockNotes: [
-        "Precise rules still not defined enough to automate honestly.",
-        "Need exact hot-team rubric and lookback window.",
+        "Need proof on whether this is a side, total, or pass framework before it can graduate from watchlist to picks.",
       ],
-      trackingNotes: [],
+      trackingNotes: [
+        "Rows are stored once per game to avoid duplicate qualifiers from both team perspectives.",
+        "The total line is noted in row metadata because totals availability is part of the v1 qualifier.",
+      ],
       records: [],
     },
     {
@@ -584,45 +612,51 @@ function seededCatalog(): TrackedSystem[] {
       records: [],
     },
     {
-      id: "falcons-fight-pummeled-pitchers",
+      id: FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
       slug: "falcons-fight-pummeled-pitchers",
       name: "Falcons Fight Pummeled Pitchers",
       league: "MLB",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
-      trackabilityBucket: "blocked_missing_data",
-      summary: "MLB rebound spot for good arms off ugly starts, blocked until probable-pitcher, pitch-count, and prior-start damage data are connected.",
-      snapshot: "Blocked: pitcher damage log required.",
+      trackabilityBucket: "trackable_now",
+      summary: "MLB qualifier tracker for probable starters coming off a recent shelling, filtered by listed ERA and current moneyline. Alerts first, not official picks.",
+      snapshot: "Tracking qualifiers and alert rows only; no published picks or backfilled claims.",
       definition:
-        "Look for pitchers with stable talent profiles coming off a public shelling, then evaluate the next start for overreaction in side or first-five pricing.",
+        "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
       qualifierRules: [
-        "Need a formal definition for what counts as 'pummeled' beyond earned runs alone.",
-        "Must distinguish between bad luck, injury concern, and true skill collapse.",
-        "Likely needs a first-five or side-only rule to avoid mixing bet types.",
+        "Upcoming MLB game must list a probable starter.",
+        "That same starter must have a prior start within the last 10 days.",
+        "The prior start counts as 'pummeled' if earned runs >= 5, hits allowed >= 8, or innings pitched < 4.0.",
+        "Listed ERA must be 4.50 or lower when MLB provides an ERA; missing ERA stays unresolved instead of guessed.",
+        "Current moneyline for the starter's team must be between -140 and +125.",
       ],
       progressionLogic: [],
       thesis:
-        "One ugly start can distort the next price, but that only matters if we can tell a fluky blow-up from a genuinely broken pitcher.",
+        "Markets can overreact to one loud blow-up outing from a still-competent starter, but the product should only log the setup honestly first and let users inspect the evidence before anyone calls it a picks engine.",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Tracked as blocked research until pitcher-quality and damage inputs are available.",
+          label: "Native qualifier tracker",
+          detail: "This is a Goosalytics-owned MLB system slice built from probable starters, MLB pitching game logs, and current odds.",
+        },
+        {
+          label: "Honesty policy",
+          detail: "Rows are alerts/qualifiers only. Missing probable starters, ERA, prior-start context, or price inputs stay unresolved rather than guessed.",
         },
       ],
-      automationStatusLabel: "Blocked by missing data",
-      automationStatusDetail: "Probable pitchers, prior-start damage logs, and pitch-count/context feeds are required.",
+      automationStatusLabel: "Live qualifier tracking + alert rows",
+      automationStatusDetail: "The app can now refresh and store qualified MLB rebound spots from probable starters, prior pitching logs, and current moneyline pricing.",
       dataRequirements: [
-        { label: "Probable pitchers feed", status: "pending", detail: "Need day-of probable starters with confidence/confirmation." },
-        { label: "Prior-start damage log", status: "pending", detail: "Need pitch-by-pitch or box-score context to classify a true shelling." },
-        { label: "Pitch-count / health context", status: "pending", detail: "Need indicators that separate injury red flags from bad variance." },
+        { label: "Probable pitchers feed", status: "ready", detail: "MLB schedule hydrate exposes day-of probable starters when listed." },
+        { label: "Prior-start damage log", status: "ready", detail: "Starter pitching game logs provide earned runs, hits allowed, and innings pitched for the prior outing." },
+        { label: "Current moneyline", status: "ready", detail: "Best available moneyline is pulled from the aggregated MLB odds feed when books are posting." },
       ],
-      unlockNotes: [
-        "Probable pitchers feed required.",
-        "Prior-start damage log required.",
-        "Pitch-count / health context required.",
+      unlockNotes: [],
+      trackingNotes: [
+        "Rows represent tracked qualifiers and alerts, not auto-published bets.",
+        "If a probable starter changes or odds move outside the band, the next refresh can remove the qualifier for that date.",
+        "When ERA is missing from the MLB probable-starter payload, the row can still qualify but the missing ERA stays called out in the notes.",
       ],
-      trackingNotes: [],
       records: [],
     },
     {
@@ -833,6 +867,15 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   [NBA_GOOSE_SYSTEM_ID]: {
     refresh: refreshGooseSystemData,
   },
+  [THE_BLOWOUT_SYSTEM_ID]: {
+    refresh: refreshTheBlowoutSystemData,
+  },
+  [HOT_TEAMS_MATCHUP_SYSTEM_ID]: {
+    refresh: refreshHotTeamsMatchupSystemData,
+  },
+  [FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID]: {
+    refresh: refreshFalconsFightPummeledPitchersSystemData,
+  },
 };
 
 function defaultData(): SystemsTrackingData {
@@ -868,6 +911,14 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     matchup: record.matchup || "",
     roadTeam: record.roadTeam || "",
     homeTeam: record.homeTeam || "",
+    recordKind: record.recordKind || null,
+    marketType: record.marketType || null,
+    alertLabel: record.alertLabel || null,
+    starterName: record.starterName || null,
+    starterEra: typeof record.starterEra === "number" ? record.starterEra : null,
+    currentMoneyline: typeof record.currentMoneyline === "number" ? record.currentMoneyline : null,
+    priorGameDate: record.priorGameDate || null,
+    priorStartSummary: record.priorStartSummary || null,
     closingSpread: typeof record.closingSpread === "number" ? record.closingSpread : null,
     firstQuarterSpread: typeof record.firstQuarterSpread === "number" ? record.firstQuarterSpread : null,
     thirdQuarterSpread: typeof record.thirdQuarterSpread === "number" ? record.thirdQuarterSpread : null,
@@ -956,15 +1007,15 @@ async function writeSystemsTrackingData(data: SystemsTrackingData) {
   await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
 }
 
-function getGooseSystem(data: SystemsTrackingData) {
-  let system = data.systems.find((entry) => entry.id === NBA_GOOSE_SYSTEM_ID);
+function getTrackedSystem(data: SystemsTrackingData, systemId: string, factory: () => TrackedSystem) {
+  let system = data.systems.find((entry) => entry.id === systemId);
   if (!system) {
-    system = defaultGooseSystem();
+    system = factory();
     data.systems = [system, ...data.systems];
     return system;
   }
 
-  const defaults = defaultGooseSystem();
+  const defaults = factory();
   system.slug = defaults.slug;
   system.name = defaults.name;
   system.league = defaults.league;
@@ -977,16 +1028,34 @@ function getGooseSystem(data: SystemsTrackingData) {
   system.qualifierRules = defaults.qualifierRules;
   system.progressionLogic = defaults.progressionLogic;
   system.thesis = defaults.thesis;
-  system.sourceNotes = defaults.sourceNotes;
+  system.sourceNotes = defaults.sourceNotes.map((note) => ({ ...note }));
   system.automationStatusLabel = defaults.automationStatusLabel;
   system.automationStatusDetail = defaults.automationStatusDetail;
-  system.unlockNotes = defaults.unlockNotes;
-  system.trackingNotes = defaults.trackingNotes;
-  if (!Array.isArray(system.dataRequirements) || system.dataRequirements.length === 0) {
-    system.dataRequirements = defaults.dataRequirements;
-  }
+  system.unlockNotes = [...defaults.unlockNotes];
+  system.trackingNotes = [...defaults.trackingNotes];
+  system.dataRequirements = defaults.dataRequirements.map((item) => ({ ...item }));
 
   return system;
+}
+
+function getGooseSystem(data: SystemsTrackingData) {
+  return getTrackedSystem(data, NBA_GOOSE_SYSTEM_ID, defaultGooseSystem);
+}
+
+function getTheBlowoutSystem(data: SystemsTrackingData) {
+  return getTrackedSystem(data, THE_BLOWOUT_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(THE_BLOWOUT_SYSTEM_ID)!));
+}
+
+function getHotTeamsMatchupSystem(data: SystemsTrackingData) {
+  return getTrackedSystem(data, HOT_TEAMS_MATCHUP_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(HOT_TEAMS_MATCHUP_SYSTEM_ID)!));
+}
+
+function getFalconsFightPummeledPitchersSystem(data: SystemsTrackingData) {
+  return getTrackedSystem(
+    data,
+    FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID)!),
+  );
 }
 
 function getEventDate(commenceTime: string | null, fallbackDate?: string) {
@@ -1062,6 +1131,177 @@ function applyGooseReadiness(system: TrackedSystem) {
         ? "Qualifiers exist, but at least one required quarter score or quarter line is still missing."
         : "No qualifying games have been stored yet.";
   }
+}
+
+function daysBetween(dateA: string, dateB: string) {
+  const left = new Date(`${dateA}T12:00:00Z`).getTime();
+  const right = new Date(`${dateB}T12:00:00Z`).getTime();
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return Number.POSITIVE_INFINITY;
+  return Math.abs(left - right) / (24 * 60 * 60 * 1000);
+}
+
+function formatPitchingSummary(stats: { inningsPitched: number; earnedRuns: number; hitsAllowed: number }) {
+  return `${stats.inningsPitched.toFixed(1)} IP, ${stats.earnedRuns} ER, ${stats.hitsAllowed} H allowed`;
+}
+
+function isPummeledStart(stats: { inningsPitched: number; earnedRuns: number; hitsAllowed: number }) {
+  return stats.earnedRuns >= 5 || stats.hitsAllowed >= 8 || stats.inningsPitched < 4;
+}
+
+function buildPummeledReasons(stats: { inningsPitched: number; earnedRuns: number; hitsAllowed: number }) {
+  const reasons: string[] = [];
+  if (stats.earnedRuns >= 5) reasons.push(`${stats.earnedRuns} ER`);
+  if (stats.hitsAllowed >= 8) reasons.push(`${stats.hitsAllowed} H allowed`);
+  if (stats.inningsPitched < 4) reasons.push(`${stats.inningsPitched.toFixed(1)} IP`);
+  return reasons;
+}
+
+function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
+  const qualifiers = system.records.length;
+  const withEra = system.records.filter((record) => record.starterEra != null).length;
+  const withMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
+
+  system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
+
+  const probableRequirement = findRequirement(system, "Probable pitchers feed");
+  if (probableRequirement) {
+    probableRequirement.status = "ready";
+    probableRequirement.detail = qualifiers > 0
+      ? `Probable starters were captured for ${qualifiers} tracked qualifier${qualifiers === 1 ? "" : "s"}.`
+      : "MLB schedule hydrate exposes probable starters when listed on the board.";
+  }
+
+  const priorStartRequirement = findRequirement(system, "Prior-start damage log");
+  if (priorStartRequirement) {
+    priorStartRequirement.status = qualifiers > 0 ? "ready" : "partial";
+    priorStartRequirement.detail = qualifiers > 0
+      ? `Prior pitching logs were linked for ${qualifiers} qualifier${qualifiers === 1 ? "" : "s"} and stored with prior-start summaries.`
+      : "Pitching game logs are connected, but no current-day qualifier has been stored yet.";
+  }
+
+  const moneylineRequirement = findRequirement(system, "Current moneyline");
+  if (moneylineRequirement) {
+    moneylineRequirement.status = withMoneyline > 0 ? "ready" : qualifiers > 0 ? "partial" : "pending";
+    moneylineRequirement.detail = withMoneyline > 0
+      ? `Current moneyline captured for ${withMoneyline} tracked qualifier${withMoneyline === 1 ? "" : "s"}.`
+      : qualifiers > 0
+        ? "At least one stored qualifier is missing a current moneyline from the odds feed."
+        : "No qualifying starter has met the live moneyline band yet.";
+  }
+
+  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + alert rows" : "Awaiting fresh qualifiers";
+  system.automationStatusDetail = qualifiers > 0
+    ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. ${withEra} with listed ERA and ${withMoneyline} with captured moneyline.`
+    : "Refresh scans probable starters, prior pitching logs, listed ERA, and current moneyline for live qualifier rows.";
+}
+
+function applySimpleWatchlistReadiness(system: TrackedSystem) {
+  const qualifiers = system.records.length;
+  system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
+  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier watchlist" : "Awaiting fresh qualifiers";
+}
+
+function getTeamPerspectiveSpread(event: AggregatedOdds, teamAbbrev: string) {
+  if (teamAbbrev === event.awayAbbrev) return event.bestAwaySpread?.line ?? null;
+  if (teamAbbrev === event.homeAbbrev) return event.bestHomeSpread?.line ?? null;
+  return null;
+}
+
+function getEventTotalLine(event: AggregatedOdds) {
+  return event.bestOver?.line ?? event.bestUnder?.line ?? null;
+}
+
+function getTeamRecentGamesBeforeDate(games: NBAGame[], teamAbbrev: string, beforeDate: string) {
+  return games
+    .filter((game) => game.date < beforeDate && (game.homeTeam.abbreviation === teamAbbrev || game.awayTeam.abbreviation === teamAbbrev))
+    .sort((left, right) => right.date.localeCompare(left.date));
+}
+
+function getTeamMargin(game: NBAGame, teamAbbrev: string) {
+  if (game.homeScore == null || game.awayScore == null) return null;
+  if (game.homeTeam.abbreviation === teamAbbrev) return game.homeScore - game.awayScore;
+  if (game.awayTeam.abbreviation === teamAbbrev) return game.awayScore - game.homeScore;
+  return null;
+}
+
+function countRecentWins(games: NBAGame[], teamAbbrev: string, beforeDate: string, limit = 5) {
+  const sample = getTeamRecentGamesBeforeDate(games, teamAbbrev, beforeDate).slice(0, limit);
+  const wins = sample.filter((game) => (getTeamMargin(game, teamAbbrev) ?? -Infinity) > 0).length;
+  return { wins, games: sample };
+}
+
+function buildBlowoutRecord(
+  event: AggregatedOdds,
+  targetDate: string,
+  teamAbbrev: string,
+  recentGame: NBAGame,
+  opponentStanding: NBATeamStanding,
+): SystemTrackingRecord {
+  const teamIsAway = event.awayAbbrev === teamAbbrev;
+  const qualifiedTeam = teamIsAway ? event.awayTeam : event.homeTeam;
+  const opponentTeam = teamIsAway ? event.homeTeam : event.awayTeam;
+  const teamSpread = getTeamPerspectiveSpread(event, teamAbbrev);
+  const recentMargin = getTeamMargin(recentGame, teamAbbrev);
+  const marginLabel = recentMargin == null
+    ? "recent result unavailable"
+    : recentMargin > 0
+      ? `off a ${recentMargin}-point win`
+      : `off a ${Math.abs(recentMargin)}-point loss`;
+
+  return normalizeRecord({
+    id: `${THE_BLOWOUT_SYSTEM_ID}:${event.gameId}:${teamAbbrev}`,
+    gameId: event.gameId,
+    oddsEventId: event.oddsApiEventId ?? null,
+    gameDate: targetDate,
+    matchup: `${event.awayTeam} @ ${event.homeTeam}`,
+    roadTeam: event.awayTeam,
+    homeTeam: event.homeTeam,
+    closingSpread: teamSpread,
+    source: "NBA schedule + standings + aggregated odds",
+    notes: `${qualifiedTeam} watchlist • ${marginLabel} on ${recentGame.date} • next vs ${opponentTeam} (${opponentStanding.winPct.toFixed(3)} win pct) • spread ${teamSpread ?? "—"}`,
+    lastSyncedAt: new Date().toISOString(),
+  });
+}
+
+function buildHotTeamsMatchupRecord(
+  event: AggregatedOdds,
+  targetDate: string,
+  awayStanding: NBATeamStanding,
+  homeStanding: NBATeamStanding,
+  awayWins: number,
+  homeWins: number,
+): SystemTrackingRecord {
+  const totalLine = getEventTotalLine(event);
+  return normalizeRecord({
+    id: `${HOT_TEAMS_MATCHUP_SYSTEM_ID}:${event.gameId}`,
+    gameId: event.gameId,
+    oddsEventId: event.oddsApiEventId ?? null,
+    gameDate: targetDate,
+    matchup: `${event.awayTeam} @ ${event.homeTeam}`,
+    roadTeam: event.awayTeam,
+    homeTeam: event.homeTeam,
+    closingSpread: event.bestAwaySpread?.line ?? event.bestHomeSpread?.line ?? null,
+    source: "NBA standings + recent results + aggregated odds",
+    notes: `${event.awayTeam} last 5: ${awayWins}-1 (${awayStanding.winPct.toFixed(3)}) • ${event.homeTeam} last 5: ${homeWins}-1 (${homeStanding.winPct.toFixed(3)}) • total ${totalLine ?? "—"}`,
+    lastSyncedAt: new Date().toISOString(),
+  });
+}
+
+async function getNBAQualifierContext() {
+  const [standings, recentGames] = await Promise.all([
+    getNBAStandings(),
+    getRecentNBAGames(14),
+  ]);
+
+  return {
+    standingMap: new Map(standings.map((standing) => [standing.teamAbbrev, standing])),
+    recentGames,
+  };
+}
+
+async function getNBATargetEvents(targetDate: string, daysAhead = 2) {
+  const aggregated = await getAggregatedOddsForSport("NBA");
+  return aggregated.filter((event) => getEventDate(event.commenceTime) === targetDate);
 }
 
 async function getQuarterScores(eventId?: string | null): Promise<QuarterScores> {
@@ -1160,6 +1400,68 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
   });
 }
 
+async function getTheBlowoutQualifiers(targetDate: string, daysAhead = 2) {
+  const [{ standingMap, recentGames }, events] = await Promise.all([
+    getNBAQualifierContext(),
+    getNBATargetEvents(targetDate, daysAhead),
+  ]);
+
+  const records: SystemTrackingRecord[] = [];
+
+  for (const event of events) {
+    for (const teamAbbrev of [event.awayAbbrev, event.homeAbbrev]) {
+      const opponentAbbrev = teamAbbrev === event.awayAbbrev ? event.homeAbbrev : event.awayAbbrev;
+      const opponentStanding = standingMap.get(opponentAbbrev);
+      if (!opponentStanding || opponentStanding.winPct < 0.45) continue;
+
+      const recentGame = getTeamRecentGamesBeforeDate(recentGames, teamAbbrev, targetDate)[0];
+      if (!recentGame) continue;
+
+      const recencyDays = daysBetween(targetDate, recentGame.date);
+      if (!Number.isFinite(recencyDays) || recencyDays > 3) continue;
+
+      const recentMargin = getTeamMargin(recentGame, teamAbbrev);
+      if (recentMargin == null || Math.abs(recentMargin) < 18) continue;
+
+      const teamSpread = getTeamPerspectiveSpread(event, teamAbbrev);
+      if (teamSpread == null || Math.abs(teamSpread) > 6.5) continue;
+
+      records.push(buildBlowoutRecord(event, targetDate, teamAbbrev, recentGame, opponentStanding));
+    }
+  }
+
+  return records.sort((left, right) => left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup) || left.id.localeCompare(right.id));
+}
+
+async function getHotTeamsMatchupQualifiers(targetDate: string, daysAhead = 2) {
+  const [{ standingMap, recentGames }, events] = await Promise.all([
+    getNBAQualifierContext(),
+    getNBATargetEvents(targetDate, daysAhead),
+  ]);
+
+  const records: SystemTrackingRecord[] = [];
+
+  for (const event of events) {
+    const awayStanding = standingMap.get(event.awayAbbrev);
+    const homeStanding = standingMap.get(event.homeAbbrev);
+    if (!awayStanding || !homeStanding) continue;
+    if (awayStanding.winPct < 0.55 || homeStanding.winPct < 0.55) continue;
+
+    const awayForm = countRecentWins(recentGames, event.awayAbbrev, targetDate, 5);
+    const homeForm = countRecentWins(recentGames, event.homeAbbrev, targetDate, 5);
+    if (awayForm.games.length < 5 || homeForm.games.length < 5) continue;
+    if (awayForm.wins < 4 || homeForm.wins < 4) continue;
+
+    const awaySpread = event.bestAwaySpread?.line;
+    if (awaySpread == null || Math.abs(awaySpread) > 5.5) continue;
+    if (getEventTotalLine(event) == null) continue;
+
+    records.push(buildHotTeamsMatchupRecord(event, targetDate, awayStanding, homeStanding, awayForm.wins, homeForm.wins));
+  }
+
+  return records.sort((left, right) => left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup));
+}
+
 export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
   await ensureStore();
   const raw = await fs.readFile(STORE_PATH, "utf8");
@@ -1171,6 +1473,9 @@ export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
       systems: mergeCatalogSystems(Array.isArray(parsed?.systems) ? parsed.systems : defaultData().systems),
     };
     applyGooseReadiness(getGooseSystem(data));
+    applySimpleWatchlistReadiness(getTheBlowoutSystem(data));
+    applySimpleWatchlistReadiness(getHotTeamsMatchupSystem(data));
+    applyFalconsFightPummeledPitchersReadiness(getFalconsFightPummeledPitchersSystem(data));
     return data;
   } catch {
     return defaultData();
@@ -1184,6 +1489,13 @@ export async function getTrackedSystemBySlug(slug: string): Promise<TrackedSyste
 
 export function getSystemSnapshot(system: TrackedSystem) {
   const metrics = getSystemDerivedMetrics(system);
+  if (system.progressionLogic.length === 0) {
+    if (metrics.qualifiedGames > 0) {
+      const moneylineRows = system.records.filter((record) => record.currentMoneyline != null).length;
+      return `${metrics.qualifiedGames} qualifier${metrics.qualifiedGames === 1 ? "" : "s"} stored${moneylineRows ? `, ${moneylineRows} with live moneyline context` : ""}.`;
+    }
+    return system.snapshot || "No tracked sample yet.";
+  }
   if (metrics.completedSequences > 0 && metrics.sequenceWinRate != null) {
     return `${(metrics.sequenceWinRate * 100).toFixed(1)}% sequence win rate across ${metrics.completedSequences} settled sequence${metrics.completedSequences === 1 ? "" : "s"}.`;
   }
@@ -1223,6 +1535,154 @@ async function refreshGooseSystemData(data: SystemsTrackingData, options: Refres
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
   });
   applyGooseReadiness(system);
+  return system;
+}
+
+async function refreshTheBlowoutSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getTheBlowoutSystem(data);
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  const freshRecords = await getTheBlowoutQualifiers(targetDate, options.daysAhead ?? 2);
+
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup) || left.id.localeCompare(right.id);
+  });
+  applySimpleWatchlistReadiness(system);
+  return system;
+}
+
+async function refreshHotTeamsMatchupSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getHotTeamsMatchupSystem(data);
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  const freshRecords = await getHotTeamsMatchupQualifiers(targetDate, options.daysAhead ?? 2);
+
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
+  });
+  applySimpleWatchlistReadiness(system);
+  return system;
+}
+
+async function buildFalconsQualifierRecord(input: {
+  gameId: string;
+  oddsEventId?: string;
+  gameDate: string;
+  matchup: string;
+  roadTeam: string;
+  homeTeam: string;
+  starterName: string;
+  starterEra: number | null;
+  currentMoneyline: number;
+  priorGameDate: string;
+  inningsPitched: number;
+  earnedRuns: number;
+  hitsAllowed: number;
+  moneylineBook?: string | null;
+}) {
+  const priorStats = {
+    inningsPitched: input.inningsPitched,
+    earnedRuns: input.earnedRuns,
+    hitsAllowed: input.hitsAllowed,
+  };
+  const pummeledReasons = buildPummeledReasons(priorStats);
+  const notes = [
+    `Alert only — not an official pick.`,
+    `Prior start ${input.priorGameDate}: ${formatPitchingSummary(priorStats)}${pummeledReasons.length ? ` (${pummeledReasons.join(", ")})` : ""}.`,
+    input.starterEra != null ? `Listed ERA ${input.starterEra.toFixed(2)}.` : "Listed ERA unavailable from probable-starter feed.",
+    `Current moneyline ${input.currentMoneyline > 0 ? "+" : ""}${input.currentMoneyline}${input.moneylineBook ? ` (${input.moneylineBook})` : ""}.`,
+  ];
+
+  return normalizeRecord({
+    id: `falcons-fight-pummeled-pitchers:${input.gameId}:${slugify(input.starterName)}`,
+    gameId: input.gameId,
+    oddsEventId: input.oddsEventId ?? null,
+    gameDate: input.gameDate,
+    matchup: input.matchup,
+    roadTeam: input.roadTeam,
+    homeTeam: input.homeTeam,
+    recordKind: "qualifier",
+    marketType: "moneyline",
+    alertLabel: "Tracked qualifier / system alert",
+    starterName: input.starterName,
+    starterEra: input.starterEra,
+    currentMoneyline: input.currentMoneyline,
+    priorGameDate: input.priorGameDate,
+    priorStartSummary: formatPitchingSummary(priorStats),
+    source: "MLB Stats API probable starters + pitching game logs + aggregated odds",
+    notes: notes.join(" • "),
+    lastSyncedAt: new Date().toISOString(),
+  });
+}
+
+async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getFalconsFightPummeledPitchersSystem(data);
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const [schedule, oddsEvents] = await Promise.all([
+    getMLBSchedule(options.daysAhead ?? 1),
+    getMLBOdds(),
+  ]);
+
+  const targetGames = schedule.filter((game) => game.date === targetDate && game.status !== "Final");
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  for (const game of targetGames) {
+    const event = findMLBOddsForGame(oddsEvents, game.homeTeam.abbreviation, game.awayTeam.abbreviation);
+    const starterCandidates = [
+      {
+        side: "away" as const,
+        teamAbbrev: game.awayTeam.abbreviation,
+        teamName: game.awayTeam.fullName,
+        starter: game.awayTeam.probablePitcher,
+      },
+      {
+        side: "home" as const,
+        teamAbbrev: game.homeTeam.abbreviation,
+        teamName: game.homeTeam.fullName,
+        starter: game.homeTeam.probablePitcher,
+      },
+    ];
+
+    for (const candidate of starterCandidates) {
+      const starter = candidate.starter;
+      if (!starter?.id || !starter.name) continue;
+      if (starter.era != null && starter.era > 4.5) continue;
+
+      const moneyline = event
+        ? getBestOdds(event, "h2h", candidate.side === "away" ? event.away_team : event.home_team)
+        : null;
+      const currentMoneyline = moneyline?.odds ?? null;
+      if (currentMoneyline == null || currentMoneyline < -140 || currentMoneyline > 125) continue;
+
+      const logs = await getMLBPlayerGameLog(Number(starter.id), Number(targetDate.slice(0, 4)), "pitching");
+      const priorStart = logs.find((log) => log.gameDate && log.gameDate < targetDate && daysBetween(log.gameDate, targetDate) <= 10);
+      if (!priorStart) continue;
+      if (!isPummeledStart(priorStart)) continue;
+
+      freshRecords.push(await buildFalconsQualifierRecord({
+        gameId: game.id,
+        oddsEventId: game.oddsEventId || event?.id,
+        gameDate: game.date,
+        matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+        roadTeam: game.awayTeam.abbreviation,
+        homeTeam: game.homeTeam.abbreviation,
+        starterName: starter.name,
+        starterEra: starter.era ?? null,
+        currentMoneyline,
+        priorGameDate: priorStart.gameDate,
+        inningsPitched: priorStart.inningsPitched,
+        earnedRuns: priorStart.earnedRuns,
+        hitsAllowed: priorStart.hitsAllowed,
+        moneylineBook: moneyline?.book,
+      }));
+    }
+  }
+
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup) || (left.starterName || "").localeCompare(right.starterName || "");
+  });
+  applyFalconsFightPummeledPitchersReadiness(system);
   return system;
 }
 

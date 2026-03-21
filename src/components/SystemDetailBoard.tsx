@@ -43,6 +43,11 @@ function formatUnits(value: number | null) {
   return `${value.toFixed(1)}u`;
 }
 
+function formatMoneyline(value?: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
 function formatResult(value?: string | null) {
   if (!value || value === "pending") return "Pending";
   return value.charAt(0).toUpperCase() + value.slice(1);
@@ -63,6 +68,41 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
     return (
       <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-400">
         No tracked records are stored for this system yet.
+      </div>
+    );
+  }
+
+  const isQualifierBoard = system.progressionLogic.length === 0;
+
+  if (isQualifierBoard) {
+    return (
+      <div className="overflow-x-auto rounded-2xl border border-dark-border bg-dark-surface/70">
+        <div className="grid min-w-[1080px] grid-cols-[1.05fr_0.7fr_0.85fr_0.7fr_0.8fr_1fr_1.9fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+          <span>Matchup</span>
+          <span>Date</span>
+          <span>Starter</span>
+          <span>ERA</span>
+          <span>ML</span>
+          <span>Prior start</span>
+          <span>Context</span>
+        </div>
+        {system.records.map((record) => (
+          <div key={record.id} className="grid min-w-[1080px] grid-cols-[1.05fr_0.7fr_0.85fr_0.7fr_0.8fr_1fr_1.9fr] gap-3 px-4 py-3 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/70">
+            <div>
+              <p className="font-medium text-white">{record.matchup}</p>
+              <p className="mt-1 text-xs text-gray-500">{record.alertLabel || record.marketType || record.source || "Tracked qualifier"}</p>
+            </div>
+            <span>{record.gameDate || "—"}</span>
+            <span>{record.starterName || "—"}</span>
+            <span>{record.starterEra != null ? record.starterEra.toFixed(2) : "—"}</span>
+            <span>{formatMoneyline(record.currentMoneyline)}</span>
+            <div>
+              <p>{record.priorGameDate || "—"}</p>
+              <p className="mt-1 text-xs text-gray-500">{record.priorStartSummary || "Prior-start summary unavailable"}</p>
+            </div>
+            <p className="text-xs leading-6 text-gray-400">{record.notes || record.source || "Stored qualifier"}</p>
+          </div>
+        ))}
       </div>
     );
   }
@@ -102,6 +142,10 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
   const metrics = getSystemDerivedMetrics(system);
   const metricsAwaitingLines = !metrics.trackableGames;
   const isTrackableNow = system.trackabilityBucket === "trackable_now";
+  const isQualifierBoard = system.progressionLogic.length === 0;
+  const qualifierRowsWithEra = system.records.filter((record) => record.starterEra != null).length;
+  const qualifierRowsWithMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
+  const qualifierRowsMissingEra = system.records.filter((record) => record.starterEra == null).length;
 
   return (
     <div className="space-y-5 px-4 py-4 lg:px-0">
@@ -298,11 +342,13 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="section-heading">Tracked history / results</p>
-            <h2 className="mt-2 text-lg font-semibold text-white">Performance board</h2>
+            <h2 className="mt-2 text-lg font-semibold text-white">{isQualifierBoard ? "Qualifier alert board" : "Performance board"}</h2>
             <p className="mt-1 text-sm text-gray-400">
-              {metricsAwaitingLines
-                ? "Metrics stay conservative until lines and settlement data are present."
-                : "Derived only from stored rows with captured lines and settled results."}
+              {isQualifierBoard
+                ? "Stored rows show live qualifiers and alert context only. This board is intentionally not an official picks engine."
+                : metricsAwaitingLines
+                  ? "Metrics stay conservative until lines and settlement data are present."
+                  : "Derived only from stored rows with captured lines and settled results."}
             </p>
           </div>
           <div className="rounded-full border border-dark-border bg-dark-bg/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
@@ -311,26 +357,53 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Sequence win rate"
-            value={formatPercent(metrics.sequenceWinRate)}
-            note={metricsAwaitingLines ? "Awaiting enough line coverage and settled rows." : `${metrics.completedSequences} settled sequence${metrics.completedSequences === 1 ? "" : "s"}.`}
-          />
-          <MetricCard
-            label="Bet 1 win rate"
-            value={formatPercent(metrics.stepOneWinRate)}
-            note={metricsAwaitingLines ? "Needs 1Q line and outcome coverage." : `${metrics.stepOneWins} direct first-leg win${metrics.stepOneWins === 1 ? "" : "s"}.`}
-          />
-          <MetricCard
-            label="Bet 2 rescue rate"
-            value={formatPercent(metrics.rescueRate)}
-            note={metricsAwaitingLines ? "Needs tracked first-leg losses plus 3Q settlement." : `${metrics.rescueWins} rescue win${metrics.rescueWins === 1 ? "" : "s"}.`}
-          />
-          <MetricCard
-            label="Estimated net units"
-            value={formatUnits(metrics.estimatedNetUnits)}
-            note={metricsAwaitingLines ? "No honest unit curve until rows settle." : "Assumes 1u on Bet 1 and 2u on Bet 2 when applicable."}
-          />
+          {isQualifierBoard ? (
+            <>
+              <MetricCard
+                label="Tracked qualifiers"
+                value={String(metrics.qualifiedGames)}
+                note="Rows currently matching the mechanical v1 screen."
+              />
+              <MetricCard
+                label="Listed ERA present"
+                value={String(qualifierRowsWithEra)}
+                note={qualifierRowsMissingEra > 0 ? `${qualifierRowsMissingEra} qualifier${qualifierRowsMissingEra === 1 ? " is" : "s are"} missing listed ERA and kept unresolved.` : "Every stored qualifier has a listed ERA."}
+              />
+              <MetricCard
+                label="Moneyline captured"
+                value={String(qualifierRowsWithMoneyline)}
+                note="Only qualifiers with a live moneyline inside the system band are stored." 
+              />
+              <MetricCard
+                label="System posture"
+                value={system.status.replaceAll("_", " ")}
+                note="Alerts and evidence only — no auto-published picks or claimed win rate yet."
+              />
+            </>
+          ) : (
+            <>
+              <MetricCard
+                label="Sequence win rate"
+                value={formatPercent(metrics.sequenceWinRate)}
+                note={metricsAwaitingLines ? "Awaiting enough line coverage and settled rows." : `${metrics.completedSequences} settled sequence${metrics.completedSequences === 1 ? "" : "s"}.`}
+              />
+              <MetricCard
+                label="Bet 1 win rate"
+                value={formatPercent(metrics.stepOneWinRate)}
+                note={metricsAwaitingLines ? "Needs 1Q line and outcome coverage." : `${metrics.stepOneWins} direct first-leg win${metrics.stepOneWins === 1 ? "" : "s"}.`}
+              />
+              <MetricCard
+                label="Bet 2 rescue rate"
+                value={formatPercent(metrics.rescueRate)}
+                note={metricsAwaitingLines ? "Needs tracked first-leg losses plus 3Q settlement." : `${metrics.rescueWins} rescue win${metrics.rescueWins === 1 ? "" : "s"}.`}
+              />
+              <MetricCard
+                label="Estimated net units"
+                value={formatUnits(metrics.estimatedNetUnits)}
+                note={metricsAwaitingLines ? "No honest unit curve until rows settle." : "Assumes 1u on Bet 1 and 2u on Bet 2 when applicable."}
+              />
+            </>
+          )}
         </div>
 
         <div className="mt-5">

@@ -237,3 +237,16 @@
 - [x] Add low-risk generic refresh scaffolding without changing current Goose UI flow
 - [x] Write up shared vs system-specific boundaries and schema recommendation
 - [x] Run `npm run build` and commit locally if clean
+
+# Falcons Fight Pummeled Pitchers — 2026-03-21
+- [x] Wire Falcons system into the live trackable catalog + tracker registry
+- [x] Generate honest MLB qualifier rows from probable starters, prior-start logs, and current moneylines
+- [x] Extend tracked-row model/UI minimally so non-Goose qualifier rows render cleanly
+- [x] Refresh through the generic systems flow and expose rows on `/systems/[slug]`
+- [x] Run `npm run build`, sanity-check output, and commit locally without pushing
+
+# NBA qualifier pass — Blowout + Hot Teams Matchup — 2026-03-21
+- [ ] Update catalog entries so both systems are honest, live qualifier/watchlist trackers rather than fake picks
+- [ ] Reuse the shared systems tracker/store to generate and persist qualifier rows for both systems from current NBA rails
+- [ ] Wire systems pages to refresh all trackable systems, not just Goose
+- [ ] Verify with targeted refresh/build, then commit locally without pushing

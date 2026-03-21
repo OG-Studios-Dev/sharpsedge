@@ -11,7 +11,7 @@
       "schedule": "0 10 * * 2,3,4"
     },
     {
-      "path": "/api/systems/goose?cron=true",
+      "path": "/api/systems/refresh?cron=true",
       "schedule": "0 15 * * *"
     }
   ]

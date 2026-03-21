@@ -1,5 +1,5 @@
 import SystemsOverviewBoard from "@/components/SystemsOverviewBoard";
-import { readSystemsTrackingData, refreshTodayGooseSystem } from "@/lib/systems-tracking-store";
+import { readSystemsTrackingData, refreshTrackableSystems } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ type Props = {
 };
 
 export default async function SystemsPage({ searchParams }: Props) {
-  await refreshTodayGooseSystem().catch(() => null);
+  await refreshTrackableSystems().catch(() => null);
   const data = await readSystemsTrackingData();
   const activeLeague = searchParams?.league || "All";
 
