@@ -15,7 +15,7 @@ function TournamentCard({ tournament }: { tournament: GolfTournament }) {
         tournament.current
           ? "border-emerald-500/30 bg-emerald-500/5"
           : tournament.status === "completed"
-            ? "border-white/5 bg-white/[0.02] opacity-75"
+            ? "border-white/6 bg-white/[0.02] opacity-75"
             : "border-dark-border bg-dark-surface/70"
       } transition hover:border-white/20 hover:bg-white/[0.06]`}
     >
@@ -100,21 +100,23 @@ export default function GolfScheduleBoard({
         </div>
       ) : (
         <>
-          {upcoming.length > 0 && (
+          {upcoming.length > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {upcoming.map((tournament) => (
                 <TournamentCard key={tournament.id} tournament={tournament} />
               ))}
             </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-gray-400">No upcoming tournaments posted yet.</div>
           )}
 
           {past.length > 0 && (
             <div className="mt-4">
               <button
-                onClick={() => setShowPast(!showPast)}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-gray-400 transition hover:border-white/15 hover:text-white"
+                onClick={() => setShowPast((prev) => !prev)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-2.5 text-sm text-gray-400 transition hover:border-white/15 hover:text-white"
               >
-                <span>Past Tournaments ({past.length})</span>
+                <span>{showPast ? "Hide" : "Past Tournaments"}</span>
                 <svg
                   className={`h-4 w-4 transition-transform duration-200 ${showPast ? "rotate-180" : ""}`}
                   fill="none"
