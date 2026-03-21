@@ -24,6 +24,16 @@ function toneForSeverity(severity: BugSeverity) {
   return "text-gray-400";
 }
 
+function ageInDays(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+}
+
+function isOverdue(bug: AdminBug) {
+  if (!bug.dueAt || bug.status === "fixed") return false;
+  return new Date(bug.dueAt).getTime() < Date.now();
+}
+
 function SectionCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
@@ -40,6 +50,9 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | BugStatus>("all");
+  const [severityFilter, setSeverityFilter] = useState<"all" | BugSeverity>("all");
   const [bugDraft, setBugDraft] = useState({
     title: "",
     summary: "",
@@ -48,6 +61,8 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
     status: "open" as BugStatus,
     owner: "",
     source: "QA",
+    dueAt: "",
+    notes: "",
   });
   const [cronDraft, setCronDraft] = useState({
     name: "",
@@ -60,9 +75,26 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
   });
 
   const openBugs = useMemo(
-    () => data.bugs.filter((bug) => bug.status !== "fixed").sort((a, b) => a.foundAt < b.foundAt ? 1 : -1),
+    () => data.bugs.filter((bug) => bug.status !== "fixed").sort((a, b) => (a.foundAt < b.foundAt ? 1 : -1)),
     [data.bugs],
   );
+
+  const attentionNow = useMemo(
+    () => openBugs.filter((bug) => bug.severity === "critical" || isOverdue(bug)).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
+    [openBugs],
+  );
+
+  const filteredBugs = useMemo(() => {
+    return data.bugs.filter((bug) => {
+      const matchesSearch = !search.trim() || [bug.title, bug.summary, bug.area, bug.owner, bug.source, bug.notes ?? ""]
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "all" || bug.status === statusFilter;
+      const matchesSeverity = severityFilter === "all" || bug.severity === severityFilter;
+      return matchesSearch && matchesStatus && matchesSeverity;
+    });
+  }, [data.bugs, search, statusFilter, severityFilter]);
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setSaving(true);
@@ -108,69 +140,39 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Total bugs logged</p>
-          <p className="mt-3 text-3xl font-bold text-white">{data.bugs.length}</p>
-        </div>
-        <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Unfixed queue</p>
-          <p className="mt-3 text-3xl font-bold text-accent-yellow">{openBugs.length}</p>
-        </div>
-        <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Cron jobs tracked</p>
-          <p className="mt-3 text-3xl font-bold text-accent-blue">{data.cronSchedules.length}</p>
-        </div>
-        <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Last ops review</p>
-          <p className="mt-3 text-sm font-semibold text-white">{data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleString() : "Not reviewed yet"}</p>
-        </div>
+      <section className="grid gap-3 md:grid-cols-5">
+        <MetricCard label="Total bugs logged" value={String(data.bugs.length)} tone="text-white" />
+        <MetricCard label="Unfixed queue" value={String(openBugs.length)} tone="text-accent-yellow" />
+        <MetricCard label="Needs attention now" value={String(attentionNow.length)} tone="text-red-400" />
+        <MetricCard label="Cron jobs tracked" value={String(data.cronSchedules.length)} tone="text-accent-blue" />
+        <MetricCard label="Last ops review" value={data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleDateString() : "Not yet"} tone="text-gray-200" small />
       </section>
 
       {error ? (
         <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
       ) : null}
 
-      <SectionCard title="Unfixed bugs" subtitle="This is the IT leader review queue — everything not marked fixed stays here.">
+      <SectionCard title="Needs attention now" subtitle="Best-practice triage view: critical issues and overdue items should never get buried.">
         <div className="space-y-3">
-          {openBugs.length === 0 ? (
-            <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-4 py-3 text-sm text-gray-400">No open bugs right now.</div>
-          ) : openBugs.map((bug) => (
-            <div key={bug.id} className="rounded-xl border border-dark-border/50 bg-dark-bg/50 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-white">{bug.title}</p>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneForStatus(bug.status)}`}>{niceLabel(bug.status)}</span>
-                    <span className={`text-xs font-semibold uppercase ${toneForSeverity(bug.severity)}`}>{bug.severity}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-400">{bug.summary}</p>
-                  <p className="mt-2 text-xs text-gray-500">{bug.area} · owner: {bug.owner || "Unassigned"} · source: {bug.source}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <select
-                    value={bug.status}
-                    onChange={(e) => patch("update_bug", { id: bug.id, updates: { status: e.target.value } })}
-                    className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
-                    disabled={saving}
-                  >
-                    {BUG_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
-                  </select>
-                  <input
-                    value={bug.owner}
-                    onChange={(e) => patch("update_bug", { id: bug.id, updates: { owner: e.target.value } })}
-                    className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
-                    placeholder="Owner"
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-            </div>
+          {attentionNow.length === 0 ? (
+            <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-4 py-3 text-sm text-gray-400">No critical or overdue items right now.</div>
+          ) : attentionNow.map((bug) => (
+            <BugCard key={bug.id} bug={bug} saving={saving} onPatch={patch} compact />
           ))}
         </div>
       </SectionCard>
 
-      <SectionCard title="Add bug" subtitle="Log every issue here as soon as QA, Marco, or a user finds it.">
+      <SectionCard title="Unfixed bugs" subtitle="This is the live execution queue. Anything not fixed stays here.">
+        <div className="space-y-3">
+          {openBugs.length === 0 ? (
+            <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-4 py-3 text-sm text-gray-400">No open bugs right now.</div>
+          ) : openBugs.map((bug) => (
+            <BugCard key={bug.id} bug={bug} saving={saving} onPatch={patch} />
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Add bug" subtitle="Log issues with owner, due date, and notes so fixes don’t float around in chat.">
         <div className="grid gap-3 md:grid-cols-2">
           <input value={bugDraft.title} onChange={(e) => setBugDraft((prev) => ({ ...prev, title: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Bug title" />
           <input value={bugDraft.area} onChange={(e) => setBugDraft((prev) => ({ ...prev, area: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Area / page / API" />
@@ -183,10 +185,13 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
           <select value={bugDraft.status} onChange={(e) => setBugDraft((prev) => ({ ...prev, status: e.target.value as BugStatus }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
             {BUG_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
           </select>
+          <input type="date" value={bugDraft.dueAt} onChange={(e) => setBugDraft((prev) => ({ ...prev, dueAt: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
+          <div className="hidden md:block" />
+          <textarea value={bugDraft.notes} onChange={(e) => setBugDraft((prev) => ({ ...prev, notes: e.target.value }))} className="min-h-[90px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Notes / fix summary / blocker details" />
         </div>
         <button
           type="button"
-          onClick={() => add("add_bug", bugDraft, () => setBugDraft({ title: "", summary: "", area: "", severity: "high", status: "open", owner: "", source: "QA" }))}
+          onClick={() => add("add_bug", bugDraft, () => setBugDraft({ title: "", summary: "", area: "", severity: "high", status: "open", owner: "", source: "QA", dueAt: "", notes: "" }))}
           disabled={saving || !bugDraft.title.trim() || !bugDraft.summary.trim()}
           className="mt-4 rounded-xl bg-accent-blue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -225,25 +230,107 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
         </button>
       </SectionCard>
 
-      <SectionCard title="Full bug log" subtitle="Everything found stays recorded here, even after it is fixed.">
+      <SectionCard title="Full bug log" subtitle="Searchable history is best practice too — fixed bugs are useful institutional memory.">
+        <div className="mb-4 grid gap-3 md:grid-cols-3">
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Search title, area, owner, notes..." />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | BugStatus)} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+            <option value="all">All statuses</option>
+            {BUG_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
+          </select>
+          <select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value as "all" | BugSeverity)} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+            <option value="all">All severities</option>
+            {BUG_SEVERITIES.map((severity) => <option key={severity} value={severity}>{niceLabel(severity)}</option>)}
+          </select>
+        </div>
+
         <div className="space-y-3">
-          {data.bugs.map((bug) => (
-            <div key={bug.id} className="rounded-xl border border-dark-border/50 bg-dark-bg/50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold text-white">{bug.title}</p>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneForStatus(bug.status)}`}>{niceLabel(bug.status)}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-400">{bug.summary}</p>
-                  <p className="mt-2 text-xs text-gray-500">{new Date(bug.foundAt).toLocaleString()} · {bug.area} · {bug.source}</p>
-                </div>
-                <span className={`text-xs font-semibold uppercase ${toneForSeverity(bug.severity)}`}>{bug.severity}</span>
-              </div>
-            </div>
+          {filteredBugs.map((bug) => (
+            <BugCard key={bug.id} bug={bug} saving={saving} onPatch={patch} showFullMeta />
           ))}
         </div>
       </SectionCard>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, tone, small = false }: { label: string; value: string; tone: string; small?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">{label}</p>
+      <p className={`mt-3 font-bold ${small ? "text-sm" : "text-3xl"} ${tone}`}>{value}</p>
+    </div>
+  );
+}
+
+function BugCard({
+  bug,
+  saving,
+  onPatch,
+  compact = false,
+  showFullMeta = false,
+}: {
+  bug: AdminBug;
+  saving: boolean;
+  onPatch: (action: string, payload: Record<string, unknown>) => void;
+  compact?: boolean;
+  showFullMeta?: boolean;
+}) {
+  const overdue = isOverdue(bug);
+  const age = ageInDays(bug.foundAt);
+
+  return (
+    <div className="rounded-xl border border-dark-border/50 bg-dark-bg/50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-white">{bug.title}</p>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneForStatus(bug.status)}`}>{niceLabel(bug.status)}</span>
+            <span className={`text-xs font-semibold uppercase ${toneForSeverity(bug.severity)}`}>{bug.severity}</span>
+            {overdue ? <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-300">Overdue</span> : null}
+          </div>
+          <p className="mt-1 text-sm text-gray-400">{bug.summary}</p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+            <span>{bug.area}</span>
+            <span>owner: {bug.owner || "Unassigned"}</span>
+            <span>source: {bug.source}</span>
+            <span>age: {age}d</span>
+            {bug.dueAt ? <span>due: {new Date(bug.dueAt).toLocaleDateString()}</span> : null}
+          </div>
+          {!compact && bug.notes ? <p className="mt-3 text-sm text-gray-300">{bug.notes}</p> : null}
+          {showFullMeta ? <p className="mt-3 text-xs text-gray-500">Found {new Date(bug.foundAt).toLocaleString()} · Updated {new Date(bug.updatedAt).toLocaleString()}</p> : null}
+        </div>
+        <div className="flex min-w-[240px] flex-wrap gap-2">
+          <select
+            value={bug.status}
+            onChange={(e) => onPatch("update_bug", { id: bug.id, updates: { status: e.target.value } })}
+            className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
+            disabled={saving}
+          >
+            {BUG_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
+          </select>
+          <input
+            defaultValue={bug.owner}
+            onBlur={(e) => onPatch("update_bug", { id: bug.id, updates: { owner: e.target.value } })}
+            className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
+            placeholder="Owner"
+            disabled={saving}
+          />
+          <input
+            type="date"
+            defaultValue={bug.dueAt ? bug.dueAt.slice(0, 10) : ""}
+            onBlur={(e) => onPatch("update_bug", { id: bug.id, updates: { dueAt: e.target.value || null } })}
+            className="rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
+            disabled={saving}
+          />
+          <textarea
+            defaultValue={bug.notes ?? ""}
+            onBlur={(e) => onPatch("update_bug", { id: bug.id, updates: { notes: e.target.value } })}
+            className="min-h-[72px] w-full rounded-lg border border-dark-border bg-dark-surface px-3 py-2 text-xs text-white"
+            placeholder="Notes / fix summary / blocker"
+            disabled={saving}
+          />
+        </div>
+      </div>
     </div>
   );
 }

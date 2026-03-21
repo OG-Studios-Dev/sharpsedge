@@ -10,6 +10,8 @@
       "status": "fixed",
       "owner": "Magoo",
       "source": "Marco screenshot / QA",
+      "dueAt": null,
+      "notes": "Fixed by making generic team pages detect league and support MLB data paths.",
       "foundAt": "2026-03-21T05:40:00.000Z",
       "updatedAt": "2026-03-21T05:50:00.000Z"
     },
@@ -22,6 +24,8 @@
       "status": "in_progress",
       "owner": "Magoo",
       "source": "Marco request",
+      "dueAt": null,
+      "notes": "Initial admin ops surface created, but should keep evolving with more operational controls.",
       "foundAt": "2026-03-21T13:05:00.000Z",
       "updatedAt": "2026-03-21T13:05:00.000Z"
     }

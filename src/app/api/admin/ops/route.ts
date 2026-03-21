@@ -26,6 +26,8 @@ export async function POST(request: Request) {
         status: body.status,
         owner: String(body.owner ?? "Unassigned").trim(),
         source: String(body.source ?? "Manual").trim(),
+        dueAt: body.dueAt ? String(body.dueAt) : null,
+        notes: String(body.notes ?? "").trim(),
       });
       return NextResponse.json({ ok: true, bug });
     }

@@ -13,6 +13,8 @@ export type AdminBug = {
   status: BugStatus;
   owner: string;
   source: string;
+  dueAt?: string | null;
+  notes?: string;
   foundAt: string;
   updatedAt: string;
 };
@@ -50,6 +52,8 @@ const DEFAULT_DATA: AdminOpsData = {
       status: "fixed",
       owner: "Magoo",
       source: "Marco screenshot / QA",
+      dueAt: null,
+      notes: "Fixed by making generic team pages detect league and support MLB data paths.",
       foundAt: "2026-03-21T05:40:00.000Z",
       updatedAt: new Date().toISOString(),
     },
@@ -62,6 +66,8 @@ const DEFAULT_DATA: AdminOpsData = {
       status: "in_progress",
       owner: "Magoo",
       source: "Marco request",
+      dueAt: null,
+      notes: "Initial admin ops surface created, but should keep evolving with more operational controls.",
       foundAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
