@@ -12,15 +12,15 @@ create index if not exists datagolf_cache_last_scrape_idx
 
 alter table public.datagolf_cache enable row level security;
 
-drop policy if exists "Anyone can read datagolf cache" on public.datagolf_cache;
-drop policy if exists "Service role manages datagolf cache" on public.datagolf_cache;
+drop policy if exists datagolf_read on public.datagolf_cache;
+drop policy if exists datagolf_service_write on public.datagolf_cache;
 
-create policy "Anyone can read datagolf cache"
+create policy datagolf_read
   on public.datagolf_cache
   for select
   using (true);
 
-create policy "Service role manages datagolf cache"
+create policy datagolf_service_write
   on public.datagolf_cache
   for all
   to service_role
