@@ -8,14 +8,6 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    // PGA picks are disabled until pick_slates table exists and DataGolf scraper
-    // is fully wired. Without the lock table, picks regenerate on every page load
-    // with garbage hitRates. Re-enable once pick_slates is created in Supabase.
-    const PGA_PICKS_ENABLED = false;
-    if (!PGA_PICKS_ENABLED) {
-      return NextResponse.json({ picks: [], date: new Date().toISOString().slice(0, 10), source: "disabled" });
-    }
-
     // Resolve the tournament start date as the canonical date key for PGA picks.
     // This ensures picks generated on Thursday persist through the entire tournament
     // instead of regenerating every day when the client sends today's date.
