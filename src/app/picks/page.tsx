@@ -470,6 +470,7 @@ export default function PicksPage() {
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
   const [recordSport, setRecordSport] = useState(sportLeague === "All" ? "All" : sportLeague);
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
 
   useEffect(() => {
@@ -883,9 +884,13 @@ export default function PicksPage() {
               const runningUnits = runningUnitsByDate[date] ?? dailyUnits;
               return (
                 <div key={date} className="stagger-in overflow-hidden rounded-2xl border border-dark-border/70 bg-dark-surface/40" style={getStaggerStyle(index)}>
-                  {/* Day header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-dark-bg/40 border-b border-dark-border/40">
-                    <div>
+                  {/* Day header — tap to expand */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedDate(expandedDate === date ? null : date)}
+                    className="tap-button w-full flex items-center justify-between px-4 py-2.5 bg-dark-bg/40"
+                  >
+                    <div className="text-left">
                       <p className="text-gray-300 text-xs font-semibold">{formatDate(date)}</p>
                       <p className="text-[10px] text-gray-500 mt-0.5">
                         Running total {runningUnits > 0 ? "+" : ""}{runningUnits.toFixed(2)}u
@@ -904,49 +909,52 @@ export default function PicksPage() {
                           {dailyWinPct}%
                         </span>
                       )}
+                      <span className={`text-gray-500 transition-transform ${expandedDate === date ? "rotate-180" : ""}`}>▾</span>
                     </div>
-                  </div>
-                  {/* Pick rows */}
-                  <div className="divide-y divide-dark-border/30">
-                    {filtered.map((pick) => (
-                      <div
-                        key={pick.id}
-                        className={`px-4 py-3 flex items-center gap-3 ${
-                          pick.result === "win" ? "border-l-2 border-l-emerald-500" :
-                          pick.result === "loss" ? "border-l-2 border-l-red-500" :
-                          pick.result === "push" ? "border-l-2 border-l-yellow-500" :
-                          "border-l-2 border-l-gray-600"
-                        }`}
-                      >
-                        <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-white text-xs font-medium truncate">
-                              {pick.pickLabel}
-                            </p>
-                            {pick.league && (
-                              <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-                            )}
+                  </button>
+                  {/* Pick rows — only visible when expanded */}
+                  {expandedDate === date && (
+                    <div className="divide-y divide-dark-border/30 border-t border-dark-border/40">
+                      {filtered.map((pick) => (
+                        <div
+                          key={pick.id}
+                          className={`px-4 py-3 flex items-center gap-3 ${
+                            pick.result === "win" ? "border-l-2 border-l-emerald-500" :
+                            pick.result === "loss" ? "border-l-2 border-l-red-500" :
+                            pick.result === "push" ? "border-l-2 border-l-yellow-500" :
+                            "border-l-2 border-l-gray-600"
+                          }`}
+                        >
+                          <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-white text-xs font-medium truncate">
+                                {pick.pickLabel}
+                              </p>
+                              {pick.league && (
+                                <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent}</p>
+                              <span className="text-[9px] text-gray-600">
+                                {displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent}</p>
-                            <span className="text-[9px] text-gray-600">
-                              {displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge
-                            </span>
-                          </div>
+                          {pick.result === "win" ? (
+                            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>
+                          ) : pick.result === "loss" ? (
+                            <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✗</span>
+                          ) : pick.result === "push" ? (
+                            <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
+                          ) : (
+                            <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>
+                          )}
                         </div>
-                        {pick.result === "win" ? (
-                          <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>
-                        ) : pick.result === "loss" ? (
-                          <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✗</span>
-                        ) : pick.result === "push" ? (
-                          <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
-                        ) : (
-                          <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
