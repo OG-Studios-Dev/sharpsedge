@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getAdminOverviewData } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,24 @@ export default async function AdminOverviewPage() {
           value={`${overview.healthyApis}/${overview.healthChecks.length}`}
           tone={overview.healthyApis === overview.healthChecks.length ? "text-accent-green" : "text-accent-yellow"}
         />
+      </section>
+
+      <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">IT leader review</h2>
+            <p className="mt-1 text-sm text-gray-500">Bug log, unfixed queue, and cron schedule tracking in one place.</p>
+          </div>
+          <Link href="/admin/ops" className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue">
+            Open IT review
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <StatCard label="Bugs logged" value={String(overview.opsSummary.totalBugs)} />
+          <StatCard label="Open bugs" value={String(overview.opsSummary.openBugs)} tone="text-accent-yellow" />
+          <StatCard label="Cron jobs" value={String(overview.opsSummary.cronSchedules)} tone="text-accent-blue" />
+          <StatCard label="Last review" value={overview.opsSummary.lastReviewedAt ? new Date(overview.opsSummary.lastReviewedAt).toLocaleDateString() : "Not yet"} tone="text-gray-200" />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">

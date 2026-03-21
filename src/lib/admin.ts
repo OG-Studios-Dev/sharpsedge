@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase-server";
+import { readAdminOpsData } from "@/lib/admin-ops-store";
 import type { PickHistoryRecord, ProfileRecord, SystemHealthCheck } from "@/lib/supabase-types";
 
 type PickSummary = {
@@ -75,10 +76,11 @@ export async function getSystemHealth() {
 
 export async function getAdminOverviewData() {
   const supabase = createServerClient();
-  const [users, picks, healthChecks] = await Promise.all([
+  const [users, picks, healthChecks, opsData] = await Promise.all([
     supabase.profiles.list(),
     supabase.pickHistory.list(),
     getSystemHealth(),
+    readAdminOpsData(),
   ]);
 
   const pickSummary = summarizePickHistory(picks);
@@ -95,6 +97,12 @@ export async function getAdminOverviewData() {
     pickSummary,
     healthChecks,
     healthyApis: healthChecks.filter((check) => check.ok).length,
+    opsSummary: {
+      totalBugs: opsData.bugs.length,
+      openBugs: opsData.bugs.filter((bug) => bug.status !== "fixed").length,
+      cronSchedules: opsData.cronSchedules.length,
+      lastReviewedAt: opsData.lastReviewedAt,
+    },
   };
 }
 

@@ -25,3 +25,11 @@
 - `/api/picks/history` and the history/admin UI now surface reconstructed and incomplete slates instead of masking them with file-backed fallback behavior.
 - Local verification passed: `node --test --experimental-strip-types src/lib/pick-history-integrity.test.mts`, `npx tsc --noEmit`, and `npm run build`.
 - Manual follow-up is still required in live Supabase: run the updated `scripts/setup-supabase.sql`, then explicitly relabel/seed the 2026-03-17 and 2026-03-18 reconstructed slates in `pick_history`/`pick_slates`.
+
+# Admin ops page — 2026-03-21
+- [x] Inspect current admin dashboard structure and nav
+- [x] Add IT leader / ops review page in admin
+- [x] Create persistent bug log store with status/owner/severity
+- [x] Surface open bugs as a dedicated unfixed queue
+- [x] Add cron schedule section with add/edit controls
+- [x] Build and verify admin routes

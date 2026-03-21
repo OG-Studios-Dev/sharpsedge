@@ -1,0 +1,53 @@
+{
+  "lastReviewedAt": null,
+  "bugs": [
+    {
+      "id": "bug_team_pages_multi_sport",
+      "title": "Generic team page only handled NHL routes",
+      "summary": "MLB drill-downs like /team/OAK rendered 'Team not found' because the generic team page and API were NHL-only.",
+      "area": "Drill-downs / Team Pages",
+      "severity": "high",
+      "status": "fixed",
+      "owner": "Magoo",
+      "source": "Marco screenshot / QA",
+      "foundAt": "2026-03-21T05:40:00.000Z",
+      "updatedAt": "2026-03-21T05:50:00.000Z"
+    },
+    {
+      "id": "bug_full_site_qa_backlog",
+      "title": "Full admin QA backlog needs structured tracking",
+      "summary": "Bugs and cron jobs were being tracked ad hoc in chat instead of in one IT review surface.",
+      "area": "Admin / Operations",
+      "severity": "medium",
+      "status": "in_progress",
+      "owner": "Magoo",
+      "source": "Marco request",
+      "foundAt": "2026-03-21T13:05:00.000Z",
+      "updatedAt": "2026-03-21T13:05:00.000Z"
+    }
+  ],
+  "cronSchedules": [
+    {
+      "id": "cron_goosalytics_qa_cycle",
+      "name": "QA cycle",
+      "schedule": "9AM / 2PM / 7PM ET daily",
+      "purpose": "Run structured QA checks across pages, picks, APIs, and odds coverage.",
+      "owner": "QA team",
+      "target": "Site + API sweep",
+      "enabled": true,
+      "notes": "Keep this aligned with heartbeat + any Vercel cron coverage.",
+      "updatedAt": "2026-03-21T13:05:00.000Z"
+    },
+    {
+      "id": "cron_pga_scrape",
+      "name": "PGA DataGolf scrape",
+      "schedule": "6AM ET (tournament windows)",
+      "purpose": "Refresh cached tournament data before picks generation.",
+      "owner": "Golf pipeline",
+      "target": "datagolf_cache",
+      "enabled": true,
+      "notes": "Needs monitoring when source pages change.",
+      "updatedAt": "2026-03-21T13:05:00.000Z"
+    }
+  ]
+}
