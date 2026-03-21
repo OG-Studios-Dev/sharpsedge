@@ -29,20 +29,30 @@ function statusPill(status: TrackedSystem["status"]) {
   return "border-sky-500/30 bg-sky-500/10 text-sky-300";
 }
 
-function readinessTone(isReady: boolean) {
-  return isReady
-    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-    : "border-amber-500/30 bg-amber-500/10 text-amber-300";
+function trackabilityPill(trackability: TrackedSystem["trackabilityBucket"]) {
+  if (trackability === "trackable_now") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  if (trackability === "blocked_missing_data") return "border-red-500/30 bg-red-500/10 text-red-300";
+  return "border-amber-500/30 bg-amber-500/10 text-amber-300";
 }
 
 function formatStatus(status: TrackedSystem["status"]) {
   return status.replaceAll("_", " ");
 }
 
+function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
+  if (trackability === "trackable_now") return "Trackable now";
+  if (trackability === "blocked_missing_data") return "Blocked by missing data";
+  return "Parked / definition only";
+}
+
 export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague = "All" }: Props) {
   const filteredSystems = activeLeague === "All"
     ? systems
     : systems.filter((system) => system.league === activeLeague);
+
+  const trackableCount = filteredSystems.filter((system) => system.trackabilityBucket === "trackable_now").length;
+  const parkedCount = filteredSystems.filter((system) => system.trackabilityBucket === "parked_definition_only").length;
+  const blockedCount = filteredSystems.filter((system) => system.trackabilityBucket === "blocked_missing_data").length;
 
   return (
     <div className="space-y-5 px-4 py-4 lg:px-0">
@@ -52,21 +62,34 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-blue/80">Systems Tracking</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white lg:text-4xl">Compact system catalog, honest tracking.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300 lg:text-base">
-              Browse the current Goosalytics system library by league, see what is actually live versus definition-only, and drill into the full rules and notes on each system page.
+              Browse the Goosalytics system library by league, see which ideas are live versus parked versus blocked, and drill into the exact unlock notes before we claim anything is trackable.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:min-w-[620px]">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Systems live</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{systems.length}</p>
-              <p className="mt-2 text-xs text-gray-400">Catalog is seeded across NBA, NHL, MLB, and NFL.</p>
+              <p className="meta-label">Catalog total</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{filteredSystems.length}</p>
+              <p className="mt-2 text-xs text-gray-400">{activeLeague === "All" ? "Across NBA, NHL, MLB, and NFL." : `${activeLeague} systems only.`}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Store updated</p>
-              <p className="mt-2 text-base font-semibold text-white">{formatUpdatedAt(updatedAt)}</p>
-              <p className="mt-2 text-xs text-gray-400">File-backed from data/systems-tracking.json.</p>
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-sm">
+              <p className="meta-label">Trackable now</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{trackableCount}</p>
+              <p className="mt-2 text-xs text-emerald-200/75">Live/tracked systems only.</p>
+            </div>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 backdrop-blur-sm">
+              <p className="meta-label">Parked</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{parkedCount}</p>
+              <p className="mt-2 text-xs text-amber-200/75">Definition exists, rules still need work.</p>
+            </div>
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 backdrop-blur-sm">
+              <p className="meta-label">Blocked</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{blockedCount}</p>
+              <p className="mt-2 text-xs text-red-200/75">Missing feed, source, or pricing inputs.</p>
             </div>
           </div>
+        </div>
+        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
+          Store updated {formatUpdatedAt(updatedAt)} • File-backed from data/systems-tracking.json.
         </div>
       </section>
 
@@ -74,7 +97,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="section-heading">League filter</p>
-            <p className="mt-1 text-sm text-gray-400">Tight overview first. Full rules live on each detail page.</p>
+            <p className="mt-1 text-sm text-gray-400">Keep it scannable here. Full rules and unlock notes live on each detail page.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {SYSTEM_LEAGUES.map((league) => {
@@ -106,6 +129,9 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
           filteredSystems.map((system) => {
             const metrics = getSystemDerivedMetrics(system);
             const snapshot = getSystemSnapshot(system);
+            const compactUnlock = system.trackabilityBucket === "trackable_now"
+              ? "Live rows are tracked honestly; missing fields stay unresolved instead of guessed."
+              : (system.unlockNotes[0] || system.automationStatusDetail);
 
             return (
               <Link
@@ -118,6 +144,9 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.league}</span>
                       <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.category}</span>
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${trackabilityPill(system.trackabilityBucket)}`}>
+                        {formatTrackability(system.trackabilityBucket)}
+                      </span>
                       <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${statusPill(system.status)}`}>
                         {formatStatus(system.status)}
                       </span>
@@ -125,7 +154,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
 
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <h2 className="text-xl font-semibold text-white">{system.name}</h2>
-                      <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${readinessTone(metrics.ingestionReady)}`}>
+                      <span className="w-fit rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300">
                         {system.automationStatusLabel}
                       </span>
                     </div>
@@ -151,9 +180,9 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <p className="mt-1 text-xs text-gray-500">Stored qualifiers or record rows.</p>
                     </div>
                     <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                      <p className="meta-label">Data readiness</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{system.automationStatusLabel}</p>
-                      <p className="mt-1 text-xs text-gray-500">{system.automationStatusDetail}</p>
+                      <p className="meta-label">What blocks or unlocks it</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{formatTrackability(system.trackabilityBucket)}</p>
+                      <p className="mt-1 text-xs text-gray-500">{compactUnlock}</p>
                     </div>
                   </div>
                 </div>

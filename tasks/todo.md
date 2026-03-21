@@ -65,3 +65,12 @@
 - `npm run build` passed locally.
 - `/systems` now reads from a file-backed store and ships an honest first-pass state for the NBA Goose System.
 - Metrics intentionally remain placeholder/awaiting data unless quarter-line-backed rows exist in the store.
+
+# Systems catalog expansion + park/discard pass — 2026-03-21
+- [x] Expand seeded catalog across NHL / NBA / MLB / NFL using fun public-facing system names
+- [x] Mark each system clearly as trackable now, parked/definition-only, or blocked by missing data
+- [x] For every blocked system, add exact missing-data notes and the source/input needed to unlock tracking later
+- [x] Keep main `/systems` page compact while surfacing readiness/trackability at a glance
+- [x] Ensure detail pages explain why a system is parked instead of pretending it is live
+- [x] Run `npm run build` and review live drill-down UX
+- [ ] Commit cleanly after review

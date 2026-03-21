@@ -10,6 +10,12 @@ function statusPill(status: TrackedSystem["status"]) {
   return "border-sky-500/30 bg-sky-500/10 text-sky-300";
 }
 
+function trackabilityPill(trackability: TrackedSystem["trackabilityBucket"]) {
+  if (trackability === "trackable_now") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  if (trackability === "blocked_missing_data") return "border-red-500/30 bg-red-500/10 text-red-300";
+  return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+}
+
 function requirementPill(status: DataRequirementStatus) {
   if (status === "ready") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
   if (status === "partial") return "border-amber-500/30 bg-amber-500/10 text-amber-300";
@@ -18,6 +24,12 @@ function requirementPill(status: DataRequirementStatus) {
 
 function formatStatus(status: TrackedSystem["status"]) {
   return status.replaceAll("_", " ");
+}
+
+function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
+  if (trackability === "trackable_now") return "Trackable now";
+  if (trackability === "blocked_missing_data") return "Blocked by missing data";
+  return "Parked / definition only";
 }
 
 function formatPercent(value: number | null) {
@@ -89,6 +101,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
 export default function SystemDetailBoard({ system, updatedAt }: { system: TrackedSystem; updatedAt: string }) {
   const metrics = getSystemDerivedMetrics(system);
   const metricsAwaitingLines = !metrics.trackableGames;
+  const isTrackableNow = system.trackabilityBucket === "trackable_now";
 
   return (
     <div className="space-y-5 px-4 py-4 lg:px-0">
@@ -103,6 +116,9 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.league}</span>
               <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.category}</span>
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${trackabilityPill(system.trackabilityBucket)}`}>
+                {formatTrackability(system.trackabilityBucket)}
+              </span>
               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${statusPill(system.status)}`}>
                 {formatStatus(system.status)}
               </span>
@@ -114,8 +130,8 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
 
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[340px]">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Automation</p>
-              <p className="mt-2 text-base font-semibold text-white">{system.automationStatusLabel}</p>
+              <p className="meta-label">Trackability</p>
+              <p className="mt-2 text-base font-semibold text-white">{formatTrackability(system.trackabilityBucket)}</p>
               <p className="mt-2 text-xs text-gray-400">{system.automationStatusDetail}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
@@ -189,6 +205,44 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
           <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
+                <p className="section-heading">Trackability</p>
+                <h2 className="mt-2 text-lg font-semibold text-white">Readiness and unlock path</h2>
+              </div>
+              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${trackabilityPill(system.trackabilityBucket)}`}>
+                {formatTrackability(system.trackabilityBucket)}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
+              <p className="meta-label">Current state</p>
+              <p className="mt-2 text-base font-semibold text-white">{system.automationStatusLabel}</p>
+              <p className="mt-2 text-sm leading-6 text-gray-400">{system.automationStatusDetail}</p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {isTrackableNow ? (
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="text-sm font-semibold text-white">Live now</p>
+                  <p className="mt-2 text-sm leading-6 text-emerald-100/80">
+                    This system is actively trackable in the product today. Missing fields stay unresolved rather than guessed, so honest tracking wins over fake completeness.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
+                  <p className="meta-label">What we need to unlock this</p>
+                  <div className="mt-3 space-y-2">
+                    {system.unlockNotes.map((note) => (
+                      <p key={note} className="text-sm leading-6 text-gray-300">• {note}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
                 <p className="section-heading">Source Notes</p>
                 <h2 className="mt-2 text-lg font-semibold text-white">Attribution and model context</h2>
               </div>
@@ -207,7 +261,7 @@ export default function SystemDetailBoard({ system, updatedAt }: { system: Track
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="section-heading">Data Requirements</p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Readiness and automation status</h2>
+                <h2 className="mt-2 text-lg font-semibold text-white">Inputs feeding honest automation</h2>
               </div>
               <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${metrics.ingestionReady ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300"}`}>
                 {metrics.ingestionReady ? "ready" : system.automationStatusLabel}
