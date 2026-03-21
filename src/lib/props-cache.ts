@@ -40,6 +40,8 @@ type DailyPropOddsResult = {
   availableCount: number;
 };
 
+const inMemoryDailyPropsCache = new Map<string, DailyPropsCacheFile>();
+
 const SPORT_CONFIG: Record<PropsLeague, { sportKey: string; markets: string }> = {
   NHL: {
     sportKey: "icehockey_nhl",
@@ -89,36 +91,58 @@ function normalizeEventIds(eventIds: Array<string | undefined | null>) {
   ));
 }
 
+function normalizeDailyPropsCache(date: string, parsed?: Partial<DailyPropsCacheFile> | null) {
+  if (!parsed || parsed.date !== date) return buildEmptyCache(date);
+
+  return {
+    date,
+    quota: parsed.quota ?? null,
+    leagues: {
+      NHL: {
+        blockedAt: parsed.leagues?.NHL?.blockedAt ?? null,
+        fetchedAt: parsed.leagues?.NHL?.fetchedAt ?? null,
+        events: parsed.leagues?.NHL?.events ?? {},
+      },
+      NBA: {
+        blockedAt: parsed.leagues?.NBA?.blockedAt ?? null,
+        fetchedAt: parsed.leagues?.NBA?.fetchedAt ?? null,
+        events: parsed.leagues?.NBA?.events ?? {},
+      },
+    },
+  } satisfies DailyPropsCacheFile;
+}
+
 async function readDailyPropsCache(date: string) {
+  const inMemory = inMemoryDailyPropsCache.get(date);
+  if (inMemory) return normalizeDailyPropsCache(date, inMemory);
+
   try {
     const raw = await readFile(getCachePath(date), "utf8");
     const parsed = JSON.parse(raw) as Partial<DailyPropsCacheFile> | null;
-    if (!parsed || parsed.date !== date) return buildEmptyCache(date);
-
-    return {
-      date,
-      quota: parsed.quota ?? null,
-      leagues: {
-        NHL: {
-          blockedAt: parsed.leagues?.NHL?.blockedAt ?? null,
-          fetchedAt: parsed.leagues?.NHL?.fetchedAt ?? null,
-          events: parsed.leagues?.NHL?.events ?? {},
-        },
-        NBA: {
-          blockedAt: parsed.leagues?.NBA?.blockedAt ?? null,
-          fetchedAt: parsed.leagues?.NBA?.fetchedAt ?? null,
-          events: parsed.leagues?.NBA?.events ?? {},
-        },
-      },
-    } satisfies DailyPropsCacheFile;
+    const normalized = normalizeDailyPropsCache(date, parsed);
+    inMemoryDailyPropsCache.set(date, normalized);
+    return normalized;
   } catch {
-    return buildEmptyCache(date);
+    const empty = buildEmptyCache(date);
+    inMemoryDailyPropsCache.set(date, empty);
+    return empty;
   }
 }
 
 async function writeDailyPropsCache(cache: DailyPropsCacheFile) {
-  await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(getCachePath(cache.date), JSON.stringify(cache, null, 2), "utf8");
+  inMemoryDailyPropsCache.set(cache.date, cache);
+
+  try {
+    await mkdir(DATA_DIR, { recursive: true });
+    await writeFile(getCachePath(cache.date), JSON.stringify(cache, null, 2), "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("EROFS") || message.toLowerCase().includes("read-only")) {
+      console.warn("[props-cache] filesystem cache unavailable, using in-memory cache", { message });
+      return;
+    }
+    throw error;
+  }
 }
 
 async function probeOddsApiQuota() {
