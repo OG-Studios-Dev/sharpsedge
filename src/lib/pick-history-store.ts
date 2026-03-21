@@ -311,7 +311,26 @@ async function patchPickHistoryRow(filterColumn: "id" | "pick_id", pickId: strin
 }
 
 function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord[]): PickSlateFetchResult {
-  const mergedSlate = mergeSlateRecords(slate ? [slate] : [], records)[0] ?? null;
+  const syntheticSlate = records.length ? buildSyntheticSlateRecord(records[0].date, records[0].league, records) : null;
+  const mergedSlate = (() => {
+    if (!slate) return syntheticSlate;
+    if (!syntheticSlate) return slate;
+
+    if (
+      syntheticSlate.pick_count > slate.pick_count
+      || (syntheticSlate.integrity_status === "ok" && slate.integrity_status !== "ok")
+    ) {
+      return {
+        ...slate,
+        ...syntheticSlate,
+        locked_at: slate.locked_at,
+        created_at: slate.created_at,
+        updated_at: slate.updated_at ?? syntheticSlate.updated_at,
+      };
+    }
+
+    return slate;
+  })();
 
   return {
     slate: mergedSlate,
