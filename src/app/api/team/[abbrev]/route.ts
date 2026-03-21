@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTeamStandings, getTeamRecentGames, getTeamRoster } from "@/lib/nhl-api";
-import { getMLBStandings, getMLBTeamRoster, MLB_TEAM_IDS, MLB_TEAM_COLORS } from "@/lib/mlb-api";
+import { getMLBStandings, getMLBTeamRoster, MLB_TEAM_IDS } from "@/lib/mlb-api";
 
 export async function GET(
   _req: Request,
@@ -47,19 +47,24 @@ export async function GET(
               goalsFor: mlbStanding.runsScored ?? 0,
               goalsAgainst: mlbStanding.runsAllowed ?? 0,
               streakCode: mlbStanding.streak || "",
+              otLosses: 0,
+              winPct: mlbStanding.winPct,
+              gamesBack: mlbStanding.gamesBack,
+              homeRecord: mlbStanding.homeRecord,
+              awayRecord: mlbStanding.awayRecord,
             }
           : null,
         recentGames: [],
         roster: mlbRoster.map((p) => ({
           id: p.id,
-          firstName: { default: (p.name || "").split(" ")[0] },
-          lastName: { default: (p.name || "").split(" ").slice(1).join(" ") },
+          firstName: { default: p.name.split(" ")[0] },
+          lastName: { default: p.name.split(" ").slice(1).join(" ") },
           positionCode: p.position || "?",
           sweaterNumber: p.jerseyNumber ? parseInt(String(p.jerseyNumber)) : undefined,
         })),
       });
     } catch {
-      // MLB API failed, return empty
+      // MLB API failed
     }
   }
 
