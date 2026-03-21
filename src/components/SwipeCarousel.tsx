@@ -61,7 +61,7 @@ export default function SwipeCarousel({
         {children.map((child, index) => (
           <div
             key={index}
-            className="w-[85%] min-w-[85%] snap-start sm:w-[80%] sm:min-w-[80%] lg:w-[48%] lg:min-w-[48%]"
+            className="w-full min-w-full snap-start sm:w-[85%] sm:min-w-[85%] lg:w-[48%] lg:min-w-[48%]"
           >
             {child}
           </div>
