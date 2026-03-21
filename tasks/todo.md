@@ -250,3 +250,19 @@
 - [x] Reuse the shared systems tracker/store to generate and persist qualifier rows for both systems from current NBA rails
 - [x] Wire systems pages to refresh all trackable systems, not just Goose
 - [x] Verify with targeted refresh/build, then commit locally without pushing
+
+# Cross-sport data layer foundation — 2026-03-21
+- [x] Lock the data-source roadmap into repo docs so implementation order stays honest
+- [x] Add a reusable market snapshot/archive foundation for aggregated odds boards (schema + store + API route)
+- [x] Capture source freshness/metadata so future scrapers and paid feeds can plug into the same model
+- [x] Add a Supabase migration for durable market snapshot storage with safe read/service-role write policies
+- [x] Build and verify locally
+- [x] Commit cleanly with a clear message
+
+Review
+- Added `docs/CROSS-SPORT-DATA-LAYER.md` to document the first concrete cross-sport snapshot rail and keep scope honest.
+- Added `src/lib/market-snapshot-store.ts` to normalize aggregated boards into snapshot/event/price records, archive them locally by day, and optionally write the same payloads to Supabase when service-role env vars exist.
+- Added `src/app/api/odds/aggregated/snapshot/route.ts` for manual/API/cron-triggered capture without changing the existing aggregated odds endpoint behavior.
+- Extended `src/app/api/odds/aggregated/route.ts` to expose lightweight source/freshness metadata with the live board response.
+- Added `scripts/create-market-snapshots.sql` for durable snapshot tables, indexes, and public-read/service-role-write RLS.
+- Verified with `npm run build`.
