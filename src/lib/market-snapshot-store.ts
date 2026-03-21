@@ -490,6 +490,27 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     source_age_minutes: price.sourceAgeMinutes,
   }));
 
+  const parseSupabaseInsertError = async (response: Response, table: string) => {
+    let details = "";
+
+    try {
+      const payload = await response.json() as {
+        message?: string;
+        error?: string;
+        hint?: string;
+        details?: string;
+        code?: string;
+      };
+      details = [payload.code, payload.message || payload.error, payload.details, payload.hint]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(" | ");
+    } catch {
+      // ignore malformed/non-json payloads
+    }
+
+    throw new Error(`${table} insert failed (${response.status})${details ? `: ${details}` : ""}`);
+  };
+
   try {
     const snapshotResponse = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/market_snapshots`, {
       method: "POST",
@@ -498,7 +519,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
       cache: "no-store",
     });
     if (!snapshotResponse.ok) {
-      throw new Error(`market_snapshots insert failed (${snapshotResponse.status})`);
+      await parseSupabaseInsertError(snapshotResponse, "market_snapshots");
     }
 
     if (eventRows.length) {
@@ -509,7 +530,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
         cache: "no-store",
       });
       if (!eventsResponse.ok) {
-        throw new Error(`market_snapshot_events insert failed (${eventsResponse.status})`);
+        await parseSupabaseInsertError(eventsResponse, "market_snapshot_events");
       }
     }
 
@@ -521,7 +542,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
         cache: "no-store",
       });
       if (!pricesResponse.ok) {
-        throw new Error(`market_snapshot_prices insert failed (${pricesResponse.status})`);
+        await parseSupabaseInsertError(pricesResponse, "market_snapshot_prices");
       }
     }
 
