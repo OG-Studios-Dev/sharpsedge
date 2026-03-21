@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { Parlay } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import { formatOdds, getHitRateColor } from "@/lib/edge-engine";
+import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 
 export default function ParlayCard({ parlay }: { parlay: Parlay }) {
   return (
@@ -15,9 +17,11 @@ export default function ParlayCard({ parlay }: { parlay: Parlay }) {
       <div className="space-y-2">
         {parlay.legs.map((leg, i) => (
           <div key={i} className="flex items-center gap-2.5">
-            <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+            <Link href={getTeamHref(leg.team, leg.league || parlay.league)}>
+              <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+            </Link>
             <span className="text-white text-[13px]">
-              <span className="font-semibold">{leg.playerName}:</span>
+              <Link href={getPlayerHref(leg.playerId)} className="font-semibold hover:text-accent-blue transition-colors">{leg.playerName}</Link>:
               {" "}{leg.overUnder} {leg.line} {leg.propType}
               {" "}<span className="text-gray-500">{formatOdds(leg.odds)}</span>
             </span>

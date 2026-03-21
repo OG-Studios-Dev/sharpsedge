@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { TeamTrend } from "@/lib/types";
+import { getTeamHref } from "@/lib/drill-down";
 import TeamLogo from "./TeamLogo";
 import { formatOdds } from "@/lib/edge-engine";
 import TrendIndicatorDots from "./TrendIndicatorDots";
@@ -44,17 +45,20 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
         className="tap-button w-full p-4 text-left"
       >
         <div className="flex items-start gap-3">
-          <Link href={`/team/${trend.team.replace(/\s/g, '').slice(0, 3).toUpperCase()}`} onClick={(e) => e.stopPropagation()} className="tap-button -m-1 p-1 rounded-lg">
+          <Link href={getTeamHref(trend.team, trend.league)} onClick={(e) => e.stopPropagation()} className="tap-button -m-1 p-1 rounded-lg">
             <TeamLogo team={trend.team} color={trend.teamColor} size={28} />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <Link href={`/team/${trend.team.replace(/[^A-Z]/g, '').slice(0, 3)}`} onClick={(e) => e.stopPropagation()} className="block">
+                <Link href={getTeamHref(trend.team, trend.league)} onClick={(e) => e.stopPropagation()} className="block">
                   <span className="card-title truncate underline decoration-transparent hover:decoration-white/30 transition-colors">{trend.team}</span>
                 </Link>
                 <div className="mt-1 text-xs text-gray-500">
-                  {trend.team} {trend.isAway ? "@" : "vs"} {trend.opponent}
+                  {trend.team} {trend.isAway ? "@" : "vs"}{" "}
+                  <Link href={getTeamHref(trend.opponent, trend.league)} onClick={(e) => e.stopPropagation()} className="underline decoration-transparent hover:decoration-white/30 transition-colors">
+                    {trend.opponent}
+                  </Link>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] font-semibold text-gray-200">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TrendRow as TrendRowData } from "@/lib/insights";
 import { formatOdds } from "@/lib/edge-engine";
+import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 import TeamLogo from "@/components/TeamLogo";
 
 function renderOdds(row: TrendRowData) {
@@ -10,15 +11,8 @@ function renderOdds(row: TrendRowData) {
 }
 
 function getRowHref(row: TrendRowData): string {
-  if (row.kind === "player" && row.playerId) {
-    return `/player/${row.playerId}`;
-  }
-  if (row.kind === "team" && row.team) {
-    const league = row.league?.toLowerCase();
-    if (league === "nba") return `/nba/team/${row.team}`;
-    return `/team/${row.team}`;
-  }
-  // Fallback to props page
+  if (row.kind === "player") return getPlayerHref(row.playerId);
+  if (row.kind === "team") return getTeamHref(row.team, row.league);
   return "/props";
 }
 

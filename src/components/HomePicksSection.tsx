@@ -7,6 +7,7 @@ import TeamLogo from "./TeamLogo";
 import { AIPick } from "@/lib/types";
 import { computePickRecord } from "@/lib/pick-record";
 import { computePickHistorySummary } from "@/lib/pick-history";
+import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -64,12 +65,15 @@ function formatPickDetail(pick: AIPick): string {
 }
 
 function PickRow({ pick }: { pick: AIPick }) {
+  const teamHref = getTeamHref(pick.team, pick.league);
+  const drillHref = pick.type === "player" && pick.playerId ? getPlayerHref(pick.playerId) : teamHref;
+
   return (
-    <div className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0">
+    <Link href={drillHref} className="flex items-center gap-3 py-2 border-b border-dark-border/40 last:border-0 group">
       <TeamLogo team={pick.team} size={28} color={pick.teamColor} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-white text-xs font-semibold truncate">
+          <p className="text-white text-xs font-semibold truncate group-hover:text-emerald-300 transition-colors">
             {pick.type === "player" ? pick.playerName : formatPickMatchup(pick) || pick.team}
           </p>
           {pick.league && (
@@ -82,7 +86,7 @@ function PickRow({ pick }: { pick: AIPick }) {
         <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
         <ResultPill result={pick.result} />
       </div>
-    </div>
+    </Link>
   );
 }
 

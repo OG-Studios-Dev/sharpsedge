@@ -4,6 +4,7 @@ import TrendIndicatorDots from "./TrendIndicatorDots";
 import TrendSplitBars from "./TrendSplitBars";
 import { PlayerProp } from "@/lib/types";
 import { formatTrendOdds, getPlayerTrendHrefFromProp } from "@/lib/player-trend";
+import { getTeamHref } from "@/lib/drill-down";
 
 export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
   return (
@@ -20,7 +21,9 @@ export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
               <div className="min-w-0">
                 <div className="card-title truncate">{prop.playerName}</div>
                 <div className="mt-1 text-xs text-gray-500">
-                  {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
+                  <Link href={getTeamHref(prop.team, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.team}</Link>
+                  {prop.isAway ? " @ " : " vs "}
+                  <Link href={getTeamHref(prop.opponent, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.opponent}</Link>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-dark-border bg-dark-bg/70 px-2.5 py-1 text-[11px] font-semibold text-gray-200">

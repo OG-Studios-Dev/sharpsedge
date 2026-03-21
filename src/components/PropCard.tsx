@@ -7,6 +7,7 @@ import TeamLogo from "./TeamLogo";
 import SavePickButton from "./SavePickButton";
 import { formatOdds } from "@/lib/edge-engine";
 import { getPlayerTrendHrefFromProp } from "@/lib/player-trend";
+import { getTeamHref } from "@/lib/drill-down";
 import TrendIndicators from "./TrendIndicators";
 import BookBadge from "./BookBadge";
 import { describeBookSavings, hasAlternateBookLines, resolveSelectedBookOdds, sortBookOddsForDisplay } from "@/lib/book-odds";
@@ -58,7 +59,9 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{prop.playerName}</p>
               <p className="mt-1 text-xs text-gray-500">
-                {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
+                <Link href={getTeamHref(prop.team, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.team}</Link>
+                {prop.isAway ? " @ " : " vs "}
+                <Link href={getTeamHref(prop.opponent, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.opponent}</Link>
               </p>
             </div>
           </div>
@@ -137,7 +140,9 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
         {/* Mini info row */}
         <div className="flex items-center gap-2 mt-1.5 ml-10">
           <span className="meta-label normal-case tracking-normal">
-            {prop.team} {prop.isAway ? "@" : "vs"} {prop.opponent}
+            <Link href={getTeamHref(prop.team, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.team}</Link>
+            {prop.isAway ? " @ " : " vs "}
+            <Link href={getTeamHref(prop.opponent, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.opponent}</Link>
           </span>
           {prop.recentGames && prop.recentGames.length > 0 && (
             <div className="flex gap-0.5">

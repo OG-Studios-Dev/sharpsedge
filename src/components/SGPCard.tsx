@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { SGP } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import TrendIndicators from "./TrendIndicators";
 import { formatOdds, getHitRateColor } from "@/lib/edge-engine";
+import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 
 export default function SGPCard({ sgp }: { sgp: SGP }) {
   const trackedSplit = sgp.splits[0];
@@ -31,15 +33,25 @@ export default function SGPCard({ sgp }: { sgp: SGP }) {
         {sgp.legs.map((leg, i) => (
           <div key={i} className="rounded-2xl border border-dark-border/70 bg-dark-bg/45 px-3 py-3">
             <div className="flex items-start gap-2.5">
-              <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+              <Link href={getTeamHref(leg.team, sgp.league)}>
+                <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+              </Link>
               <div className="min-w-0 flex-1">
                 <p className="text-white text-[13px] leading-5">
-                  <span className="font-semibold">{leg.playerName}</span>
+                  <Link href={getPlayerHref(leg.playerId)} className="font-semibold hover:text-accent-blue transition-colors">{leg.playerName}</Link>
                   {" "}{leg.overUnder} {leg.line} {leg.propType}
                 </p>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <span className="text-[10px] text-gray-500">
-                    {leg.opponent ? `${leg.team} vs ${leg.opponent}` : leg.team}
+                    {leg.opponent ? (
+                      <>
+                        <Link href={getTeamHref(leg.team, sgp.league)} className="hover:text-gray-300 transition-colors">{leg.team}</Link>
+                        {" vs "}
+                        <Link href={getTeamHref(leg.opponent, sgp.league)} className="hover:text-gray-300 transition-colors">{leg.opponent}</Link>
+                      </>
+                    ) : (
+                      <Link href={getTeamHref(leg.team, sgp.league)} className="hover:text-gray-300 transition-colors">{leg.team}</Link>
+                    )}
                   </span>
                   {typeof leg.odds === "number" && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-dark-surface border border-dark-border text-gray-300">

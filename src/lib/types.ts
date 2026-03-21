@@ -122,6 +122,7 @@ export type ParlayLeg = {
   total?: number;
   league?: League;
   gameId?: string;
+  playerId?: number;
 };
 
 export type Parlay = {

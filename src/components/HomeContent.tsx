@@ -6,6 +6,7 @@ import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { buildClubRows, buildQuickHitters, buildSGPSuggestions, buildTrendingRows, normalizeSportsLeague, type QuickHitterRow } from "@/lib/insights";
 import { formatOdds } from "@/lib/edge-engine";
+import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 import type { GolfHeadToHeadPrediction, GolfPrediction, GolfValuePlay } from "@/lib/types";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
@@ -29,10 +30,8 @@ import { useAppChrome } from "@/components/AppChromeProvider";
 import { getStaggerStyle } from "@/lib/stagger-style";
 
 function getQuickHitterHref(row: QuickHitterRow): string {
-  if (row.kind === "player" && row.playerId) return `/player/${row.playerId}`;
-  if (row.kind === "team" && row.team) {
-    return row.league?.toLowerCase() === "nba" ? `/nba/team/${row.team}` : `/team/${row.team}`;
-  }
+  if (row.kind === "player") return getPlayerHref(row.playerId);
+  if (row.kind === "team") return getTeamHref(row.team, row.league);
   return "/props";
 }
 

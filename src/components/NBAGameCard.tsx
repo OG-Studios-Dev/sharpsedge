@@ -136,10 +136,10 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
             {/* Away Team */}
             <div className="flex flex-col items-center gap-1.5 text-center">
               <TeamLogo team={awayAbbrev} size={32} color={awayColor} />
-              <span className={`text-sm font-bold ${awayWon ? "text-white" : "text-gray-400"}`}>
+              <Link href={`/nba/team/${awayAbbrev}`} onClick={(e) => e.stopPropagation()} className={`text-sm font-bold hover:underline ${awayWon ? "text-white" : "text-gray-400"}`}>
                 {awayAbbrev}
                 {awayWon && <span className="ml-1 text-accent-green text-[10px]">◄</span>}
-              </span>
+              </Link>
               {(isLive || isFinal) && game.awayScore !== null && (
                 <span className={`text-2xl font-black tabular-nums ${awayWon ? "text-white" : "text-gray-300"}`}>
                   {game.awayScore}
@@ -162,10 +162,10 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
             {/* Home Team */}
             <div className="flex flex-col items-center gap-1.5 text-center">
               <TeamLogo team={homeAbbrev} size={32} color={homeColor} />
-              <span className={`text-sm font-bold ${homeWon ? "text-white" : "text-gray-400"}`}>
+              <Link href={`/nba/team/${homeAbbrev}`} onClick={(e) => e.stopPropagation()} className={`text-sm font-bold hover:underline ${homeWon ? "text-white" : "text-gray-400"}`}>
                 {homeWon && <span className="mr-1 text-accent-green text-[10px]">►</span>}
                 {homeAbbrev}
-              </span>
+              </Link>
               {(isLive || isFinal) && game.homeScore !== null && (
                 <span className={`text-2xl font-black tabular-nums ${homeWon ? "text-white" : "text-gray-300"}`}>
                   {game.homeScore}
