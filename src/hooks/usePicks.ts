@@ -8,7 +8,7 @@ import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/d
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v10";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
 const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
-const GOLF_STORAGE_KEY = "goosalytics_golf_picks_v10";
+const GOLF_STORAGE_KEY = "goosalytics_golf_picks_v11";
 
 // Nuclear clear: wipe ALL old pick keys from localStorage
 if (typeof window !== "undefined") {
