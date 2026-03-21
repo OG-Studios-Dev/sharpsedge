@@ -60,13 +60,21 @@ function parseOffer(odds: ReturnType<typeof makeEmptyBookOdds>, offer: any, home
     ?? outcomes.find((outcome: any) => outcome?.points != null)?.points,
   );
 
-  if ((offerName.includes("match") || offerName.includes("moneyline")) && outcomes.length >= 2) {
+  if ((offerName.includes("match") || offerName.includes("moneyline") || offerName.includes("regular time")) && outcomes.length >= 2) {
     for (const outcome of outcomes) {
       const label = getOutcomeLabel(outcome);
-      const normalized = normalizeTeamName(label, sport);
       const american = decimalToAmerican(toNumber(outcome?.odds) !== null ? Number(outcome.odds) / 1000 : null);
-      if (normalized === homeAbbrev) odds.homeML = american;
-      if (normalized === awayAbbrev) odds.awayML = american;
+      // Kambi 3-way uses "1" (home), "2" (away), "X" (draw) or OT_ONE/OT_TWO types
+      const outcomeType = String(outcome?.type || "").toUpperCase();
+      if (label === "1" || outcomeType === "OT_ONE") {
+        odds.homeML = american;
+      } else if (label === "2" || outcomeType === "OT_TWO") {
+        odds.awayML = american;
+      } else {
+        const normalized = normalizeTeamName(label, sport);
+        if (normalized === homeAbbrev) odds.homeML = american;
+        if (normalized === awayAbbrev) odds.awayML = american;
+      }
     }
   }
 

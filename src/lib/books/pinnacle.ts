@@ -149,21 +149,23 @@ export async function fetchOdds(sport: AggregatedSport): Promise<BookEventOdds[]
 
   try {
     const apiKey = await getApiKey();
-    if (!apiKey) return [];
+    const hdrs = apiKey ? headers(apiKey) : { Accept: "application/json" };
 
     const matchupsRes = await fetch(`${API_BASE}/leagues/${leagueId}/matchups`, {
-      headers: headers(apiKey),
+      headers: hdrs,
       next: { revalidate: 900 },
     });
     if (!matchupsRes.ok) throw new Error(`Pinnacle ${sport} matchups error ${matchupsRes.status}`);
     const matchupsPayload = await matchupsRes.json();
-    const matchups = (Array.isArray(matchupsPayload) ? matchupsPayload : []).filter((matchup: any) => !matchup?.isLive);
+    const matchups = (Array.isArray(matchupsPayload) ? matchupsPayload : []).filter(
+      (matchup: any) => !matchup?.isLive && matchup?.type === "matchup" && Array.isArray(matchup?.participants) && matchup.participants.length === 2,
+    );
 
     const parsed = await Promise.all(
       matchups.map(async (matchup: any) => {
         try {
           const marketsRes = await fetch(`${API_BASE}/matchups/${matchup.id}/markets/related/straight`, {
-            headers: headers(apiKey),
+            headers: hdrs,
             next: { revalidate: 900 },
           });
           if (!marketsRes.ok) return null;

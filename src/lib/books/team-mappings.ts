@@ -45,7 +45,7 @@ const EXTRA_ALIASES: Partial<Record<AggregatedSport, Record<string, string[]>>> 
     SJS: ["SJ Sharks", "San Jose"],
     STL: ["STL Blues"],
     TBL: ["TB Lightning", "Tampa"],
-    VGK: ["Vegas", "VGK Golden Knights"],
+    VGK: ["Vegas", "VGK Golden Knights", "VGS Golden Knights", "VGS"],
   },
   NBA: {
     BKN: ["BK Nets"],
@@ -155,6 +155,12 @@ export function normalizeTeamName(name: string, sport: AggregatedSport): string 
   for (const variant of variantForms(raw)) {
     const match = lookup.get(variant);
     if (match) return match;
+  }
+
+  // Try first token as abbreviation (handles "PIT Penguins", "WPG Jets", etc.)
+  const firstToken = upper.split(/\s+/)[0];
+  if (firstToken && firstToken !== upper && SPORT_ALIAS_MAPS[sport][firstToken]) {
+    return firstToken;
   }
 
   return upper;
