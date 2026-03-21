@@ -41,8 +41,25 @@ function formatStatus(status: TrackedSystem["status"]) {
 
 function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
   if (trackability === "trackable_now") return "Trackable now";
-  if (trackability === "blocked_missing_data") return "Blocked by missing data";
-  return "Parked / definition only";
+  if (trackability === "blocked_missing_data") return "Blocked";
+  return "Parked";
+}
+
+function CompactMetaCard({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "emerald" | "amber" | "red" }) {
+  const toneClass = tone === "emerald"
+    ? "border-emerald-500/20 bg-emerald-500/5"
+    : tone === "amber"
+      ? "border-amber-500/20 bg-amber-500/5"
+      : tone === "red"
+        ? "border-red-500/20 bg-red-500/5"
+        : "border-white/10 bg-white/5";
+
+  return (
+    <div className={`rounded-2xl border px-3 py-2.5 ${toneClass}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">{label}</p>
+      <p className="mt-1.5 text-sm font-semibold text-white">{value}</p>
+    </div>
+  );
 }
 
 export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague = "All" }: Props) {
@@ -55,74 +72,65 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
   const blockedCount = filteredSystems.filter((system) => system.trackabilityBucket === "blocked_missing_data").length;
 
   return (
-    <div className="space-y-5 px-4 py-4 lg:px-0">
-      <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(135deg,rgba(17,23,32,0.98)_0%,rgba(12,17,24,0.98)_54%,rgba(16,38,67,0.94)_100%)] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.35)] lg:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-blue/80">Systems Tracking</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white lg:text-4xl">Compact system catalog, honest tracking.</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-300 lg:text-base">
-              Browse the Goosalytics system library by league, see which ideas are live versus parked versus blocked, and drill into the exact unlock notes before we claim anything is trackable.
-            </p>
+    <div className="space-y-4 px-4 py-3 lg:px-0 lg:py-4">
+      <section className="rounded-[24px] border border-dark-border bg-[linear-gradient(135deg,rgba(17,23,32,0.98)_0%,rgba(12,17,24,0.98)_54%,rgba(16,38,67,0.94)_100%)] p-4 shadow-[0_20px_80px_rgba(0,0,0,0.35)] lg:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-blue/80">Systems</p>
+              <details className="group relative">
+                <summary className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full border border-white/10 bg-white/5 text-[11px] font-semibold text-gray-300 transition hover:border-white/20 hover:text-white">
+                  i
+                </summary>
+                <div className="absolute left-0 top-8 z-10 w-[min(18rem,calc(100vw-3rem))] rounded-2xl border border-white/10 bg-[#0f131b] p-3 text-xs leading-5 text-gray-300 shadow-2xl">
+                  Browse the catalog by league, see what is live vs parked vs blocked, and drill into the detail page for qualifier rules plus unlock notes.
+                </div>
+              </details>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">Systems</h1>
+              <p className="text-xs text-gray-400">Updated {formatUpdatedAt(updatedAt)}</p>
+            </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:min-w-[620px]">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Catalog total</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{filteredSystems.length}</p>
-              <p className="mt-2 text-xs text-gray-400">{activeLeague === "All" ? "Across NBA, NHL, MLB, and NFL." : `${activeLeague} systems only.`}</p>
-            </div>
-            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Trackable now</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{trackableCount}</p>
-              <p className="mt-2 text-xs text-emerald-200/75">Live/tracked systems only.</p>
-            </div>
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Parked</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{parkedCount}</p>
-              <p className="mt-2 text-xs text-amber-200/75">Definition exists, rules still need work.</p>
-            </div>
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-4 backdrop-blur-sm">
-              <p className="meta-label">Blocked</p>
-              <p className="mt-2 text-2xl font-semibold text-white">{blockedCount}</p>
-              <p className="mt-2 text-xs text-red-200/75">Missing feed, source, or pricing inputs.</p>
-            </div>
+
+          <div className="hidden sm:grid sm:grid-cols-4 sm:gap-2">
+            <CompactMetaCard label="Total" value={filteredSystems.length} />
+            <CompactMetaCard label="Trackable" value={trackableCount} tone="emerald" />
+            <CompactMetaCard label="Parked" value={parkedCount} tone="amber" />
+            <CompactMetaCard label="Blocked" value={blockedCount} tone="red" />
           </div>
         </div>
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
-          Store updated {formatUpdatedAt(updatedAt)} • File-backed from data/systems-tracking.json.
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {SYSTEM_LEAGUES.map((league) => {
+            const active = league === activeLeague;
+            return (
+              <Link
+                key={league}
+                href={league === "All" ? "/systems" : `/systems?league=${league}`}
+                className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
+                  active
+                    ? "border-accent-blue/60 bg-accent-blue/15 text-accent-blue"
+                    : "border-dark-border bg-dark-bg/60 text-gray-400 hover:border-white/15 hover:text-white"
+                }`}
+              >
+                {league}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+          <CompactMetaCard label="Total" value={filteredSystems.length} />
+          <CompactMetaCard label="Trackable" value={trackableCount} tone="emerald" />
+          <CompactMetaCard label="Parked" value={parkedCount} tone="amber" />
+          <CompactMetaCard label="Blocked" value={blockedCount} tone="red" />
         </div>
       </section>
 
-      <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="section-heading">League filter</p>
-            <p className="mt-1 text-sm text-gray-400">Keep it scannable here. Full rules and unlock notes live on each detail page.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {SYSTEM_LEAGUES.map((league) => {
-              const active = league === activeLeague;
-              return (
-                <Link
-                  key={league}
-                  href={league === "All" ? "/systems" : `/systems?league=${league}`}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition ${
-                    active
-                      ? "border-accent-blue/60 bg-accent-blue/15 text-accent-blue"
-                      : "border-dark-border bg-dark-bg/60 text-gray-400 hover:border-white/15 hover:text-white"
-                  }`}
-                >
-                  {league}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-3">
+      <section className="space-y-2.5">
         {filteredSystems.length === 0 ? (
-          <div className="rounded-[28px] border border-dashed border-dark-border bg-dark-surface/40 p-5 text-sm text-gray-400">
+          <div className="rounded-[24px] border border-dashed border-dark-border bg-dark-surface/40 p-5 text-sm text-gray-400">
             No systems are seeded for {activeLeague} yet.
           </div>
         ) : (
@@ -137,24 +145,24 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
               <Link
                 key={system.id}
                 href={`/systems/${system.slug}`}
-                className="block rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_16px_60px_rgba(0,0,0,0.24)] transition hover:border-white/15 hover:bg-dark-surface/90 lg:p-5"
+                className="block rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-3.5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] transition hover:border-white/15 hover:bg-dark-surface/90 lg:p-4"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.league}</span>
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400">{system.category}</span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${trackabilityPill(system.trackabilityBucket)}`}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">{system.league}</span>
+                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">{system.category}</span>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${trackabilityPill(system.trackabilityBucket)}`}>
                         {formatTrackability(system.trackabilityBucket)}
                       </span>
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] ${statusPill(system.status)}`}>
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${statusPill(system.status)}`}>
                         {formatStatus(system.status)}
                       </span>
                     </div>
 
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h2 className="text-xl font-semibold text-white">{system.name}</h2>
-                      <span className="w-fit rounded-full border border-dark-border bg-dark-bg/60 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <h2 className="text-lg font-semibold text-white sm:text-xl">{system.name}</h2>
+                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-300">
                         {system.automationStatusLabel}
                       </span>
                     </div>
@@ -162,28 +170,25 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                     <p className="mt-2 text-sm leading-6 text-gray-300">{system.summary}</p>
                   </div>
 
-                  <div className="shrink-0 rounded-2xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2 text-xs font-semibold text-gray-300">
-                    View details →
+                  <div className="shrink-0 rounded-full border border-dark-border/80 bg-dark-bg/60 px-2.5 py-1 text-[11px] font-semibold text-gray-300">
+                    Details →
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.7fr))]">
                   <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                    <p className="meta-label">Rule / Snapshot</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-300">{snapshot}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Quick scan</p>
+                    <p className="mt-1.5 text-sm leading-5 text-gray-300">{snapshot}</p>
                   </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                      <p className="meta-label">Tracked rows</p>
-                      <p className="mt-2 text-lg font-semibold text-white">{metrics.qualifiedGames}</p>
-                      <p className="mt-1 text-xs text-gray-500">Stored qualifiers or record rows.</p>
-                    </div>
-                    <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                      <p className="meta-label">What blocks or unlocks it</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{formatTrackability(system.trackabilityBucket)}</p>
-                      <p className="mt-1 text-xs text-gray-500">{compactUnlock}</p>
-                    </div>
+                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked rows</p>
+                    <p className="mt-1.5 text-base font-semibold text-white">{metrics.qualifiedGames}</p>
+                    <p className="mt-1 text-xs text-gray-500">Stored qualifiers or record rows.</p>
+                  </div>
+                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3 sm:col-span-1 col-span-full">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Unlock note</p>
+                    <p className="mt-1.5 text-sm font-semibold text-white">{formatTrackability(system.trackabilityBucket)}</p>
+                    <p className="mt-1 text-xs leading-5 text-gray-500">{compactUnlock}</p>
                   </div>
                 </div>
               </Link>
