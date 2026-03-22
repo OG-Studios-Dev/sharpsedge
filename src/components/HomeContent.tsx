@@ -25,6 +25,7 @@ import SGPCard from "./SGPCard";
 import TrendRow from "./TrendRow";
 import PageHeader from "@/components/PageHeader";
 import LockedFeature from "@/components/LockedFeature";
+import GolfMarketEdgesSection from "@/components/GolfMarketEdgesSection";
 import { TrendRowSkeleton } from "@/components/LoadingSkeleton";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { getStaggerStyle } from "@/lib/stagger-style";
@@ -335,6 +336,104 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
 
             <div className="space-y-5">
               <SoccerStandingsTable league={soccerLeague} />
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (sportLeague === "PGA") {
+    const golfDashboard = dashboards.golfDashboard;
+    const golfPredictions = golfDashboard?.predictions ?? null;
+    const tournamentId = golfDashboard?.leaderboard?.tournament?.id ?? golfPredictions?.tournament?.id;
+
+    return (
+      <main className="min-h-screen bg-dark-bg pb-24">
+        <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
+          <PageHeader
+            title="Home"
+            subtitle="Current tournament, AI picks, and DataGolf-backed edges."
+            right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+          />
+
+          <div className="space-y-5 px-4 lg:px-0">
+            <div className="rounded-[28px] border border-emerald-500/20 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.16),transparent_35%),linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.32)]">
+              <GolfLeaderboardCard leaderboard={golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
+            </div>
+
+            <HomePicksSection league={sportLeague} />
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)]">
+              <HomeSection
+                title="Tournament AI Picks"
+                subtitle="Best outrights ranked by model probability, combined score, and real edge."
+                href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
+              >
+                {golfPredictions?.players?.length ? (
+                  <GolfPredictionBoard
+                    players={golfPredictions.players}
+                    href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
+                  />
+                ) : (
+                  <EmptyStateCard
+                    eyebrow="PGA Picks"
+                    title="Tournament predictions are still loading"
+                    body="Once DataGolf and live odds sync, outrights and finishing-position value will appear here."
+                    className="mx-0 mt-0"
+                  />
+                )}
+              </HomeSection>
+
+              <HomeSection
+                title="Current Tournament"
+                subtitle="Leaderboard snapshot and tee sheet context for this week’s stop."
+                href="/golf"
+              >
+                <GolfScheduleBoard />
+              </HomeSection>
+            </div>
+
+            <GolfMarketEdgesSection
+              predictions={golfPredictions}
+              href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
+              compact
+            />
+
+            <div className="grid gap-5 lg:grid-cols-2">
+              <HomeSection
+                title="Top Finish Value"
+                subtitle="Top 5, Top 10, and Top 20 spots where the model still sees mispriced value."
+                href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
+              >
+                {golfPredictions?.bestValuePicks?.length ? (
+                  <GolfValueBoard valuePicks={golfPredictions.bestValuePicks} />
+                ) : (
+                  <EmptyStateCard
+                    eyebrow="Value"
+                    title="No finishing-position edges posted yet"
+                    body="When books and model probabilities line up, the best Top 5 / Top 10 / Top 20 edges will show here."
+                    className="mx-0 mt-0"
+                  />
+                )}
+              </HomeSection>
+
+              <HomeSection
+                title="Head-to-Head Edges"
+                subtitle="Model disagreements and matchup spots worth a second look."
+                href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
+              >
+                {golfPredictions?.h2hMatchups?.length ? (
+                  <GolfMatchupBoard matchups={golfPredictions.h2hMatchups} />
+                ) : (
+                  <EmptyStateCard
+                    eyebrow="Matchups"
+                    title="Head-to-head edges pending"
+                    body="This board fills in once matchup markets are available for the current field."
+                    className="mx-0 mt-0"
+                  />
+                )}
+              </HomeSection>
             </div>
           </div>
         </div>
