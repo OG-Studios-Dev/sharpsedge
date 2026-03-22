@@ -117,7 +117,7 @@ export default function PickHistoryPage() {
     <main className="min-h-screen bg-dark-bg pb-24">
       <PageHeader
         title="Pick History"
-        subtitle="All-time AI pick performance."
+        subtitle="All-time AI pick performance. Pick archive is authoritative here; market snapshot history is a separate same-day odds rail and may still be shallow."
       />
 
       <div className="mx-auto max-w-2xl px-4 py-4">

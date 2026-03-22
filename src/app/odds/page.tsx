@@ -13,6 +13,7 @@ import { normalizeSportsLeague } from "@/lib/insights";
 import type { GolfDashboardData } from "@/lib/types";
 import type { AggregatedBookOdds, AggregatedOdds, AggregatedSport } from "@/lib/books/types";
 import { getStaggerStyle } from "@/lib/stagger-style";
+import type { MarketHistoryRail } from "@/lib/market-snapshot-history";
 
 type Tab = "Best Lines" | "Movement" | "Sharp";
 
@@ -23,7 +24,20 @@ type AggregatedResponse = {
   meta: {
     ttlMinutes: number;
     sports: AggregatedSport[];
+    sourceSummary?: {
+      bookCount?: number;
+      books?: string[];
+    };
+    freshness?: {
+      staleSourceCount?: number;
+      maxSourceAgeMinutes?: number | null;
+    };
   };
+};
+
+type HistoryResponse = {
+  gameId: string;
+  history: MarketHistoryRail | null;
 };
 
 function formatOdds(odds?: number | null) {
@@ -187,7 +201,17 @@ function BestLineSummary({ game }: { game: AggregatedOdds }) {
 }
 
 
-function MovementTab({ games }: { games: AggregatedOdds[] }) {
+function formatHistoryTime(value: string) {
+  return new Date(value).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function formatDelta(value: number | null, kind: "odds" | "line") {
+  if (typeof value !== "number" || !Number.isFinite(value) || value === 0) return "—";
+  if (kind === "odds") return `${value > 0 ? "+" : ""}${Math.round(value)}¢`;
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
+function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; movementHistory: Record<string, MarketHistoryRail | null> }) {
   // Build per-game line comparison cards showing highest/lowest for each market
   const gameCards = games
     .filter((g) => (g.books || []).length >= 2)
@@ -276,9 +300,57 @@ function MovementTab({ games }: { games: AggregatedOdds[] }) {
     );
   }
 
+  const historicalCards = gameCards
+    .map(({ game }) => ({ game, history: movementHistory[game.gameId] ?? null }))
+    .filter((entry) => entry.history && entry.history.deltas.length > 0) as Array<{ game: AggregatedOdds; history: MarketHistoryRail }>;
+
   return (
     <div className="space-y-3">
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Line comparison across books — highest vs lowest</p>
+      <div className="rounded-2xl border border-dark-border bg-dark-surface/60 px-4 py-3">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Movement scope</p>
+        <p className="mt-1 text-sm text-gray-300">Cross-book price differences are always live below. Opening vs latest snapshot movement only appears when the same game already has at least two archived captures.</p>
+      </div>
+
+      {historicalCards.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Snapshot history — opening vs latest</p>
+          {historicalCards.map(({ game, history }) => (
+            <div key={`${game.gameId}-history`} className="rounded-xl border border-accent-blue/20 bg-accent-blue/5 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-accent-blue/10">
+                <div>
+                  <span className="text-sm font-bold text-white">{game.awayAbbrev} @ {game.homeAbbrev}</span>
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Open {formatHistoryTime(history.openingCapturedAt)} · Latest {formatHistoryTime(history.latestCapturedAt)} · {history.capturedSnapshots} snapshots
+                  </p>
+                </div>
+                <span className="text-[10px] text-accent-blue">{history.booksTracked.length} books tracked</span>
+              </div>
+              <div className="px-4 py-3 space-y-2">
+                <p className="text-xs text-gray-300">{history.freshnessNote}</p>
+                <p className="text-[11px] text-amber-200">{history.limitationNote}</p>
+                <div className="space-y-2">
+                  {history.deltas.map((delta) => (
+                    <div key={`${delta.book}-${delta.marketType}-${delta.outcome}`} className="rounded-xl border border-dark-border/40 bg-dark-bg/40 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-white">{delta.book} · {delta.outcome} {delta.marketType === "moneyline" ? "ML" : delta.marketType === "spread" ? "Spread" : "Total"}</p>
+                        <div className="flex gap-2 text-[11px]">
+                          <span className="text-gray-400">Odds {formatDelta(delta.oddsDelta, "odds")}</span>
+                          {delta.marketType !== "moneyline" && <span className="text-gray-400">Line {formatDelta(delta.lineDelta, "line")}</span>}
+                        </div>
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-500">
+                        Opening {delta.marketType === "moneyline" ? formatOdds(delta.openingOdds) : `${delta.openingLine ?? "—"} (${formatOdds(delta.openingOdds)})`} → Latest {delta.marketType === "moneyline" ? formatOdds(delta.latestOdds) : `${delta.latestLine ?? "—"} (${formatOdds(delta.latestOdds)})`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Live cross-book comparison — highest vs lowest right now</p>
       {gameCards.map(({ game, lines }) => (
         <div key={game.gameId} className="rounded-xl border border-dark-border bg-dark-surface/70 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-dark-border/50">
@@ -513,6 +585,7 @@ export default function OddsPage() {
   const [tab, setTab] = useState<Tab>("Best Lines");
   const [aggregated, setAggregated] = useState<AggregatedResponse | null>(null);
   const [golfData, setGolfData] = useState<GolfDashboardData | null>(null);
+  const [movementHistory, setMovementHistory] = useState<Record<string, MarketHistoryRail | null>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -520,6 +593,7 @@ export default function OddsPage() {
     setLoading(true);
     setAggregated(null);
     setGolfData(null);
+    setMovementHistory({});
 
     async function load() {
       try {
@@ -531,8 +605,31 @@ export default function OddsPage() {
         }
 
         const response = await fetch("/api/odds/aggregated");
-        const data = await response.json();
-        if (!cancelled) setAggregated(data);
+        const data = await response.json() as AggregatedResponse;
+        if (!cancelled) {
+          setAggregated(data);
+
+          const visibleGames = sportLeague === "All"
+            ? data.games.filter((game) => game.sport !== "PGA")
+            : data.sports[sportLeague as AggregatedSport] || [];
+
+          const historyEntries = await Promise.all(
+            visibleGames.slice(0, 12).map(async (game) => {
+              try {
+                const historyResponse = await fetch(`/api/odds/aggregated/history?gameId=${encodeURIComponent(game.gameId)}`);
+                if (!historyResponse.ok) return [game.gameId, null] as const;
+                const payload = await historyResponse.json() as HistoryResponse;
+                return [game.gameId, payload.history] as const;
+              } catch {
+                return [game.gameId, null] as const;
+              }
+            }),
+          );
+
+          if (!cancelled) {
+            setMovementHistory(Object.fromEntries(historyEntries));
+          }
+        }
       } catch {
       } finally {
         if (!cancelled) setLoading(false);
@@ -610,7 +707,7 @@ export default function OddsPage() {
             <GolfBoard tab={tab} golfData={golfData} />
           ) : tab === "Movement" ? (
             <LockedFeature feature="line_movement" compact>
-              <MovementTab games={displayedGames} />
+              <MovementTab games={displayedGames} movementHistory={movementHistory} />
             </LockedFeature>
           ) : tab === "Sharp" ? (
             <LockedFeature feature="sharp_alerts" compact>
