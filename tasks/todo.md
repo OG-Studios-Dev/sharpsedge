@@ -36,7 +36,7 @@
 # Next wave — systems intelligence push — 2026-03-21
 - [ ] Strengthen movement/history-driven views with the new snapshot rail and report gaps
 - [x] Build the first honest weighted scoring model for Falcons and report gaps
-- [ ] Build the first actual trigger model for Tony’s Hot Bats and report gaps
+- [x] Build the first actual trigger model for Tony’s Hot Bats and report gaps
 - [x] Define and wire Swaggy’s real entry + price discipline rules and report gaps
 - [ ] Build and commit each completed slice cleanly
 
@@ -46,3 +46,11 @@
 - [x] Add Swaggy qualifier tracker with auditable stored notes and no fake records
 - [x] Update system detail surfaces so the rulebook is visible/auditable
 - [ ] Run build and commit cleanly
+
+# Tony’s Hot Bats trigger model — 2026-03-21
+- [x] Inspect current Tony’s Hot Bats foundation wiring and existing honesty labels
+- [x] Add a conservative recent-offense trigger using only official lineup IDs + MLB hitter game logs + existing environment rails
+- [x] Keep system copy honest: early watchlist / trigger board, not a picks engine or backtest claim
+- [x] Refresh readiness/details so the UI explains what qualifies and what is still missing
+- [x] Run npm run build
+- [ ] Commit locally with a clear message

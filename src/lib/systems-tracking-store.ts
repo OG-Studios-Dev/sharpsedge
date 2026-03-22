@@ -1512,6 +1512,127 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   }
 }
 
+function average(values: number[]) {
+  if (!values.length) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function formatSignedNumber(value: number, digits = 1) {
+  const rounded = Number(value.toFixed(digits));
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(digits)}`;
+}
+
+function extractBullpenFatigueLevel(summary: string | null | undefined) {
+  const text = String(summary || "").toLowerCase();
+  if (text.includes("high fatigue")) return "high" as const;
+  if (text.includes("moderate fatigue")) return "moderate" as const;
+  return "low" as const;
+}
+
+async function getRecentHitterProduction(playerId: string) {
+  const numericId = Number(playerId);
+  if (!Number.isFinite(numericId) || numericId <= 0) {
+    return { games: 0, hitsPerGame: 0, totalBasesPerGame: 0, runsRbiPerGame: 0 };
+  }
+
+  const season = new Date().getFullYear();
+  const logs = await getMLBPlayerGameLog(numericId, season, "hitting");
+  const sample = logs.slice(0, 10);
+  if (!sample.length) {
+    return { games: 0, hitsPerGame: 0, totalBasesPerGame: 0, runsRbiPerGame: 0 };
+  }
+
+  return {
+    games: sample.length,
+    hitsPerGame: Number((average(sample.map((log) => log.hits || 0))).toFixed(2)),
+    totalBasesPerGame: Number((average(sample.map((log) => log.totalBases || 0))).toFixed(2)),
+    runsRbiPerGame: Number((average(sample.map((log) => (log.runs || 0) + (log.rbis || 0)))).toFixed(2)),
+  };
+}
+
+async function buildTonysHotBatsTrigger(game: any) {
+  const lineupSides = [game?.lineups?.away, game?.lineups?.home].filter(Boolean);
+  const officialSides = lineupSides.filter((side: any) => side?.status === "official");
+  if (!officialSides.length) return null;
+
+  const candidates = await Promise.all(officialSides.map(async (side: any) => {
+    const topFour = Array.isArray(side?.players) ? side.players.slice(0, 4) : [];
+    const playerStats = await Promise.all(topFour.map(async (player: any) => ({
+      player,
+      stats: await getRecentHitterProduction(String(player?.playerId || "")),
+    })));
+    const qualifiedStats = playerStats.filter((entry) => entry.stats.games >= 5);
+    if (qualifiedStats.length < 3) return null;
+
+    const avgHits = average(qualifiedStats.map((entry) => entry.stats.hitsPerGame));
+    const avgTotalBases = average(qualifiedStats.map((entry) => entry.stats.totalBasesPerGame));
+    const avgRunsRbi = average(qualifiedStats.map((entry) => entry.stats.runsRbiPerGame));
+
+    const weather = game?.weather;
+    const weatherBoost = weather?.status === "available"
+      && typeof weather?.forecast?.temperatureF === "number"
+      && weather.forecast.temperatureF >= 72
+      && typeof weather?.forecast?.windSpeedMph === "number"
+      && weather.forecast.windSpeedMph <= 15;
+    const park = game?.parkFactor;
+    const parkBoost = park?.status === "available" && typeof park?.metrics?.runs === "number" && park.metrics.runs >= 102;
+    const opponentEntry = side?.teamAbbrev === game?.matchup?.away?.abbreviation ? game?.matchup?.home : game?.matchup?.away;
+    const bullpenLevel = extractBullpenFatigueLevel(opponentEntry?.bullpen?.summary);
+    const bullpenBoost = bullpenLevel !== "low";
+
+    const qualifies = avgHits >= 1.0 && avgTotalBases >= 1.6 && avgRunsRbi >= 0.55 && (weatherBoost || parkBoost || bullpenBoost);
+    const supportCount = [weatherBoost, parkBoost, bullpenBoost].filter(Boolean).length;
+    const score = Math.round(Math.min(100,
+      avgHits * 22
+      + avgTotalBases * 16
+      + avgRunsRbi * 18
+      + supportCount * 8
+      + (qualifiedStats.length >= 4 ? 4 : 0)
+    ));
+
+    return {
+      teamAbbrev: side.teamAbbrev,
+      qualifies,
+      score,
+      qualifiedStats,
+      avgHits: Number(avgHits.toFixed(2)),
+      avgTotalBases: Number(avgTotalBases.toFixed(2)),
+      avgRunsRbi: Number(avgRunsRbi.toFixed(2)),
+      weatherBoost,
+      parkBoost,
+      bullpenBoost,
+      bullpenLevel,
+      supportCount,
+    };
+  }));
+
+  const ranked = candidates.filter(Boolean).sort((a: any, b: any) => (b?.score || 0) - (a?.score || 0));
+  const winner = ranked.find((entry: any) => entry?.qualifies) || null;
+  if (!winner) return null;
+
+  const topHitters = winner.qualifiedStats.map((entry: any) => {
+    const name = entry.player?.name || "Unknown";
+    return `${name} (${entry.stats.games}g: ${entry.stats.hitsPerGame.toFixed(2)} H/G, ${entry.stats.totalBasesPerGame.toFixed(2)} TB/G, ${entry.stats.runsRbiPerGame.toFixed(2)} R+RBI/G)`;
+  });
+
+  const reasons = [
+    `Top-of-order avg ${winner.avgHits.toFixed(2)} H/G`,
+    `${winner.avgTotalBases.toFixed(2)} TB/G`,
+    `${winner.avgRunsRbi.toFixed(2)} R+RBI/G`,
+  ];
+  if (winner.parkBoost) reasons.push("hitter-friendly park");
+  if (winner.weatherBoost) reasons.push("supportive weather");
+  if (winner.bullpenBoost) reasons.push(`${winner.teamAbbrev === game?.matchup?.away?.abbreviation ? game?.matchup?.home?.abbreviation : game?.matchup?.away?.abbreviation} bullpen ${winner.bullpenLevel} fatigue`);
+
+  return {
+    teamAbbrev: winner.teamAbbrev,
+    score: winner.score,
+    label: winner.score >= 75 ? "Strong early trigger" : winner.score >= 62 ? "Live early trigger" : "Borderline early trigger",
+    topHitters,
+    rationale: reasons.join(" • "),
+  };
+}
+
 function getTeamPerspectiveSpread(event: AggregatedOdds, teamAbbrev: string) {
   if (teamAbbrev === event.awayAbbrev) return event.bestAwaySpread?.line ?? null;
   if (teamAbbrev === event.homeAbbrev) return event.bestHomeSpread?.line ?? null;
@@ -2113,11 +2234,18 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
   const board = await getMLBEnrichmentBoard(targetDate);
 
   const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
-  const freshRecords: SystemTrackingRecord[] = (board.games ?? []).map((game: any) => {
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  for (const game of (board.games ?? [])) {
     const lineupStatuses = [game?.lineups?.away?.status, game?.lineups?.home?.status].filter(Boolean);
     const officialCount = lineupStatuses.filter((status: string) => status === "official").length;
     const partialCount = lineupStatuses.filter((status: string) => status === "partial").length;
     const lineupStatus = officialCount === 2
+      ? "official"
+      : officialCount > 0 || partialCount > 0
+        ? "partial"
+        : "unconfirmed";
+    const lineupStatusDetail = officialCount === 2
       ? "Both lineups official in MLB live feed."
       : officialCount > 0
         ? `${officialCount} lineup official, ${partialCount} partial, remainder unconfirmed.`
@@ -2128,7 +2256,6 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
     const weatherSummary = summarizeWeather(game?.weather?.forecast ? {
       ...game.weather.forecast,
       note: game?.weather?.note,
-      condition: game?.weather?.forecast?.condition,
     } : game?.weather);
     const parkFactorSummary = summarizeParkFactor(game?.parkFactor);
     const bullpenSummary = [
@@ -2136,33 +2263,39 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       `${game?.matchup?.home?.abbreviation || "Home"}: ${summarizeBullpen(game?.matchup?.home)}`,
     ].join(" • ");
     const marketAvailability = summarizeMarketAvailability(game);
-    const currentMoneyline = typeof game?.bestMoneyline?.price === "number" ? game.bestMoneyline.price : null;
-    const totalLine = typeof game?.bestTotalLine === "number" ? game.bestTotalLine : null;
+    const currentMoneyline = null;
+    const totalLine = typeof game?.markets?.f5?.total?.line === "number" ? game.markets.f5.total.line : null;
     const f5Summary = typeof game?.markets?.f5?.completeness === "string"
       ? `F5 ${game.markets.f5.completeness}${Array.isArray(game?.markets?.f5?.supportedMarkets) && game.markets.f5.supportedMarkets.length ? ` (${game.markets.f5.supportedMarkets.join(", ")})` : ""}.`
       : "F5 market context unavailable.";
+    const trigger = await buildTonysHotBatsTrigger(game);
 
     const notes = [
-      "Foundation row only — not an official pick.",
-      `Lineups: ${lineupStatus}`,
+      trigger
+        ? `Recent offense trigger: ${trigger.teamAbbrev} • score ${trigger.score}/100 • ${trigger.label}`
+        : "No early trigger qualified from the confirmed top-of-order sample.",
+      `Lineups: ${lineupStatusDetail}`,
       `Weather: ${weatherSummary}`,
       `Park: ${parkFactorSummary}`,
       `Bullpen: ${bullpenSummary}`,
       `Markets: ${marketAvailability}`,
+      trigger ? `Why now: ${trigger.rationale}` : "Why now: waiting on either official lineup IDs, stronger recent production, or a better run environment.",
+      trigger && trigger.topHitters.length ? `Top hitters: ${trigger.topHitters.join(" | ")}` : "Top hitters: official-lineup recent production sample not strong enough yet.",
       `Scope: ${board.scope?.lineups || "Lineup status is conservative."}`,
+      "Label policy: early watchlist only, not an official pick.",
     ].join(" • ");
 
-    return normalizeRecord({
+    freshRecords.push(normalizeRecord({
       id: `${TONYS_HOT_BATS_SYSTEM_ID}:${game.gameId}`,
       gameId: game.gameId,
-      oddsEventId: game?.oddsEventId ?? null,
+      oddsEventId: null,
       gameDate: game.date,
       matchup: `${game?.matchup?.away?.abbreviation || "AWAY"} @ ${game?.matchup?.home?.abbreviation || "HOME"}`,
       roadTeam: game?.matchup?.away?.abbreviation || "AWAY",
       homeTeam: game?.matchup?.home?.abbreviation || "HOME",
-      recordKind: "qualifier",
+      recordKind: trigger ? "alert" : "qualifier",
       marketType: totalLine != null ? "context-total-board" : "context-board",
-      alertLabel: "Context foundation / not a pick",
+      alertLabel: trigger ? "Early trigger watchlist" : "Context board / no trigger",
       currentMoneyline,
       lineupStatus,
       weatherSummary,
@@ -2170,11 +2303,13 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       bullpenSummary,
       f5Summary,
       marketAvailability,
-      source: "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
+      source: trigger
+        ? "Official MLB lineup IDs + MLB hitter game logs + MLB enrichment board"
+        : "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
       notes,
       lastSyncedAt: new Date().toISOString(),
-    });
-  });
+    }));
+  }
 
   system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
