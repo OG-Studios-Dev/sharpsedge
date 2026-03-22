@@ -14,8 +14,8 @@ type Props = {
 
 export default async function SystemDetailPage({ params }: Props) {
   await refreshTrackableSystems().catch(() => null);
-  if (params.slug === "tonys-hot-bats") {
-    await refreshTrackedSystem("tonys-hot-bats").catch(() => null);
+  if (params.slug === "tonys-hot-bats" || params.slug === "swaggy-stretch-drive") {
+    await refreshTrackedSystem(params.slug).catch(() => null);
   }
   const [data, system, nhlContextBoard] = await Promise.all([
     readSystemsTrackingData(),

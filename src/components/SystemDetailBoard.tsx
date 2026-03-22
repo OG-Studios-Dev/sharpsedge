@@ -274,20 +274,55 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
           </section>
 
           {system.slug === "swaggy-stretch-drive" && (
-            <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="section-heading">Live context rails</p>
-                  <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
+            <>
+              <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="section-heading">Swaggy v1 rulebook</p>
+                    <h2 className="mt-2 text-lg font-semibold text-white">Actual entry + price discipline gates</h2>
+                  </div>
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                    qualifier alerts only
+                  </span>
                 </div>
-                <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
-                  sourced + derived
-                </span>
-              </div>
-              <div className="mt-4">
-                <SystemNhlContextBoard board={nhlContextBoard ?? null} />
-              </div>
-            </section>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
+                    <p className="meta-label">Entry side must clear</p>
+                    <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
+                      <p>• Derived playoff-pressure tier = <span className="font-semibold text-white">high</span>.</p>
+                      <p>• Opponent cannot also be tagged <span className="font-semibold text-white">high urgency</span>.</p>
+                      <p>• Sourced MoneyPuck xG% must be <span className="font-semibold text-white">≥ 51.5%</span> and beat opponent by <span className="font-semibold text-white">at least 2 points</span>.</p>
+                      <p>• Starter must be <span className="font-semibold text-white">confirmed or probable</span>, and not flagged as backup.</p>
+                      <p>• Team cannot sit in the extreme fatigue band or trail opponent badly on fatigue.</p>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
+                    <p className="meta-label">Price discipline / honesty policy</p>
+                    <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
+                      <p>• Best available moneyline must be between <span className="font-semibold text-white">-145 and +115</span>.</p>
+                      <p>• Urgency alone never creates a row — xG, goalie, fatigue, and price all have to line up.</p>
+                      <p>• Official-team news is visible for audit, but not yet a hard trigger because impact tagging is still shallow.</p>
+                      <p>• Stored rows are <span className="font-semibold text-white">qualifier alerts</span>, not official picks, not a backtest, and not a fake settled history.</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="section-heading">Live context rails</p>
+                    <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
+                  </div>
+                  <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
+                    sourced + derived
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <SystemNhlContextBoard board={nhlContextBoard ?? null} />
+                </div>
+              </section>
+            </>
           )}
 
           <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">

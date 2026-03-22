@@ -1440,16 +1440,18 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   const rows = system.records.length;
   const officialLineups = system.records.filter((record) => record.lineupStatus === "official").length;
   const partialLineups = system.records.filter((record) => record.lineupStatus === "partial").length;
+  const triggeredRows = system.records.filter((record) => record.alertLabel === "Early trigger watchlist").length;
   const weatherReady = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
   const parkReady = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("missing")).length;
   const bullpenReady = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
   const marketReady = system.records.filter((record) => record.marketType || record.currentMoneyline != null || record.f5Summary).length;
+  const recentOffenseReady = system.records.filter((record) => record.notes?.includes("Recent offense trigger:")).length;
 
   system.status = rows > 0 ? "tracking" : "awaiting_data";
-  system.automationStatusLabel = rows > 0 ? "Foundation context board live" : "Awaiting today's MLB board";
+  system.automationStatusLabel = rows > 0 ? "Early trigger watchlist live" : "Awaiting today's MLB board";
   system.automationStatusDetail = rows > 0
-    ? `${rows} MLB game context row${rows === 1 ? "" : "s"} stored. ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
-    : "Refresh will build a same-day MLB context board from lineups, weather, park factors, bullpen usage, and posted markets when games exist.";
+    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored. ${triggeredRows} early trigger${triggeredRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
+    : "Refresh will build a same-day MLB watchlist from official lineups, recent hitter production, weather, park factors, bullpen usage, and posted markets when games exist.";
 
   const lineupRequirement = findRequirement(system, "Official lineup status");
   if (lineupRequirement) {
@@ -1459,6 +1461,18 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
       : rows > 0
         ? "The board is loading lineup status, but today's games are still partial/unconfirmed in MLB's live feed."
         : "No same-day MLB board has been stored yet.";
+  }
+
+  const topOrderRequirement = findRequirement(system, "Top-of-order hitter game logs");
+  if (topOrderRequirement) {
+    topOrderRequirement.status = recentOffenseReady > 0 ? "ready" : officialLineups > 0 ? "partial" : rows > 0 ? "partial" : "pending";
+    topOrderRequirement.detail = recentOffenseReady > 0
+      ? `${recentOffenseReady} stored row${recentOffenseReady === 1 ? " includes" : "s include"} recent top-of-order hitter scoring built from MLB game logs.`
+      : officialLineups > 0
+        ? "Official lineups exist, but recent hitter sample thresholds did not produce a scored watchlist row yet."
+        : rows > 0
+          ? "The game board exists, but hitter-log scoring cannot finalize until MLB exposes official lineup IDs."
+          : "No same-day MLB board has been stored yet.";
   }
 
   const weatherRequirement = findRequirement(system, "Weather / park context");
@@ -1489,12 +1503,12 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
         : "No same-day MLB board has been stored yet.";
   }
 
-  const offenseRequirement = findRequirement(system, "Rolling offense form model");
-  if (offenseRequirement) {
-    offenseRequirement.status = "pending";
-    offenseRequirement.detail = rows > 0
-      ? "Context rails are now live, but the actual recent-offense trigger logic is still not defined enough to label any row a Hot Bats qualifier."
-      : "Need the actual recent-offense trigger logic before honest qualifiers can exist.";
+  const validationRequirement = findRequirement(system, "Price discipline / validation layer");
+  if (validationRequirement) {
+    validationRequirement.status = "pending";
+    validationRequirement.detail = triggeredRows > 0
+      ? "Watchlist triggers now exist, but they still need price-history discipline, opponent starter context, and tracked outcomes before they can graduate into a validated picks model."
+      : "No watchlist trigger should be treated as a picks model until price-history discipline and validation are added.";
   }
 }
 
