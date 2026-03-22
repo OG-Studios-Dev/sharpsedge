@@ -84,6 +84,12 @@ export type MarketSnapshotRecord = {
   id: string;
   capturedAt: string;
   dateKey: string;
+  health: {
+    status: "healthy" | "stale" | "degraded" | "missing";
+    cadenceMinutes: number | null;
+    expectedCadenceMinutes: number;
+    summary: string;
+  };
   source: string;
   trigger: MarketSnapshotTrigger;
   reason: string | null;
@@ -150,6 +156,37 @@ function getDateKey(iso: string) {
 
 function getSnapshotFilePath(date: string) {
   return path.join(SNAPSHOT_DIR, `${date}.json`);
+}
+
+function deriveSnapshotHealth(capturedAt: string, dateSnapshots: MarketSnapshotRecord[]) {
+  const expectedCadenceMinutes = 60;
+  const prior = [...dateSnapshots]
+    .sort((left, right) => left.capturedAt.localeCompare(right.capturedAt))
+    .filter((entry) => entry.capturedAt < capturedAt)
+    .pop() || null;
+  const cadenceMinutes = prior ? toAgeMinutes(prior.capturedAt, capturedAt) : null;
+  const freshnessStale = dateSnapshots.length > 0 && dateSnapshots[dateSnapshots.length - 1]?.freshness?.staleSourceCount > 0;
+  const status = !prior
+    ? "healthy"
+    : cadenceMinutes != null && cadenceMinutes > expectedCadenceMinutes * 2
+      ? "stale"
+      : freshnessStale
+        ? "degraded"
+        : "healthy";
+  const summary = !prior
+    ? "First snapshot of the day captured."
+    : cadenceMinutes != null && cadenceMinutes > expectedCadenceMinutes * 2
+      ? `Snapshot cadence slipped to ${cadenceMinutes} minutes since prior capture.`
+      : freshnessStale
+        ? "Snapshot captured, but one or more upstream books were already stale."
+        : `Snapshot cadence healthy at ${cadenceMinutes} minutes since prior capture.`;
+
+  return {
+    status,
+    cadenceMinutes,
+    expectedCadenceMinutes,
+    summary,
+  } as const;
 }
 
 function isReadonlyFsError(error: unknown) {
@@ -597,7 +634,7 @@ export function summarizeMarketSnapshotBoard(board: Partial<Record<AggregatedSpo
   };
 }
 
-export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOString(), trigger = "manual", reason = null }: CaptureOptions): MarketSnapshotRecord {
+export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOString(), trigger = "manual", reason = null }: CaptureOptions, existingSnapshots: MarketSnapshotRecord[] = []): MarketSnapshotRecord {
   const dateKey = getDateKey(capturedAt);
   const snapshotId = `market-snapshot:${capturedAt}:${randomUUID().slice(0, 8)}`;
   const events = Object.values(board).flatMap((sportEvents) => sportEvents ?? []);
@@ -605,6 +642,7 @@ export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOSt
   const eventRecords = eventSnapshots.map((entry) => entry.eventRecord);
   const priceRecords = eventSnapshots.flatMap((entry) => entry.prices);
   const metadata = summarizeMarketSnapshotBoard(board, capturedAt);
+  const health = deriveSnapshotHealth(capturedAt, existingSnapshots);
 
   return {
     id: snapshotId,
@@ -613,6 +651,7 @@ export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOSt
     source: SOURCE_NAME,
     trigger,
     reason,
+    health,
     storageVersion: STORAGE_VERSION,
     sportCount: metadata.sportCount,
     gameCount: metadata.gameCount,
@@ -627,8 +666,9 @@ export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOSt
 }
 
 export async function captureMarketSnapshot(options: CaptureOptions): Promise<MarketSnapshotCaptureResult> {
-  const snapshot = normalizeMarketSnapshot(options);
-  const dailyFile = await readDailySnapshotFile(snapshot.dateKey);
+  const capturedAt = options.capturedAt ?? new Date().toISOString();
+  const dailyFile = await readDailySnapshotFile(getDateKey(capturedAt));
+  const snapshot = normalizeMarketSnapshot({ ...options, capturedAt }, dailyFile.snapshots);
   const nextFile: DailyMarketSnapshotFile = {
     date: dailyFile.date,
     snapshots: [...dailyFile.snapshots, snapshot],

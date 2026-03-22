@@ -4,6 +4,7 @@ import { getDateKey } from "@/lib/date-utils";
 import { getUpcomingSchedule, getGameGoalies } from "@/lib/nhl-api";
 import type { GoalieStarter } from "@/lib/nhl-api";
 import type { NHLGame } from "@/lib/types";
+import { buildSourceHealthCheck, summarizeSourceHealth } from "@/lib/source-health";
 
 type CacheEntry<T> = { value: T; expiresAt: number };
 const cache = new Map<string, CacheEntry<unknown>>();
@@ -200,6 +201,17 @@ export type NHLContextBoardResponse = {
   season: string;
   builtAt: string;
   games: NHLContextBoardGame[];
+  availability: {
+    officialAvailabilityApproximation: "team-news-link-tags";
+    note: string;
+    counts: {
+      teamsWithOfficialNewsLinks: number;
+      teamsWithRosterMoveSignals: number;
+      teamsWithGameDaySignals: number;
+      teamsMissingOfficialSignals: number;
+    };
+  };
+  sourceHealth: ReturnType<typeof summarizeSourceHealth>;
   meta: {
     sources: {
       schedule: {
@@ -957,11 +969,70 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
     };
   });
 
+  const teams = boardGames.flatMap((game) => [game.teams.away, game.teams.home]);
+  const availability = {
+    officialAvailabilityApproximation: "team-news-link-tags" as const,
+    note: "Current sustainable NHL availability rail uses official nhl.com team-site links plus source-labeled title tags as a conservative approximation. No player-level injury certainty is inferred from headlines alone.",
+    counts: {
+      teamsWithOfficialNewsLinks: teams.filter((team) => team.sourced.news.items.length > 0).length,
+      teamsWithRosterMoveSignals: teams.filter((team) => team.derived.news.hasRosterMovePost).length,
+      teamsWithGameDaySignals: teams.filter((team) => team.derived.news.hasGameDayPost).length,
+      teamsMissingOfficialSignals: teams.filter((team) => team.sourced.news.items.length === 0).length,
+    },
+  };
+
+  const sourceHealth = summarizeSourceHealth([
+    buildSourceHealthCheck({
+      key: "nhl-schedule",
+      label: "NHL schedule",
+      detail: "Official NHL API schedule rail.",
+      fetchedAt: builtAt,
+      staleAfter: new Date(Date.now() + SCHEDULE_TTL_MS).toISOString(),
+      degraded: boardGames.length === 0,
+    }),
+    buildSourceHealthCheck({
+      key: "nhl-standings",
+      label: "Standings",
+      detail: "Official NHL API standings rail.",
+      fetchedAt: standingsFetchedAt,
+      staleAfter: new Date(Date.now() + DEFAULT_TTL_MS).toISOString(),
+      degraded: standingsByTeam.size === 0,
+    }),
+    buildSourceHealthCheck({
+      key: "moneypuck",
+      label: "MoneyPuck mirror",
+      detail: `MoneyPuck team context loaded from ${moneyPuck.source.kind}.`,
+      fetchedAt: moneyPuck.sourcedAt,
+      staleAfter: moneyPuck.sourcedAt ? new Date(new Date(moneyPuck.sourcedAt).getTime() + MONEYPICK_TTL_MS).toISOString() : null,
+      degraded: moneyPuck.teams.length === 0 || moneyPuck.source.kind === "unavailable",
+    }),
+    buildSourceHealthCheck({
+      key: "goalies",
+      label: "Goalie status",
+      detail: "NHL API probable/confirmed starter rail.",
+      fetchedAt: goalieFetchedAt,
+      staleAfter: new Date(Date.now() + DEFAULT_TTL_MS).toISOString(),
+      degraded: teams.some((team) => !team.sourced.goalie.starter),
+      missingFields: teams.filter((team) => !team.sourced.goalie.starter).map((team) => `${team.teamAbbrev} starter unavailable`),
+    }),
+    buildSourceHealthCheck({
+      key: "official-news",
+      label: "Official team news / availability approximation",
+      detail: availability.note,
+      fetchedAt: builtAt,
+      staleAfter: new Date(Date.now() + DEFAULT_TTL_MS).toISOString(),
+      degraded: availability.counts.teamsMissingOfficialSignals > 0,
+      missingFields: teams.filter((team) => team.sourced.news.items.length === 0).map((team) => `${team.teamAbbrev} official news links missing`),
+    }),
+  ]);
+
   const response: NHLContextBoardResponse = {
     date: boardDate,
     season: inferSeason(),
     builtAt,
     games: boardGames,
+    availability,
+    sourceHealth,
     meta: {
       sources: {
         schedule: {

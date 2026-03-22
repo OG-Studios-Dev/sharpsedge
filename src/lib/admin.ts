@@ -4,6 +4,10 @@ import path from "node:path";
 import { createServerClient } from "@/lib/supabase-server";
 import { readAdminOpsData } from "@/lib/admin-ops-store";
 import type { PickHistoryRecord, ProfileRecord, SystemHealthCheck } from "@/lib/supabase-types";
+import { getDateKey } from "@/lib/date-utils";
+import { readFile } from "node:fs/promises";
+import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
+import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 
 type PickSummary = {
   wins: number;
@@ -65,6 +69,93 @@ export function getEnvironmentStatus() {
   ];
 }
 
+async function getMarketSnapshotHealth(): Promise<SystemHealthCheck> {
+  try {
+    const dateKey = getDateKey();
+    const raw = await readFile(path.join(process.cwd(), "data", "market-snapshots", `${dateKey}.json`), "utf8");
+    const parsed = JSON.parse(raw);
+    const snapshots = Array.isArray(parsed?.snapshots) ? parsed.snapshots : [];
+    const latest = snapshots.at(-1) || null;
+    if (!latest) {
+      return {
+        name: "Market snapshot cadence",
+        ok: false,
+        status: "missing",
+        detail: "No market snapshot captured for today yet.",
+        checkedAt: new Date().toISOString(),
+        freshnessSummary: "Daily market snapshot file exists without captures.",
+      };
+    }
+    return {
+      name: "Market snapshot cadence",
+      ok: latest.health?.status === "healthy",
+      status: latest.health?.status || "missing",
+      detail: latest.health?.summary || "Market snapshot health unavailable.",
+      checkedAt: new Date().toISOString(),
+      lastSuccessAt: latest.capturedAt,
+      freshnessSummary: latest.freshness?.staleSourceCount ? `${latest.freshness.staleSourceCount} stale upstream source entries on latest capture.` : "Latest capture had no stale upstream source entries.",
+    };
+  } catch {
+    return {
+      name: "Market snapshot cadence",
+      ok: false,
+      status: "missing",
+      detail: "Market snapshot archive missing for today.",
+      checkedAt: new Date().toISOString(),
+      freshnessSummary: "No local daily market snapshot file found.",
+    };
+  }
+}
+
+async function getMLBEnrichmentHealth(): Promise<SystemHealthCheck> {
+  try {
+    const board = await getMLBEnrichmentBoard();
+    const degradedGames = (board.games || []).filter((game: any) => game?.sourceHealth?.status && game.sourceHealth.status !== "healthy");
+    return {
+      name: "MLB enrichment board",
+      ok: degradedGames.length === 0,
+      status: degradedGames.length ? "degraded" : "healthy",
+      detail: degradedGames.length
+        ? `${degradedGames.length} MLB game(s) have degraded source rails today.`
+        : "MLB enrichment board rails healthy for today.",
+      checkedAt: new Date().toISOString(),
+      lastSuccessAt: board.generatedAt,
+      freshnessSummary: `${board.gamesCount} game(s) checked for lineups, weather, bullpen, F5, and probable starters.`,
+    };
+  } catch (error) {
+    return {
+      name: "MLB enrichment board",
+      ok: false,
+      status: "missing",
+      detail: error instanceof Error ? error.message : "MLB enrichment board unavailable",
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
+
+async function getNHLAvailabilityHealth(): Promise<SystemHealthCheck> {
+  try {
+    const board = await getTodayNHLContextBoard();
+    return {
+      name: "NHL official availability rail",
+      ok: board.sourceHealth.status === "healthy",
+      status: board.sourceHealth.status,
+      detail: board.availability.note,
+      checkedAt: new Date().toISOString(),
+      lastSuccessAt: board.builtAt,
+      freshnessSummary: `${board.availability.counts.teamsWithOfficialNewsLinks} team(s) with official links, ${board.availability.counts.teamsMissingOfficialSignals} missing official signals.`,
+    };
+  } catch (error) {
+    return {
+      name: "NHL official availability rail",
+      ok: false,
+      status: "missing",
+      detail: error instanceof Error ? error.message : "NHL availability rail unavailable",
+      checkedAt: new Date().toISOString(),
+    };
+  }
+}
+
 export async function getSystemHealth() {
   return Promise.all([
     checkEndpoint("NHL API", "https://api-web.nhle.com/v1/standings/now"),
@@ -74,6 +165,9 @@ export async function getSystemHealth() {
       `https://api.the-odds-api.com/v4/sports/?apiKey=${process.env.ODDS_API_KEY ?? ""}`,
       Boolean(process.env.ODDS_API_KEY),
     ),
+    getMarketSnapshotHealth(),
+    getMLBEnrichmentHealth(),
+    getNHLAvailabilityHealth(),
   ]);
 }
 

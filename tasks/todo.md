@@ -40,3 +40,12 @@
 - [x] Verify current stored truth stays honest: NBA Goose has one live qualifier row; The Blowout / Hot Teams / Swaggy / Tony's Hot Bats / Falcons currently store zero rows because no honest same-day qualifier was available in the persisted artifact
 - [x] Keep settlement-capable vs qualifier-only separation explicit: only NBA Goose currently produces actionable settled performance; the other five remain qualifier-only / alert-only systems
 - [ ] Commit the verified hardening patch cleanly
+
+
+## 2026-03-22 sustainable source rail upgrades
+- [ ] 1. Inspect roadmap docs, repo structure, and existing rails/checks.
+- [x] 2. Identify sustainable subset to ship now across NBA/MLB/NHL/market health.
+- [x] 3. Implement rails + health/freshness/degraded metadata surfaces.
+- [x] 4. Update docs/tasks to reflect shipped/deferred items.
+- [ ] 5. Run tests/build, fix issues if needed.
+- [ ] 6. Commit cleanly and summarize gaps.

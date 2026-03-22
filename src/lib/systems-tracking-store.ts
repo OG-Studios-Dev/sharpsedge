@@ -80,6 +80,8 @@ export type SystemTrackingRecord = {
   gameId?: string;
   oddsEventId?: string | null;
   gameDate: string;
+  sourceHealthStatus?: "healthy" | "stale" | "degraded" | "missing" | null;
+  freshnessSummary?: string | null;
   matchup: string;
   roadTeam: string;
   homeTeam: string;
@@ -1865,6 +1867,11 @@ function buildSwaggyQualifierRecord(input: {
   const opponentGoalie = summarizeSwaggyGoalie(input.opponent);
   const totalLine = getEventTotalLine(input.event);
 
+  const availabilityFlags = [
+    ...input.qualified.derived.news.labels,
+    ...input.opponent.derived.news.labels,
+  ];
+
   const notes = [
     'Qualifier alert only — not an official pick or backtest claim.',
     `${input.qualified.teamAbbrev} urgency ${input.qualified.derived.playoffPressure.urgencyTier} vs ${input.opponent.teamAbbrev} ${input.opponent.derived.playoffPressure.urgencyTier}.`,
@@ -1872,6 +1879,7 @@ function buildSwaggyQualifierRecord(input: {
     `${input.qualified.teamAbbrev} fatigue ${input.qualified.derived.fatigueScore ?? '—'} vs ${input.opponent.teamAbbrev} ${input.opponent.derived.fatigueScore ?? '—'}.`,
     `${input.qualified.teamAbbrev} goalie ${qualifiedGoalie}; ${input.opponent.teamAbbrev} goalie ${opponentGoalie}.`,
     `${input.qualified.teamAbbrev} ML ${formatMoneyline(input.currentMoneyline)}${input.moneylineBook ? ` (${input.moneylineBook})` : ''}${totalLine != null ? ` • total ${totalLine}` : ''}.`,
+    availabilityFlags.length ? `Official availability/news tags: ${Array.from(new Set(availabilityFlags)).join(', ')}.` : 'Official-team news remains supporting context only.',
     input.qualified.sourced.news.items[0]?.title ? `Official news: ${input.qualified.sourced.news.items[0].title}` : 'Official-team news remains supporting context only.',
   ];
 
@@ -1886,6 +1894,8 @@ function buildSwaggyQualifierRecord(input: {
     recordKind: 'qualifier',
     marketType: 'moneyline',
     alertLabel: 'Tracked qualifier / system alert',
+    sourceHealthStatus: availabilityFlags.length ? "healthy" : "degraded",
+    freshnessSummary: availabilityFlags.length ? `Official availability approximation tags present: ${Array.from(new Set(availabilityFlags)).join(", ")}.` : "No official availability tags extracted from team-site links for this matchup.",
     currentMoneyline: input.currentMoneyline,
     marketAvailability: totalLine != null ? `Moneyline + total posted${input.moneylineBook ? ` (${input.moneylineBook} best ML)` : ''}.` : `Moneyline posted${input.moneylineBook ? ` (${input.moneylineBook} best ML)` : ''}.`,
     qualifiedTeam: input.qualified.teamAbbrev,
@@ -2095,11 +2105,20 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
     : null;
   const derived = deriveSequence(bet1Result, bet2Result);
 
+  const missingBits = [
+    event.bestAwayFirstQuarterSpread ? null : "1Q line",
+    bet1Result === "loss" && !event.bestAwayThirdQuarterSpread ? "3Q line" : null,
+    scores.firstQuarterRoadScore == null || scores.firstQuarterHomeScore == null ? "1Q score" : null,
+    bet1Result === "loss" && (scores.thirdQuarterRoadScore == null || scores.thirdQuarterHomeScore == null) ? "3Q score" : null,
+  ].filter(Boolean) as string[];
+
   return normalizeRecord({
     id: `nba-goose:${event.gameId}`,
     gameId: event.gameId,
     oddsEventId: event.oddsApiEventId ?? espnEventId ?? null,
     gameDate: getEventDate(event.commenceTime),
+    sourceHealthStatus: missingBits.length ? "degraded" : "healthy",
+    freshnessSummary: missingBits.length ? `Missing settlement inputs: ${missingBits.join(", ")}.` : "Quarter lines and settlement inputs captured for current state.",
     matchup: `${event.awayTeam} @ ${event.homeTeam}`,
     roadTeam: event.awayTeam,
     homeTeam: event.homeTeam,
@@ -2503,6 +2522,10 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
         ? "Official MLB lineup IDs + MLB hitter game logs + MLB enrichment board"
         : "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
       notes,
+      sourceHealthStatus: game?.sourceHealth?.status ?? null,
+      freshnessSummary: game?.sourceHealth?.checks?.length
+        ? game.sourceHealth.checks.map((check: any) => `${check.label}: ${check.status}`).join(" • ")
+        : null,
       lastSyncedAt: new Date().toISOString(),
     }));
   }

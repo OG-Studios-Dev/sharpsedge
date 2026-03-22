@@ -107,4 +107,8 @@ export type SystemHealthCheck = {
   ok: boolean;
   detail: string;
   statusCode?: number;
+  status?: "healthy" | "stale" | "degraded" | "missing";
+  checkedAt?: string;
+  lastSuccessAt?: string | null;
+  freshnessSummary?: string | null;
 };
