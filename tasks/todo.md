@@ -1,56 +1,35 @@
-# Cross-sport data layer foundation — 2026-03-21
-- [x] Lock the data-source roadmap into repo docs so implementation order stays honest
-- [x] Add a reusable market snapshot/archive foundation for aggregated odds boards (schema + store + API route)
-- [x] Capture source freshness/metadata so future scrapers and paid feeds can plug into the same model
-- [x] Add tracked Supabase migration for market snapshots + better error surfacing
-- [x] Build and verify locally
-- [x] Commit cleanly with a clear message
+# Current sprint state — 2026-03-21
 
-# MLB enrichment foundation — 2026-03-21
-- [x] Add lineup/weather/park-factor rails
-- [x] Add bullpen fatigue + honest F5 availability/completeness rails
-- [x] Add unified MLB enrichment board/API with freshness/source metadata
-- [x] Build and verify locally
-- [x] Commit cleanly with a clear message
-
-# NHL context foundation — 2026-03-21
-- [x] Add MoneyPuck-backed context loading with safe fallback
-- [x] Add rest/travel/fatigue/playoff-pressure scaffolding
-- [x] Add goalie context + lightweight official-team news context
-- [x] Add NHL context board/API with sourced vs derived separation
-- [x] Build and verify locally
-- [x] Commit cleanly with a clear message
-
-# Snapshot cadence + hardening — 2026-03-21
-- [x] Wire and validate live market snapshot capture cadence
-- [x] Harden cron route auth to fail closed when `CRON_SECRET` is missing
-- [x] Build and commit cleanly
-
-# Systems/pages integration push — 2026-03-21
-- [x] Integrate MLB enrichment rails into Falcons and report data gaps
-- [x] Integrate MLB enrichment rails into Tony’s Hot Bats foundation and report data gaps
-- [x] Integrate NHL context rails into Swaggy and report data gaps
-- [x] Strengthen movement/history-driven views with the new snapshot rail where appropriate
-- [x] Build and commit each completed integration slice cleanly
-
-# Next wave — systems intelligence push — 2026-03-21
-- [ ] Strengthen movement/history-driven views with the new snapshot rail and report gaps
+## Completed system intelligence work
+- [x] Strengthen movement/history-driven views with the new snapshot rail and report gaps
 - [x] Build the first honest weighted scoring model for Falcons and report gaps
 - [x] Build the first actual trigger model for Tony’s Hot Bats and report gaps
 - [x] Define and wire Swaggy’s real entry + price discipline rules and report gaps
-- [ ] Build and commit each completed slice cleanly
 
-# Swaggy entry rules — execution review
-- [x] Inspect current Swaggy catalog entry, tracker coverage, and NHL context integration
-- [x] Define conservative v1 entry gates using sourced goalie + MoneyPuck and derived urgency/fatigue context
-- [x] Add Swaggy qualifier tracker with auditable stored notes and no fake records
-- [x] Update system detail surfaces so the rulebook is visible/auditable
-- [ ] Run build and commit cleanly
+## Phase 1 — final system data/logic review
+- [x] Audit every tracked system for defined input path, logic path, and output/trackability status
+- [x] Identify every missing data dependency or missing rule layer by system
+- [x] Close any high-leverage obvious gaps tonight where feasible
+- [x] Produce a clean tomorrow-7am attack list for unresolved gaps
+- [ ] Commit the final review/work cleanly
 
-# Tony’s Hot Bats trigger model — 2026-03-21
-- [x] Inspect current Tony’s Hot Bats foundation wiring and existing honesty labels
-- [x] Add a conservative recent-offense trigger using only official lineup IDs + MLB hitter game logs + existing environment rails
-- [x] Keep system copy honest: early watchlist / trigger board, not a picks engine or backtest claim
-- [x] Refresh readiness/details so the UI explains what qualifies and what is still missing
-- [x] Run npm run build
-- [ ] Commit locally with a clear message
+### Audit findings
+- [x] Confirm system rows currently refresh in-place per day inside `data/systems-tracking.json`
+- [x] Confirm pick history / pick slates already use a separate persistence pattern and must remain separate
+- [x] Confirm most qualifier/watchlist systems do not yet have an honest bet-direction rule, so they cannot claim settled record/win%/units
+- [x] Confirm NBA Goose is the only current progression system with native settlement already partially wired
+- [x] Fix catalog/store honesty mismatch for `Swaggy Stretch Drive` (code live, store stale)
+- [x] Fix catalog/store honesty mismatch for `Tony's Hot Bats` (code live, store stale)
+- [x] Write final audit artifact: `docs/SYSTEM-DATA-LOGIC-AUDIT-2026-03-21.md`
+
+### Honest prerequisite call
+- [x] Explicitly keep v1 qualification persistence file-backed and separate from Supabase pick history
+- [x] Restrict performance metrics to systems with a defined settled action; qualifier/watchlist-only systems remain qualifier logs only
+
+## Phase 2 — system qualification tracking
+- [ ] Add immutable system qualification logging for all tracked systems
+- [ ] Add grading / settlement for qualified system plays
+- [ ] Compute record, win%, units at flat 1u/play
+- [ ] Surface system performance in product/admin views
+- [ ] Ensure today’s Gooses Road Favs qualifier is captured if present in live data
+- [ ] Build and commit the tracking layer cleanly

@@ -25,6 +25,36 @@ export type SystemTrackabilityBucket =
 export type DataRequirementStatus = "ready" | "partial" | "pending";
 export type TrackedBetResult = "win" | "loss" | "push" | "pending";
 export type SequenceResult = "win" | "loss" | "push" | "pending";
+export type SystemQualifierOutcome = "win" | "loss" | "push" | "pending" | "not_applicable";
+export type SystemQualifierSettlementStatus = "settled" | "pending" | "not_applicable";
+
+export type SystemQualificationLogEntry = {
+  id: string;
+  systemId: string;
+  systemSlug: string;
+  systemName: string;
+  gameDate: string;
+  loggedAt: string;
+  qualifierId: string;
+  recordKind: "qualifier" | "alert" | "progression";
+  matchup: string;
+  roadTeam: string;
+  homeTeam: string;
+  qualifiedTeam?: string | null;
+  opponentTeam?: string | null;
+  marketType?: string | null;
+  actionLabel?: string | null;
+  actionSide?: string | null;
+  flatStakeUnits: number;
+  settlementStatus: SystemQualifierSettlementStatus;
+  outcome: SystemQualifierOutcome;
+  netUnits: number | null;
+  source?: string;
+  notes?: string;
+  recordSnapshot: SystemTrackingRecord;
+  settledAt?: string | null;
+  lastSyncedAt?: string;
+};
 
 export type SystemProgressionStep = {
   step: string;
@@ -123,6 +153,20 @@ export type TrackedSystem = {
 export type SystemsTrackingData = {
   updatedAt: string;
   systems: TrackedSystem[];
+  qualificationLog: SystemQualificationLogEntry[];
+};
+
+export type SystemPerformanceSummary = {
+  qualifiersLogged: number;
+  gradedQualifiers: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  pending: number;
+  record: string;
+  winPct: number | null;
+  flatNetUnits: number | null;
+  actionable: boolean;
 };
 
 export type SystemDerivedMetrics = {
@@ -137,6 +181,7 @@ export type SystemDerivedMetrics = {
   rescueRate: number | null;
   estimatedNetUnits: number | null;
   ingestionReady: boolean;
+  performance: SystemPerformanceSummary;
 };
 
 type QuarterScores = {
@@ -944,6 +989,7 @@ function defaultData(): SystemsTrackingData {
   return {
     updatedAt: new Date().toISOString(),
     systems: SYSTEM_TEMPLATES.map((system) => normalizeSystem(system)),
+    qualificationLog: [],
   };
 }
 
@@ -975,6 +1021,7 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     homeTeam: record.homeTeam || "",
     recordKind: record.recordKind || null,
     marketType: record.marketType || null,
+    marketAvailability: record.marketAvailability || null,
     alertLabel: record.alertLabel || null,
     starterName: record.starterName || null,
     starterEra: typeof record.starterEra === "number" ? record.starterEra : null,
@@ -989,6 +1036,16 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     parkFactorSummary: record.parkFactorSummary || null,
     bullpenSummary: record.bullpenSummary || null,
     f5Summary: record.f5Summary || null,
+    qualifiedTeam: record.qualifiedTeam || null,
+    opponentTeam: record.opponentTeam || null,
+    xGoalsPercentage: typeof record.xGoalsPercentage === "number" ? record.xGoalsPercentage : null,
+    opponentXGoalsPercentage: typeof record.opponentXGoalsPercentage === "number" ? record.opponentXGoalsPercentage : null,
+    urgencyTier: record.urgencyTier || null,
+    fatigueScore: typeof record.fatigueScore === "number" ? record.fatigueScore : null,
+    opponentFatigueScore: typeof record.opponentFatigueScore === "number" ? record.opponentFatigueScore : null,
+    goalieStatus: record.goalieStatus || null,
+    opponentGoalieStatus: record.opponentGoalieStatus || null,
+    totalLine: typeof record.totalLine === "number" ? record.totalLine : null,
     closingSpread: typeof record.closingSpread === "number" ? record.closingSpread : null,
     firstQuarterSpread: typeof record.firstQuarterSpread === "number" ? record.firstQuarterSpread : null,
     thirdQuarterSpread: typeof record.thirdQuarterSpread === "number" ? record.thirdQuarterSpread : null,
@@ -1070,6 +1127,136 @@ function mergeCatalogSystems(systems: Array<Partial<TrackedSystem> & { sport?: s
   }
 
   return merged;
+}
+
+function normalizeQualificationLogEntry(entry: Partial<SystemQualificationLogEntry> | null | undefined): SystemQualificationLogEntry | null {
+  if (!entry || typeof entry !== "object") return null;
+  const qualifierId = typeof entry.qualifierId === "string" && entry.qualifierId ? entry.qualifierId : null;
+  const systemId = typeof entry.systemId === "string" && entry.systemId ? entry.systemId : null;
+  if (!qualifierId || !systemId) return null;
+  const snapshot = normalizeRecord((entry.recordSnapshot || {}) as Partial<SystemTrackingRecord>);
+  const recordKind = entry.recordKind === "alert" || entry.recordKind === "progression" ? entry.recordKind : "qualifier";
+  const settlementStatus = entry.settlementStatus === "settled" || entry.settlementStatus === "not_applicable"
+    ? entry.settlementStatus
+    : "pending";
+  const outcome = entry.outcome === "win" || entry.outcome === "loss" || entry.outcome === "push" || entry.outcome === "not_applicable"
+    ? entry.outcome
+    : settlementStatus === "pending"
+      ? "pending"
+      : "not_applicable";
+  return {
+    id: typeof entry.id === "string" && entry.id ? entry.id : `${systemId}:${qualifierId}`,
+    systemId,
+    systemSlug: typeof entry.systemSlug === "string" && entry.systemSlug ? entry.systemSlug : slugify(systemId),
+    systemName: typeof entry.systemName === "string" && entry.systemName ? entry.systemName : systemId,
+    gameDate: typeof entry.gameDate === "string" && entry.gameDate ? entry.gameDate : snapshot.gameDate,
+    loggedAt: typeof entry.loggedAt === "string" && entry.loggedAt ? entry.loggedAt : (snapshot.lastSyncedAt || new Date().toISOString()),
+    qualifierId,
+    recordKind,
+    matchup: typeof entry.matchup === "string" && entry.matchup ? entry.matchup : snapshot.matchup,
+    roadTeam: typeof entry.roadTeam === "string" && entry.roadTeam ? entry.roadTeam : snapshot.roadTeam,
+    homeTeam: typeof entry.homeTeam === "string" && entry.homeTeam ? entry.homeTeam : snapshot.homeTeam,
+    qualifiedTeam: typeof entry.qualifiedTeam === "string" ? entry.qualifiedTeam : (snapshot.qualifiedTeam || null),
+    opponentTeam: typeof entry.opponentTeam === "string" ? entry.opponentTeam : (snapshot.opponentTeam || null),
+    marketType: typeof entry.marketType === "string" ? entry.marketType : (snapshot.marketType || null),
+    actionLabel: typeof entry.actionLabel === "string" ? entry.actionLabel : null,
+    actionSide: typeof entry.actionSide === "string" ? entry.actionSide : null,
+    flatStakeUnits: typeof entry.flatStakeUnits === "number" && Number.isFinite(entry.flatStakeUnits) ? entry.flatStakeUnits : 1,
+    settlementStatus,
+    outcome,
+    netUnits: typeof entry.netUnits === "number" && Number.isFinite(entry.netUnits) ? entry.netUnits : null,
+    source: typeof entry.source === "string" ? entry.source : snapshot.source,
+    notes: typeof entry.notes === "string" ? entry.notes : snapshot.notes,
+    recordSnapshot: snapshot,
+    settledAt: typeof entry.settledAt === "string" ? entry.settledAt : null,
+    lastSyncedAt: typeof entry.lastSyncedAt === "string" ? entry.lastSyncedAt : snapshot.lastSyncedAt,
+  };
+}
+
+function systemHasActionableTracking(system: TrackedSystem) {
+  return system.id === NBA_GOOSE_SYSTEM_ID;
+}
+
+function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackingRecord): SystemQualificationLogEntry {
+  const actionable = systemHasActionableTracking(system);
+  const settled = actionable && record.sequenceResult != null && record.sequenceResult !== "pending";
+  const pending = actionable && !settled;
+  const outcome: SystemQualifierOutcome = actionable
+    ? (record.sequenceResult === "win" || record.sequenceResult === "loss" || record.sequenceResult === "push"
+      ? record.sequenceResult
+      : "pending")
+    : "not_applicable";
+  const settlementStatus: SystemQualifierSettlementStatus = actionable
+    ? (settled ? "settled" : "pending")
+    : "not_applicable";
+  return {
+    id: `${system.id}:${record.id}`,
+    systemId: system.id,
+    systemSlug: system.slug,
+    systemName: system.name,
+    gameDate: record.gameDate,
+    loggedAt: record.lastSyncedAt || new Date().toISOString(),
+    qualifierId: record.id,
+    recordKind: record.recordKind === "alert" || record.recordKind === "progression" ? record.recordKind : "qualifier",
+    matchup: record.matchup,
+    roadTeam: record.roadTeam,
+    homeTeam: record.homeTeam,
+    qualifiedTeam: record.qualifiedTeam || null,
+    opponentTeam: record.opponentTeam || null,
+    marketType: record.marketType || null,
+    actionLabel: actionable ? `${system.name} flat 1u qualifier` : null,
+    actionSide: actionable ? record.roadTeam : null,
+    flatStakeUnits: 1,
+    settlementStatus,
+    outcome,
+    netUnits: actionable
+      ? (record.sequenceResult === "win" ? 1 : record.sequenceResult === "loss" ? -1 : record.sequenceResult === "push" ? 0 : null)
+      : null,
+    source: record.source,
+    notes: record.notes,
+    recordSnapshot: normalizeRecord(record),
+    settledAt: settled ? (record.lastSyncedAt || new Date().toISOString()) : null,
+    lastSyncedAt: record.lastSyncedAt,
+  };
+}
+
+function upsertSystemQualificationLog(data: SystemsTrackingData, system: TrackedSystem) {
+  const retained = (data.qualificationLog || []).filter((entry) => entry.systemId !== system.id);
+  const fresh = system.records.map((record) => buildQualificationLogEntry(system, record));
+  data.qualificationLog = [...retained, ...fresh].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate)
+      || left.systemName.localeCompare(right.systemName)
+      || left.matchup.localeCompare(right.matchup)
+      || left.qualifierId.localeCompare(right.qualifierId);
+  });
+}
+
+function getSystemPerformanceSummary(system: TrackedSystem, data?: SystemsTrackingData): SystemPerformanceSummary {
+  const actionable = systemHasActionableTracking(system);
+  const log = (data?.qualificationLog || []).filter((entry) => entry.systemId === system.id);
+  const relevant = actionable
+    ? log.filter((entry) => entry.settlementStatus !== "not_applicable")
+    : [];
+  const wins = relevant.filter((entry) => entry.outcome === "win").length;
+  const losses = relevant.filter((entry) => entry.outcome === "loss").length;
+  const pushes = relevant.filter((entry) => entry.outcome === "push").length;
+  const pending = relevant.filter((entry) => entry.outcome === "pending").length;
+  const gradedQualifiers = wins + losses + pushes;
+  const flatNetUnits = gradedQualifiers > 0
+    ? Number(relevant.reduce((total, entry) => total + (entry.netUnits ?? 0), 0).toFixed(2))
+    : null;
+  return {
+    qualifiersLogged: log.length,
+    gradedQualifiers,
+    wins,
+    losses,
+    pushes,
+    pending,
+    record: actionable ? `${wins}-${losses}-${pushes}` : "qualifier-only",
+    winPct: actionable && wins + losses > 0 ? wins / (wins + losses) : null,
+    flatNetUnits,
+    actionable,
+  };
 }
 
 async function writeSystemsTrackingData(data: SystemsTrackingData) {
@@ -2001,11 +2188,17 @@ export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
     const data = {
       updatedAt: parsed?.updatedAt || new Date().toISOString(),
       systems: mergeCatalogSystems(Array.isArray(parsed?.systems) ? parsed.systems : defaultData().systems),
-    };
+      qualificationLog: Array.isArray(parsed?.qualificationLog)
+        ? parsed.qualificationLog.map(normalizeQualificationLogEntry).filter(Boolean)
+        : [],
+    } as SystemsTrackingData;
     applyGooseReadiness(getGooseSystem(data));
     applySimpleWatchlistReadiness(getTheBlowoutSystem(data));
     applySimpleWatchlistReadiness(getHotTeamsMatchupSystem(data));
     applyFalconsFightPummeledPitchersReadiness(getFalconsFightPummeledPitchersSystem(data));
+    for (const system of data.systems) {
+      upsertSystemQualificationLog(data, system);
+    }
     return data;
   } catch {
     return defaultData();
@@ -2500,6 +2693,7 @@ export async function refreshTrackedSystem(systemId: string, options: SystemRefr
 
   const data = await readSystemsTrackingData();
   const system = await tracker.refresh(data, options);
+  upsertSystemQualificationLog(data, system);
   data.updatedAt = new Date().toISOString();
   await writeSystemsTrackingData(data);
   return system;
@@ -2513,7 +2707,9 @@ export async function refreshTrackableSystems(options: SystemRefreshOptions = {}
   for (const system of systems) {
     const tracker = SYSTEM_TRACKERS[system.id];
     if (!tracker) continue;
-    refreshed.push(await tracker.refresh(data, options));
+    const refreshedSystem = await tracker.refresh(data, options);
+    upsertSystemQualificationLog(data, refreshedSystem);
+    refreshed.push(refreshedSystem);
   }
 
   if (refreshed.length > 0) {
@@ -2532,7 +2728,7 @@ export async function refreshTodayGooseSystem(options: RefreshGooseOptions = {})
   return system;
 }
 
-export function getSystemDerivedMetrics(system: TrackedSystem): SystemDerivedMetrics {
+export function getSystemDerivedMetrics(system: TrackedSystem, data?: SystemsTrackingData): SystemDerivedMetrics {
   const qualifiedGames = system.records.length;
   const trackableRows = system.records.filter((record) => record.firstQuarterSpread != null && record.thirdQuarterSpread != null);
   const trackableGames = trackableRows.length;
@@ -2557,5 +2753,6 @@ export function getSystemDerivedMetrics(system: TrackedSystem): SystemDerivedMet
     rescueRate: stepOneLosses > 0 ? rescueWins / stepOneLosses : null,
     estimatedNetUnits: completedSequences > 0 ? netUnits : null,
     ingestionReady: system.dataRequirements.every((item) => item.status === "ready"),
+    performance: getSystemPerformanceSummary(system, data),
   };
 }

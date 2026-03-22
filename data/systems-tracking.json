@@ -392,62 +392,69 @@
       "league": "NHL",
       "category": "historical",
       "owner": "Goosalytics Lab",
-      "status": "definition_only",
-      "trackabilityBucket": "parked_definition_only",
-      "summary": "Late-season NHL urgency concept now shows live context rails, but the betting rulebook still is not strict enough to automate honestly.",
-      "snapshot": "Live context board wired; final betting rules still parked in research.",
-      "definition": "Look for late-season NHL teams with real standings urgency, style edges, or playoff-race pressure that may not be fully priced into the market.",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Late-season NHL qualifier tracker now uses explicit urgency, goalie, fatigue, MoneyPuck, and price gates. Alerts only — not a claimed mature edge.",
+      "snapshot": "Rule-gated qualifier board live with conservative pricing discipline.",
+      "definition": "Look for late-season NHL teams with real standings urgency, acceptable goalie/fatigue posture, and enough underlying profile support that a moderate moneyline can still be justified without blindly paying for a must-win story.",
       "qualifierRules": [
-        "Use sourced goalie status plus derived rest/travel/fatigue/playoff-pressure as context, not as standalone bet triggers.",
-        "Need exact standings-pressure thresholds rather than a generic 'must-win' label.",
-        "Need a rule for whether confirmed starters, fatigue bands, and official-team news are mandatory inputs or tie-breakers only.",
-        "Need a real pricing discipline rule so urgency alone does not become the bet."
+        "Urgency is mandatory: target side must carry derived playoff-pressure tier high, while the opponent cannot also rate high urgency.",
+        "Underlying support is mandatory: target side needs sourced MoneyPuck xGoalsPercentage of at least 0.515 and at least a 0.02 edge over the opponent.",
+        "Goalie sanity check is mandatory: target starter must be confirmed or probable and not flagged as a backup; opponent missing a starter or using a backup counts as support, but urgency alone is never enough.",
+        "Fatigue must be reasonable: target side cannot sit in the extreme fatigue band and cannot trail the opponent by a major fatigue gap.",
+        "Price discipline is mandatory: only store rows when the best available moneyline for the qualifying side is between -145 and +115.",
+        "Stored rows are qualifier alerts only. No auto-published picks, no synthetic backtest, and no fabricated settled history."
       ],
       "progressionLogic": [],
       "thesis": "Urgency can matter down the stretch, especially when goalie quality and schedule fatigue are misaligned, but the public also loves obvious playoff-race narratives. Swaggy is smarter now because those rails are visible; it still stays parked until the actual betting filters are written down.",
       "sourceNotes": [
         {
-          "label": "Internal concept",
-          "detail": "Cataloged as research only until the stretch-drive rulebook becomes precise."
+          "label": "Native qualifier tracker",
+          "detail": "Swaggy is now rule-gated from internal qualifier logic using sourced odds, MoneyPuck snapshot data, and NHL API goalie/schedule/standings inputs."
         },
         {
-          "label": "Live context rails",
-          "detail": "Detail page now surfaces sourced MoneyPuck/goalie/news inputs alongside derived rest, travel, fatigue, and playoff-pressure heuristics. Visibility improved; auto-betting did not."
+          "label": "Sourced vs derived",
+          "detail": "MoneyPuck, goalie status, standings, and official-team news remain sourced. Rest, travel, fatigue, urgency labels, and final qualifier scoring are derived heuristics layered on top."
         }
       ],
-      "automationStatusLabel": "Context live, bet logic parked",
-      "automationStatusDetail": "Swaggy now shows live goalie, rest/travel/fatigue, playoff-pressure, and lightweight official-team news context, but precise entry and pricing rules still are not defined honestly.",
+      "automationStatusLabel": "Awaiting fresh qualifiers",
+      "automationStatusDetail": "Refresh now scans the live NHL context board plus aggregated NHL moneylines and stores only conservative Swaggy qualifier rows that pass explicit urgency, xG, goalie, fatigue, and price gates.",
       "dataRequirements": [
         {
           "label": "Standings urgency rules",
-          "status": "partial",
-          "detail": "Heuristic conference-cutline pressure is now live, but exact clinch/elimination/seed-pressure thresholds still need a real rulebook."
+          "status": "ready",
+          "detail": "Swaggy now requires derived high urgency for the target side while excluding games where both teams rate as high urgency."
         },
         {
           "label": "Goalie + fatigue context rail",
           "status": "ready",
-          "detail": "Starter status plus derived rest/travel/fatigue context is now visible on the Swaggy detail page."
+          "detail": "Starter status plus derived rest/travel/fatigue context is used directly in the qualifier gate and stored with each row."
+        },
+        {
+          "label": "MoneyPuck team-strength rail",
+          "status": "ready",
+          "detail": "Sourced MoneyPuck xGoalsPercentage is required, along with a minimum absolute level and opponent edge threshold."
         },
         {
           "label": "Official-team news rail",
           "status": "partial",
-          "detail": "Lightweight NHL.com team-site/news links are live, but coach-quote and roster-impact tagging remain shallow."
+          "detail": "Official-team news remains visible/auditable, but it is supporting context only because quote/impact tagging is still shallow."
         },
         {
           "label": "Pricing discipline",
-          "status": "pending",
-          "detail": "Need explicit market thresholds so Swaggy does not become a narrative-only playoff-pressure angle."
+          "status": "ready",
+          "detail": "Best available moneyline must stay between -145 and +115, so obvious tax spots and long-shot narratives are filtered out."
         }
       ],
       "unlockNotes": [
-        "Precise rules still not defined enough to automate honestly.",
-        "Need exact standings-urgency thresholds.",
-        "Need to decide whether goalie confirmation, fatigue bands, and official-team news are hard filters or only supporting context."
+        "Still no claimed win rate or mature model edge — this is a first-pass qualifier screen only.",
+        "Need better injury/news impact tagging to know when official-team posts materially change the spot.",
+        "Need historical market snapshots and settlement policy before any honest performance claims or CLV studies."
       ],
       "trackingNotes": [
-        "Swaggy detail page now pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
-        "MoneyPuck/goalie/news stay sourced; rest/travel/fatigue/playoff-pressure remain explicitly derived heuristics.",
-        "No claimed track record or auto-generated picks are shown because the final price/entry rulebook still is not defined."
+        "Swaggy detail page still pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
+        "Stored Swaggy rows capture which side qualified, the live price, xG edge, urgency tier, fatigue comparison, and goalie posture in plain English.",
+        "Rows are qualifier alerts only — no fake settled records or implied backtest were created."
       ],
       "records": []
     },
@@ -555,9 +562,9 @@
       "category": "historical",
       "owner": "Goosalytics Lab",
       "status": "awaiting_data",
-      "trackabilityBucket": "blocked_missing_data",
-      "summary": "MLB lineup-form angle blocked until confirmed lineups, recent hitting form, and weather/park context are actually wired in.",
-      "snapshot": "Blocked: lineup and rolling-form feeds required.",
+      "trackabilityBucket": "trackable_now",
+      "summary": "MLB early-trigger watchlist now runs from official lineups, recent top-of-order production, and same-day run-environment rails. Alerts only — not a validated picks model.",
+      "snapshot": "Daily context board + early trigger watchlist live.",
       "definition": "A hitting-form concept designed to capture teams whose current contact, power, or lineup health creates a stronger run-production environment than season-long priors suggest.",
       "qualifierRules": [
         "Needs lineup confirmation and a recency window definition.",
@@ -572,31 +579,50 @@
           "detail": "Catalog placeholder only until MLB-specific inputs and logging are wired in."
         }
       ],
-      "automationStatusLabel": "Blocked by missing data",
-      "automationStatusDetail": "Confirmed lineups, rolling hitting form, and weather/park context are required before honest automation.",
+      "automationStatusLabel": "Awaiting today's MLB board",
+      "automationStatusDetail": "The app can now refresh a daily Tony's Hot Bats watchlist from confirmed top-of-order hitters, last-10 MLB game logs, and same-day run-environment rails. It still does not claim a fully validated picks model or finished price rules.",
       "dataRequirements": [
         {
-          "label": "Confirmed lineups",
+          "label": "Official lineup status",
           "status": "pending",
-          "detail": "Need day-of projected/confirmed lineup inputs."
+          "detail": "Need same-day official MLB batting orders before the strongest triggers can be trusted."
         },
         {
-          "label": "Rolling offense form model",
+          "label": "Top-of-order hitter game logs",
           "status": "pending",
-          "detail": "Need a defined recent-hitting and power form feed."
+          "detail": "Need enough official lineup IDs to score recent production for the top of the order."
         },
         {
           "label": "Weather / park context",
+          "status": "partial",
+          "detail": "Weather and park rails exist, but some parks/games still surface partial context."
+        },
+        {
+          "label": "Bullpen workload context",
+          "status": "partial",
+          "detail": "Bullpen workload context exists but is supporting context only."
+        },
+        {
+          "label": "Market availability context",
+          "status": "partial",
+          "detail": "Posted totals/F5 availability can be surfaced, but price-discipline rules are not validated yet."
+        },
+        {
+          "label": "Price discipline / validation layer",
           "status": "pending",
-          "detail": "Need temperature, wind, and park-factor context for offense-heavy flags."
+          "detail": "Need opponent starter context, price-history rules, and tracked outcomes before this can graduate from watchlist to picks."
         }
       ],
       "unlockNotes": [
-        "Confirmed lineups required.",
-        "Rolling offense form model required.",
-        "Weather / park context required."
+        "Still no honest win-rate claim — this is an early trigger/watchlist system only.",
+        "Need opponent starter quality and price-history discipline before turning triggers into official plays.",
+        "Need tracked outcomes to know whether the watchlist is real or just interesting context."
       ],
-      "trackingNotes": [],
+      "trackingNotes": [
+        "Rows are early watchlist triggers, not bets, not backtests, and not a claim that the full Tony's Hot Bats model is complete.",
+        "Official lineup status is intentionally conservative: the row stays context-only until MLB posts enough hitter IDs to score the top of the order honestly.",
+        "Weather, park factor, bullpen workload, and posted F5/total context are supporting rails for inspection, not auto-bet signals."
+      ],
       "records": []
     },
     {
