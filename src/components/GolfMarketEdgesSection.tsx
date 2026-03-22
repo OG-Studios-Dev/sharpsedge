@@ -159,21 +159,22 @@ export default function GolfMarketEdgesSection({
   compact?: boolean;
 }) {
   const cards = buildEdgeCards(predictions);
+  const visibleCards = compact ? cards.slice(0, 3) : cards;
 
   return (
-    <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500">PGA Market Edges</p>
-          <h3 className="mt-2 text-lg font-semibold text-white">The only golf insight block worth showing right now</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
-            Clean DataGolf/model takeaways: outright value, placement targets, best course-fit sleeper, and the most overpriced contender.
+    <section className={`border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] shadow-[0_16px_60px_rgba(0,0,0,0.24)] ${compact ? "rounded-2xl p-4" : "rounded-[28px] p-5"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">PGA Market Edges</p>
+          <h3 className={`mt-2 font-semibold text-white ${compact ? "text-base" : "text-lg"}`}>Best PGA edges right now</h3>
+          <p className={`mt-2 max-w-2xl text-gray-400 ${compact ? "text-xs leading-5" : "text-sm leading-6"}`}>
+            Outright value, placement targets, best course-fit sleeper, and the most overpriced contender.
           </p>
         </div>
         {href ? (
           <Link
             href={href}
-            className="inline-flex items-center gap-2 rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-2 text-xs font-semibold text-accent-blue transition hover:border-accent-blue/50 hover:bg-accent-blue/15"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-2 text-xs font-semibold text-accent-blue transition hover:border-accent-blue/50 hover:bg-accent-blue/15 sm:w-auto"
           >
             View tournament board →
           </Link>
@@ -181,24 +182,24 @@ export default function GolfMarketEdgesSection({
       </div>
 
       {cards.length === 0 ? (
-        <div className="mt-5 rounded-2xl border border-dashed border-dark-border px-4 py-6 text-sm text-gray-400">
+        <div className="mt-4 rounded-2xl border border-dashed border-dark-border px-4 py-5 text-sm text-gray-400">
           Market edges unlock once the tournament field and prediction board are available.
         </div>
       ) : (
-        <div className={`mt-5 grid gap-3 ${compact ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-5"}`}>
-          {cards.map((card) => (
-            <article key={card.key} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">{card.label}</p>
-              <h4 className="mt-2 text-base font-semibold text-white">{card.playerName}</h4>
+        <div className={`mt-4 grid grid-cols-1 gap-3 ${compact ? "md:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-5"}`}>
+          {visibleCards.map((card) => (
+            <article key={card.key} className={`min-w-0 border border-white/10 bg-black/20 shadow-[0_18px_50px_rgba(0,0,0,0.24)] ${compact ? "rounded-xl px-3 py-3" : "rounded-2xl px-4 py-4"}`}>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-500">{card.label}</p>
+              <h4 className={`mt-2 truncate font-semibold text-white ${compact ? "text-sm" : "text-base"}`}>{card.playerName}</h4>
               <p className="mt-1 text-xs text-gray-400">{card.market}</p>
 
-              <div className="mt-4 space-y-2 text-sm text-gray-300">
+              <div className={`mt-3 ${compact ? "space-y-1.5 text-xs" : "space-y-2 text-sm"} text-gray-300`}>
                 <p>Model {formatGolfPercent(card.probability)}</p>
                 <p>Price {formatGolfOdds(card.odds)}</p>
                 <p className="font-medium text-white">Edge {formatGolfSignedPercent(card.edge)}</p>
               </div>
 
-              <p className="mt-4 text-xs leading-5 text-gray-500">{card.note}</p>
+              <p className={`mt-3 text-gray-500 ${compact ? "text-[11px] leading-4" : "text-xs leading-5"}`}>{card.note}</p>
             </article>
           ))}
         </div>
