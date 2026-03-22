@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { League } from "@/lib/types";
 
 const STORAGE_KEY = "goosalytics_active_league";
-const DEFAULT_LEAGUE: League = "NHL";
+const DEFAULT_LEAGUE: League = "All";
 
 function readLeague(): League {
   if (typeof window === "undefined") return DEFAULT_LEAGUE;

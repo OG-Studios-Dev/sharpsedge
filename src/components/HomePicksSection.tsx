@@ -48,7 +48,7 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
       </div>
       <div className="ml-auto flex items-center gap-3 shrink-0">
         <div className="text-right">
-          <p className="font-bold text-sm text-white">{winPct.toFixed(1)}%</p>
+          <p className="font-bold text-sm text-white">{winPct.toFixed(2)}%</p>
           <p className="text-[9px] text-gray-500 uppercase">Win % · {settled}</p>
         </div>
         <div className="text-right">
@@ -114,7 +114,7 @@ const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
   PGA: { icon: "⛳", label: "PGA" },
 };
 
-export default function HomePicksSection({ league = "NHL" }: { league?: string }) {
+export default function HomePicksSection({ league = "All" }: { league?: string }) {
   const nhl = usePicks();
   const nba = useNBAPicks();
   const mlb = useMLBPicks();

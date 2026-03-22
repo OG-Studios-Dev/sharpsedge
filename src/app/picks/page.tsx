@@ -742,7 +742,7 @@ export default function PicksPage() {
               </div>
               <div className="ml-auto flex items-center gap-4">
                 <div className="text-right">
-                  <p className="font-bold text-lg text-white">{currentSeasonWinStats.winPct.toFixed(1)}%</p>
+                  <p className="font-bold text-lg text-white">{currentSeasonWinStats.winPct.toFixed(2)}%</p>
                   <p className="text-gray-500 text-[10px] uppercase">Win % · {currentSeasonWinStats.settled}</p>
                 </div>
                 <div className="text-right">
@@ -970,5 +970,8 @@ export default function PicksPage() {
         </>
       )}
     </main>
+  );
+}
+in>
   );
 }

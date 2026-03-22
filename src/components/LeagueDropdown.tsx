@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { League } from "@/lib/types";
 
 const LEAGUES: Array<{ key: League; icon: string; label: string }> = [
-  { key: "All", icon: "🪿", label: "All Sports" },
+  { key: "All", icon: "🪿", label: "ALL" },
   { key: "NHL", icon: "🏒", label: "NHL" },
   { key: "NBA", icon: "🏀", label: "NBA" },
   { key: "MLB", icon: "⚾", label: "MLB" },
