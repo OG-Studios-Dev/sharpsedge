@@ -479,10 +479,10 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
                 </div>
               )}
             </HomeSection>
-
-            {systemsSection}
           </div>
         </div>
+
+        {systemsSection ? <div className="px-4 lg:px-0">{systemsSection}</div> : null}
       </div>
     </main>
   );
