@@ -452,7 +452,7 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
                 label="Flat 1u record"
                 value={formatFlatRecord(metrics)}
                 note={metrics.performance.actionable
-                  ? `${metrics.performance.gradedQualifiers} graded qualifier${metrics.performance.gradedQualifiers === 1 ? "" : "s"} at flat 1u each.`
+                  ? `${metrics.performance.gradedQualifiers} graded qualifier${metrics.performance.gradedQualifiers === 1 ? "" : "s"} at flat 1u each.${metrics.performance.ungradeable ? ` ${metrics.performance.ungradeable} final row${metrics.performance.ungradeable === 1 ? " is" : "s are"} explicitly ungradeable and excluded.` : ""}`
                   : "No honest action side is defined yet, so this stays a qualifier log only."}
               />
               <MetricCard

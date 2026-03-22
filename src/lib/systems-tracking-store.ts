@@ -25,8 +25,8 @@ export type SystemTrackabilityBucket =
 export type DataRequirementStatus = "ready" | "partial" | "pending";
 export type TrackedBetResult = "win" | "loss" | "push" | "pending";
 export type SequenceResult = "win" | "loss" | "push" | "pending";
-export type SystemQualifierOutcome = "win" | "loss" | "push" | "pending" | "not_applicable";
-export type SystemQualifierSettlementStatus = "settled" | "pending" | "not_applicable";
+export type SystemQualifierOutcome = "win" | "loss" | "push" | "pending" | "ungradeable" | "not_applicable";
+export type SystemQualifierSettlementStatus = "settled" | "pending" | "ungradeable" | "not_applicable";
 
 export type SystemQualificationLogEntry = {
   id: string;
@@ -165,6 +165,7 @@ export type SystemPerformanceSummary = {
   losses: number;
   pushes: number;
   pending: number;
+  ungradeable: number;
   record: string;
   winPct: number | null;
   flatNetUnits: number | null;
@@ -191,6 +192,7 @@ type QuarterScores = {
   firstQuarterHomeScore: number | null;
   thirdQuarterRoadScore: number | null;
   thirdQuarterHomeScore: number | null;
+  gameCompleted: boolean;
 };
 
 export type SystemRefreshOptions = {
@@ -292,7 +294,7 @@ function defaultGooseSystem(): TrackedSystem {
     trackingNotes: [
       "Rows are generated from live NBA odds aggregation and stored in data/systems-tracking.json.",
       "Bet 1 uses the away team 1Q spread. Bet 2 only settles after a Bet 1 loss and available 3Q scoring.",
-      "If lines or quarter scores are missing, the row stays unresolved rather than being backfilled with guesses.",
+      "If lines or quarter scores are missing, the row stays pending before tip or becomes explicitly ungradeable after a final rather than being backfilled with guesses.",
     ],
     records: [],
   };
@@ -1179,17 +1181,30 @@ function systemHasActionableTracking(system: TrackedSystem) {
   return system.id === NBA_GOOSE_SYSTEM_ID;
 }
 
+function isGooseRecordUngradeable(record: SystemTrackingRecord) {
+  if (record.recordKind !== "progression") return false;
+  const hasFinalScores = record.firstQuarterRoadScore != null && record.firstQuarterHomeScore != null;
+  if (!hasFinalScores) return false;
+  if (record.firstQuarterSpread == null) return true;
+  if (record.bet1Result === "loss") {
+    return record.thirdQuarterSpread == null || record.thirdQuarterRoadScore == null || record.thirdQuarterHomeScore == null;
+  }
+  return false;
+}
+
 function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackingRecord): SystemQualificationLogEntry {
   const actionable = systemHasActionableTracking(system);
-  const settled = actionable && record.sequenceResult != null && record.sequenceResult !== "pending";
-  const pending = actionable && !settled;
+  const ungradeable = actionable && isGooseRecordUngradeable(record);
+  const settled = actionable && !ungradeable && record.sequenceResult != null && record.sequenceResult !== "pending";
   const outcome: SystemQualifierOutcome = actionable
-    ? (record.sequenceResult === "win" || record.sequenceResult === "loss" || record.sequenceResult === "push"
+    ? (settled && (record.sequenceResult === "win" || record.sequenceResult === "loss" || record.sequenceResult === "push")
       ? record.sequenceResult
-      : "pending")
+      : ungradeable
+        ? "ungradeable"
+        : "pending")
     : "not_applicable";
   const settlementStatus: SystemQualifierSettlementStatus = actionable
-    ? (settled ? "settled" : "pending")
+    ? (settled ? "settled" : ungradeable ? "ungradeable" : "pending")
     : "not_applicable";
   return {
     id: `${system.id}:${record.id}`,
@@ -1243,6 +1258,7 @@ function getSystemPerformanceSummary(system: TrackedSystem, data?: SystemsTracki
   const losses = relevant.filter((entry) => entry.outcome === "loss").length;
   const pushes = relevant.filter((entry) => entry.outcome === "push").length;
   const pending = relevant.filter((entry) => entry.outcome === "pending").length;
+  const ungradeable = relevant.filter((entry) => entry.outcome === "ungradeable").length;
   const gradedQualifiers = wins + losses + pushes;
   const flatNetUnits = gradedQualifiers > 0
     ? Number(relevant.reduce((total, entry) => total + (entry.netUnits ?? 0), 0).toFixed(2))
@@ -1254,6 +1270,7 @@ function getSystemPerformanceSummary(system: TrackedSystem, data?: SystemsTracki
     losses,
     pushes,
     pending,
+    ungradeable,
     record: actionable ? `${wins}-${losses}-${pushes}` : "qualifier-only",
     winPct: actionable && wins + losses > 0 ? wins / (wins + losses) : null,
     flatNetUnits,
@@ -1373,6 +1390,7 @@ function applyGooseReadiness(system: TrackedSystem) {
   const hasQ1Lines = system.records.some((record) => record.firstQuarterSpread != null);
   const hasQ3Lines = system.records.some((record) => record.thirdQuarterSpread != null);
   const completedRows = system.records.filter((record) => record.sequenceResult && record.sequenceResult !== "pending");
+  const ungradeableRows = system.records.filter((record) => isGooseRecordUngradeable(record));
 
   system.status = hasQualifiedRows ? "tracking" : "awaiting_data";
 
@@ -1396,10 +1414,12 @@ function applyGooseReadiness(system: TrackedSystem) {
   if (settlementRequirement) {
     settlementRequirement.status = completedRows.length > 0 ? "ready" : hasQualifiedRows ? "partial" : "pending";
     settlementRequirement.detail = completedRows.length > 0
-      ? `Settled from ESPN quarter linescores for ${completedRows.length} stored sequence${completedRows.length === 1 ? "" : "s"}.`
-      : hasQualifiedRows
-        ? "Qualifiers exist, but at least one required quarter score or quarter line is still missing."
-        : "No qualifying games have been stored yet.";
+      ? `Settled from ESPN quarter linescores for ${completedRows.length} stored sequence${completedRows.length === 1 ? "" : "s"}.${ungradeableRows.length ? ` ${ungradeableRows.length} final row${ungradeableRows.length === 1 ? " is" : "s are"} explicitly ungradeable because a required quarter line or score is still missing.` : ""}`
+      : ungradeableRows.length > 0
+        ? `${ungradeableRows.length} final row${ungradeableRows.length === 1 ? " is" : "s are"} explicitly ungradeable because a required quarter line or score is still missing.`
+        : hasQualifiedRows
+          ? "Qualifiers exist, but at least one required quarter score or quarter line is still missing or still waiting on game completion."
+          : "No qualifying games have been stored yet.";
   }
 }
 
@@ -2041,6 +2061,7 @@ async function getQuarterScores(eventId?: string | null): Promise<QuarterScores>
       firstQuarterHomeScore: null,
       thirdQuarterRoadScore: null,
       thirdQuarterHomeScore: null,
+      gameCompleted: false,
     };
   }
 
@@ -2057,11 +2078,16 @@ async function getQuarterScores(eventId?: string | null): Promise<QuarterScores>
     return Number.isFinite(parsed) ? parsed : null;
   };
 
+  const competition = summary?.header?.competitions?.[0];
+  const statusType = competition?.status?.type;
+  const gameCompleted = statusType?.completed === true || statusType?.state === "post" || String(statusType?.description || "").toLowerCase() === "final";
+
   return {
     firstQuarterRoadScore: toScore(awayLinescores[0]),
     firstQuarterHomeScore: toScore(homeLinescores[0]),
     thirdQuarterRoadScore: toScore(awayLinescores[2]),
     thirdQuarterHomeScore: toScore(homeLinescores[2]),
+    gameCompleted,
   };
 }
 
@@ -2070,21 +2096,24 @@ function isGooseQualifier(event: AggregatedOdds) {
   return typeof awaySpread === "number" && awaySpread <= -5.5;
 }
 
-function buildRecordNotes(event: AggregatedOdds, scores: QuarterScores, bet1Result: TrackedBetResult, bet2Result: TrackedBetResult | null) {
+function buildRecordNotes(event: AggregatedOdds, scores: QuarterScores, bet1Result: TrackedBetResult, bet2Result: TrackedBetResult | null, sequenceResult: SequenceResult) {
   const notes: string[] = [];
   if (event.bestAwaySpread?.book) notes.push(`FG ${event.bestAwaySpread.book}`);
   if (event.bestAwayFirstQuarterSpread?.book) notes.push(`1Q ${event.bestAwayFirstQuarterSpread.book}`);
   if (event.bestAwayThirdQuarterSpread?.book) notes.push(`3Q ${event.bestAwayThirdQuarterSpread.book}`);
   if (scores.firstQuarterRoadScore == null || scores.firstQuarterHomeScore == null) {
-    notes.push("Awaiting ESPN 1Q score");
+    notes.push(scores.gameCompleted ? "Final but ESPN 1Q score missing" : "Awaiting ESPN 1Q score");
   } else if (bet1Result === "loss" && (scores.thirdQuarterRoadScore == null || scores.thirdQuarterHomeScore == null)) {
-    notes.push("Awaiting ESPN 3Q score");
+    notes.push(scores.gameCompleted ? "Final but ESPN 3Q score missing" : "Awaiting ESPN 3Q score");
   }
   if (bet1Result === "loss" && !event.bestAwayThirdQuarterSpread) {
-    notes.push("3Q line missing");
+    notes.push(scores.gameCompleted ? "3Q line missing after final" : "3Q line missing");
   }
   if (!event.bestAwayFirstQuarterSpread) {
-    notes.push("1Q line missing");
+    notes.push(scores.gameCompleted ? "1Q line missing after final" : "1Q line missing");
+  }
+  if (sequenceResult === "pending" && scores.gameCompleted) {
+    notes.push("Marked ungradeable until real quarter inputs exist");
   }
   return notes.join(" • ");
 }
@@ -2104,6 +2133,8 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
       )
     : null;
   const derived = deriveSequence(bet1Result, bet2Result);
+  const finalSequenceResult = derived.sequenceResult === "pending" && scores.gameCompleted ? null : derived.sequenceResult;
+  const finalEstimatedNetUnits = finalSequenceResult == null ? null : derived.estimatedNetUnits;
 
   const missingBits = [
     event.bestAwayFirstQuarterSpread ? null : "1Q line",
@@ -2118,7 +2149,9 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
     oddsEventId: event.oddsApiEventId ?? espnEventId ?? null,
     gameDate: getEventDate(event.commenceTime),
     sourceHealthStatus: missingBits.length ? "degraded" : "healthy",
-    freshnessSummary: missingBits.length ? `Missing settlement inputs: ${missingBits.join(", ")}.` : "Quarter lines and settlement inputs captured for current state.",
+    freshnessSummary: missingBits.length
+      ? `${scores.gameCompleted ? "Final but missing settlement inputs" : "Missing settlement inputs"}: ${missingBits.join(", ")}.`
+      : "Quarter lines and settlement inputs captured for current state.",
     matchup: `${event.awayTeam} @ ${event.homeTeam}`,
     roadTeam: event.awayTeam,
     homeTeam: event.homeTeam,
@@ -2131,10 +2164,10 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
     thirdQuarterHomeScore: scores.thirdQuarterHomeScore,
     bet1Result,
     bet2Result,
-    sequenceResult: derived.sequenceResult,
-    estimatedNetUnits: derived.estimatedNetUnits,
+    sequenceResult: finalSequenceResult,
+    estimatedNetUnits: finalEstimatedNetUnits,
     source: "The Odds API + ESPN summary",
-    notes: buildRecordNotes(event, scores, bet1Result, bet2Result),
+    notes: buildRecordNotes(event, scores, bet1Result, bet2Result, derived.sequenceResult),
     lastSyncedAt: new Date().toISOString(),
   });
 }
@@ -2759,6 +2792,7 @@ export function getSystemDerivedMetrics(system: TrackedSystem, data?: SystemsTra
   const trackableRows = system.records.filter((record) => record.firstQuarterSpread != null && record.thirdQuarterSpread != null);
   const trackableGames = trackableRows.length;
   const completedRows = system.records.filter((record) => record.sequenceResult && record.sequenceResult !== "pending");
+  const ungradeableRows = system.records.filter((record) => isGooseRecordUngradeable(record));
   const completedSequences = completedRows.length;
   const stepOneWins = completedRows.filter((record) => record.bet1Result === "win").length;
   const rescueWins = completedRows.filter((record) => record.bet1Result === "loss" && record.bet2Result === "win").length;

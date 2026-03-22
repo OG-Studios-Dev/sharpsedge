@@ -49,3 +49,9 @@
 - [x] 4. Update docs/tasks to reflect shipped/deferred items.
 - [ ] 5. Run tests/build, fix issues if needed.
 - [ ] 6. Commit cleanly and summarize gaps.
+
+## 2026-03-22 Goose settlement honesty follow-up
+- [x] Distinguish genuinely pending Goose rows from final-but-ungradeable rows
+- [x] Keep final rows with missing quarter inputs out of settled performance math
+- [x] Surface ungradeable status in Goose board copy/metrics
+- [ ] Run build/tests and commit cleanly

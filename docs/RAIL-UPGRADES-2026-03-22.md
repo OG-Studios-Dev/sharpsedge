@@ -61,3 +61,11 @@ This pass intentionally prioritized sustainable rails already supportable by the
 - It improves honesty, freshness visibility, and source durability.
 - It strengthens the existing six real systems rather than adding a fragile seventh/eighth pseudo-rail.
 - It creates operational checks that can fail loudly instead of silently drifting.
+
+### 4) Goose settlement-state honesty upgrade
+- Goose qualifier logs now distinguish three states instead of collapsing everything into generic pending:
+  - `pending` = game/sequence not honestly settleable yet because play/result is still in flight
+  - `settled` = enough quarter lines + quarter scores exist to grade the sequence
+  - `ungradeable` = game is final, but at least one required quarter line or score is still missing
+- Final-but-ungradeable Goose rows are excluded from settled flat-record math and called out explicitly in board copy.
+- This improves actual settlement honesty, not just visibility, because final rows no longer masquerade as ordinary pending inventory.
