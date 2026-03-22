@@ -393,3 +393,16 @@ That is the honest architecture.
 - `data/systems-tracking.json`
 - `docs/SYSTEM-DATA-LOGIC-AUDIT-2026-03-21.md`
 
+---
+
+## 2026-03-22 hardening follow-up
+- Verified build passes after the tracking-layer cleanup (`npm run build`).
+- Fixed a store-layer coherence bug: `writeSystemsTrackingData()` now regenerates `qualificationLog` for every persisted system before writing `data/systems-tracking.json`. Before this patch, refresh/write paths only upserted refreshed systems, so the on-disk store could lag behind the in-memory read normalization.
+- Verified current persisted artifact remains honest:
+  - **NBA Goose System:** 1 live qualifier row stored for 2026-03-22, with qualification log entry present.
+  - **The Blowout / Hot Teams Matchup / Swaggy Stretch Drive / Tony's Hot Bats / Falcons Fight Pummeled Pitchers:** 0 stored rows in the checked-in artifact at verification time. That is acceptable and more honest than seeding fake history.
+- The qualifier-only vs settlement-capable split is now explicit in code/store behavior:
+  - **Settlement-capable now:** NBA Goose only.
+  - **Qualifier-only / alert-only now:** The Blowout, Hot Teams Matchup, Swaggy Stretch Drive, Tony's Hot Bats, Falcons Fight Pummeled Pitchers.
+- Remaining honest limitation: several refresh rails still depend on live upstream boards/odds/lineups. When the board does not qualify, these systems correctly persist zero rows rather than synthetic placeholders.
+

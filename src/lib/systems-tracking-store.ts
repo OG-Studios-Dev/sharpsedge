@@ -1261,6 +1261,9 @@ function getSystemPerformanceSummary(system: TrackedSystem, data?: SystemsTracki
 
 async function writeSystemsTrackingData(data: SystemsTrackingData) {
   await ensureStore();
+  for (const system of data.systems) {
+    upsertSystemQualificationLog(data, system);
+  }
   await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
 }
 

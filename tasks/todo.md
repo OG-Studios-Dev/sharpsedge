@@ -27,9 +27,16 @@
 - [x] Restrict performance metrics to systems with a defined settled action; qualifier/watchlist-only systems remain qualifier logs only
 
 ## Phase 2 — system qualification tracking
-- [ ] Add immutable system qualification logging for all tracked systems
-- [ ] Add grading / settlement for qualified system plays
-- [ ] Compute record, win%, units at flat 1u/play
-- [ ] Surface system performance in product/admin views
-- [ ] Ensure today’s Gooses Road Favs qualifier is captured if present in live data
+- [x] Add immutable system qualification logging for all tracked systems
+- [x] Add grading / settlement for qualified system plays
+- [x] Compute record, win%, units at flat 1u/play
+- [x] Surface system performance in product/admin views
+- [x] Ensure today’s Gooses Road Favs qualifier is captured if present in live data
 - [ ] Build and commit the tracking layer cleanly
+
+### 2026-03-22 hardening verification
+- [x] Confirm `writeSystemsTrackingData()` now regenerates `qualificationLog` before persisting, so the file-backed store cannot drift stale after refresh writes
+- [x] Rebuild app successfully after the tracking-layer fix (`npm run build`)
+- [x] Verify current stored truth stays honest: NBA Goose has one live qualifier row; The Blowout / Hot Teams / Swaggy / Tony's Hot Bats / Falcons currently store zero rows because no honest same-day qualifier was available in the persisted artifact
+- [x] Keep settlement-capable vs qualifier-only separation explicit: only NBA Goose currently produces actionable settled performance; the other five remain qualifier-only / alert-only systems
+- [ ] Commit the verified hardening patch cleanly
