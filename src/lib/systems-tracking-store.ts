@@ -1,12 +1,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import type { AggregatedOdds } from "@/lib/books/types";
-import { getMLBPlayerGameLog, getMLBSchedule } from "@/lib/mlb-api";
+import { getMLBPlayerGameLog, getMLBSchedule, type MLBPlayerGameLog } from "@/lib/mlb-api";
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
+import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
 
 export type SystemLeague = "NBA" | "NHL" | "MLB" | "NFL" | string;
 export type SystemCategory = "native" | "historical" | "external";
@@ -58,6 +59,9 @@ export type SystemTrackingRecord = {
   starterName?: string | null;
   starterEra?: number | null;
   currentMoneyline?: number | null;
+  falconsScore?: number | null;
+  falconsScoreLabel?: string | null;
+  falconsScoreComponents?: string[] | null;
   priorGameDate?: string | null;
   priorStartSummary?: string | null;
   lineupStatus?: string | null;
@@ -66,6 +70,16 @@ export type SystemTrackingRecord = {
   bullpenSummary?: string | null;
   f5Summary?: string | null;
   marketAvailability?: string | null;
+  qualifiedTeam?: string | null;
+  opponentTeam?: string | null;
+  xGoalsPercentage?: number | null;
+  opponentXGoalsPercentage?: number | null;
+  urgencyTier?: string | null;
+  fatigueScore?: number | null;
+  opponentFatigueScore?: number | null;
+  goalieStatus?: string | null;
+  opponentGoalieStatus?: string | null;
+  totalLine?: number | null;
   closingSpread?: number | null;
   firstQuarterSpread?: number | null;
   thirdQuarterSpread?: number | null;
@@ -150,6 +164,7 @@ const THE_BLOWOUT_SYSTEM_ID = "the-blowout";
 const HOT_TEAMS_MATCHUP_SYSTEM_ID = "hot-teams-matchup";
 const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitchers";
 const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
+const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
 
@@ -464,48 +479,51 @@ function seededCatalog(): TrackedSystem[] {
       league: "NHL",
       category: "historical",
       owner: "Goosalytics Lab",
-      status: "definition_only",
-      trackabilityBucket: "parked_definition_only",
-      summary: "Late-season NHL urgency concept now shows live context rails, but the betting rulebook still is not strict enough to automate honestly.",
-      snapshot: "Live context board wired; final betting rules still parked in research.",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary: "Late-season NHL qualifier tracker now uses explicit urgency, goalie, fatigue, MoneyPuck, and price gates. Alerts only — not a claimed mature edge.",
+      snapshot: "Rule-gated qualifier board live with conservative pricing discipline.",
       definition:
-        "Look for late-season NHL teams with real standings urgency, style edges, or playoff-race pressure that may not be fully priced into the market.",
+        "Look for late-season NHL teams with real standings urgency, acceptable goalie/fatigue posture, and enough underlying profile support that a moderate moneyline can still be justified without blindly paying for a 'must-win' story.",
       qualifierRules: [
-        "Use sourced goalie status plus derived rest/travel/fatigue/playoff-pressure as context, not as standalone bet triggers.",
-        "Need exact standings-pressure thresholds rather than a generic 'must-win' label.",
-        "Need a rule for whether confirmed starters, fatigue bands, and official-team news are mandatory inputs or tie-breakers only.",
-        "Need a real pricing discipline rule so urgency alone does not become the bet.",
+        "Urgency is mandatory: target side must carry derived playoff-pressure tier high, while the opponent cannot also rate high urgency.",
+        "Underlying support is mandatory: target side needs sourced MoneyPuck xGoalsPercentage of at least 0.515 and at least a 0.02 edge over the opponent.",
+        "Goalie sanity check is mandatory: target starter must be confirmed or probable and not flagged as a backup; opponent missing a starter or using a backup counts as support, but urgency alone is never enough.",
+        "Fatigue must be reasonable: target side cannot sit in the extreme fatigue band and cannot trail the opponent by a major fatigue gap.",
+        "Price discipline is mandatory: only store rows when the best available moneyline for the qualifying side is between -145 and +115.",
+        "Stored rows are qualifier alerts only. No auto-published picks, no synthetic backtest, and no fabricated settled history.",
       ],
       progressionLogic: [],
       thesis:
-        "Urgency can matter down the stretch, especially when goalie quality and schedule fatigue are misaligned, but the public also loves obvious playoff-race narratives. Swaggy is smarter now because those rails are visible; it still stays parked until the actual betting filters are written down.",
+        "Urgency can matter late in the NHL season, but only when it is paired with real team-strength support and a price that has not fully absorbed the playoff-race narrative. Swaggy v1 is intentionally narrow: it screens for live spots worth inspection, not a finished betting model.",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Cataloged as research only until the stretch-drive rulebook becomes precise.",
+          label: "Native qualifier tracker",
+          detail: "Swaggy is now rule-gated from internal qualifier logic using sourced odds, MoneyPuck snapshot data, and NHL API goalie/schedule/standings inputs.",
         },
         {
-          label: "Live context rails",
-          detail: "Detail page now surfaces sourced MoneyPuck/goalie/news inputs alongside derived rest, travel, fatigue, and playoff-pressure heuristics. Visibility improved; auto-betting did not.",
+          label: "Sourced vs derived",
+          detail: "MoneyPuck, goalie status, standings, and official-team news remain sourced. Rest, travel, fatigue, urgency labels, and final qualifier scoring are derived heuristics layered on top.",
         },
       ],
-      automationStatusLabel: "Context live, bet logic parked",
-      automationStatusDetail: "Swaggy now shows live goalie, rest/travel/fatigue, playoff-pressure, and lightweight official-team news context, but precise entry and pricing rules still are not defined honestly.",
+      automationStatusLabel: "Live qualifier tracking + price discipline",
+      automationStatusDetail: "Refresh now scans the live NHL context board plus aggregated NHL moneylines and stores only conservative Swaggy qualifier rows that pass explicit urgency, xG, goalie, fatigue, and price gates.",
       dataRequirements: [
-        { label: "Standings urgency rules", status: "partial", detail: "Heuristic conference-cutline pressure is now live, but exact clinch/elimination/seed-pressure thresholds still need a real rulebook." },
-        { label: "Goalie + fatigue context rail", status: "ready", detail: "Starter status plus derived rest/travel/fatigue context is now visible on the Swaggy detail page." },
-        { label: "Official-team news rail", status: "partial", detail: "Lightweight NHL.com team-site/news links are live, but coach-quote and roster-impact tagging remain shallow." },
-        { label: "Pricing discipline", status: "pending", detail: "Need explicit market thresholds so Swaggy does not become a narrative-only playoff-pressure angle." },
+        { label: "Standings urgency rules", status: "ready", detail: "Swaggy now requires derived high urgency for the target side while excluding games where both teams rate as high urgency." },
+        { label: "Goalie + fatigue context rail", status: "ready", detail: "Starter status plus derived rest/travel/fatigue context is used directly in the qualifier gate and stored with each row." },
+        { label: "MoneyPuck team-strength rail", status: "ready", detail: "Sourced MoneyPuck xGoalsPercentage is required, along with a minimum absolute level and opponent edge threshold." },
+        { label: "Official-team news rail", status: "partial", detail: "Official-team news remains visible/auditable, but it is supporting context only because quote/impact tagging is still shallow." },
+        { label: "Pricing discipline", status: "ready", detail: "Best available moneyline must stay between -145 and +115, so obvious tax spots and long-shot narratives are filtered out." },
       ],
       unlockNotes: [
-        "Precise rules still not defined enough to automate honestly.",
-        "Need exact standings-urgency thresholds.",
-        "Need to decide whether goalie confirmation, fatigue bands, and official-team news are hard filters or only supporting context.",
+        "Still no claimed win rate or mature model edge — this is a first-pass qualifier screen only.",
+        "Need better injury/news impact tagging to know when official-team posts materially change the spot.",
+        "Need historical market snapshots and settlement policy before any honest performance claims or CLV studies.",
       ],
       trackingNotes: [
-        "Swaggy detail page now pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
-        "MoneyPuck/goalie/news stay sourced; rest/travel/fatigue/playoff-pressure remain explicitly derived heuristics.",
-        "No claimed track record or auto-generated picks are shown because the final price/entry rulebook still is not defined.",
+        "Swaggy detail page still pulls the live NHL context board so users can inspect urgency, fatigue, goalie, and official-news context directly.",
+        "Stored Swaggy rows capture which side qualified, the live price, xG edge, urgency tier, fatigue comparison, and goalie posture in plain English.",
+        "Rows are qualifier alerts only — no fake settled records or implied backtest were created.",
       ],
       records: [],
     },
@@ -598,45 +616,48 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "blocked_missing_data",
-      summary: "MLB hitting-context foundation now surfaces lineup confirmation, venue/weather, park factor, bullpen workload, and market availability — but the actual rolling offense model is still intentionally not claimed.",
-      snapshot: "Foundation live: context board only, not a picks engine.",
+      summary: "Early MLB hot-bats watchlist now uses official lineup IDs plus recent hitter game logs and run-environment context to flag same-day offense spots, while staying clearly short of a full picks model.",
+      snapshot: "Trigger board live: early watchlist, not a picks engine.",
       definition:
-        "A hitting-form concept designed to capture teams whose current contact, power, or lineup health creates a stronger run-production environment than season-long priors suggest.",
+        "A first-pass hitting-form watchlist designed to catch offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
       qualifierRules: [
-        "Use official MLB live-feed lineup status only; unconfirmed orders stay explicitly unconfirmed.",
-        "Context rows can surface weather, park factor, bullpen workload, and market availability before a final offense trigger exists.",
-        "A real Tony's Hot Bats qualifier still needs a defined recent-offense window and a noise-control rule for BABIP / short-term variance.",
-        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them.",
+        "Use official MLB live-feed lineup status only; teams without an official batting order do not qualify.",
+        "Recent-offense trigger is based on the first four confirmed hitters only, using MLB player game logs from the last 10 games.",
+        "A watchlist row needs at least three of the top four hitters to have 5+ logged recent games and a lineup-average of at least 1.00 hit/game, 1.60 total bases/game, and 0.55 runs+RBI/game.",
+        "Run environment must help rather than fight the offense: hitter-friendly park, warm weather, or a taxed opposing bullpen can support the row.",
+        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them, but price discipline is not finalized yet.",
       ],
       progressionLogic: [],
       thesis:
-        "The MLB market can lag when lineup quality changes faster than baseline team stats, but the trigger has to be tighter than 'team scored a lot lately.'",
+        "The market can be slow to fully price a lineup that is actually hitting right now, but this only becomes useful when recent production is anchored to confirmed hitters and paired with a credible same-day scoring environment.",
       sourceNotes: [
         {
-          label: "Native context foundation",
-          detail: "This board now uses the MLB enrichment rail for official lineup status, weather, park factor, bullpen workload, and market availability context.",
+          label: "Native early trigger board",
+          detail: "This board now combines official MLB lineup IDs, MLB hitter game logs, and the MLB enrichment rail for weather, park factor, bullpen workload, and market availability context.",
         },
         {
           label: "Honesty policy",
-          detail: "Rows are evidence/context only until a real rolling-offense trigger exists. Missing lineups or markets stay unresolved instead of being guessed.",
+          detail: "Rows are early watchlist triggers, not official picks. Missing lineups, weak hitter samples, or incomplete market context stay unresolved instead of being guessed.",
         },
       ],
-      automationStatusLabel: "Foundation context board live",
-      automationStatusDetail: "The app can now refresh a daily Tony's Hot Bats foundation board from MLB enrichment rails, but it still does not claim a rolling offense model or official picks.",
+      automationStatusLabel: "Early trigger watchlist live",
+      automationStatusDetail: "The app can now refresh a daily Tony's Hot Bats watchlist from confirmed top-of-order hitters, last-10 MLB game logs, and same-day run-environment rails. It still does not claim a fully validated picks model or finished price rules.",
       dataRequirements: [
-        { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected, but pregame confirmation stays conservative until MLB actually publishes a usable order." },
-        { label: "Weather / park context", status: "ready", detail: "Temperature, wind, and seeded park factors are now attached per game when available." },
+        { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected, but only officially published batting orders can qualify." },
+        { label: "Top-of-order hitter game logs", status: "ready", detail: "Official lineup player IDs now connect directly to MLB hitter game logs for the recent-production trigger." },
+        { label: "Weather / park context", status: "ready", detail: "Temperature, wind, and seeded park factors are attached per game when available." },
         { label: "Bullpen workload context", status: "ready", detail: "Last-three-day bullpen usage context is attached as a workload rail, not a predictive claim." },
         { label: "Market availability context", status: "partial", detail: "Moneyline, total, and F5 availability are surfaced only when the books expose them." },
-        { label: "Rolling offense form model", status: "pending", detail: "Still need the actual recent-contact / power / lineup-quality trigger logic before honest qualifiers exist." },
+        { label: "Price discipline / validation layer", status: "pending", detail: "Still need opening/closing price history, opponent starter quality, and outcome validation before treating this as a true picks model." },
       ],
       unlockNotes: [
-        "Rolling offense form model required.",
-        "Need a defined recent-hitting window and noise-control rule before calling any row a Hot Bats qualifier.",
+        "Need opponent starter-quality context before tightening the trigger beyond first-pass offense form.",
+        "Need a noise-control layer beyond raw last-10 production (for example BABIP / quality-of-contact style context) before claiming this is mature.",
+        "Need price-discipline and outcome-validation rules before treating watchlist triggers like picks.",
         "Official lineup status remains conservative when MLB has not published a batting order yet.",
       ],
       trackingNotes: [
-        "Rows are daily context snapshots, not bets, not backtests, and not a claim that the full Tony's Hot Bats model is complete.",
+        "Rows are early watchlist triggers, not bets, not backtests, and not a claim that the full Tony's Hot Bats model is complete.",
         "Lineup status comes only from MLB's live feed; no third-party lineup scrape is used to fake certainty.",
         "Market availability notes stay tied to posted books/markets. No synthetic F5 or total lines are created.",
       ],
@@ -958,6 +979,9 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     starterName: record.starterName || null,
     starterEra: typeof record.starterEra === "number" ? record.starterEra : null,
     currentMoneyline: typeof record.currentMoneyline === "number" ? record.currentMoneyline : null,
+    falconsScore: typeof record.falconsScore === "number" ? record.falconsScore : null,
+    falconsScoreLabel: record.falconsScoreLabel || null,
+    falconsScoreComponents: Array.isArray(record.falconsScoreComponents) ? record.falconsScoreComponents.filter(Boolean) : null,
     priorGameDate: record.priorGameDate || null,
     priorStartSummary: record.priorStartSummary || null,
     lineupStatus: record.lineupStatus || null,
@@ -1210,6 +1234,103 @@ function buildPummeledReasons(stats: { inningsPitched: number; earnedRuns: numbe
   return reasons;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function summarizeFalconsScore(score: number) {
+  if (score >= 75) return "strong alert";
+  if (score >= 60) return "qualified";
+  return "thin qualifier";
+}
+
+function scoreFalconsQualifier(input: {
+  starterEra: number | null;
+  currentMoneyline: number;
+  inningsPitched: number;
+  earnedRuns: number;
+  hitsAllowed: number;
+  lineupStatus?: string | null;
+  weatherSummary?: string | null;
+  parkFactorSummary?: string | null;
+  bullpenSummary?: string | null;
+  f5Summary?: string | null;
+}) {
+  let score = 50;
+  const components: string[] = [];
+
+  const damagePoints = clamp((input.earnedRuns - 4) * 6, 0, 18)
+    + clamp((input.hitsAllowed - 7) * 2, 0, 8)
+    + (input.inningsPitched < 4 ? 8 : input.inningsPitched < 5 ? 3 : 0);
+  if (damagePoints > 0) {
+    score += damagePoints;
+    components.push(`prior-start damage +${damagePoints.toFixed(0)} (${input.earnedRuns} ER, ${input.hitsAllowed} H, ${input.inningsPitched.toFixed(1)} IP)`);
+  }
+
+  if (input.starterEra != null) {
+    const eraPoints = clamp((4.5 - input.starterEra) * 4, 0, 10);
+    if (eraPoints > 0) {
+      score += eraPoints;
+      components.push(`listed ERA support +${eraPoints.toFixed(0)} (${input.starterEra.toFixed(2)})`);
+    }
+  } else {
+    components.push("listed ERA missing (no score change)");
+  }
+
+  const absMoneyline = Math.abs(input.currentMoneyline);
+  let pricePoints = 0;
+  if (input.currentMoneyline >= -125 && input.currentMoneyline <= 110) pricePoints = 8;
+  else if (input.currentMoneyline >= -135 && input.currentMoneyline <= 125) pricePoints = 5;
+  else if (absMoneyline <= 140) pricePoints = 2;
+  score += pricePoints;
+  components.push(`market band +${pricePoints} (${input.currentMoneyline > 0 ? "+" : ""}${input.currentMoneyline})`);
+
+  const lineupText = String(input.lineupStatus || "").toLowerCase();
+  if (lineupText.includes("official")) {
+    score += 6;
+    components.push("official lineup context +6");
+  } else if (lineupText.includes("partial")) {
+    score += 2;
+    components.push("partial lineup context +2");
+  } else {
+    components.push("lineup unconfirmed (no score boost)");
+  }
+
+  const parkText = String(input.parkFactorSummary || "").toLowerCase();
+  if (parkText.includes("hitter") || parkText.includes("boost") || parkText.includes("favors hitters")) {
+    score += 4;
+    components.push("park context +4");
+  }
+
+  const weatherText = String(input.weatherSummary || "").toLowerCase();
+  if (weatherText.includes("wind out") || weatherText.includes("warming") || weatherText.includes("hot")) {
+    score += 3;
+    components.push("weather context +3");
+  }
+
+  const bullpenText = String(input.bullpenSummary || "").toLowerCase();
+  if (bullpenText.includes("high fatigue")) {
+    score += 4;
+    components.push("bullpen fatigue context +4");
+  } else if (bullpenText.includes("moderate fatigue")) {
+    score += 2;
+    components.push("bullpen fatigue context +2");
+  }
+
+  const f5Text = String(input.f5Summary || "").toLowerCase();
+  if (f5Text.includes("available")) {
+    score += 1;
+    components.push("F5 market posted +1");
+  }
+
+  const finalScore = Math.round(clamp(score, 0, 100));
+  return {
+    score: finalScore,
+    label: summarizeFalconsScore(finalScore),
+    components,
+  };
+}
+
 function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
   const qualifiers = system.records.length;
   const withEra = system.records.filter((record) => record.starterEra != null).length;
@@ -1298,10 +1419,15 @@ function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
         : "No current qualifier rows yet to evaluate F5 availability.";
   }
 
-  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + alert rows" : "Awaiting fresh qualifiers";
+  const scoredRows = system.records.filter((record) => typeof record.falconsScore === "number");
+  const averageScore = scoredRows.length
+    ? Math.round(scoredRows.reduce((sum, record) => sum + (record.falconsScore || 0), 0) / scoredRows.length)
+    : null;
+
+  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + weighted alert rows" : "Awaiting fresh qualifiers";
   system.automationStatusDetail = qualifiers > 0
-    ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. ${withEra} with listed ERA, ${withMoneyline} with captured moneyline, ${withLineups} with lineup context, ${withWeather} with weather, ${withParkFactors} with park context, ${withBullpen} with bullpen context, and ${withF5} checked for F5 availability.`
-    : "Refresh scans probable starters, prior pitching logs, listed ERA, moneyline, lineup status, weather, park factors, bullpen workload, and explicit F5 market availability for live qualifier rows.";
+    ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. Avg Falcons score ${averageScore ?? "—"}/100. ${withEra} with listed ERA, ${withMoneyline} with captured moneyline, ${withLineups} with lineup context, ${withWeather} with weather, ${withParkFactors} with park context, ${withBullpen} with bullpen context, and ${withF5} checked for F5 availability.`
+    : "Refresh scans probable starters, prior pitching logs, listed ERA, moneyline, lineup status, weather, park factors, bullpen workload, and explicit F5 market availability for live qualifier rows. Falcons score is a conservative weighted alert score, not a claimed win probability.";
 }
 
 function applySimpleWatchlistReadiness(system: TrackedSystem) {
@@ -1381,6 +1507,104 @@ function getTeamPerspectiveSpread(event: AggregatedOdds, teamAbbrev: string) {
 function getEventTotalLine(event: AggregatedOdds) {
   return event.bestOver?.line ?? event.bestUnder?.line ?? null;
 }
+function getNHLMoneylineForTeam(event: AggregatedOdds, teamAbbrev: string) {
+  if (teamAbbrev === event.awayAbbrev) return event.bestAway;
+  if (teamAbbrev === event.homeAbbrev) return event.bestHome;
+  return null;
+}
+
+function summarizeSwaggyGoalie(entry: NHLContextTeamBoardEntry) {
+  const starter = entry.sourced.goalie.starter;
+  if (!starter) return "starter unavailable";
+  const status = starter.status === "confirmed" ? "confirmed" : starter.status === "probable" ? "probable" : "tbd";
+  return `${starter.name} (${status}${starter.isBackup ? ", backup" : ""})`;
+}
+
+function formatMoneyline(price: number | null | undefined) {
+  if (typeof price !== "number" || !Number.isFinite(price)) return "—";
+  return `${price > 0 ? "+" : ""}${price}`;
+}
+
+function buildSwaggyQualifierRecord(input: {
+  boardGame: NHLContextBoardGame;
+  qualified: NHLContextTeamBoardEntry;
+  opponent: NHLContextTeamBoardEntry;
+  event: AggregatedOdds;
+  currentMoneyline: number;
+  moneylineBook: string | null;
+}) {
+  const xg = input.qualified.sourced.moneyPuck?.xGoalsPercentage ?? null;
+  const oppXg = input.opponent.sourced.moneyPuck?.xGoalsPercentage ?? null;
+  const xgEdge = xg != null && oppXg != null ? Number((xg - oppXg).toFixed(3)) : null;
+  const qualifiedGoalie = summarizeSwaggyGoalie(input.qualified);
+  const opponentGoalie = summarizeSwaggyGoalie(input.opponent);
+  const totalLine = getEventTotalLine(input.event);
+
+  const notes = [
+    'Qualifier alert only — not an official pick or backtest claim.',
+    `${input.qualified.teamAbbrev} urgency ${input.qualified.derived.playoffPressure.urgencyTier} vs ${input.opponent.teamAbbrev} ${input.opponent.derived.playoffPressure.urgencyTier}.`,
+    `MoneyPuck xG% ${xg != null ? xg.toFixed(3) : '—'} vs ${oppXg != null ? oppXg.toFixed(3) : '—'}${xgEdge != null ? ` (edge ${xgEdge > 0 ? '+' : ''}${xgEdge.toFixed(3)})` : ''}.`,
+    `${input.qualified.teamAbbrev} fatigue ${input.qualified.derived.fatigueScore ?? '—'} vs ${input.opponent.teamAbbrev} ${input.opponent.derived.fatigueScore ?? '—'}.`,
+    `${input.qualified.teamAbbrev} goalie ${qualifiedGoalie}; ${input.opponent.teamAbbrev} goalie ${opponentGoalie}.`,
+    `${input.qualified.teamAbbrev} ML ${formatMoneyline(input.currentMoneyline)}${input.moneylineBook ? ` (${input.moneylineBook})` : ''}${totalLine != null ? ` • total ${totalLine}` : ''}.`,
+    input.qualified.sourced.news.items[0]?.title ? `Official news: ${input.qualified.sourced.news.items[0].title}` : 'Official-team news remains supporting context only.',
+  ];
+
+  return normalizeRecord({
+    id: `${SWAGGY_STRETCH_DRIVE_SYSTEM_ID}:${input.boardGame.gameId}:${input.qualified.teamAbbrev}`,
+    gameId: String(input.boardGame.gameId),
+    oddsEventId: input.event.oddsApiEventId ?? null,
+    gameDate: input.boardGame.gameDate,
+    matchup: `${input.boardGame.matchup.awayTeam.abbrev} @ ${input.boardGame.matchup.homeTeam.abbrev}`,
+    roadTeam: input.boardGame.matchup.awayTeam.abbrev,
+    homeTeam: input.boardGame.matchup.homeTeam.abbrev,
+    recordKind: 'qualifier',
+    marketType: 'moneyline',
+    alertLabel: 'Tracked qualifier / system alert',
+    currentMoneyline: input.currentMoneyline,
+    marketAvailability: totalLine != null ? `Moneyline + total posted${input.moneylineBook ? ` (${input.moneylineBook} best ML)` : ''}.` : `Moneyline posted${input.moneylineBook ? ` (${input.moneylineBook} best ML)` : ''}.`,
+    qualifiedTeam: input.qualified.teamAbbrev,
+    opponentTeam: input.opponent.teamAbbrev,
+    xGoalsPercentage: xg,
+    opponentXGoalsPercentage: oppXg,
+    urgencyTier: input.qualified.derived.playoffPressure.urgencyTier,
+    fatigueScore: input.qualified.derived.fatigueScore,
+    opponentFatigueScore: input.opponent.derived.fatigueScore,
+    goalieStatus: qualifiedGoalie,
+    opponentGoalieStatus: opponentGoalie,
+    totalLine,
+    source: 'NHL standings + MoneyPuck snapshot + NHL API goalie/news context + aggregated NHL odds',
+    notes: notes.join(' • '),
+    lastSyncedAt: new Date().toISOString(),
+  });
+}
+
+function qualifiesForSwaggy(entry: NHLContextTeamBoardEntry, opponent: NHLContextTeamBoardEntry, price: number | null) {
+  if (entry.derived.playoffPressure.urgencyTier !== 'high') return false;
+  if (opponent.derived.playoffPressure.urgencyTier === 'high') return false;
+
+  const xg = entry.sourced.moneyPuck?.xGoalsPercentage ?? null;
+  const oppXg = opponent.sourced.moneyPuck?.xGoalsPercentage ?? null;
+  if (xg == null || oppXg == null) return false;
+  if (xg < 0.515) return false;
+  if (xg - oppXg < 0.02) return false;
+
+  const starter = entry.sourced.goalie.starter;
+  if (!starter) return false;
+  if (starter.isBackup) return false;
+  if (starter.status !== 'confirmed' && starter.status !== 'probable') return false;
+
+  const fatigue = entry.derived.fatigueScore;
+  const oppFatigue = opponent.derived.fatigueScore;
+  if (fatigue != null && fatigue >= 55) return false;
+  if (fatigue != null && oppFatigue != null && fatigue - oppFatigue >= 15) return false;
+
+  if (typeof price !== 'number' || !Number.isFinite(price)) return false;
+  if (price < -145 || price > 115) return false;
+
+  return true;
+}
+
 
 function getTeamRecentGamesBeforeDate(games: NBAGame[], teamAbbrev: string, beforeDate: string) {
   return games
@@ -1812,8 +2036,22 @@ async function buildFalconsQualifierRecord(input: {
     hitsAllowed: input.hitsAllowed,
   };
   const pummeledReasons = buildPummeledReasons(priorStats);
+  const falconsScore = scoreFalconsQualifier({
+    starterEra: input.starterEra,
+    currentMoneyline: input.currentMoneyline,
+    inningsPitched: input.inningsPitched,
+    earnedRuns: input.earnedRuns,
+    hitsAllowed: input.hitsAllowed,
+    lineupStatus: input.lineupStatus,
+    weatherSummary: input.weatherSummary,
+    parkFactorSummary: input.parkFactorSummary,
+    bullpenSummary: input.bullpenSummary,
+    f5Summary: input.f5Summary,
+  });
+
   const notes = [
     `Alert only — not an official pick.`,
+    `Falcons score ${falconsScore.score}/100 (${falconsScore.label}).`,
     `Prior start ${input.priorGameDate}: ${formatPitchingSummary(priorStats)}${pummeledReasons.length ? ` (${pummeledReasons.join(", ")})` : ""}.`,
     input.starterEra != null ? `Listed ERA ${input.starterEra.toFixed(2)}.` : "Listed ERA unavailable from probable-starter feed.",
     `Current moneyline ${input.currentMoneyline > 0 ? "+" : ""}${input.currentMoneyline}${input.moneylineBook ? ` (${input.moneylineBook})` : ""}.`,
@@ -1822,6 +2060,7 @@ async function buildFalconsQualifierRecord(input: {
     input.parkFactorSummary || "Park-factor context unavailable.",
     input.bullpenSummary || "Bullpen context unavailable.",
     input.f5Summary || "F5 market context unavailable.",
+    `Score components: ${falconsScore.components.join("; ")}.`,
   ];
 
   return normalizeRecord({
@@ -1838,6 +2077,9 @@ async function buildFalconsQualifierRecord(input: {
     starterName: input.starterName,
     starterEra: input.starterEra,
     currentMoneyline: input.currentMoneyline,
+    falconsScore: falconsScore.score,
+    falconsScoreLabel: falconsScore.label,
+    falconsScoreComponents: falconsScore.components,
     priorGameDate: input.priorGameDate,
     priorStartSummary: formatPitchingSummary(priorStats),
     lineupStatus: input.lineupStatus ?? null,
@@ -1924,6 +2166,74 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
   });
   applyTonysHotBatsReadiness(system);
+  return system;
+}
+
+async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getTrackedSystem(data, SWAGGY_STRETCH_DRIVE_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(SWAGGY_STRETCH_DRIVE_SYSTEM_ID)!));
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const [board, aggregated] = await Promise.all([
+    getTodayNHLContextBoard(),
+    getAggregatedOddsForSport("NHL"),
+  ]);
+
+  const targetGames = (board.games || []).filter((game) => game.gameDate === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  for (const game of targetGames) {
+    const event = aggregated.find((candidate) => {
+      if (getEventDate(candidate.commenceTime) !== game.gameDate) return false;
+      const sameTeams = candidate.awayAbbrev === game.matchup.awayTeam.abbrev && candidate.homeAbbrev === game.matchup.homeTeam.abbrev;
+      return sameTeams;
+    });
+    if (!event) continue;
+
+    const awayPrice = getNHLMoneylineForTeam(event, game.teams.away.teamAbbrev);
+    const homePrice = getNHLMoneylineForTeam(event, game.teams.home.teamAbbrev);
+
+    if (qualifiesForSwaggy(game.teams.away, game.teams.home, awayPrice?.odds ?? null)) {
+      freshRecords.push(buildSwaggyQualifierRecord({
+        boardGame: game,
+        qualified: game.teams.away,
+        opponent: game.teams.home,
+        event,
+        currentMoneyline: awayPrice!.odds,
+        moneylineBook: awayPrice?.book ?? null,
+      }));
+    }
+
+    if (qualifiesForSwaggy(game.teams.home, game.teams.away, homePrice?.odds ?? null)) {
+      freshRecords.push(buildSwaggyQualifierRecord({
+        boardGame: game,
+        qualified: game.teams.home,
+        opponent: game.teams.away,
+        event,
+        currentMoneyline: homePrice!.odds,
+        moneylineBook: homePrice?.book ?? null,
+      }));
+    }
+  }
+
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup) || (left.qualifiedTeam || "").localeCompare(right.qualifiedTeam || "");
+  });
+
+  const qualifiers = freshRecords.length;
+  const withMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
+  const withXg = system.records.filter((record) => record.xGoalsPercentage != null && record.opponentXGoalsPercentage != null).length;
+  const withGoalies = system.records.filter((record) => record.goalieStatus || record.opponentGoalieStatus).length;
+  const withTotals = system.records.filter((record) => record.totalLine != null).length;
+
+  system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
+  system.snapshot = qualifiers > 0
+    ? `${qualifiers} Swaggy qualifier${qualifiers === 1 ? "" : "s"} stored for ${targetDate}.`
+    : `No Swaggy qualifiers met the rule-gated screen for ${targetDate}.`;
+  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + price discipline" : "Awaiting fresh qualifiers";
+  system.automationStatusDetail = qualifiers > 0
+    ? `${qualifiers} NHL qualifier${qualifiers === 1 ? "" : "s"} passed the urgency + MoneyPuck + goalie + fatigue + price screen. ${withMoneyline} stored with moneyline, ${withXg} with xG context, ${withGoalies} with goalie context, and ${withTotals} with posted totals context.`
+    : "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. No rows are created when the board does not qualify honestly.";
+
   return system;
 }
 
@@ -2026,7 +2336,10 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
 
   const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
   system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
-    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup) || (left.starterName || "").localeCompare(right.starterName || "");
+    return (right.falconsScore ?? -1) - (left.falconsScore ?? -1)
+      || left.gameDate.localeCompare(right.gameDate)
+      || left.matchup.localeCompare(right.matchup)
+      || (left.starterName || "").localeCompare(right.starterName || "");
   });
   applyFalconsFightPummeledPitchersReadiness(system);
   return system;

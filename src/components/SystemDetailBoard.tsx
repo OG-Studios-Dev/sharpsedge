@@ -88,17 +88,18 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
   if (isQualifierBoard) {
     return (
       <div className="overflow-x-auto rounded-2xl border border-dark-border bg-dark-surface/70">
-        <div className="grid min-w-[1080px] grid-cols-[1.05fr_0.7fr_0.85fr_0.7fr_0.8fr_1fr_1.9fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+        <div className="grid min-w-[1280px] grid-cols-[1fr_0.7fr_0.8fr_0.6fr_0.7fr_0.85fr_1fr_1.7fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
           <span>Matchup</span>
           <span>Date</span>
           <span>Starter</span>
           <span>ERA</span>
           <span>ML</span>
+          <span>Falcons score</span>
           <span>Prior start</span>
           <span>Context</span>
         </div>
         {system.records.map((record) => (
-          <div key={record.id} className="grid min-w-[1080px] grid-cols-[1.05fr_0.7fr_0.85fr_0.7fr_0.8fr_1fr_1.9fr] gap-3 px-4 py-3 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/70">
+          <div key={record.id} className="grid min-w-[1280px] grid-cols-[1fr_0.7fr_0.8fr_0.6fr_0.7fr_0.85fr_1fr_1.7fr] gap-3 px-4 py-3 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/70">
             <div>
               <p className="font-medium text-white">{record.matchup}</p>
               <p className="mt-1 text-xs text-gray-500">{record.alertLabel || record.marketType || record.source || "Tracked qualifier"}</p>
@@ -107,6 +108,10 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
             <span>{record.starterName || "—"}</span>
             <span>{record.starterEra != null ? record.starterEra.toFixed(2) : "—"}</span>
             <span>{formatMoneyline(record.currentMoneyline)}</span>
+            <div>
+              <p className="font-medium text-white">{record.falconsScore != null ? `${record.falconsScore}/100` : "—"}</p>
+              <p className="mt-1 text-xs text-gray-500">{record.falconsScoreLabel || "Unscored"}</p>
+            </div>
             <div>
               <p>{record.priorGameDate || "—"}</p>
               <p className="mt-1 text-xs text-gray-500">{record.priorStartSummary || "Prior-start summary unavailable"}</p>
@@ -119,6 +124,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
                 {renderContextPill("Bullpen", record.bullpenSummary)}
                 {renderContextPill("F5", record.f5Summary)}
                 {renderContextPill("Markets", record.marketAvailability)}
+                {(record.falconsScoreComponents || []).map((component) => renderContextPill("Score", component))}
               </div>
               <p className="text-xs leading-6 text-gray-400">{record.notes || record.source || "Stored qualifier"}</p>
             </div>
