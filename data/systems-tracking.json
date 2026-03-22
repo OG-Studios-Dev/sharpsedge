@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-03-21T17:36:09.327Z",
+  "updatedAt": "2026-03-22T00:55:25.363Z",
   "systems": [
     {
       "id": "nba-goose-system",
@@ -915,6 +915,65 @@
         "Keep Warren Sharp-style framing in source notes, not as implied ownership."
       ],
       "records": []
+    }
+  ],
+  "qualificationLog": [
+    {
+      "id": "nba-goose-system:nba-goose:NBA:OKC@WAS:na",
+      "systemId": "nba-goose-system",
+      "systemSlug": "nba-goose-system",
+      "systemName": "NBA Goose System",
+      "gameDate": "2026-03-21",
+      "loggedAt": "2026-03-21T17:36:08.987Z",
+      "qualifierId": "nba-goose:NBA:OKC@WAS:na",
+      "recordKind": "qualifier",
+      "matchup": "Oklahoma City Thunder @ Washington Wizards",
+      "roadTeam": "Oklahoma City Thunder",
+      "homeTeam": "Washington Wizards",
+      "qualifiedTeam": null,
+      "opponentTeam": null,
+      "marketType": null,
+      "actionLabel": "NBA Goose System flat 1u qualifier",
+      "actionSide": "Oklahoma City Thunder",
+      "flatStakeUnits": 1,
+      "settlementStatus": "pending",
+      "outcome": "pending",
+      "netUnits": null,
+      "source": "The Odds API + ESPN summary",
+      "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
+      "recordSnapshot": {
+        "id": "nba-goose:NBA:OKC@WAS:na",
+        "gameId": "NBA:OKC@WAS:na",
+        "oddsEventId": null,
+        "gameDate": "2026-03-21",
+        "matchup": "Oklahoma City Thunder @ Washington Wizards",
+        "roadTeam": "Oklahoma City Thunder",
+        "homeTeam": "Washington Wizards",
+        "recordKind": null,
+        "marketType": null,
+        "alertLabel": null,
+        "starterName": null,
+        "starterEra": null,
+        "currentMoneyline": null,
+        "priorGameDate": null,
+        "priorStartSummary": null,
+        "closingSpread": -21,
+        "firstQuarterSpread": null,
+        "thirdQuarterSpread": null,
+        "firstQuarterRoadScore": null,
+        "firstQuarterHomeScore": null,
+        "thirdQuarterRoadScore": null,
+        "thirdQuarterHomeScore": null,
+        "bet1Result": "pending",
+        "bet2Result": null,
+        "sequenceResult": "pending",
+        "estimatedNetUnits": null,
+        "source": "The Odds API + ESPN summary",
+        "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
+        "lastSyncedAt": "2026-03-21T17:36:08.987Z"
+      },
+      "settledAt": null,
+      "lastSyncedAt": "2026-03-21T17:36:08.987Z"
     }
   ]
 }

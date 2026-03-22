@@ -45,6 +45,11 @@ function formatUnits(value: number | null) {
   return `${value.toFixed(1)}u`;
 }
 
+function formatFlatRecord(metrics: ReturnType<typeof getSystemDerivedMetrics>) {
+  if (!metrics.performance.actionable) return "Qualifier only";
+  return metrics.performance.record;
+}
+
 function formatMoneyline(value?: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   return value > 0 ? `+${value}` : `${value}`;
@@ -440,23 +445,29 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
             <>
               <MetricCard
                 label="Tracked qualifiers"
-                value={String(metrics.qualifiedGames)}
-                note="Rows currently matching the mechanical v1 screen."
+                value={String(metrics.performance.qualifiersLogged || metrics.qualifiedGames)}
+                note="Immutable qualifier log entries captured for this system."
               />
               <MetricCard
-                label="Listed ERA present"
-                value={String(qualifierRowsWithEra)}
-                note={qualifierRowsMissingEra > 0 ? `${qualifierRowsMissingEra} qualifier${qualifierRowsMissingEra === 1 ? " is" : "s are"} missing listed ERA and kept unresolved.` : "Every stored qualifier has a listed ERA."}
+                label="Flat 1u record"
+                value={formatFlatRecord(metrics)}
+                note={metrics.performance.actionable
+                  ? `${metrics.performance.gradedQualifiers} graded qualifier${metrics.performance.gradedQualifiers === 1 ? "" : "s"} at flat 1u each.`
+                  : "No honest action side is defined yet, so this stays a qualifier log only."}
               />
               <MetricCard
-                label="Moneyline captured"
-                value={String(qualifierRowsWithMoneyline)}
-                note="Only qualifiers with a live moneyline inside the system band are stored." 
+                label="Flat 1u win rate"
+                value={metrics.performance.actionable ? formatPercent(metrics.performance.winPct) : "N/A"}
+                note={metrics.performance.actionable
+                  ? "Wins / losses only. Pushes excluded from win rate."
+                  : "Win% is intentionally withheld until the system has a real action rule."}
               />
               <MetricCard
-                label="System posture"
-                value={system.status.replaceAll("_", " ")}
-                note="Alerts and evidence only — no auto-published picks or claimed win rate yet."
+                label="Flat 1u units"
+                value={metrics.performance.actionable ? formatUnits(metrics.performance.flatNetUnits) : "N/A"}
+                note={metrics.performance.actionable
+                  ? "Derived from settled qualifier outcomes at 1u per qualified play."
+                  : "Units are intentionally withheld for watchlist-only systems."}
               />
             </>
           ) : (
