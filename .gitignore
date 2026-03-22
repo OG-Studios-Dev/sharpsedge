@@ -40,9 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local env
-.env.local
-.env*.local
+# generated local data / QA artifacts
+data/daily-props-*.json
+data/market-snapshots/
+test-results/
 
 # local env
 .env.local

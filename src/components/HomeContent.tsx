@@ -110,10 +110,23 @@ function formatAmericanOdds(odds?: number | null) {
   return odds > 0 ? `+${odds}` : `${odds}`;
 }
 
-function GolfPredictionBoard({ players }: { players: GolfPrediction[] }) {
+function GolfPredictionBoard({ players, href }: { players: GolfPrediction[]; href?: string }) {
+  const rankedPlayers = [...players].sort((left, right) => {
+    const winProbDelta = (right.modelProb ?? 0) - (left.modelProb ?? 0);
+    if (Math.abs(winProbDelta) > 0.0001) return winProbDelta;
+
+    const combinedScoreDelta = (right.combinedScore ?? 0) - (left.combinedScore ?? 0);
+    if (Math.abs(combinedScoreDelta) > 0.0001) return combinedScoreDelta;
+
+    const edgeDelta = (right.edge ?? Number.NEGATIVE_INFINITY) - (left.edge ?? Number.NEGATIVE_INFINITY);
+    if (Math.abs(edgeDelta) > 0.0001) return edgeDelta;
+
+    return left.name.localeCompare(right.name);
+  });
+
   return (
     <div className="space-y-2">
-      {players.slice(0, 10).map((player, index) => (
+      {rankedPlayers.slice(0, 3).map((player, index) => (
         <div key={player.id} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-blue/10 text-sm font-semibold text-accent-blue">
@@ -149,6 +162,15 @@ function GolfPredictionBoard({ players }: { players: GolfPrediction[] }) {
           </div>
         </div>
       ))}
+
+      {href ? (
+        <Link
+          href={href}
+          className="inline-flex items-center gap-2 rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-2 text-xs font-semibold text-accent-blue transition hover:border-accent-blue/50 hover:bg-accent-blue/15"
+        >
+          View full board →
+        </Link>
+      ) : null}
     </div>
   );
 }
@@ -243,105 +265,6 @@ export default function HomeContent() {
     () => buildTrendingRows(dashboards.props, 5),
     [dashboards.props],
   );
-
-  if (sportLeague === "PGA") {
-    const golfDashboard = dashboards.golfDashboard;
-
-    return (
-      <main className="min-h-screen bg-dark-bg pb-24">
-        <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
-          <PageHeader
-            title=""
-            subtitle=""
-            right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
-          >
-            
-          </PageHeader>
-
-          <div className="space-y-5 px-4 lg:px-0">
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start">
-            <div className="space-y-5">
-              <GolfLeaderboardCard leaderboard={golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
-
-              <HomeSection
-                title="Tournament Predictions"
-                subtitle="Model-ranked PGA players using recent form, course history, season profile, live position, and outright context."
-              >
-                {dashboards.loading ? (
-                  <div className="space-y-3">
-                    {[0, 1, 2, 3].map((item) => (
-                      <TrendRowSkeleton key={item} />
-                    ))}
-                  </div>
-                ) : (golfDashboard?.predictions?.players.length ?? 0) === 0 ? (
-                  <EmptyStateCard
-                    eyebrow="Predictions"
-                    title="No prediction board loaded yet"
-                    body="The model will populate once ESPN posts a field or a live PGA leaderboard for the current event."
-                    className="mx-0 mt-0"
-                  />
-                ) : (
-                  <GolfPredictionBoard players={golfDashboard?.predictions?.players ?? []} />
-                )}
-              </HomeSection>
-
-              <HomeSection
-                title="H2H Matchups"
-                subtitle="Available head-to-head markets from books with the model pick and disagreement flags."
-              >
-                {dashboards.loading ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {[0, 1].map((item) => (
-                      <div key={item} className="skeleton-surface h-40 rounded-2xl" />
-                    ))}
-                  </div>
-                ) : (golfDashboard?.predictions?.h2hMatchups.length ?? 0) === 0 ? (
-                  <EmptyStateCard
-                    eyebrow="H2H"
-                    title="No matchups on the board"
-                    body="This section populates when The Odds API has PGA head-to-head prices for the current event."
-                    className="mx-0 mt-0"
-                  />
-                ) : (
-                  <GolfMatchupBoard matchups={golfDashboard?.predictions?.h2hMatchups ?? []} />
-                )}
-              </HomeSection>
-            </div>
-
-            <div className="space-y-5">
-              <HomePicksSection league="PGA" />
-
-              <HomeSection
-                title="Best Value Picks"
-                subtitle="Highest positive edges on free-data outright and placement proxies."
-              >
-                {dashboards.loading ? (
-                  <div className="space-y-3">
-                    {[0, 1, 2].map((item) => (
-                      <TrendRowSkeleton key={item} />
-                    ))}
-                  </div>
-                ) : (golfDashboard?.predictions?.bestValuePicks.length ?? 0) === 0 ? (
-                  <EmptyStateCard
-                    eyebrow="Value"
-                    title="No positive edges yet"
-                    body="Value picks appear when the model outruns the current outright board or the derived placement baseline."
-                    className="mx-0 mt-0"
-                  />
-                ) : (
-                  <GolfValueBoard valuePicks={golfDashboard?.predictions?.bestValuePicks ?? []} />
-                )}
-              </HomeSection>
-
-              <GolfScheduleBoard tournaments={golfDashboard?.schedule ?? []} loading={dashboards.loading} showHeader />
-            </div>
-          </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   if (sportLeague === "NFL") {
     return (

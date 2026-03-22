@@ -28,28 +28,28 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
   const { settled, winPct } = computePickWinRateStats({ wins, losses });
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3.5 py-2.5 rounded-xl bg-dark-bg/60 border border-dark-border/50 sm:flex-nowrap sm:gap-4 sm:px-3 sm:py-2">
-      {label && <span className="text-[10px] text-gray-500 font-semibold uppercase mr-1 shrink-0">{label}</span>}
-      <div className="text-center min-w-[28px]">
-        <p className="text-emerald-400 font-bold text-sm sm:text-sm">{wins}</p>
+    <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap rounded-xl border border-dark-border/50 bg-dark-bg/60 px-2.5 py-2 scrollbar-hide sm:gap-3 sm:px-3">
+      {label && <span className="text-[10px] text-gray-500 font-semibold uppercase shrink-0">{label}</span>}
+      <div className="text-center min-w-[24px] shrink-0">
+        <p className="text-emerald-400 font-bold text-sm">{wins}</p>
         <p className="text-[9px] text-gray-500 uppercase">W</p>
       </div>
-      <div className="text-center min-w-[28px]">
-        <p className="text-red-400 font-bold text-sm sm:text-sm">{losses}</p>
+      <div className="text-center min-w-[24px] shrink-0">
+        <p className="text-red-400 font-bold text-sm">{losses}</p>
         <p className="text-[9px] text-gray-500 uppercase">L</p>
       </div>
-      <div className="text-center min-w-[28px]">
-        <p className="text-yellow-400 font-bold text-sm sm:text-sm">{pushes}</p>
-        <p className="text-[9px] text-gray-500 uppercase">Push</p>
+      <div className="text-center min-w-[24px] shrink-0">
+        <p className="text-yellow-400 font-bold text-sm">{pushes}</p>
+        <p className="text-[9px] text-gray-500 uppercase">P</p>
       </div>
-      <div className="text-center min-w-[28px]">
-        <p className="text-gray-400 font-bold text-sm sm:text-sm">{pending}</p>
-        <p className="text-[9px] text-gray-500 uppercase">Pend</p>
+      <div className="text-center min-w-[24px] shrink-0">
+        <p className="text-gray-400 font-bold text-sm">{pending}</p>
+        <p className="text-[9px] text-gray-500 uppercase">PD</p>
       </div>
-      <div className="ml-auto flex items-center gap-3 shrink-0">
+      <div className="ml-auto flex items-center gap-2 shrink-0 pl-1">
         <div className="text-right">
           <p className="font-bold text-sm text-white">{winPct.toFixed(2)}%</p>
-          <p className="text-[9px] text-gray-500 uppercase">Win % · {settled}</p>
+          <p className="text-[9px] text-gray-500 uppercase">{settled}</p>
         </div>
         <div className="text-right">
           <p className={`font-bold text-sm ${unitColor}`}>
@@ -185,13 +185,14 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
 
   const record =
     league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
+  const mobileDisplayPicks = league === "PGA" ? displayPicks.slice(0, 5) : displayPicks;
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 sm:p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-bold text-white tracking-tight">TODAY&apos;S TOP PICKS</h3>
+          <h3 className="text-sm font-bold text-white tracking-tight">{league === "PGA" ? "TOURNAMENT AI PICKS" : "TODAY'S TOP PICKS"}</h3>
           <p className="text-[10px] text-gray-500 mt-0.5">
             {league === "PGA"
               ? "PGA · 12 tournament picks · 1 unit each"
@@ -248,9 +249,21 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
           </div>
         ) : (
           <div className="space-y-0">
-            {displayPicks.map((pick) => (
-              <PickRow key={pick.id} pick={pick} />
-            ))}
+            <div className="sm:hidden">
+              {mobileDisplayPicks.map((pick) => (
+                <PickRow key={pick.id} pick={pick} />
+              ))}
+              {league === "PGA" && displayPicks.length > mobileDisplayPicks.length ? (
+                <Link href="/picks" className="mt-3 inline-flex text-xs font-medium text-accent-blue">
+                  View all {displayPicks.length} tournament picks →
+                </Link>
+              ) : null}
+            </div>
+            <div className="hidden sm:block">
+              {displayPicks.map((pick) => (
+                <PickRow key={pick.id} pick={pick} />
+              ))}
+            </div>
           </div>
         )}
       </div>

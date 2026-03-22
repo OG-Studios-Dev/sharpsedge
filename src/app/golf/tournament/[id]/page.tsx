@@ -1,4 +1,5 @@
 import Link from "next/link";
+import GolfMarketEdgesSection from "@/components/GolfMarketEdgesSection";
 import GolfTournamentTabs from "@/components/GolfTournamentTabs";
 import { getPGALeaderboard, getPGATournamentById, getPGATournamentLeaderboard } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";
@@ -86,6 +87,8 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
             </span>
           </div>
         </section>
+
+        <GolfMarketEdgesSection predictions={predictions} />
 
         <GolfTournamentTabs
           tournament={tournament}

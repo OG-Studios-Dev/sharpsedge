@@ -7,6 +7,7 @@ import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
 import EmptyStateCard from "./EmptyStateCard";
 import GolfLeaderboardCard from "./GolfLeaderboardCard";
+import GolfMarketEdgesSection from "./GolfMarketEdgesSection";
 import GolfPlayerCard from "./GolfPlayerCard";
 import GolfScheduleBoard from "./GolfScheduleBoard";
 import LeagueSwitcher from "./LeagueSwitcher";
@@ -341,24 +342,13 @@ export default function ScheduleStandingsContent() {
           <div className="space-y-5">
             <GolfLeaderboardCard leaderboard={dashboards.golfDashboard?.leaderboard ?? null} loading={dashboards.loading} />
             {dashboards.loading ? (
-              <div className="grid gap-3 xl:grid-cols-2">
-                {[0, 1, 2, 3].map((item) => (
-                  <div key={item} className="h-72 animate-pulse rounded-2xl bg-dark-border/40" />
-                ))}
-              </div>
-            ) : (dashboards.golfDashboard?.playerInsights.length ?? 0) === 0 ? (
-              <EmptyStateCard
-                eyebrow="PGA"
-                title="No player insight cards yet"
-                body="Recent-form and course-history cards populate once the tournament field or live leaderboard is available."
-                className="mx-0 mt-0"
-              />
+              <div className="h-48 animate-pulse rounded-2xl bg-dark-border/40" />
             ) : (
-              <div className="grid gap-3 xl:grid-cols-2">
-                {dashboards.golfDashboard?.playerInsights.slice(0, 6).map((player) => (
-                  <GolfPlayerCard key={`${player.id}-${player.name}`} player={player} />
-                ))}
-              </div>
+              <GolfMarketEdgesSection
+                predictions={dashboards.golfDashboard?.predictions ?? null}
+                href={dashboards.golfDashboard?.predictions?.tournament?.id ? `/golf/tournament/${dashboards.golfDashboard.predictions.tournament.id}` : "/golf"}
+                compact
+              />
             )}
           </div>
         ) : (

@@ -972,6 +972,3 @@ export default function PicksPage() {
     </main>
   );
 }
-in>
-  );
-}

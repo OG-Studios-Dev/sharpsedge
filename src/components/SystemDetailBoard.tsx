@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { NHLContextBoardResponse } from "@/lib/nhl-context";
-import { getSystemDerivedMetrics, type DataRequirementStatus, type TrackedSystem } from "@/lib/systems-tracking-store";
+import { getSystemDerivedMetrics, type TrackedSystem } from "@/lib/systems-tracking-store";
 import SystemNhlContextBoard from "@/components/SystemNhlContextBoard";
 
 function statusPill(status: TrackedSystem["status"]) {
@@ -16,12 +16,6 @@ function trackabilityPill(trackability: TrackedSystem["trackabilityBucket"]) {
   if (trackability === "trackable_now") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
   if (trackability === "blocked_missing_data") return "border-red-500/30 bg-red-500/10 text-red-300";
   return "border-amber-500/30 bg-amber-500/10 text-amber-300";
-}
-
-function requirementPill(status: DataRequirementStatus) {
-  if (status === "ready") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-  if (status === "partial") return "border-amber-500/30 bg-amber-500/10 text-amber-300";
-  return "border-red-500/30 bg-red-500/10 text-red-300";
 }
 
 function formatStatus(status: TrackedSystem["status"]) {
@@ -99,7 +93,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
           <span>Starter</span>
           <span>ERA</span>
           <span>ML</span>
-          <span>Falcons score</span>
+          <span>Score</span>
           <span>Prior start</span>
           <span>Context</span>
         </div>
@@ -173,11 +167,7 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
 export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }: { system: TrackedSystem; updatedAt: string; nhlContextBoard?: NHLContextBoardResponse | null }) {
   const metrics = getSystemDerivedMetrics(system);
   const metricsAwaitingLines = !metrics.trackableGames;
-  const isTrackableNow = system.trackabilityBucket === "trackable_now";
   const isQualifierBoard = system.progressionLogic.length === 0;
-  const qualifierRowsWithEra = system.records.filter((record) => record.starterEra != null).length;
-  const qualifierRowsWithMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
-  const qualifierRowsMissingEra = system.records.filter((record) => record.starterEra == null).length;
 
   return (
     <div className="space-y-5 px-4 py-4 lg:px-0">
@@ -226,201 +216,28 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <div className="space-y-5">
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <p className="section-heading">System Definition</p>
-            <p className="mt-3 text-sm leading-7 text-gray-300">{system.definition}</p>
-          </section>
+      <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+        <p className="section-heading">System description</p>
+        <p className="mt-3 text-sm leading-7 text-gray-300">{system.definition}</p>
+        {system.thesis ? <p className="mt-4 text-sm leading-7 text-gray-400">{system.thesis}</p> : null}
+      </section>
 
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <p className="section-heading">Qualification Rules</p>
-            <div className="mt-3 space-y-2">
-              {system.qualifierRules.length ? system.qualifierRules.map((rule) => (
-                <div key={rule} className="flex items-start gap-3 rounded-2xl border border-dark-border/70 bg-dark-bg/60 px-3 py-3">
-                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-blue/10 text-xs font-semibold text-accent-blue">✓</div>
-                  <p className="text-sm leading-6 text-gray-300">{rule}</p>
-                </div>
-              )) : <p className="text-sm text-gray-400">No qualifier rules have been documented yet.</p>}
+      {system.slug === "swaggy-stretch-drive" && (
+        <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="section-heading">Live context rails</p>
+              <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
             </div>
-          </section>
-
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <p className="section-heading">Progression Logic</p>
-            {system.progressionLogic.length ? (
-              <div className="mt-4 space-y-3">
-                {system.progressionLogic.map((step, index) => (
-                  <div key={`${system.id}-${step.step}`} className="flex gap-3 rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-accent-blue/10 text-sm font-semibold text-accent-blue">{index + 1}</div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-white">{step.step}</p>
-                        <span className="rounded-full border border-dark-border bg-dark-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-400">{step.stake}</span>
-                      </div>
-                      <p className="mt-2 text-sm text-gray-300">{step.label}</p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                        {step.trigger && <span className="rounded-full bg-dark-surface px-2.5 py-1 text-gray-300">Trigger: {step.trigger}</span>}
-                        <span className="rounded-full bg-dark-surface px-2.5 py-1 text-gray-300">Stop: {step.stopIf}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-gray-400">No progression ladder is documented for this system.</p>
-            )}
-          </section>
-        </div>
-
-        <div className="space-y-5">
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <p className="section-heading">Rationale / Thesis</p>
-            <p className="mt-3 text-sm leading-7 text-gray-300">{system.thesis}</p>
-          </section>
-
-          {system.slug === "swaggy-stretch-drive" && (
-            <>
-              <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="section-heading">Swaggy v1 rulebook</p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">Actual entry + price discipline gates</h2>
-                  </div>
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                    qualifier alerts only
-                  </span>
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-                    <p className="meta-label">Entry side must clear</p>
-                    <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
-                      <p>• Derived playoff-pressure tier = <span className="font-semibold text-white">high</span>.</p>
-                      <p>• Opponent cannot also be tagged <span className="font-semibold text-white">high urgency</span>.</p>
-                      <p>• Sourced MoneyPuck xG% must be <span className="font-semibold text-white">≥ 51.5%</span> and beat opponent by <span className="font-semibold text-white">at least 2 points</span>.</p>
-                      <p>• Starter must be <span className="font-semibold text-white">confirmed or probable</span>, and not flagged as backup.</p>
-                      <p>• Team cannot sit in the extreme fatigue band or trail opponent badly on fatigue.</p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-                    <p className="meta-label">Price discipline / honesty policy</p>
-                    <div className="mt-3 space-y-2 text-sm leading-6 text-gray-300">
-                      <p>• Best available moneyline must be between <span className="font-semibold text-white">-145 and +115</span>.</p>
-                      <p>• Urgency alone never creates a row — xG, goalie, fatigue, and price all have to line up.</p>
-                      <p>• Official-team news is visible for audit, but not yet a hard trigger because impact tagging is still shallow.</p>
-                      <p>• Stored rows are <span className="font-semibold text-white">qualifier alerts</span>, not official picks, not a backtest, and not a fake settled history.</p>
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="section-heading">Live context rails</p>
-                    <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
-                  </div>
-                  <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
-                    sourced + derived
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <SystemNhlContextBoard board={nhlContextBoard ?? null} />
-                </div>
-              </section>
-            </>
-          )}
-
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="section-heading">Trackability</p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Readiness and unlock path</h2>
-              </div>
-              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${trackabilityPill(system.trackabilityBucket)}`}>
-                {formatTrackability(system.trackabilityBucket)}
-              </span>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-              <p className="meta-label">Current state</p>
-              <p className="mt-2 text-base font-semibold text-white">{system.automationStatusLabel}</p>
-              <p className="mt-2 text-sm leading-6 text-gray-400">{system.automationStatusDetail}</p>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {isTrackableNow ? (
-                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                  <p className="text-sm font-semibold text-white">Live now</p>
-                  <p className="mt-2 text-sm leading-6 text-emerald-100/80">
-                    This system is actively trackable in the product today. Missing fields stay unresolved rather than guessed, so honest tracking wins over fake completeness.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-                  <p className="meta-label">What we need to unlock this</p>
-                  <div className="mt-3 space-y-2">
-                    {system.unlockNotes.map((note) => (
-                      <p key={note} className="text-sm leading-6 text-gray-300">• {note}</p>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="section-heading">Source Notes</p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Attribution and model context</h2>
-              </div>
-            </div>
-            <div className="mt-4 space-y-3">
-              {system.sourceNotes.length ? system.sourceNotes.map((note) => (
-                <div key={`${note.label}-${note.detail}`} className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                  <p className="text-sm font-semibold text-white">{note.label}</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-400">{note.detail}</p>
-                </div>
-              )) : <p className="text-sm text-gray-400">No source notes yet.</p>}
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="section-heading">Data Requirements</p>
-                <h2 className="mt-2 text-lg font-semibold text-white">Inputs feeding honest automation</h2>
-              </div>
-              <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${metrics.ingestionReady ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-300"}`}>
-                {metrics.ingestionReady ? "ready" : system.automationStatusLabel}
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {system.dataRequirements.map((item) => (
-                <div key={item.label} className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-white">{item.label}</p>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${requirementPill(item.status)}`}>{item.status}</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-gray-400">{item.detail}</p>
-                </div>
-              ))}
-            </div>
-
-            {system.trackingNotes.length > 0 && (
-              <div className="mt-4 rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
-                <p className="meta-label">Implementation notes</p>
-                <div className="mt-3 space-y-2">
-                  {system.trackingNotes.map((note) => (
-                    <p key={note} className="text-sm leading-6 text-gray-400">• {note}</p>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      </div>
+            <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
+              sourced + derived
+            </span>
+          </div>
+          <div className="mt-4">
+            <SystemNhlContextBoard board={nhlContextBoard ?? null} />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -429,7 +246,7 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
             <h2 className="mt-2 text-lg font-semibold text-white">{isQualifierBoard ? "Qualifier alert board" : "Performance board"}</h2>
             <p className="mt-1 text-sm text-gray-400">
               {isQualifierBoard
-                ? "Stored rows show live qualifiers and alert context only. This board is intentionally not an official picks engine."
+                ? "Stored rows show live qualifiers and alert context only."
                 : metricsAwaitingLines
                   ? "Metrics stay conservative until lines and settlement data are present."
                   : "Derived only from stored rows with captured lines and settled results."}

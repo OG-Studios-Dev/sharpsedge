@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSystemDerivedMetrics, getSystemSnapshot, type TrackedSystem } from "@/lib/systems-tracking-store";
+import { getSystemDerivedMetrics, type TrackedSystem } from "@/lib/systems-tracking-store";
 
 type Props = {
   systems: TrackedSystem[];
@@ -45,21 +45,27 @@ function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
   return "Parked";
 }
 
-function CompactMetaCard({ label, value, tone = "default" }: { label: string; value: string | number; tone?: "default" | "emerald" | "amber" | "red" }) {
-  const toneClass = tone === "emerald"
-    ? "border-emerald-500/20 bg-emerald-500/5"
-    : tone === "amber"
-      ? "border-amber-500/20 bg-amber-500/5"
-      : tone === "red"
-        ? "border-red-500/20 bg-red-500/5"
-        : "border-white/10 bg-white/5";
+function sortSystemsForDisplay(systems: TrackedSystem[]) {
+  const priorityMap: Record<string, number> = {
+    "nba-goose": 0,
+    "blowout-alert": 1,
+    "hot-teams": 2,
+    "swaggy-stretch-drive": 3,
+    "tonys-hot-bats": 4,
+    "falcons-f5": 5,
+  };
 
-  return (
-    <div className={`rounded-2xl border px-3 py-2.5 ${toneClass}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">{label}</p>
-      <p className="mt-1.5 text-sm font-semibold text-white">{value}</p>
-    </div>
-  );
+  return [...systems].sort((a, b) => {
+    const aTrackable = a.trackabilityBucket === "trackable_now" ? 0 : 1;
+    const bTrackable = b.trackabilityBucket === "trackable_now" ? 0 : 1;
+    if (aTrackable !== bTrackable) return aTrackable - bTrackable;
+
+    const aPriority = priorityMap[a.slug] ?? 999;
+    const bPriority = priorityMap[b.slug] ?? 999;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague = "All" }: Props) {
@@ -67,9 +73,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
     ? systems
     : systems.filter((system) => system.league === activeLeague);
 
-  const trackableCount = filteredSystems.filter((system) => system.trackabilityBucket === "trackable_now").length;
-  const parkedCount = filteredSystems.filter((system) => system.trackabilityBucket === "parked_definition_only").length;
-  const blockedCount = filteredSystems.filter((system) => system.trackabilityBucket === "blocked_missing_data").length;
+  const orderedSystems = sortSystemsForDisplay(filteredSystems);
 
   return (
     <div className="space-y-4 px-4 py-3 lg:px-0 lg:py-4">
@@ -78,14 +82,6 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-blue/80">Systems</p>
-              <details className="group relative">
-                <summary className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full border border-white/10 bg-white/5 text-[11px] font-semibold text-gray-300 transition hover:border-white/20 hover:text-white">
-                  i
-                </summary>
-                <div className="absolute left-0 top-8 z-10 w-[min(18rem,calc(100vw-3rem))] rounded-2xl border border-white/10 bg-[#0f131b] p-3 text-xs leading-5 text-gray-300 shadow-2xl">
-                  Browse the catalog by league, see what is live vs parked vs blocked, and drill into the detail page for qualifier rules plus unlock notes.
-                </div>
-              </details>
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">Systems</h1>
@@ -93,12 +89,6 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             </div>
           </div>
 
-          <div className="hidden sm:grid sm:grid-cols-4 sm:gap-2">
-            <CompactMetaCard label="Total" value={filteredSystems.length} />
-            <CompactMetaCard label="Trackable" value={trackableCount} tone="emerald" />
-            <CompactMetaCard label="Parked" value={parkedCount} tone="amber" />
-            <CompactMetaCard label="Blocked" value={blockedCount} tone="red" />
-          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -120,28 +110,16 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
           })}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
-          <CompactMetaCard label="Total" value={filteredSystems.length} />
-          <CompactMetaCard label="Trackable" value={trackableCount} tone="emerald" />
-          <CompactMetaCard label="Parked" value={parkedCount} tone="amber" />
-          <CompactMetaCard label="Blocked" value={blockedCount} tone="red" />
-        </div>
       </section>
 
       <section className="space-y-2.5">
-        {filteredSystems.length === 0 ? (
+        {orderedSystems.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-dark-border bg-dark-surface/40 p-5 text-sm text-gray-400">
             No systems are seeded for {activeLeague} yet.
           </div>
         ) : (
-          filteredSystems.map((system) => {
+          orderedSystems.map((system) => {
             const metrics = getSystemDerivedMetrics(system);
-            const snapshot = getSystemSnapshot(system);
-            const compactUnlock = system.slug === "swaggy-stretch-drive"
-              ? "Now surfaces live goalie, rest/travel/fatigue, playoff-pressure, and official-team news context on the detail page — still not an auto-bet system."
-              : system.trackabilityBucket === "trackable_now"
-                ? "Live rows are tracked honestly; missing fields stay unresolved instead of guessed."
-                : (system.unlockNotes[0] || system.automationStatusDetail);
 
             return (
               <Link
@@ -164,9 +142,6 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                       <h2 className="text-lg font-semibold text-white sm:text-xl">{system.name}</h2>
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gray-300">
-                        {system.automationStatusLabel}
-                      </span>
                     </div>
 
                     <p className="mt-2 text-sm leading-6 text-gray-300">{system.summary}</p>
@@ -177,20 +152,28 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.7fr))]">
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Quick scan</p>
-                    <p className="mt-1.5 text-sm leading-5 text-gray-300">{snapshot}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked record</p>
+                    <p className="mt-1.5 text-base font-semibold text-white">
+                      {metrics.performance.actionable ? metrics.performance.record : `${metrics.qualifiedGames} qualifiers logged`}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {metrics.performance.actionable
+                        ? `${metrics.performance.gradedQualifiers} graded rows${metrics.performance.ungradeable ? ` • ${metrics.performance.ungradeable} ungradeable excluded` : ""}`
+                        : "Qualifier-only until a real action rule is mature."}
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked rows</p>
-                    <p className="mt-1.5 text-base font-semibold text-white">{metrics.qualifiedGames}</p>
-                    <p className="mt-1 text-xs text-gray-500">Stored qualifiers or record rows.</p>
-                  </div>
-                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3 sm:col-span-1 col-span-full">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Unlock note</p>
-                    <p className="mt-1.5 text-sm font-semibold text-white">{formatTrackability(system.trackabilityBucket)}</p>
-                    <p className="mt-1 text-xs leading-5 text-gray-500">{compactUnlock}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Net units</p>
+                    <p className="mt-1.5 text-base font-semibold text-white">
+                      {metrics.performance.actionable && metrics.performance.flatNetUnits != null
+                        ? `${metrics.performance.flatNetUnits > 0 ? "+" : ""}${metrics.performance.flatNetUnits.toFixed(2)}u`
+                        : "N/A"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {metrics.performance.actionable ? "Flat 1u tracking from settled rows only." : "Hidden until the system has honest settlement rules."}
+                    </p>
                   </div>
                 </div>
               </Link>
