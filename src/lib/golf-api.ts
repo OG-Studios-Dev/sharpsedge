@@ -445,8 +445,8 @@ function parseScheduleFromScoreboard(scoreboard: any, tour: "PGA" | "LIV", inclu
 
   const schedule: GolfTournament[] = calendar
     .map((entry: any) => {
-      // Use value as ID; fall back to slug from label for upcoming events without ESPN event IDs
-      const rawId = firstString(entry?.value);
+      // ESPN calendar entries usually expose `id`, not `value`.
+      const rawId = firstString(entry?.id, entry?.value);
       const id = rawId || (entry?.label ? `upcoming-${entry.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "")}` : "");
       const event = eventMap.get(rawId);
       const startDate = firstString(entry?.startDate, event?.date);
@@ -572,32 +572,45 @@ async function getGolfLeaderboard(tour: GolfTourKey): Promise<GolfLeaderboard | 
     const scoreboard = await getGolfScoreboard(tour);
     const tourLabel = tour === "pga" ? "PGA" : "LIV";
     const events = Array.isArray(scoreboard?.events) ? scoreboard.events : [];
-    // Only use an active (non-completed) event. If none, return null so the page shows upcoming instead.
-    const activeEvent = events.find((event: any) => getTournamentStatus(event, event?.date, event?.endDate) !== "completed");
+    const liveEvent = events.find((event: any) => getTournamentStatus(event, event?.date, event?.endDate) === "in-progress");
 
-    if (!activeEvent) {
+    if (!liveEvent) {
       const schedule = await getGolfSchedule(tour);
-      const nextTournament = schedule[0];
-      return nextTournament
+      const now = Date.now();
+      const recentCompleted = schedule
+        .filter((tournament: GolfTournament) => tournament.status === "completed")
+        .sort((left: GolfTournament, right: GolfTournament) => {
+          const leftTime = left.endDate ? new Date(left.endDate).getTime() : 0;
+          const rightTime = right.endDate ? new Date(right.endDate).getTime() : 0;
+          return rightTime - leftTime;
+        })
+        .find((tournament: GolfTournament) => {
+          const end = tournament.endDate ? new Date(tournament.endDate).getTime() : NaN;
+          return Number.isFinite(end) && end >= now - 36 * 60 * 60 * 1000;
+        });
+      const nextTournament = schedule.find((tournament: GolfTournament) => tournament.status === "upcoming");
+      const displayTournament = recentCompleted ?? nextTournament ?? schedule[0];
+
+      return displayTournament
         ? {
-            tournament: nextTournament,
+            tournament: displayTournament,
             players: [],
             cutLine: null,
-            statusBadge: getStatusBadge(nextTournament),
+            statusBadge: getStatusBadge(displayTournament),
           }
         : null;
     }
 
-    const tournament = parseTournamentFromEvent(activeEvent, tourLabel);
+    const tournament = parseTournamentFromEvent(liveEvent, tourLabel);
 
     try {
       const leaderboard = await getGolfLeaderboardForEvent(tour, tournament.id);
       if (leaderboard) return leaderboard;
 
-      const fallbackBoard = buildLeaderboardFromEvent(activeEvent, tourLabel);
+      const fallbackBoard = buildLeaderboardFromEvent(liveEvent, tourLabel);
       return fallbackBoard;
     } catch {
-      const competition = activeEvent?.competitions?.[0] ?? {};
+      const competition = liveEvent?.competitions?.[0] ?? {};
       const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
       const players = parseLeaderboardPlayers(competitors, tournament);
       const cutLine = parseCutLine(players);
