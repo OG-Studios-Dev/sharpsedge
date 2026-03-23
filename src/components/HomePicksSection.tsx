@@ -22,8 +22,8 @@ function ResultPill({ result }: { result: string }) {
   return <span className="text-[10px] text-gray-500 uppercase">Pending</span>;
 }
 
-function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
-  wins: number; losses: number; pushes: number; pending: number; profitUnits: number; label?: string;
+function RecordBar({ wins, losses, pushes, pending, profitUnits, label, hideWinRate = false }: {
+  wins: number; losses: number; pushes: number; pending: number; profitUnits: number; label?: string; hideWinRate?: boolean;
 }) {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
   const { settled, winPct } = computePickWinRateStats({ wins, losses });
@@ -47,10 +47,12 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label }: {
         <p className="text-[9px] text-gray-500 uppercase">PD</p>
       </div>
       <div className="ml-auto flex items-center gap-2 shrink-0 pl-1">
-        <div className="text-right">
-          <p className="font-bold text-sm text-white">{winPct.toFixed(2)}%</p>
-          <p className="text-[9px] text-gray-500 uppercase">{settled}</p>
-        </div>
+        {!hideWinRate && (
+          <div className="text-right">
+            <p className="font-bold text-sm text-white">{winPct.toFixed(2)}%</p>
+            <p className="text-[9px] text-gray-500 uppercase">{settled}</p>
+          </div>
+        )}
         <div className="text-right">
           <p className={`font-bold text-sm ${unitColor}`}>
             {profitUnits > 0 ? "+" : ""}{(profitUnits || 0).toFixed(2)}u
@@ -225,7 +227,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
           <RecordBar {...displayRecord} label={recordSport === "All" ? "All Sports" : recordSport} />
         </div>
       ) : (
-        <RecordBar {...record} />
+        <RecordBar {...record} hideWinRate={league === "PGA"} />
       )}
 
       {/* Picks */}

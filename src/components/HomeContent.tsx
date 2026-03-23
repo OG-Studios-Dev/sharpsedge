@@ -366,7 +366,7 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)]">
               <HomeSection
-                title="Tournament AI Picks"
+                title="Tournament Model Board"
                 subtitle="Best outrights ranked by model probability, combined score, and real edge."
                 href={tournamentId ? `/golf/tournament/${tournamentId}` : "/golf"}
               >
@@ -377,8 +377,8 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
                   />
                 ) : (
                   <EmptyStateCard
-                    eyebrow="PGA Picks"
-                    title="Tournament predictions are still loading"
+                    eyebrow="Model Board"
+                    title="Tournament model board is still loading"
                     body="Once DataGolf and live odds sync, outrights and finishing-position value will appear here."
                     className="mx-0 mt-0"
                   />
