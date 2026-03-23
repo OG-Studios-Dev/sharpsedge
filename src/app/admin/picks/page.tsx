@@ -15,14 +15,35 @@ function provenanceTone(provenance: string) {
   return "border-emerald-400/20 bg-emerald-500/10 text-emerald-200";
 }
 
+function reviewTone(provenance: string) {
+  if (provenance === "manual_repair") return "bg-blue-500/10 text-blue-200 border-blue-400/30";
+  if (provenance === "reconstructed") return "bg-amber-500/10 text-amber-200 border-amber-400/30";
+  return "bg-emerald-500/10 text-emerald-200 border-emerald-400/20";
+}
+
+function reviewLabel(provenance: string) {
+  if (provenance === "manual_repair") return "needs admin review";
+  if (provenance === "reconstructed") return "needs admin review";
+  return "approved";
+}
+
 export default async function AdminPicksPage() {
   const picks = await getAdminPicks();
 
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-white">Pick History</h2>
-        <p className="text-sm text-gray-400">Supabase `pick_history` is authoritative. Reconstructed dates and incomplete slates must stay explicitly labeled.</p>
+        <h2 className="text-xl font-bold text-white">Pick History Review</h2>
+        <p className="text-sm text-gray-400">Public history stays clean. Admin is where provenance, review state, and approval decisions live.</p>
+      </div>
+
+      <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Admin review policy</p>
+        <div className="mt-3 grid gap-2 md:grid-cols-3 text-sm">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-emerald-100">Approved = safe for public clean history</div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-amber-100">Needs admin review = provenance or import path should be checked privately</div>
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-blue-100">Next step: wire explicit approve / reject actions here</div>
+        </div>
       </div>
 
       {picks.length === 0 ? (
@@ -50,7 +71,10 @@ export default async function AdminPicksPage() {
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium text-white">{pick.pick_label}</p>
                   <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] ${provenanceTone(pick.provenance)}`}>
-                    {pick.provenance === "manual_repair" ? "repair" : pick.provenance === "reconstructed" ? "backfill" : "original"}
+                    {pick.provenance === "manual_repair" ? "manual repair" : pick.provenance === "reconstructed" ? "reconstructed" : "original"}
+                  </span>
+                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] ${reviewTone(pick.provenance)}`}>
+                    {reviewLabel(pick.provenance)}
                   </span>
                 </div>
                 <p className="truncate text-xs text-gray-500">{pick.team}{pick.opponent ? ` vs ${pick.opponent}` : ""}</p>

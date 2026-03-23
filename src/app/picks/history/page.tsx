@@ -53,14 +53,11 @@ function ResultBadge({ result }: { result: PickHistoryRecord["result"] }) {
 
 function slateBadgeTone(slate: PickSlateRecord) {
   if (slate.integrity_status === "incomplete") return "border-red-500/30 bg-red-500/10 text-red-300";
-  if (slate.provenance !== "original") return "border-amber-500/30 bg-amber-500/10 text-amber-200";
   return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
 }
 
 function slateBadgeLabel(slate: PickSlateRecord) {
-  if (slate.integrity_status === "incomplete") return `${slate.league} incomplete`;
-  if (slate.provenance === "manual_repair") return `${slate.league} manual repair`;
-  if (slate.provenance === "reconstructed") return `${slate.league} backfill`;
+  if (slate.integrity_status === "incomplete") return `${slate.league} pending review`;
   return `${slate.league} locked`;
 }
 
@@ -155,20 +152,11 @@ export default function PickHistoryPage() {
       )}
 
       {integrityIssues.length > 0 && (
-        <div className="mb-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">Integrity Review</p>
-          <div className="mt-3 space-y-2">
-            {integrityIssues.map((slate) => (
-              <div key={`${slate.date}-${slate.league}`} className="rounded-xl border border-amber-500/15 bg-dark-bg/40 px-3 py-2 text-sm text-amber-100">
-                <p className="font-medium">{formatDate(slate.date)} · {slate.league}</p>
-                <p className="mt-1 text-xs text-amber-100/80">
-                  {slate.status_note || slate.provenance_note || (slate.integrity_status === "incomplete"
-                    ? `Only ${slate.pick_count} of ${slate.expected_pick_count} picks are recorded.`
-                    : "This slate is reconstructed and should stay labeled as such.")}
-                </p>
-              </div>
-            ))}
-          </div>
+        <div className="mb-4 rounded-2xl border border-dark-border bg-dark-surface p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Admin review available</p>
+          <p className="mt-2 text-sm text-gray-300">
+            Historical review flags live in admin only. Public history stays clean once picks are confirmed.
+          </p>
         </div>
       )}
 
@@ -325,11 +313,7 @@ export default function PickHistoryPage() {
                       <div className="flex items-center gap-1.5">
                           <p className="text-white text-xs font-medium truncate">{pick.pick_label}</p>
                           <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-                          {pick.provenance !== "original" && (
-                            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-amber-200">
-                              {pick.provenance === "manual_repair" ? "repair" : "backfill"}
-                            </span>
-                          )}
+
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent || "TBD"}</p>
