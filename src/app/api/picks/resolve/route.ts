@@ -462,7 +462,57 @@ async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]> {
   return "pending";
 }
 
-async function resolvePick(pick: AIPick): Promise<AIPick> {
+function normalizeIncomingPick(raw: AIPick): AIPick {
+  const anyRaw = raw as AIPick & {
+    pick_type?: string;
+    player_name?: string | null;
+    pick_label?: string;
+    game_id?: string | null;
+    team_color?: string;
+  };
+
+  const pickLabel = raw.pickLabel || anyRaw.pick_label || "";
+  const playerName = raw.playerName || anyRaw.player_name || undefined;
+  const gameId = raw.gameId || anyRaw.game_id || undefined;
+  const type = raw.type || (anyRaw.pick_type === "team" ? "team" : "player");
+
+  const parsedPlayer = type === "player"
+    ? (() => {
+      const match = pickLabel.match(/\b(Over|Under)\s+(-?\d+(?:\.\d+)?)\s+(.+)$/i);
+      if (!match) return null;
+      return {
+        direction: match[1].toLowerCase() === "under" ? "Under" as const : "Over" as const,
+        line: Number(match[2]),
+        propType: match[3].trim() || undefined,
+      };
+    })()
+    : null;
+
+  const inferredBetType = raw.betType || (() => {
+    const lower = pickLabel.toLowerCase();
+    if (lower.includes('win ml') || /\bh2h\b/.test(lower)) return 'H2H ML';
+    if (lower.includes('spread') || /\b[+-]\d+(?:\.\d+)?\b/.test(pickLabel)) return 'Spread';
+    if (lower.includes('over') || lower.includes('under')) return type === 'team' ? 'Team Points O/U' : undefined;
+    return undefined;
+  })();
+
+  return {
+    ...raw,
+    type,
+    playerName,
+    pickLabel,
+    gameId,
+    teamColor: raw.teamColor || anyRaw.team_color || "#4a9eff",
+    direction: raw.direction ?? parsedPlayer?.direction,
+    line: typeof raw.line === "number" && Number.isFinite(raw.line) ? raw.line : parsedPlayer?.line,
+    propType: raw.propType ?? parsedPlayer?.propType,
+    betType: inferredBetType,
+    isAway: typeof raw.isAway === "boolean" ? raw.isAway : pickLabel.includes("@"),
+  };
+}
+
+async function resolvePick(rawPick: AIPick): Promise<AIPick> {
+  const pick = normalizeIncomingPick(rawPick);
   if (pick.result !== "pending") return pick;
 
   try {
