@@ -13,6 +13,7 @@ import { AIPick } from "@/lib/types";
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
+const PGA_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard";
 function normalizeTeam(value?: string) {
   return (value || "").trim().toUpperCase();
 }
@@ -462,6 +463,51 @@ async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]> {
   return "pending";
 }
 
+function parseGolfFinishThreshold(label: string) {
+  const match = String(label || "").match(/top\s*(5|10|20)\s*finish/i);
+  if (!match) return null;
+  const threshold = Number(match[1]);
+  return Number.isFinite(threshold) ? threshold : null;
+}
+
+function parseGolfPlacement(entry: any): number | null {
+  const order = Number(entry?.order);
+  if (Number.isFinite(order) && order > 0) return order;
+
+  const rank = String(entry?.curatedRank?.current ?? entry?.curatedRank?.displayValue ?? entry?.position ?? "").trim().toUpperCase();
+  if (!rank || rank === "CUT" || rank === "MC") return null;
+  const parsed = Number(rank.replace(/^T/, ""));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
+  const threshold = parseGolfFinishThreshold(pick.pickLabel);
+  if (!threshold || !pick.playerName) {
+    logResolverIssue(pick, "pga_pick_unparseable", { pickLabel: pick.pickLabel, playerName: pick.playerName ?? "" });
+    return "pending";
+  }
+
+  const scoreboard = await fetchJSON<any>(PGA_SCOREBOARD);
+  const event = Array.isArray(scoreboard?.events) ? scoreboard.events.find((candidate: any) => {
+    const startDate = String(candidate?.date ?? "").slice(0, 10);
+    return startDate === pick.date;
+  }) ?? scoreboard?.events?.[0] : null;
+  const competition = event?.competitions?.[0];
+  const statusType = competition?.status?.type ?? event?.status?.type ?? {};
+  if (!event || statusType?.completed !== true) return "pending";
+
+  const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+  const player = findBestFuzzyNameMatch(competitors, pick.playerName, (entry: any) => entry?.athlete?.displayName || "");
+  if (!player) {
+    logResolverIssue(pick, "pga_player_not_found", { playerName: pick.playerName });
+    return "pending";
+  }
+
+  const place = parseGolfPlacement(player);
+  if (!place) return "loss";
+  return place <= threshold ? "win" : "loss";
+}
+
 function normalizeIncomingPick(raw: AIPick): AIPick {
   const anyRaw = raw as AIPick & {
     pick_type?: string;
@@ -524,9 +570,11 @@ async function resolvePick(rawPick: AIPick): Promise<AIPick> {
         ? pick.type === "player"
           ? await resolveMLBPlayerPick(pick)
           : await resolveMLBTeamPick(pick)
-        : pick.type === "player"
-          ? await resolveNHLPlayerPick(pick)
-          : await resolveNHLTeamPick(pick);
+        : pick.league === "PGA"
+          ? await resolvePGAPick(pick)
+          : pick.type === "player"
+            ? await resolveNHLPlayerPick(pick)
+            : await resolveNHLTeamPick(pick);
 
     return { ...pick, result };
   } catch (error) {
