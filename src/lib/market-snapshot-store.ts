@@ -191,7 +191,9 @@ function deriveSnapshotHealth(capturedAt: string, dateSnapshots: MarketSnapshotR
 
 function isReadonlyFsError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes("EROFS") || message.toLowerCase().includes("read-only");
+  return message.includes("EROFS")
+    || message.toLowerCase().includes("read-only")
+    || message.includes("ENOENT: no such file or directory, mkdir '/var/task/");
 }
 
 function parseIsoTimestamp(value?: string | null) {
