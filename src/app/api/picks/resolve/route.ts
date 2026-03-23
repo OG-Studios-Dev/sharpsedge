@@ -470,14 +470,34 @@ function parseGolfFinishThreshold(label: string) {
   return Number.isFinite(threshold) ? threshold : null;
 }
 
-function parseGolfPlacement(entry: any): number | null {
+function parseGolfPlacement(entry: any, competitors: any[]): number | null {
+  const rank = String(entry?.curatedRank?.current ?? entry?.curatedRank?.displayValue ?? entry?.position ?? "").trim().toUpperCase();
+  if (rank && rank !== "CUT" && rank !== "MC") {
+    const parsed = Number(rank.replace(/^T/, ""));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+
+  const score = String(entry?.score ?? "").trim().toUpperCase();
+  if (score && score !== "CUT" && score !== "MC" && Array.isArray(competitors) && competitors.length > 0) {
+    const uniqueBetterScores = new Set(
+      competitors
+        .map((candidate) => String(candidate?.score ?? "").trim().toUpperCase())
+        .filter((candidateScore) => candidateScore && candidateScore !== score && candidateScore !== "CUT" && candidateScore !== "MC")
+        .filter((candidateScore) => parseRelativeGolfScore(candidateScore) < parseRelativeGolfScore(score)),
+    );
+    return uniqueBetterScores.size + 1;
+  }
+
   const order = Number(entry?.order);
   if (Number.isFinite(order) && order > 0) return order;
+  return null;
+}
 
-  const rank = String(entry?.curatedRank?.current ?? entry?.curatedRank?.displayValue ?? entry?.position ?? "").trim().toUpperCase();
-  if (!rank || rank === "CUT" || rank === "MC") return null;
-  const parsed = Number(rank.replace(/^T/, ""));
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+function parseRelativeGolfScore(score: string): number {
+  const normalized = String(score || "").trim().toUpperCase();
+  if (!normalized || normalized === "E" || normalized === "EVEN") return 0;
+  const parsed = Number(normalized.replace(/[^0-9+-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
@@ -503,7 +523,7 @@ async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
     return "pending";
   }
 
-  const place = parseGolfPlacement(player);
+  const place = parseGolfPlacement(player, competitors);
   if (!place) return "loss";
   return place <= threshold ? "win" : "loss";
 }
