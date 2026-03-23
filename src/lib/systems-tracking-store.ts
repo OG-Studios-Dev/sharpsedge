@@ -79,6 +79,7 @@ export type SystemTrackingRecord = {
   id: string;
   gameId?: string;
   oddsEventId?: string | null;
+  espnEventId?: string | null;
   gameDate: string;
   sourceHealthStatus?: "healthy" | "stale" | "degraded" | "missing" | null;
   freshnessSummary?: string | null;
@@ -214,6 +215,7 @@ const HOT_TEAMS_MATCHUP_SYSTEM_ID = "hot-teams-matchup";
 const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitchers";
 const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
 const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
+const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
 
@@ -1019,7 +1021,10 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     id: record.id || `system_row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     gameId: record.gameId || undefined,
     oddsEventId: record.oddsEventId ?? null,
+    espnEventId: record.espnEventId ?? null,
     gameDate: record.gameDate || "",
+    sourceHealthStatus: record.sourceHealthStatus || null,
+    freshnessSummary: record.freshnessSummary || null,
     matchup: record.matchup || "",
     roadTeam: record.roadTeam || "",
     homeTeam: record.homeTeam || "",
@@ -1318,7 +1323,9 @@ function getTrackedSystem(data: SystemsTrackingData, systemId: string, factory: 
 }
 
 function getGooseSystem(data: SystemsTrackingData) {
-  return getTrackedSystem(data, NBA_GOOSE_SYSTEM_ID, defaultGooseSystem);
+  const system = getTrackedSystem(data, NBA_GOOSE_SYSTEM_ID, defaultGooseSystem);
+  system.records = system.records.map((record) => normalizeGooseRecord(record));
+  return system;
 }
 
 function getTheBlowoutSystem(data: SystemsTrackingData) {
@@ -1358,6 +1365,26 @@ function getEventDate(commenceTime: string | null, fallbackDate?: string) {
   const parsed = new Date(commenceTime);
   if (Number.isNaN(parsed.getTime())) return commenceTime.slice(0, 10);
   return parsed.toISOString().slice(0, 10);
+}
+
+function isNumericId(value?: string | null) {
+  return Boolean(value && /^\d+$/.test(value));
+}
+
+function normalizeTeamLabel(value?: string | null) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeGooseRecord(record: SystemTrackingRecord) {
+  return normalizeRecord({
+    ...record,
+    recordKind: "progression",
+    espnEventId: record.espnEventId ?? (isNumericId(record.oddsEventId) ? record.oddsEventId : null),
+  });
 }
 
 function resolveSpreadResult(roadScore: number | null, homeScore: number | null, roadSpread: number | null): TrackedBetResult {
@@ -2096,20 +2123,46 @@ function isGooseQualifier(event: AggregatedOdds) {
   return typeof awaySpread === "number" && awaySpread <= -5.5;
 }
 
-function buildRecordNotes(event: AggregatedOdds, scores: QuarterScores, bet1Result: TrackedBetResult, bet2Result: TrackedBetResult | null, sequenceResult: SequenceResult) {
+function getGooseMarketNotePrefixes(event: AggregatedOdds) {
   const notes: string[] = [];
   if (event.bestAwaySpread?.book) notes.push(`FG ${event.bestAwaySpread.book}`);
   if (event.bestAwayFirstQuarterSpread?.book) notes.push(`1Q ${event.bestAwayFirstQuarterSpread.book}`);
   if (event.bestAwayThirdQuarterSpread?.book) notes.push(`3Q ${event.bestAwayThirdQuarterSpread.book}`);
+  return notes;
+}
+
+function extractGooseStaticNotes(notes?: string | null) {
+  return String(notes || "")
+    .split(" • ")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .filter((entry) => (
+      !/^awaiting espn [13]q score$/i.test(entry)
+      && !/^final but espn [13]q score missing$/i.test(entry)
+      && !/^[13]q line missing(?: after final)?$/i.test(entry)
+      && !/^marked ungradeable until real quarter inputs exist$/i.test(entry)
+    ));
+}
+
+function buildGooseRecordNotes(input: {
+  prefixNotes?: string[];
+  firstQuarterSpread: number | null;
+  thirdQuarterSpread: number | null;
+  scores: QuarterScores;
+  bet1Result: TrackedBetResult;
+  sequenceResult: SequenceResult;
+}) {
+  const notes = [...(input.prefixNotes || [])];
+  const { scores, bet1Result, sequenceResult } = input;
   if (scores.firstQuarterRoadScore == null || scores.firstQuarterHomeScore == null) {
     notes.push(scores.gameCompleted ? "Final but ESPN 1Q score missing" : "Awaiting ESPN 1Q score");
   } else if (bet1Result === "loss" && (scores.thirdQuarterRoadScore == null || scores.thirdQuarterHomeScore == null)) {
     notes.push(scores.gameCompleted ? "Final but ESPN 3Q score missing" : "Awaiting ESPN 3Q score");
   }
-  if (bet1Result === "loss" && !event.bestAwayThirdQuarterSpread) {
+  if (bet1Result === "loss" && input.thirdQuarterSpread == null) {
     notes.push(scores.gameCompleted ? "3Q line missing after final" : "3Q line missing");
   }
-  if (!event.bestAwayFirstQuarterSpread) {
+  if (input.firstQuarterSpread == null) {
     notes.push(scores.gameCompleted ? "1Q line missing after final" : "1Q line missing");
   }
   if (sequenceResult === "pending" && scores.gameCompleted) {
@@ -2118,46 +2171,32 @@ function buildRecordNotes(event: AggregatedOdds, scores: QuarterScores, bet1Resu
   return notes.join(" • ");
 }
 
-async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | null): Promise<SystemTrackingRecord> {
-  const scores = await getQuarterScores(espnEventId ?? event.oddsApiEventId ?? null);
+function buildGooseProgressionRecord(record: Partial<SystemTrackingRecord>, scores: QuarterScores, notePrefixes: string[] = []) {
+  const normalized = normalizeGooseRecord(normalizeRecord(record));
   const bet1Result = resolveSpreadResult(
     scores.firstQuarterRoadScore,
     scores.firstQuarterHomeScore,
-    event.bestAwayFirstQuarterSpread?.line ?? null,
+    normalized.firstQuarterSpread ?? null,
   );
   const bet2Result = bet1Result === "loss"
     ? resolveSpreadResult(
         scores.thirdQuarterRoadScore,
         scores.thirdQuarterHomeScore,
-        event.bestAwayThirdQuarterSpread?.line ?? null,
+        normalized.thirdQuarterSpread ?? null,
       )
     : null;
   const derived = deriveSequence(bet1Result, bet2Result);
   const finalSequenceResult = derived.sequenceResult === "pending" && scores.gameCompleted ? null : derived.sequenceResult;
   const finalEstimatedNetUnits = finalSequenceResult == null ? null : derived.estimatedNetUnits;
-
   const missingBits = [
-    event.bestAwayFirstQuarterSpread ? null : "1Q line",
-    bet1Result === "loss" && !event.bestAwayThirdQuarterSpread ? "3Q line" : null,
+    normalized.firstQuarterSpread == null ? "1Q line" : null,
+    bet1Result === "loss" && normalized.thirdQuarterSpread == null ? "3Q line" : null,
     scores.firstQuarterRoadScore == null || scores.firstQuarterHomeScore == null ? "1Q score" : null,
     bet1Result === "loss" && (scores.thirdQuarterRoadScore == null || scores.thirdQuarterHomeScore == null) ? "3Q score" : null,
   ].filter(Boolean) as string[];
 
-  return normalizeRecord({
-    id: `nba-goose:${event.gameId}`,
-    gameId: event.gameId,
-    oddsEventId: event.oddsApiEventId ?? espnEventId ?? null,
-    gameDate: getEventDate(event.commenceTime),
-    sourceHealthStatus: missingBits.length ? "degraded" : "healthy",
-    freshnessSummary: missingBits.length
-      ? `${scores.gameCompleted ? "Final but missing settlement inputs" : "Missing settlement inputs"}: ${missingBits.join(", ")}.`
-      : "Quarter lines and settlement inputs captured for current state.",
-    matchup: `${event.awayTeam} @ ${event.homeTeam}`,
-    roadTeam: event.awayTeam,
-    homeTeam: event.homeTeam,
-    closingSpread: event.bestAwaySpread?.line ?? null,
-    firstQuarterSpread: event.bestAwayFirstQuarterSpread?.line ?? null,
-    thirdQuarterSpread: event.bestAwayThirdQuarterSpread?.line ?? null,
+  return normalizeGooseRecord({
+    ...normalized,
     firstQuarterRoadScore: scores.firstQuarterRoadScore,
     firstQuarterHomeScore: scores.firstQuarterHomeScore,
     thirdQuarterRoadScore: scores.thirdQuarterRoadScore,
@@ -2166,10 +2205,85 @@ async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | nu
     bet2Result,
     sequenceResult: finalSequenceResult,
     estimatedNetUnits: finalEstimatedNetUnits,
-    source: "The Odds API + ESPN summary",
-    notes: buildRecordNotes(event, scores, bet1Result, bet2Result, derived.sequenceResult),
+    sourceHealthStatus: missingBits.length ? "degraded" : "healthy",
+    freshnessSummary: missingBits.length
+      ? `${scores.gameCompleted ? "Final but missing settlement inputs" : "Missing settlement inputs"}: ${missingBits.join(", ")}.`
+      : "Quarter lines and settlement inputs captured for current state.",
+    notes: buildGooseRecordNotes({
+      prefixNotes: notePrefixes,
+      firstQuarterSpread: normalized.firstQuarterSpread ?? null,
+      thirdQuarterSpread: normalized.thirdQuarterSpread ?? null,
+      scores,
+      bet1Result,
+      sequenceResult: derived.sequenceResult,
+    }),
     lastSyncedAt: new Date().toISOString(),
   });
+}
+
+function findEspnGameForGooseRecord(record: SystemTrackingRecord, games: NBAGame[]) {
+  const targetDate = record.gameDate;
+  const roadTeam = normalizeTeamLabel(record.roadTeam);
+  const homeTeam = normalizeTeamLabel(record.homeTeam);
+  return games.find((game) => (
+    game.date === targetDate
+    && normalizeTeamLabel(game.awayTeam.fullName) === roadTeam
+    && normalizeTeamLabel(game.homeTeam.fullName) === homeTeam
+  )) || null;
+}
+
+function resolveStoredGooseEspnEventId(record: SystemTrackingRecord, games: NBAGame[]) {
+  if (record.espnEventId) return record.espnEventId;
+  if (isNumericId(record.oddsEventId)) return record.oddsEventId!;
+  return findEspnGameForGooseRecord(record, games)?.id || null;
+}
+
+function shouldBackfillGooseSettlement(record: SystemTrackingRecord, targetDate: string) {
+  if (record.gameDate >= targetDate) return false;
+  if (daysBetween(record.gameDate, targetDate) > GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS) return false;
+  return record.sequenceResult !== "win" && record.sequenceResult !== "loss" && record.sequenceResult !== "push";
+}
+
+async function backfillRecentGooseSettlements(records: SystemTrackingRecord[], targetDate: string) {
+  const normalizedRecords = records.map((record) => normalizeGooseRecord(record));
+  const candidates = normalizedRecords.filter((record) => shouldBackfillGooseSettlement(record, targetDate));
+  if (candidates.length === 0) return normalizedRecords;
+
+  const recentGames = await getRecentNBAGames(GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS + 1);
+
+  return Promise.all(normalizedRecords.map(async (record) => {
+    if (!shouldBackfillGooseSettlement(record, targetDate)) return record;
+    const espnEventId = resolveStoredGooseEspnEventId(record, recentGames);
+    if (!espnEventId) return record;
+    const scores = await getQuarterScores(espnEventId);
+    return buildGooseProgressionRecord(
+      {
+        ...record,
+        espnEventId,
+      },
+      scores,
+      extractGooseStaticNotes(record.notes),
+    );
+  }));
+}
+
+async function buildGooseRecord(event: AggregatedOdds, espnEventId?: string | null): Promise<SystemTrackingRecord> {
+  const scores = await getQuarterScores(espnEventId ?? null);
+  return buildGooseProgressionRecord({
+    id: `nba-goose:${event.gameId}`,
+    gameId: event.gameId,
+    oddsEventId: event.oddsApiEventId ?? null,
+    espnEventId: espnEventId ?? null,
+    gameDate: getEventDate(event.commenceTime),
+    matchup: `${event.awayTeam} @ ${event.homeTeam}`,
+    roadTeam: event.awayTeam,
+    homeTeam: event.homeTeam,
+    recordKind: "progression",
+    closingSpread: event.bestAwaySpread?.line ?? null,
+    firstQuarterSpread: event.bestAwayFirstQuarterSpread?.line ?? null,
+    thirdQuarterSpread: event.bestAwayThirdQuarterSpread?.line ?? null,
+    source: "The Odds API + ESPN summary",
+  }, scores, getGooseMarketNotePrefixes(event));
 }
 
 async function getTheBlowoutQualifiers(targetDate: string, daysAhead = 2) {
@@ -2359,7 +2473,8 @@ async function refreshGooseSystemData(data: SystemsTrackingData, options: Refres
     }),
   );
 
-  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+  system.records = await backfillRecentGooseSettlements([...priorRecords, ...freshRecords], targetDate);
+  system.records = system.records.sort((left, right) => {
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
   });
   applyGooseReadiness(system);

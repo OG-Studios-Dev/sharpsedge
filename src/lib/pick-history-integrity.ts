@@ -167,8 +167,27 @@ export function normalizePickHistoryRow(raw: any): PickHistoryRecord {
   };
 }
 
+function parsePlayerPickLabel(label: string | null | undefined) {
+  const normalized = typeof label === "string" ? label.trim() : "";
+  if (!normalized) return null;
+
+  const match = normalized.match(/\b(Over|Under)\s+(-?\d+(?:\.\d+)?)\s+(.+)$/i);
+  if (!match) return null;
+
+  const direction = match[1].toLowerCase() === "under" ? "Under" : "Over";
+  const line = Number(match[2]);
+  if (!Number.isFinite(line)) return null;
+
+  return {
+    direction,
+    line,
+    propType: match[3].trim() || undefined,
+  } as const;
+}
+
 export function mapPickHistoryRecordToAIPick(record: PickHistoryRecord): AIPick {
   const snapshot = record.pick_snapshot;
+  const parsedLabel = record.pick_type === "player" ? parsePlayerPickLabel(record.pick_label) : null;
 
   return {
     id: record.id,
@@ -180,9 +199,9 @@ export function mapPickHistoryRecordToAIPick(record: PickHistoryRecord): AIPick 
     teamColor: snapshot?.teamColor || "#4a9eff",
     opponent: record.opponent ?? snapshot?.opponent ?? "TBD",
     isAway: snapshot?.isAway ?? false,
-    propType: snapshot?.propType,
-    line: typeof snapshot?.line === "number" ? snapshot.line : undefined,
-    direction: snapshot?.direction,
+    propType: snapshot?.propType ?? parsedLabel?.propType,
+    line: typeof snapshot?.line === "number" ? snapshot.line : parsedLabel?.line,
+    direction: snapshot?.direction ?? parsedLabel?.direction,
     betType: snapshot?.betType,
     pickLabel: record.pick_label || snapshot?.pickLabel || "",
     edge: typeof record.edge === "number" ? record.edge : snapshot?.edge ?? 0,
