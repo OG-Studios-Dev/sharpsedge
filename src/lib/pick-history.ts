@@ -9,23 +9,32 @@ export type PickHistorySummary = {
   profitUnits: number;
 };
 
+function roundToTwo(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export function computePickHistorySummary(records: PickHistoryRecord[]): PickHistorySummary {
-  return records.reduce<PickHistorySummary>((summary, record) => {
+  const summary = records.reduce<PickHistorySummary>((acc, record) => {
     const units = typeof record.units === "number" && Number.isFinite(record.units) ? record.units : 1;
     const odds = typeof record.odds === "number" ? record.odds : undefined;
 
     if (record.result === "win") {
-      summary.wins += 1;
-      summary.profitUnits += calculatePayout(odds, units);
+      acc.wins += 1;
+      acc.profitUnits += calculatePayout(odds, units);
     } else if (record.result === "loss") {
-      summary.losses += 1;
-      summary.profitUnits -= units;
+      acc.losses += 1;
+      acc.profitUnits -= units;
     } else if (record.result === "push") {
-      summary.pushes += 1;
+      acc.pushes += 1;
     } else {
-      summary.pending += 1;
+      acc.pending += 1;
     }
 
-    return summary;
+    return acc;
   }, { wins: 0, losses: 0, pushes: 0, pending: 0, profitUnits: 0 });
+
+  return {
+    ...summary,
+    profitUnits: roundToTwo(summary.profitUnits),
+  };
 }

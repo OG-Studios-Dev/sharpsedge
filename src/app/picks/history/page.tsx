@@ -8,12 +8,22 @@ import TeamLogo from "@/components/TeamLogo";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 
-type SportFilter = "all" | "NHL" | "NBA" | "MLB";
+type SportFilter = "all" | "NHL" | "NBA" | "MLB" | "PGA";
+
+function formatPercent(value: number, digits = 2): string {
+  if (!Number.isFinite(value)) return (0).toFixed(digits);
+  return value.toFixed(digits);
+}
+
+function formatUnits(value: number): string {
+  if (!Number.isFinite(value)) return "0.00";
+  return value.toFixed(2);
+}
 
 function displayHitRate(val?: number | null): string {
-  if (typeof val !== "number" || !Number.isFinite(val)) return "0.0%";
+  if (typeof val !== "number" || !Number.isFinite(val)) return "0.00%";
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
-  return `${pct.toFixed(1)}%`;
+  return `${formatPercent(pct)}%`;
 }
 
 function formatDate(dateStr: string) {
@@ -65,6 +75,9 @@ export default function PickHistoryPage() {
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [historyPicks]);
 
+  const standardHistoryPicks = useMemo(() => historyPicks.filter((pick) => pick.league !== "PGA"), [historyPicks]);
+  const pgaHistoryPicks = useMemo(() => historyPicks.filter((pick) => pick.league === "PGA"), [historyPicks]);
+
   // Apply filters
   const filtered = useMemo(() => {
     return historyPicks.filter((pick) => {
@@ -74,11 +87,22 @@ export default function PickHistoryPage() {
     });
   }, [historyPicks, monthFilter, sportFilter]);
 
+  const headlineRecords = useMemo(() => {
+    const base = sportFilter === "PGA"
+      ? pgaHistoryPicks
+      : sportFilter === "all"
+        ? standardHistoryPicks
+        : filtered;
+
+    return base.filter((pick) => pick.provenance === "original");
+  }, [filtered, pgaHistoryPicks, sportFilter, standardHistoryPicks]);
+
   // Compute stats
-  const record = computePickHistorySummary(filtered);
+  const record = computePickHistorySummary(headlineRecords);
   const winPct = (record.wins + record.losses) > 0
-    ? ((record.wins / (record.wins + record.losses)) * 100).toFixed(1)
-    : "0.0";
+    ? formatPercent((record.wins / (record.wins + record.losses)) * 100)
+    : "0.00";
+  const isPgaView = sportFilter === "PGA";
 
   // Group by date
   const groupedByDate = useMemo(() => {
@@ -93,6 +117,7 @@ export default function PickHistoryPage() {
 
   const filteredSlates = useMemo(() => (
     slates.filter((slate) => {
+      if (sportFilter === "all" && slate.league === "PGA") return false;
       if (sportFilter !== "all" && slate.league !== sportFilter) return false;
       if (monthFilter !== "all" && getMonthKey(slate.date) !== monthFilter) return false;
       return true;
@@ -117,7 +142,7 @@ export default function PickHistoryPage() {
     <main className="min-h-screen bg-dark-bg pb-24">
       <PageHeader
         title="Pick History"
-        subtitle="All-time AI pick performance. Pick archive is authoritative here; market snapshot history is a separate same-day odds rail and may still be shallow."
+        subtitle="Official settled pick history. Standard sports exclude PGA by default; PGA lives in its own tournament-style lane focused on units and standalone results."
       />
 
       <div className="mx-auto max-w-2xl px-4 py-4">
@@ -166,11 +191,11 @@ export default function PickHistoryPage() {
             <p className={`font-bold text-xl ${parseFloat(winPct) >= 60 ? "text-accent-green" : parseFloat(winPct) >= 50 ? "text-white" : "text-accent-red"}`}>
               {winPct}%
             </p>
-            <p className="text-gray-500 text-[10px] uppercase">Win %</p>
+            <p className="text-gray-500 text-[10px] uppercase">{isPgaView ? "Win %" : "Win %"}</p>
           </div>
           <div>
             <p className={`font-bold text-xl ${record.profitUnits > 0 ? "text-accent-green" : record.profitUnits < 0 ? "text-accent-red" : "text-gray-400"}`}>
-              {record.profitUnits > 0 ? "+" : ""}{record.profitUnits}u
+              {record.profitUnits > 0 ? "+" : ""}{formatUnits(record.profitUnits)}u
             </p>
             <p className="text-gray-500 text-[10px] uppercase">Units</p>
           </div>
@@ -180,7 +205,7 @@ export default function PickHistoryPage() {
       {/* Filters */}
       <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide">
         {/* Sport Filter */}
-        {(["all", "NHL", "NBA", "MLB"] as SportFilter[]).map((s) => (
+        {(["all", "NHL", "NBA", "MLB", "PGA"] as SportFilter[]).map((s) => (
           <button
             key={s}
             onClick={() => setSportFilter(s)}
@@ -222,6 +247,15 @@ export default function PickHistoryPage() {
         ))}
       </div>
 
+      {sportFilter === "all" && (
+        <div className="mb-4 rounded-2xl border border-emerald-500/15 bg-emerald-500/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200">PGA Reporting</p>
+          <p className="mt-1 text-sm text-emerald-50/85">
+            PGA is separated from the standard all-sports history view. Tournament-style picks should be judged primarily on standalone units and tournament outcomes, not blended into the daily slate headline record.
+          </p>
+        </div>
+      )}
+
       {/* Pending count */}
       {record.pending > 0 && (
         <p className="text-[11px] text-gray-500 mb-3">{record.pending} pick{record.pending !== 1 ? "s" : ""} still pending</p>
@@ -241,7 +275,7 @@ export default function PickHistoryPage() {
           {groupedByDate.map(([date, picks]) => {
             const dayRecord = computePickHistorySummary(picks);
             const dayWinPct = (dayRecord.wins + dayRecord.losses) > 0
-              ? Math.round((dayRecord.wins / (dayRecord.wins + dayRecord.losses)) * 100)
+              ? formatPercent((dayRecord.wins / (dayRecord.wins + dayRecord.losses)) * 100)
               : null;
             const daySlates = slatesByDate.get(date) || [];
             return (
@@ -265,12 +299,12 @@ export default function PickHistoryPage() {
                     {dayRecord.pushes > 0 && <span className="text-yellow-400">{dayRecord.pushes}P</span>}
                     {dayRecord.pending > 0 && <span className="text-gray-500">{dayRecord.pending}⏳</span>}
                     {dayWinPct !== null && (
-                      <span className={`ml-1 ${dayWinPct >= 50 ? "text-emerald-400" : "text-red-400"}`}>
+                      <span className={`ml-1 ${parseFloat(dayWinPct) >= 50 ? "text-emerald-400" : "text-red-400"}`}>
                         {dayWinPct}%
                       </span>
                     )}
                     <span className={`ml-1 ${dayRecord.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {dayRecord.profitUnits >= 0 ? "+" : ""}{dayRecord.profitUnits}u
+                      {dayRecord.profitUnits >= 0 ? "+" : ""}{formatUnits(dayRecord.profitUnits)}u
                     </span>
                   </div>
                 </div>
