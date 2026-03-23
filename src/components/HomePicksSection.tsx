@@ -27,6 +27,7 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label, hideWinR
 }) {
   const unitColor = profitUnits > 0 ? "text-emerald-400" : profitUnits < 0 ? "text-red-400" : "text-gray-400";
   const { settled, winPct } = computePickWinRateStats({ wins, losses });
+  const roundedWinPct = Math.round(winPct);
   return (
     <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap rounded-xl border border-dark-border/50 bg-dark-bg/60 px-2.5 py-2 scrollbar-hide sm:gap-3 sm:px-3">
       {label && <span className="text-[10px] text-gray-500 font-semibold uppercase shrink-0">{label}</span>}
@@ -49,7 +50,7 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label, hideWinR
       <div className="ml-auto flex items-center gap-2 shrink-0 pl-1">
         {!hideWinRate && (
           <div className="text-right">
-            <p className="font-bold text-sm text-white">{winPct.toFixed(2)}%</p>
+            <p className="font-bold text-sm text-white">{roundedWinPct}%</p>
             <p className="text-[9px] text-gray-500 uppercase">{settled}</p>
           </div>
         )}
@@ -128,6 +129,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
   const allMLBPicks = Object.values(mlb.allPicks).flat();
   const allGolfPicks = Object.values(golf.allPicks).flat();
   const allPicks = [...allNHLPicks, ...allNBAPicks, ...allMLBPicks];
+  const nonGolfHistoryPicks = historyPicks.filter((pick) => pick.league !== "PGA");
 
   const localNhlRecord = computeRecord(allNHLPicks);
   const localNbaRecord = computeRecord(allNBAPicks);
@@ -146,7 +148,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
     ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "MLB"))
     : localMlbRecord;
   const allRecord = hasRemoteHistory
-    ? computePickHistorySummary(historyPicks)
+    ? computePickHistorySummary(nonGolfHistoryPicks)
     : localAllRecord;
   const golfRecord = hasRemoteHistory
     ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "PGA"))
