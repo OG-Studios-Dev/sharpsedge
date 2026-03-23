@@ -455,6 +455,14 @@ export async function updatePickResultsInSupabase(picks: AIPick[]): Promise<void
       updated_at: new Date().toISOString(),
     };
 
+    if (typeof pick.odds === "number" && Number.isFinite(pick.odds)) {
+      body.odds = pick.odds;
+    }
+
+    if (typeof pick.units === "number" && Number.isFinite(pick.units)) {
+      body.units = pick.units;
+    }
+
     const patchBodies: Array<Record<string, unknown>> = [body];
     if ("updated_at" in body) {
       patchBodies.push({ result: pick.result });
