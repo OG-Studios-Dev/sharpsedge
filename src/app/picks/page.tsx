@@ -46,7 +46,7 @@ function ResultPill({ result }: { result: AIPick["result"] }) {
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
-  return `${pct.toFixed(1)}%`;
+  return `${Math.round(pct)}%`;
 }
 
 function displayEdge(val: number): string {
@@ -742,7 +742,7 @@ export default function PicksPage() {
               </div>
               <div className="ml-auto flex items-center gap-4">
                 <div className="text-right">
-                  <p className="font-bold text-lg text-white">{currentSeasonWinStats.winPct.toFixed(2)}%</p>
+                  <p className="font-bold text-lg text-white">{Math.round(currentSeasonWinStats.winPct)}%</p>
                   <p className="text-gray-500 text-[10px] uppercase">Win % · {currentSeasonWinStats.settled}</p>
                 </div>
                 <div className="text-right">

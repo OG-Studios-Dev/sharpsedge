@@ -12,7 +12,7 @@ import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
-  return `${pct.toFixed(1)}%`;
+  return `${Math.round(pct)}%`;
 }
 
 function ResultPill({ result }: { result: string }) {
