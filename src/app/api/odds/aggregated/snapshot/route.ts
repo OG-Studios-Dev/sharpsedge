@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAggregatedOddsBoard } from "@/lib/odds-aggregator";
 import { captureMarketSnapshot } from "@/lib/market-snapshot-store";
+import { addIncident, readAdminOpsData, updateCronSchedule, updateIncident } from "@/lib/admin-ops-store";
 import { SUPPORTED_AGGREGATION_SPORTS, type AggregatedSport } from "@/lib/books/types";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +39,72 @@ function parseSportsParam(value: string | null) {
   return sports.length ? sports : SUPPORTED_AGGREGATION_SPORTS;
 }
 
+async function syncCronHealth(snapshotPath: string, capturedAt: string, succeeded: boolean) {
+  const ops = await readAdminOpsData();
+  const cron = ops.cronSchedules.find((item) => item.path === snapshotPath);
+  if (!cron) return;
+
+  await updateCronSchedule(cron.id, {
+    lastRunAt: capturedAt,
+    lastSuccessAt: succeeded ? capturedAt : cron.lastSuccessAt ?? null,
+    lastFailureAt: succeeded ? cron.lastFailureAt ?? null : capturedAt,
+    consecutiveFailures: succeeded ? 0 : (cron.consecutiveFailures ?? 0) + 1,
+  });
+}
+
+async function syncQuarterCoverageIncident(
+  requestedSports: AggregatedSport[],
+  reason: string | null,
+  capturedAt: string,
+  quarterCoverage: { q1PriceCount: number; q3PriceCount: number; q1GameCount: number; q3GameCount: number },
+) {
+  const isDedicatedNbaArchive = requestedSports.length === 1 && requestedSports[0] === "NBA" && reason === "nba-q1-q3-daily-archive";
+  if (!isDedicatedNbaArchive) return;
+
+  const zeroQuarterRows = quarterCoverage.q1PriceCount === 0 || quarterCoverage.q3PriceCount === 0;
+  const ops = await readAdminOpsData();
+  const existing = ops.incidents.find((incident) => incident.title === "NBA quarter archive missing Q1/Q3 lines" && incident.status !== "resolved");
+
+  if (zeroQuarterRows) {
+    const summary = `Daily NBA quarter archive captured with Q1 rows=${quarterCoverage.q1PriceCount} across ${quarterCoverage.q1GameCount} games and Q3 rows=${quarterCoverage.q3PriceCount} across ${quarterCoverage.q3GameCount} games.`;
+    const notes = "Existing non-Odds-API adapters in the aggregation rail are currently full-game only from this environment. This incident keeps zero-quarter coverage visible instead of pretending the archive is usable.";
+
+    if (existing) {
+      await updateIncident(existing.id, {
+        status: "investigating",
+        severity: "sev2",
+        summary,
+        impact: "Goose settlement/archive rail lacks usable daily Q1/Q3 market coverage.",
+        notes,
+      });
+      return;
+    }
+
+    await addIncident({
+      title: "NBA quarter archive missing Q1/Q3 lines",
+      severity: "sev2",
+      status: "investigating",
+      owner: "Odds pipeline",
+      summary,
+      impact: "Goose settlement/archive rail lacks usable daily Q1/Q3 market coverage.",
+      resolvedAt: null,
+      notes,
+    });
+    return;
+  }
+
+  if (existing) {
+    await updateIncident(existing.id, {
+      status: "resolved",
+      resolvedAt: capturedAt,
+      summary: `Daily NBA quarter archive recovered with Q1 rows=${quarterCoverage.q1PriceCount} and Q3 rows=${quarterCoverage.q3PriceCount}.`,
+      impact: "Quarter archive coverage restored for the dedicated daily NBA checkpoint.",
+    });
+  }
+}
+
 function buildSummary(result: Awaited<ReturnType<typeof captureMarketSnapshot>>, requestedSports: AggregatedSport[]) {
-  const { snapshot, persistence } = result;
+  const { snapshot, quarterCoverage, persistence } = result;
   return {
     ok: true,
     captured: true,
@@ -56,6 +121,7 @@ function buildSummary(result: Awaited<ReturnType<typeof captureMarketSnapshot>>,
       prices: snapshot.priceCount,
       books: snapshot.sourceSummary.bookCount,
     },
+    quarterCoverage,
     freshness: snapshot.freshness,
     health: snapshot.health,
     sourceSummary: snapshot.sourceSummary,
@@ -67,6 +133,8 @@ function buildSummary(result: Awaited<ReturnType<typeof captureMarketSnapshot>>,
       ...(persistence.file.status === "memory_fallback" ? ["Filesystem archive unavailable; snapshot kept in memory only for this runtime."] : []),
       ...(persistence.supabase.status === "error" ? [`Supabase persistence failed: ${persistence.supabase.error ?? "unknown error"}`] : []),
       ...(snapshot.freshness.staleSourceCount > 0 ? [`${snapshot.freshness.staleSourceCount} upstream source entries were older than 30 minutes at capture time.`] : []),
+      ...(quarterCoverage.q1PriceCount === 0 ? ["No Q1 spread rows were captured in this snapshot."] : []),
+      ...(quarterCoverage.q3PriceCount === 0 ? ["No Q3 spread rows were captured in this snapshot."] : []),
       ...(snapshot.health.status !== "healthy" ? [`Snapshot health ${snapshot.health.status}: ${snapshot.health.summary}`] : []),
     ],
   };
@@ -76,9 +144,13 @@ export async function GET(request: NextRequest) {
   const unauthorized = authorizeCron(request);
   if (unauthorized) return unauthorized;
 
+  const reason = request.nextUrl.searchParams.get("reason") || null;
+  const sports = parseSportsParam(request.nextUrl.searchParams.get("sports"));
+  const trigger = request.nextUrl.searchParams.get("cron") === "true" ? "cron" : "manual";
+  const cronPath = `/api/odds/aggregated/snapshot?cron=true&sports=${sports.join(",")}${reason ? `&reason=${reason}` : ""}`;
+
   try {
     const shouldCapture = isTruthy(request.nextUrl.searchParams.get("capture") || request.nextUrl.searchParams.get("cron"));
-    const sports = parseSportsParam(request.nextUrl.searchParams.get("sports"));
 
     if (!shouldCapture) {
       return NextResponse.json({
@@ -93,12 +165,20 @@ export async function GET(request: NextRequest) {
     const scopedBoard = Object.fromEntries(sports.map((sport) => [sport, board[sport] || []])) as Partial<Record<AggregatedSport, Awaited<ReturnType<typeof getAggregatedOddsBoard>>[AggregatedSport]>>;
     const result = await captureMarketSnapshot({
       board: scopedBoard,
-      trigger: request.nextUrl.searchParams.get("cron") === "true" ? "cron" : "manual",
-      reason: request.nextUrl.searchParams.get("reason") || null,
+      trigger,
+      reason,
     });
+
+    await Promise.all([
+      trigger === "cron" ? syncCronHealth(cronPath, result.snapshot.capturedAt, true) : Promise.resolve(),
+      syncQuarterCoverageIncident(sports, reason, result.snapshot.capturedAt, result.quarterCoverage),
+    ]);
 
     return NextResponse.json(buildSummary(result, sports));
   } catch (error) {
+    if (trigger === "cron") {
+      await syncCronHealth(cronPath, new Date().toISOString(), false);
+    }
     return NextResponse.json({
       ok: false,
       error: error instanceof Error ? error.message : "Failed to capture aggregated odds snapshot",

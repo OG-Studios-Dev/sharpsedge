@@ -15,6 +15,10 @@
       "schedule": "17 * * * *"
     },
     {
+      "path": "/api/odds/aggregated/snapshot?cron=true&sports=NBA&reason=nba-q1-q3-daily-archive",
+      "schedule": "55 17 * * *"
+    },
+    {
       "path": "/api/systems/refresh?cron=true",
       "schedule": "0 15 * * *"
     }

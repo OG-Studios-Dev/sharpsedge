@@ -55,3 +55,8 @@
 - [x] Keep final rows with missing quarter inputs out of settled performance math
 - [x] Surface ungradeable status in Goose board copy/metrics
 - [ ] Run build/tests and commit cleanly
+## 2026-03-24 NBA Q1/Q3 fallback + alerting
+- [x] Verify existing adapters for NBA Q1/Q3 availability
+- [x] Implement minimal production-safe fallback only if a real source exists
+- [x] Add daily archive health/alerting when Q1/Q3 rows are zero
+- [ ] Build/validate and commit cleanly

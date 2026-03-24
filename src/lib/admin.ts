@@ -86,14 +86,28 @@ async function getMarketSnapshotHealth(): Promise<SystemHealthCheck> {
         freshnessSummary: "Daily market snapshot file exists without captures.",
       };
     }
+
+    const prices = Array.isArray(latest?.prices) ? latest.prices : [];
+    const q1Count = prices.filter((price: { marketType?: string }) => price.marketType === "spread_q1").length;
+    const q3Count = prices.filter((price: { marketType?: string }) => price.marketType === "spread_q3").length;
+    const hasNbaSnapshot = Boolean(latest?.sportBreakdown?.NBA);
+    const quarterIssue = hasNbaSnapshot && (q1Count === 0 || q3Count === 0);
+    const detail = quarterIssue
+      ? `${latest.health?.summary || "Market snapshot health unavailable."} NBA quarter coverage missing (${q1Count} Q1 rows, ${q3Count} Q3 rows).`
+      : latest.health?.summary || "Market snapshot health unavailable.";
+    const freshnessSummary = [
+      latest.freshness?.staleSourceCount ? `${latest.freshness.staleSourceCount} stale upstream source entries on latest capture.` : "Latest capture had no stale upstream source entries.",
+      hasNbaSnapshot ? `NBA quarter rows: Q1 ${q1Count}, Q3 ${q3Count}.` : null,
+    ].filter(Boolean).join(" ");
+
     return {
       name: "Market snapshot cadence",
-      ok: latest.health?.status === "healthy",
-      status: latest.health?.status || "missing",
-      detail: latest.health?.summary || "Market snapshot health unavailable.",
+      ok: latest.health?.status === "healthy" && !quarterIssue,
+      status: quarterIssue ? "degraded" : (latest.health?.status || "missing"),
+      detail,
       checkedAt: new Date().toISOString(),
       lastSuccessAt: latest.capturedAt,
-      freshnessSummary: latest.freshness?.staleSourceCount ? `${latest.freshness.staleSourceCount} stale upstream source entries on latest capture.` : "Latest capture had no stale upstream source entries.",
+      freshnessSummary,
     };
   } catch {
     return {

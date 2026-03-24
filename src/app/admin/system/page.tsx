@@ -68,6 +68,7 @@ export default async function AdminSystemPage() {
                   <p>Last success: {cron.lastSuccessAt ? new Date(cron.lastSuccessAt).toLocaleString() : "—"}</p>
                   <p>Failures: {cron.consecutiveFailures ?? 0}</p>
                 </div>
+                {cron.notes ? <p className="mt-2 text-xs text-gray-500">{cron.notes}</p> : null}
               </div>
             );
           })}

@@ -111,8 +111,16 @@ export type MarketSnapshotRecord = {
   prices: MarketSnapshotPriceRecord[];
 };
 
+export type QuarterCoverageSummary = {
+  q1PriceCount: number;
+  q3PriceCount: number;
+  q1GameCount: number;
+  q3GameCount: number;
+};
+
 export type MarketSnapshotCaptureResult = {
   snapshot: MarketSnapshotRecord;
+  quarterCoverage: QuarterCoverageSummary;
   persistence: {
     file: {
       status: MarketSnapshotWriteStatus;
@@ -636,6 +644,20 @@ export function summarizeMarketSnapshotBoard(board: Partial<Record<AggregatedSpo
   };
 }
 
+export function summarizeQuarterCoverage(snapshot: Pick<MarketSnapshotRecord, "events" | "prices">): QuarterCoverageSummary {
+  const q1Prices = snapshot.prices.filter((price) => price.marketType === "spread_q1");
+  const q3Prices = snapshot.prices.filter((price) => price.marketType === "spread_q3");
+  const q1Games = new Set(q1Prices.map((price) => price.gameId));
+  const q3Games = new Set(q3Prices.map((price) => price.gameId));
+
+  return {
+    q1PriceCount: q1Prices.length,
+    q3PriceCount: q3Prices.length,
+    q1GameCount: q1Games.size,
+    q3GameCount: q3Games.size,
+  };
+}
+
 export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOString(), trigger = "manual", reason = null }: CaptureOptions, existingSnapshots: MarketSnapshotRecord[] = []): MarketSnapshotRecord {
   const dateKey = getDateKey(capturedAt);
   const snapshotId = `market-snapshot:${capturedAt}:${randomUUID().slice(0, 8)}`;
@@ -681,6 +703,7 @@ export async function captureMarketSnapshot(options: CaptureOptions): Promise<Ma
 
   return {
     snapshot,
+    quarterCoverage: summarizeQuarterCoverage(snapshot),
     persistence: {
       file,
       supabase,
