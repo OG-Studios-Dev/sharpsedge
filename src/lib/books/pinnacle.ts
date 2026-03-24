@@ -69,8 +69,6 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
 
   for (const market of markets) {
     const period = Number(market?.period ?? 0);
-    if (Number.isFinite(period) && period !== 0) continue;
-
     const type = String(market?.type || market?.marketType || "").toLowerCase();
     const prices = Array.isArray(market?.prices) ? market.prices : [];
 
@@ -78,8 +76,10 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
       for (const price of prices) {
         const designation = String(price?.designation || price?.side || "").toLowerCase();
         const american = normalizeAmericanOdds(price?.price);
-        if (designation === "home") odds.homeML = american;
-        if (designation === "away") odds.awayML = american;
+        if (period === 0) {
+          if (designation === "home") odds.homeML = american;
+          if (designation === "away") odds.awayML = american;
+        }
       }
     }
 
@@ -88,15 +88,41 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
         const designation = String(price?.designation || price?.side || "").toLowerCase();
         const line = toNumber(price?.points ?? price?.line);
         const american = normalizeAmericanOdds(price?.price);
-        if (designation === "home") {
-          odds.spread = line;
-          odds.spreadOdds = american;
-          odds.homeSpread = line;
-          odds.homeSpreadOdds = american;
+        if (period === 0) {
+          if (designation === "home") {
+            odds.spread = line;
+            odds.spreadOdds = american;
+            odds.homeSpread = line;
+            odds.homeSpreadOdds = american;
+          }
+          if (designation === "away") {
+            odds.awaySpread = line;
+            odds.awaySpreadOdds = american;
+          }
+          continue;
         }
-        if (designation === "away") {
-          odds.awaySpread = line;
-          odds.awaySpreadOdds = american;
+
+        if (sport === "NBA" && period === 1) {
+          if (designation === "home") {
+            odds.firstQuarterHomeSpread = line;
+            odds.firstQuarterHomeSpreadOdds = american;
+          }
+          if (designation === "away") {
+            odds.firstQuarterAwaySpread = line;
+            odds.firstQuarterAwaySpreadOdds = american;
+          }
+          continue;
+        }
+
+        if (sport === "NBA" && period === 3) {
+          if (designation === "home") {
+            odds.thirdQuarterHomeSpread = line;
+            odds.thirdQuarterHomeSpreadOdds = american;
+          }
+          if (designation === "away") {
+            odds.thirdQuarterAwaySpread = line;
+            odds.thirdQuarterAwaySpreadOdds = american;
+          }
         }
       }
     }
@@ -106,13 +132,15 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
         const designation = String(price?.designation || price?.side || "").toLowerCase();
         const line = toNumber(price?.points ?? price?.line);
         const american = normalizeAmericanOdds(price?.price);
-        if (designation === "over") {
-          odds.total = line ?? odds.total;
-          odds.overOdds = american;
-        }
-        if (designation === "under") {
-          odds.total = line ?? odds.total;
-          odds.underOdds = american;
+        if (period === 0) {
+          if (designation === "over") {
+            odds.total = line ?? odds.total;
+            odds.overOdds = american;
+          }
+          if (designation === "under") {
+            odds.total = line ?? odds.total;
+            odds.underOdds = american;
+          }
         }
       }
     }

@@ -95,9 +95,11 @@ async function getMarketSnapshotHealth(): Promise<SystemHealthCheck> {
     const detail = quarterIssue
       ? `${latest.health?.summary || "Market snapshot health unavailable."} NBA quarter coverage missing (${q1Count} Q1 rows, ${q3Count} Q3 rows).`
       : latest.health?.summary || "Market snapshot health unavailable.";
+    const quarterCoverage = latest?.quarterCoverage || null;
     const freshnessSummary = [
       latest.freshness?.staleSourceCount ? `${latest.freshness.staleSourceCount} stale upstream source entries on latest capture.` : "Latest capture had no stale upstream source entries.",
       hasNbaSnapshot ? `NBA quarter rows: Q1 ${q1Count}, Q3 ${q3Count}.` : null,
+      hasNbaSnapshot && quarterCoverage ? `Q1 books: ${Array.isArray(quarterCoverage.booksWithQ1) && quarterCoverage.booksWithQ1.length ? quarterCoverage.booksWithQ1.join(", ") : "none"}; Q3 books: ${Array.isArray(quarterCoverage.booksWithQ3) && quarterCoverage.booksWithQ3.length ? quarterCoverage.booksWithQ3.join(", ") : "none"}.` : null,
     ].filter(Boolean).join(" ");
 
     return {

@@ -60,3 +60,10 @@
 - [x] Implement minimal production-safe fallback only if a real source exists
 - [x] Add daily archive health/alerting when Q1/Q3 rows are zero
 - [ ] Build/validate and commit cleanly
+
+## 2026-03-24 Subagent: NBA Q1/Q3 fallback candidate
+- [x] Inspect current Pinnacle/Kambi/PointsBet adapters and quarter-market wiring
+- [x] Test live candidate availability safely from environment
+- [x] Implement strongest production-safe fallback or improve observability with evidence
+- [x] Validate with build/tests where available
+- [x] Commit changes and capture blocker

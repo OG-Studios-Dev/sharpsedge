@@ -107,6 +107,7 @@ export type MarketSnapshotRecord = {
     sourceSummary: MarketSnapshotSourceSummary;
     freshness: SourceFreshnessSummary;
   }>;
+  quarterCoverage: QuarterCoverageSummary;
   events: MarketSnapshotEventRecord[];
   prices: MarketSnapshotPriceRecord[];
 };
@@ -116,6 +117,8 @@ export type QuarterCoverageSummary = {
   q3PriceCount: number;
   q1GameCount: number;
   q3GameCount: number;
+  booksWithQ1: string[];
+  booksWithQ3: string[];
 };
 
 export type MarketSnapshotCaptureResult = {
@@ -649,12 +652,16 @@ export function summarizeQuarterCoverage(snapshot: Pick<MarketSnapshotRecord, "e
   const q3Prices = snapshot.prices.filter((price) => price.marketType === "spread_q3");
   const q1Games = new Set(q1Prices.map((price) => price.gameId));
   const q3Games = new Set(q3Prices.map((price) => price.gameId));
+  const booksWithQ1 = Array.from(new Set(q1Prices.map((price) => price.book).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const booksWithQ3 = Array.from(new Set(q3Prices.map((price) => price.book).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   return {
     q1PriceCount: q1Prices.length,
     q3PriceCount: q3Prices.length,
     q1GameCount: q1Games.size,
     q3GameCount: q3Games.size,
+    booksWithQ1,
+    booksWithQ3,
   };
 }
 
@@ -684,6 +691,7 @@ export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOSt
     sourceSummary: metadata.sourceSummary,
     freshness: metadata.freshness,
     sportBreakdown: metadata.sportBreakdown,
+    quarterCoverage: summarizeQuarterCoverage({ events: eventRecords, prices: priceRecords }),
     events: eventRecords,
     prices: priceRecords,
   };

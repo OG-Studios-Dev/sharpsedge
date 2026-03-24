@@ -56,7 +56,7 @@ async function syncQuarterCoverageIncident(
   requestedSports: AggregatedSport[],
   reason: string | null,
   capturedAt: string,
-  quarterCoverage: { q1PriceCount: number; q3PriceCount: number; q1GameCount: number; q3GameCount: number },
+  quarterCoverage: { q1PriceCount: number; q3PriceCount: number; q1GameCount: number; q3GameCount: number; booksWithQ1: string[]; booksWithQ3: string[] },
 ) {
   const isDedicatedNbaArchive = requestedSports.length === 1 && requestedSports[0] === "NBA" && reason === "nba-q1-q3-daily-archive";
   if (!isDedicatedNbaArchive) return;
@@ -67,7 +67,7 @@ async function syncQuarterCoverageIncident(
 
   if (zeroQuarterRows) {
     const summary = `Daily NBA quarter archive captured with Q1 rows=${quarterCoverage.q1PriceCount} across ${quarterCoverage.q1GameCount} games and Q3 rows=${quarterCoverage.q3PriceCount} across ${quarterCoverage.q3GameCount} games.`;
-    const notes = "Existing non-Odds-API adapters in the aggregation rail are currently full-game only from this environment. This incident keeps zero-quarter coverage visible instead of pretending the archive is usable.";
+    const notes = `Quarter-source visibility: Q1 books=${quarterCoverage.booksWithQ1.join(", ") || "none"}; Q3 books=${quarterCoverage.booksWithQ3.join(", ") || "none"}. Existing non-Odds-API adapters vary by environment, so this incident stays open until named books are actually producing Q1/Q3 rows.`;
 
     if (existing) {
       await updateIncident(existing.id, {
@@ -133,8 +133,8 @@ function buildSummary(result: Awaited<ReturnType<typeof captureMarketSnapshot>>,
       ...(persistence.file.status === "memory_fallback" ? ["Filesystem archive unavailable; snapshot kept in memory only for this runtime."] : []),
       ...(persistence.supabase.status === "error" ? [`Supabase persistence failed: ${persistence.supabase.error ?? "unknown error"}`] : []),
       ...(snapshot.freshness.staleSourceCount > 0 ? [`${snapshot.freshness.staleSourceCount} upstream source entries were older than 30 minutes at capture time.`] : []),
-      ...(quarterCoverage.q1PriceCount === 0 ? ["No Q1 spread rows were captured in this snapshot."] : []),
-      ...(quarterCoverage.q3PriceCount === 0 ? ["No Q3 spread rows were captured in this snapshot."] : []),
+      ...(quarterCoverage.q1PriceCount === 0 ? [`No Q1 spread rows were captured in this snapshot. Books with Q1 coverage: ${quarterCoverage.booksWithQ1.join(", ") || "none"}.`] : []),
+      ...(quarterCoverage.q3PriceCount === 0 ? [`No Q3 spread rows were captured in this snapshot. Books with Q3 coverage: ${quarterCoverage.booksWithQ3.join(", ") || "none"}.`] : []),
       ...(snapshot.health.status !== "healthy" ? [`Snapshot health ${snapshot.health.status}: ${snapshot.health.summary}`] : []),
     ],
   };
