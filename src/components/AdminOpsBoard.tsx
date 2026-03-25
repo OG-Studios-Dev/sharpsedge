@@ -59,6 +59,14 @@ function formatDateTime(iso?: string | null) {
   return value.toLocaleString();
 }
 
+function normalizeDateTimeLocal(value?: string | null) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.length === 16 ? `${trimmed}:00` : trimmed;
+  const parsed = new Date(normalized);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
 function isOverdue(bug: AdminBug) {
   if (!bug.dueAt || bug.status === "fixed") return false;
   return new Date(bug.dueAt).getTime() < Date.now();
@@ -255,7 +263,10 @@ export default function AdminOpsBoard({ initialData }: { initialData: AdminOpsDa
         </div>
         <button
           type="button"
-          onClick={() => add("add_incident", incidentDraft, () => setIncidentDraft({ title: "", severity: "sev2", status: "investigating", owner: "", summary: "", impact: "", resolvedAt: "", notes: "" }))}
+          onClick={() => add("add_incident", {
+            ...incidentDraft,
+            resolvedAt: incidentDraft.status === "resolved" ? normalizeDateTimeLocal(incidentDraft.resolvedAt) ?? new Date().toISOString() : null,
+          }, () => setIncidentDraft({ title: "", severity: "sev2", status: "investigating", owner: "", summary: "", impact: "", resolvedAt: "", notes: "" }))}
           disabled={saving || !incidentDraft.title.trim() || !incidentDraft.summary.trim()}
           className="mt-4 rounded-xl bg-accent-blue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
