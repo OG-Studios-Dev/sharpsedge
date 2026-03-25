@@ -1,6 +1,7 @@
 import type { AIPick } from "@/lib/types";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
 import type { SandboxCreateInput, SandboxPickRecord, SandboxSlateBundle, SandboxSlateRecord } from "@/lib/sandbox/types";
+import type { SandboxLeague } from "@/lib/sandbox/generator";
 
 function serviceHeaders(extra?: HeadersInit) {
   const key = getSupabaseServiceRoleKey();
@@ -153,16 +154,16 @@ export async function listSandboxSlates(limit: number = 100): Promise<SandboxSla
   }
 }
 
-export async function createSandboxSlate(input: SandboxCreateInput): Promise<SandboxSlateBundle> {
+export async function upsertSandboxSlate(input: SandboxCreateInput): Promise<SandboxSlateBundle> {
   if (!input.sandboxKey.trim()) throw new Error("sandboxKey is required");
   if (!input.date.trim()) throw new Error("date is required");
   if (!input.league.trim()) throw new Error("league is required");
   if (!input.picks.length) throw new Error("At least one sandbox pick is required");
 
   try {
-    await postgrest<any[]>("/rest/v1/sandbox_pick_slates", {
+    await postgrest<any[]>("/rest/v1/sandbox_pick_slates?on_conflict=sandbox_key", {
       method: "POST",
-      headers: { Prefer: "return=representation" },
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify({
         sandbox_key: input.sandboxKey,
         date: input.date,
@@ -177,9 +178,14 @@ export async function createSandboxSlate(input: SandboxCreateInput): Promise<San
       }),
     });
 
+    await postgrest<any[]>(`/rest/v1/sandbox_pick_history?sandbox_key=eq.${eq(input.sandboxKey)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+
     await postgrest<any[]>("/rest/v1/sandbox_pick_history", {
       method: "POST",
-      headers: { Prefer: "return=representation" },
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify(buildSandboxRows(input)),
     });
 
@@ -188,5 +194,27 @@ export async function createSandboxSlate(input: SandboxCreateInput): Promise<San
     const message = toErrorMessage(error, "Failed to create sandbox slate");
     if (isMissingSandboxRelation(message)) throw sandboxSchemaError();
     throw new Error(message);
+  }
+}
+
+
+export async function createSandboxSlate(input: SandboxCreateInput): Promise<SandboxSlateBundle> {
+  return upsertSandboxSlate(input);
+}
+
+export async function listSandboxSlateBundles(limit: number = 30): Promise<SandboxSlateBundle[]> {
+  const slates = await listSandboxSlates(limit);
+  return await Promise.all(slates.map((slate) => getSandboxSlateBundle(slate.sandbox_key)));
+}
+
+export async function listSandboxBundlesByLeague(league: SandboxLeague, limit: number = 15): Promise<SandboxSlateBundle[]> {
+  try {
+    const rows = await postgrest<any[]>(`/rest/v1/sandbox_pick_slates?select=*&league=eq.${eq(league)}&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 100))}`);
+    const slates = rows.map(normalizeSlate);
+    return await Promise.all(slates.map((slate) => getSandboxSlateBundle(slate.sandbox_key)));
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) throw sandboxSchemaError();
+    throw error;
   }
 }
