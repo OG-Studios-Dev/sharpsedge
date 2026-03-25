@@ -81,6 +81,8 @@ function buildPickHistoryRows(
   mode: "modern" | "legacy" | "legacy_minimal",
 ) {
   return picks.map((pick) => {
+    const resolvedSportsbook = pick.sportsbook || pick.book || null;
+
     const base = {
       date: pick.date,
       league: pick.league || "NHL",
@@ -91,7 +93,8 @@ function buildPickHistoryRows(
       hit_rate: typeof pick.hitRate === "number" ? pick.hitRate : null,
       edge: typeof pick.edge === "number" ? pick.edge : null,
       odds: typeof pick.odds === "number" ? pick.odds : null,
-      book: pick.book || null,
+      book: resolvedSportsbook,
+      sportsbook: resolvedSportsbook,
       result: pick.result || "pending",
       game_id: pick.gameId || null,
       reasoning: pick.reasoning || null,

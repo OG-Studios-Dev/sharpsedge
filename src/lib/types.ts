@@ -490,6 +490,7 @@ export type AIPick = {
   oddsEventId?: string;
   odds: number;
   book?: string;
+  sportsbook?: string;
   bookOdds?: BookOdds[];
   league?: string; // "NHL", "NBA", etc.
 };

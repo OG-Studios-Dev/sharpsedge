@@ -94,6 +94,7 @@ function normalizeSnapshot(snapshot: Record<string, unknown> | null, fallback: P
     ? snapshot.result
     : "pending";
   const direction = snapshot.direction === "Under" ? "Under" : snapshot.direction === "Over" ? "Over" : undefined;
+  const sportsbook = asString(snapshot.sportsbook) ?? asString(snapshot.book) ?? fallback.sportsbook ?? fallback.book ?? undefined;
 
   return {
     id: asString(snapshot.id) ?? fallback.id,
@@ -119,7 +120,8 @@ function normalizeSnapshot(snapshot: Record<string, unknown> | null, fallback: P
     gameId: asString(snapshot.gameId) ?? fallback.game_id ?? undefined,
     oddsEventId: asString(snapshot.oddsEventId) ?? undefined,
     odds: asNumber(snapshot.odds) ?? fallback.odds ?? -110,
-    book: asString(snapshot.book) ?? fallback.book ?? undefined,
+    book: sportsbook,
+    sportsbook,
     bookOdds: normalizeBookOdds(snapshot.bookOdds),
     league: asString(snapshot.league) ?? fallback.league,
   };
@@ -149,6 +151,11 @@ export function normalizePickHistoryRow(raw: any): PickHistoryRecord {
     edge: asNumber(raw?.edge),
     odds: asNumber(raw?.odds),
     book: typeof raw?.book === "string" ? raw.book : null,
+    sportsbook: typeof raw?.sportsbook === "string"
+      ? raw.sportsbook
+      : typeof raw?.book === "string"
+        ? raw.book
+        : null,
     result: raw?.result === "win" || raw?.result === "loss" || raw?.result === "push" ? raw.result : "pending",
     game_id: typeof raw?.game_id === "string" ? raw.game_id : null,
     reasoning: typeof raw?.reasoning === "string" ? raw.reasoning : null,
@@ -188,7 +195,7 @@ function parsePlayerPickLabel(label: string | null | undefined) {
 export function mapPickHistoryRecordToAIPick(record: PickHistoryRecord): AIPick {
   const snapshot = record.pick_snapshot;
   const parsedLabel = record.pick_type === "player" ? parsePlayerPickLabel(record.pick_label) : null;
-  const book = record.book ?? snapshot?.book;
+  const book = record.sportsbook ?? record.book ?? snapshot?.sportsbook ?? snapshot?.book;
 
   return {
     id: record.id,

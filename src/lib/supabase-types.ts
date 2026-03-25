@@ -41,6 +41,7 @@ export type PickHistoryRecord = {
   edge: number | null;
   odds: number | null;
   book: string | null;
+  sportsbook: string | null;
   result: "pending" | "win" | "loss" | "push";
   game_id: string | null;
   reasoning: string | null;
