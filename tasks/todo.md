@@ -61,6 +61,15 @@
 - [x] Add daily archive health/alerting when Q1/Q3 rows are zero
 - [ ] Build/validate and commit cleanly
 
+## 2026-03-24 Sandbox picks pilot (strictly separated from production)
+- [x] Inspect current production pick-history/admin rails and confirm separation requirements
+- [x] Write initial pilot spec/implementation plan in repo docs
+- [x] Add isolated sandbox schema scaffold (`sandbox_pick_slates`, `sandbox_pick_history`)
+- [x] Add isolated TypeScript types + storage helper under `src/lib/sandbox/`
+- [x] Add admin-only API + admin sandbox entry point without wiring public UI
+- [x] Update 10am sandbox review instructions to explicitly include stats-angle review
+- [ ] Build/validate and commit cleanly
+
 ## 2026-03-24 Subagent: NBA Q1/Q3 fallback candidate
 - [x] Inspect current Pinnacle/Kambi/PointsBet adapters and quarter-market wiring
 - [x] Test live candidate availability safely from environment

@@ -28,11 +28,16 @@ export default async function AdminOverviewPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">IT leader review</h2>
-            <p className="mt-1 text-sm text-gray-500">Bug log, incidents, and cron schedule tracking in one place.</p>
+            <p className="mt-1 text-sm text-gray-500">Bug log, incidents, cron tracking, and sandbox pilot review rail.</p>
           </div>
-          <Link href="/admin/ops" className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue">
-            Open IT review
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/ops" className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue">
+              Open IT review
+            </Link>
+            <Link href="/admin/sandbox" className="rounded-full border border-dark-border px-4 py-2 text-sm font-semibold text-gray-200 hover:border-accent-blue/30 hover:text-white">
+              Open sandbox pilot
+            </Link>
+          </div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-5">
           <StatCard label="Bugs logged" value={String(overview.opsSummary.totalBugs)} />
