@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
         edge: typeof body.edge === "number" ? body.edge : null,
         odds: Number.isFinite(Number(body.odds)) ? Number(body.odds) : null,
         book: typeof body.book === "string" ? body.book : null,
+        sportsbook: typeof body.book === "string" ? body.book : null,
         result: "pending",
         game_id: typeof body.gameId === "string" ? body.gameId : null,
         reasoning: typeof body.reasoning === "string" ? body.reasoning : "",

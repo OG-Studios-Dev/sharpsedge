@@ -116,21 +116,41 @@ function buildSandboxRows(input: SandboxCreateInput) {
   }));
 }
 
-export async function getSandboxSlateBundle(sandboxKey: string): Promise<SandboxSlateBundle> {
-  const [slates, picks] = await Promise.all([
-    postgrest<any[]>(`/rest/v1/sandbox_pick_slates?select=*&sandbox_key=eq.${eq(sandboxKey)}&limit=1`),
-    postgrest<any[]>(`/rest/v1/sandbox_pick_history?select=*&sandbox_key=eq.${eq(sandboxKey)}&order=created_at.asc`),
-  ]);
+function isMissingSandboxRelation(message: string) {
+  return message.includes("sandbox_pick_slates") || message.includes("sandbox_pick_history") || message.includes("404");
+}
 
-  return {
-    slate: slates[0] ? normalizeSlate(slates[0]) : null,
-    picks: picks.map(normalizePick),
-  };
+function sandboxSchemaError() {
+  return new Error("Sandbox tables are not installed. Run scripts/setup-sandbox-picks.sql in Supabase before using /admin/sandbox.");
+}
+
+export async function getSandboxSlateBundle(sandboxKey: string): Promise<SandboxSlateBundle> {
+  try {
+    const [slates, picks] = await Promise.all([
+      postgrest<any[]>(`/rest/v1/sandbox_pick_slates?select=*&sandbox_key=eq.${eq(sandboxKey)}&limit=1`),
+      postgrest<any[]>(`/rest/v1/sandbox_pick_history?select=*&sandbox_key=eq.${eq(sandboxKey)}&order=created_at.asc`),
+    ]);
+
+    return {
+      slate: slates[0] ? normalizeSlate(slates[0]) : null,
+      picks: picks.map(normalizePick),
+    };
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) throw sandboxSchemaError();
+    throw error;
+  }
 }
 
 export async function listSandboxSlates(limit: number = 100): Promise<SandboxSlateRecord[]> {
-  const rows = await postgrest<any[]>(`/rest/v1/sandbox_pick_slates?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 500))}`);
-  return rows.map(normalizeSlate);
+  try {
+    const rows = await postgrest<any[]>(`/rest/v1/sandbox_pick_slates?select=*&order=created_at.desc&limit=${Math.max(1, Math.min(limit, 500))}`);
+    return rows.map(normalizeSlate);
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) throw sandboxSchemaError();
+    throw error;
+  }
 }
 
 export async function createSandboxSlate(input: SandboxCreateInput): Promise<SandboxSlateBundle> {
@@ -165,6 +185,8 @@ export async function createSandboxSlate(input: SandboxCreateInput): Promise<San
 
     return await getSandboxSlateBundle(input.sandboxKey);
   } catch (error) {
-    throw new Error(toErrorMessage(error, "Failed to create sandbox slate"));
+    const message = toErrorMessage(error, "Failed to create sandbox slate");
+    if (isMissingSandboxRelation(message)) throw sandboxSchemaError();
+    throw new Error(message);
   }
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listSandboxSlates } from "@/lib/sandbox/store";
+import type { SandboxSlateRecord } from "@/lib/sandbox/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,14 @@ function StatusPill({ label, tone }: { label: string; tone: "blue" | "yellow" | 
 }
 
 export default async function AdminSandboxPage() {
-  const slates = await listSandboxSlates().catch(() => []);
+  let slates: SandboxSlateRecord[] = [];
+  let loadError: string | null = null;
+
+  try {
+    slates = await listSandboxSlates();
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Sandbox storage unavailable.";
+  }
 
   return (
     <div className="space-y-5">
@@ -63,9 +71,15 @@ export default async function AdminSandboxPage() {
         </div>
 
         <div className="mt-4 space-y-3">
-          {slates.length === 0 ? (
+          {loadError ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
+              <p className="font-semibold">Sandbox storage is not live yet.</p>
+              <p className="mt-1 text-amber-50/90">{loadError}</p>
+              <p className="mt-2 text-xs text-amber-50/80">Run <code className="text-amber-50">scripts/setup-sandbox-picks.sql</code> in Supabase, then create slates via <code className="text-amber-50">POST /api/admin/sandbox</code>.</p>
+            </div>
+          ) : slates.length === 0 ? (
             <div className="rounded-xl border border-dashed border-dark-border/70 bg-dark-bg/40 px-4 py-6 text-sm text-gray-500">
-              No sandbox slates yet. Create them via <code className="text-gray-300">POST /api/admin/sandbox</code> after running the sandbox SQL scaffold.
+              No sandbox slates yet. Create them via <code className="text-gray-300">POST /api/admin/sandbox</code> after running <code className="text-gray-300">scripts/setup-sandbox-picks.sql</code>.
             </div>
           ) : slates.map((slate) => (
             <div key={slate.sandbox_key} className="rounded-xl border border-dark-border/50 bg-dark-bg/50 px-4 py-3">
