@@ -227,17 +227,33 @@ function normalizeIncident(item: Partial<AdminIncident>): AdminIncident {
   };
 }
 
+function mergeDefaultBugs(existing: AdminBug[]) {
+  const byId = new Map(existing.map((bug) => [bug.id, bug]));
+  return DEFAULT_DATA.bugs.map((bug) => ({ ...bug, ...(byId.get(bug.id) ?? {}) }));
+}
+
+function mergeDefaultCronSchedules(existing: CronScheduleItem[]) {
+  const byId = new Map(existing.map((item) => [item.id, item]));
+  const merged = DEFAULT_DATA.cronSchedules.map((item) => normalizeCron({ ...item, ...(byId.get(item.id) ?? {}) }));
+  const extras = existing.filter((item) => !DEFAULT_DATA.cronSchedules.some((seed) => seed.id === item.id)).map(normalizeCron);
+  return [...merged, ...extras];
+}
+
 export async function readAdminOpsData(): Promise<AdminOpsData> {
   await ensureStore();
   const raw = await fs.readFile(OPS_PATH, "utf8");
 
   try {
     const parsed = JSON.parse(raw);
+    const existingBugs = Array.isArray(parsed?.bugs) ? parsed.bugs : [];
+    const existingCrons = Array.isArray(parsed?.cronSchedules) ? parsed.cronSchedules : [];
+    const incidents = Array.isArray(parsed?.incidents) ? parsed.incidents.map(normalizeIncident) : [];
+
     return {
       lastReviewedAt: parsed?.lastReviewedAt ?? null,
-      bugs: Array.isArray(parsed?.bugs) ? parsed.bugs : [],
-      cronSchedules: Array.isArray(parsed?.cronSchedules) ? parsed.cronSchedules.map(normalizeCron) : [],
-      incidents: Array.isArray(parsed?.incidents) ? parsed.incidents.map(normalizeIncident) : [],
+      bugs: mergeDefaultBugs(existingBugs),
+      cronSchedules: mergeDefaultCronSchedules(existingCrons),
+      incidents,
     };
   } catch {
     return DEFAULT_DATA;
