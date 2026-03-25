@@ -188,6 +188,7 @@ function parsePlayerPickLabel(label: string | null | undefined) {
 export function mapPickHistoryRecordToAIPick(record: PickHistoryRecord): AIPick {
   const snapshot = record.pick_snapshot;
   const parsedLabel = record.pick_type === "player" ? parsePlayerPickLabel(record.pick_label) : null;
+  const book = record.book ?? snapshot?.book;
 
   return {
     id: record.id,
@@ -213,10 +214,11 @@ export function mapPickHistoryRecordToAIPick(record: PickHistoryRecord): AIPick 
     gameId: record.game_id ?? snapshot?.gameId,
     oddsEventId: snapshot?.oddsEventId,
     odds: typeof record.odds === "number" ? record.odds : snapshot?.odds ?? -110,
-    book: record.book ?? snapshot?.book,
+    book,
+    sportsbook: book,
     bookOdds: snapshot?.bookOdds,
     league: record.league || snapshot?.league,
-  };
+  } as AIPick & { sportsbook?: string };
 }
 
 export function normalizePickSlateRow(raw: any): PickSlateRecord {

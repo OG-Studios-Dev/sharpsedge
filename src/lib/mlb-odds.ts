@@ -1,5 +1,5 @@
 import { OddsEvent } from "@/lib/types";
-import { findMLBTeamAliases } from "@/lib/mlb-mappings";
+import { findMLBTeamAbbreviationByName, findMLBTeamAliases, normalizeMLBTeamAbbrev } from "@/lib/mlb-mappings";
 import { getAggregatedOddsEvents, isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
@@ -60,13 +60,23 @@ export function findMLBOddsForGame(
   homeTeam: string,
   awayTeam: string,
 ): OddsEvent | undefined {
-  const homeAliases = findMLBTeamAliases(homeTeam);
-  const awayAliases = findMLBTeamAliases(awayTeam);
+  const normalizedHome = normalizeMLBTeamAbbrev(homeTeam);
+  const normalizedAway = normalizeMLBTeamAbbrev(awayTeam);
+  const homeAliases = findMLBTeamAliases(normalizedHome);
+  const awayAliases = findMLBTeamAliases(normalizedAway);
 
   return events.find((event) => {
-    const haystack = `${event.home_team} ${event.away_team}`.toLowerCase();
-    const homeMatch = homeAliases.some((alias) => haystack.includes(alias.toLowerCase()));
-    const awayMatch = awayAliases.some((alias) => haystack.includes(alias.toLowerCase()));
+    const eventHomeAbbrev = normalizeMLBTeamAbbrev(findMLBTeamAbbreviationByName(event.home_team));
+    const eventAwayAbbrev = normalizeMLBTeamAbbrev(findMLBTeamAbbreviationByName(event.away_team));
+
+    if (eventHomeAbbrev === normalizedHome && eventAwayAbbrev === normalizedAway) {
+      return true;
+    }
+
+    const homeHaystack = String(event.home_team || "").toLowerCase();
+    const awayHaystack = String(event.away_team || "").toLowerCase();
+    const homeMatch = homeAliases.some((alias) => homeHaystack.includes(alias.toLowerCase()) || alias.toLowerCase().includes(homeHaystack));
+    const awayMatch = awayAliases.some((alias) => awayHaystack.includes(alias.toLowerCase()) || alias.toLowerCase().includes(awayHaystack));
     return homeMatch && awayMatch;
   });
 }
