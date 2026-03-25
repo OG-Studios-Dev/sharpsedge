@@ -11,6 +11,7 @@ create table if not exists public.sandbox_pick_slates (
   expected_pick_count integer not null default 10,
   review_status text not null default 'pending' check (review_status in ('pending', 'reviewed', 'approved', 'rejected')),
   review_notes text,
+  review_snapshot jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -38,6 +39,7 @@ create table if not exists public.sandbox_pick_history (
   experiment_tag text,
   review_status text not null default 'pending' check (review_status in ('pending', 'reviewed', 'approved', 'rejected')),
   review_notes text,
+  review_snapshot jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
