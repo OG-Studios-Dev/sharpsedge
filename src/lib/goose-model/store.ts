@@ -94,6 +94,12 @@ function normalizePick(raw: Record<string, unknown>): GooseModelPick {
     promotion_notes: typeof raw.promotion_notes === "string" ? raw.promotion_notes : null,
     created_at: String(raw.created_at ?? new Date().toISOString()),
     updated_at: String(raw.updated_at ?? new Date().toISOString()),
+    // ── Analytics capture fields ────────────────────────────
+    edge_at_capture: typeof raw.edge_at_capture === "number" ? raw.edge_at_capture : null,
+    hit_rate_at_capture: typeof raw.hit_rate_at_capture === "number" ? raw.hit_rate_at_capture : null,
+    odds_at_capture: typeof raw.odds_at_capture === "number" ? raw.odds_at_capture : null,
+    signals_count: typeof raw.signals_count === "number" ? raw.signals_count : null,
+    experiment_tag: typeof raw.experiment_tag === "string" ? raw.experiment_tag : null,
   };
 }
 
@@ -132,6 +138,12 @@ export interface CapturePicksInput {
     model_version?: string;
     source?: "captured" | "generated";
     pick_snapshot?: Record<string, unknown> | null;
+    // ── Analytics capture fields ─────────────────────────────
+    edge_at_capture?: number | null;
+    hit_rate_at_capture?: number | null;
+    odds_at_capture?: number | null;
+    signals_count?: number | null;
+    experiment_tag?: string | null;
   }>;
 }
 
@@ -158,6 +170,12 @@ export async function captureGoosePicks(input: CapturePicksInput): Promise<Goose
     pick_snapshot: p.pick_snapshot ?? null,
     promoted_to_production: false,
     updated_at: now,
+    // ── Analytics capture fields ─────────────────────────────
+    edge_at_capture: p.edge_at_capture ?? null,
+    hit_rate_at_capture: p.hit_rate_at_capture ?? null,
+    odds_at_capture: p.odds_at_capture ?? null,
+    signals_count: p.signals_count ?? (p.signals_present ? p.signals_present.length : null),
+    experiment_tag: p.experiment_tag ?? null,
   }));
 
   try {

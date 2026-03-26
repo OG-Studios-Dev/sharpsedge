@@ -790,6 +790,19 @@ function selectUniquePlayers(players: GolfPrediction[], count: number, usedPlaye
   return selected;
 }
 
+// ── PGA outright winner rules ────────────────────────────────
+// Hard rule: minimum +200 for any outright winner pick.
+// Odds cap of -200 also applies (safety net; golf is always plus-money).
+// 4 outright winner picks per tournament spanning value tiers.
+const PGA_OUTRIGHT_WINNER_COUNT = 4;
+const PGA_OUTRIGHT_MIN_ODDS     = 200;   // +200 minimum — no chalk below this
+
+function isQualifyingOutrightOdds(odds: number | null | undefined): boolean {
+  if (typeof odds !== "number") return false;
+  // Must be plus-money at +200 or better, and never worse than -200 (safety net)
+  return odds >= PGA_OUTRIGHT_MIN_ODDS;
+}
+
 export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date: string): AIPick[] {
   const players = predictions.players.filter((player) => player.position !== "CUT" && player.position !== "MC");
   const tournamentName = predictions.tournament?.name ?? "PGA Tournament";
@@ -797,20 +810,36 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
   const picks: AIPick[] = [];
   const usedPlayers = new Set<string>();
 
+  // ── Outright winner picks (4 per tournament) ─────────────
+  // Hard rules:
+  //   1. Minimum +200 (no chalk favorites)
+  //   2. Must have positive edge vs model
+  //   3. Spread across 4 odds tiers for data collection diversity
   const winnerCandidates = players
-    .filter((player) => player.bookOdds !== null && (player.edge ?? 0) > 0)
+    .filter((player) => isQualifyingOutrightOdds(player.bookOdds) && (player.edge ?? 0) > 0)
     .sort((left, right) => (
       (right.edge ?? Number.NEGATIVE_INFINITY) - (left.edge ?? Number.NEGATIVE_INFINITY)
     ) || right.combinedScore - left.combinedScore);
 
-  const favoriteWinner = winnerCandidates.find((player) => (player.bookOdds ?? Number.POSITIVE_INFINITY) <= 1800);
-  const midRangeWinner = winnerCandidates.find((player) => {
+  // Tier 1: shorter-priced value (+200–+1800): established players with edge
+  const tier1Winner = winnerCandidates.find((player) => {
     const odds = player.bookOdds ?? 0;
-    return odds > 1800 && odds <= 4500;
+    return odds >= PGA_OUTRIGHT_MIN_ODDS && odds <= 1800;
   });
-  const longShotWinner = winnerCandidates.find((player) => (player.bookOdds ?? 0) > 4500);
+  // Tier 2: mid-range (+1800–+4000): legitimate contenders at real value
+  const tier2Winner = winnerCandidates.find((player) => {
+    const odds = player.bookOdds ?? 0;
+    return odds > 1800 && odds <= 4000;
+  });
+  // Tier 3: long shot (+4000–+8000): high-variance, high-EV candidates
+  const tier3Winner = winnerCandidates.find((player) => {
+    const odds = player.bookOdds ?? 0;
+    return odds > 4000 && odds <= 8000;
+  });
+  // Tier 4: deep long shot (+8000+): maximum upside, minimum implied probability
+  const tier4Winner = winnerCandidates.find((player) => (player.bookOdds ?? 0) > 8000);
 
-  const winnerSelections = [favoriteWinner, midRangeWinner, longShotWinner]
+  const winnerSelections = [tier1Winner, tier2Winner, tier3Winner, tier4Winner]
     .filter((player): player is GolfPrediction => player !== undefined)
     .filter((player, index, array) => array.findIndex((entry) => entry.id === player.id) === index);
 
@@ -819,8 +848,9 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
     picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId));
   }
 
+  // Back-fill with highest-edge qualifying candidates if any tier was empty
   for (const player of winnerCandidates) {
-    if (picks.filter((pick) => pick.propType === "Tournament Winner").length >= 3) break;
+    if (picks.filter((pick) => pick.propType === "Tournament Winner").length >= PGA_OUTRIGHT_WINNER_COUNT) break;
     if (usedPlayers.has(player.id)) continue;
     usedPlayers.add(player.id);
     picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId));
@@ -880,11 +910,17 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
     }
   }
 
-  // Enforce 60% confidence floor — only surface picks that meet quality bar
+  // Enforce 60% confidence floor — only surface picks that meet quality bar.
+  // Outright winner picks are exempt from the hitRate floor: the "hitRate" on
+  // winner picks is really a composite confidence score, and low-odds-implied
+  // long shots will always score lower. They're valuable for sandbox learning.
   const MIN_GOLF_HIT_RATE = 60;
-  const qualifiedPicks = picks.filter((pick) => pick.hitRate >= MIN_GOLF_HIT_RATE);
+  const qualifiedPicks = picks.filter((pick) =>
+    pick.propType === "Tournament Winner" || pick.hitRate >= MIN_GOLF_HIT_RATE,
+  );
 
-  return qualifiedPicks.slice(0, 12);
+  // Cap: 4 outright winners + up to 12 placement picks = 16 total sandbox picks
+  return qualifiedPicks.slice(0, 16);
 }
 
 // --- DataGolf Integration ---

@@ -65,6 +65,36 @@ export interface GooseModelPick {
   promotion_notes: string | null;
   created_at: string;
   updated_at: string;
+  // ── Sandbox / analytics capture fields ─────────────────────
+  /** Exact edge % frozen at the moment the pick was generated */
+  edge_at_capture: number | null;
+  /** Exact hitRate frozen at the moment the pick was generated */
+  hit_rate_at_capture: number | null;
+  /** Exact odds frozen at the moment the pick was generated */
+  odds_at_capture: number | null;
+  /** How many signals were present at generation time */
+  signals_count: number | null;
+  /** Experiment cohort tag — e.g. "baseline-v1", "edge-7plus" */
+  experiment_tag: string | null;
+}
+
+export interface GooseAnalyticsBucket {
+  label: string;
+  count: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  win_rate: number;
+}
+
+export interface GooseAnalyticsResult {
+  total_graded: number;
+  by_edge_bucket: GooseAnalyticsBucket[];
+  by_hit_rate_bucket: GooseAnalyticsBucket[];
+  by_signals_count: GooseAnalyticsBucket[];
+  by_sport: GooseAnalyticsBucket[];
+  by_signal: GooseAnalyticsBucket[];
+  recommendation: string;
 }
 
 export interface GooseSignalWeight {
