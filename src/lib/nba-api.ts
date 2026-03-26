@@ -416,18 +416,40 @@ export async function getNBATeamRosterEntries(teamAbbrev: string): Promise<NBARo
 
   try {
     const data = await cachedFetch<any>(`${ESPN_BASE}/teams/${teamId}/roster`, 60 * 60 * 1000);
-    const groups = Array.isArray(data?.athletes) ? data.athletes : [];
-    const athletes = groups.flatMap((group: any) => Array.isArray(group?.items) ? group.items : []);
+    const raw = Array.isArray(data?.athletes) ? data.athletes : [];
+
+    // ESPN NBA roster returns a flat array of athlete objects (not grouped by position).
+    // Each element is either a flat athlete OR a position-group object with an `items` array.
+    // We handle both shapes here.
+    const athletes: any[] = [];
+    for (const entry of raw) {
+      if (Array.isArray(entry?.items)) {
+        // Old grouped shape: { position, items: [...athletes] }
+        for (const a of entry.items) athletes.push(a);
+      } else if (entry?.displayName || entry?.fullName) {
+        // Flat shape: the entry IS the athlete
+        athletes.push(entry);
+      }
+    }
 
     return athletes.map((athlete: any) => {
-      const injury = athlete?.injuries?.[0] || athlete?.status || null;
+      // Injury status: check injuries[] array first, then status field
+      const injuryEntry = Array.isArray(athlete?.injuries) ? athlete.injuries[0] : null;
+      const injuryStatus =
+        injuryEntry?.status ||
+        injuryEntry?.type?.description ||
+        injuryEntry?.shortDetail ||
+        injuryEntry?.detail ||
+        // If status.type !== "active", treat it as an injury note
+        (athlete?.status?.type && athlete.status.type !== "active" ? athlete.status.type : null) ||
+        null;
       return {
         id: Number(athlete?.id) || 0,
         name: athlete?.displayName || athlete?.fullName || "",
         position: athlete?.position?.abbreviation || athlete?.position?.name || "",
         jersey: athlete?.jersey || "",
         headshot: athlete?.headshot?.href || (athlete?.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${athlete.id}.png` : null),
-        injuryStatus: injury?.status || injury?.type?.description || injury?.shortDetail || injury?.detail || null,
+        injuryStatus,
       };
     }).filter((player: { id: number; name: string }) => player.id && player.name);
   } catch {

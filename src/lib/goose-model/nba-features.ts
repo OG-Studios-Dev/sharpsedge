@@ -273,6 +273,35 @@ export interface NBAFeatureSnapshot {
    * More granular than the rounded hit_rate_at_time field on the pick.
    */
   player_l5_hit_rate: number | null;
+
+  // ── Data provenance / source chain ────────────────────────────────────────
+  /**
+   * Structured record of data sources used to populate this snapshot.
+   * Each entry describes one data fetch: the source system, what was
+   * fetched, cache status, and timestamp. Stored alongside the snapshot
+   * so every pick can be traced back to its data origin.
+   *
+   * Example entry:
+   *   { source: "espn_roster", team: "LAL", cached: true, fetched_at: "..." }
+   */
+  data_source_chain: DataSourceEntry[];
+}
+
+/**
+ * A single entry in the data source provenance chain.
+ * Captures what was fetched, from where, and whether it was a cache hit.
+ */
+export interface DataSourceEntry {
+  /** Human-readable source name: "espn_scoreboard" | "espn_roster" | "espn_boxscore" | etc. */
+  source: string;
+  /** Context: team, player, game id, endpoint suffix — helps with debugging */
+  context: string;
+  /** Whether this fetch was served from the in-process cache */
+  cached: boolean;
+  /** ISO timestamp of when this fetch occurred */
+  fetched_at: string;
+  /** Optional: the ESPN/API URL that was called (for audit trails) */
+  url?: string;
 }
 
 /**
@@ -363,6 +392,8 @@ export interface NBAContextHintsInput {
   player_avg_stat_l5?: number | null;
   /** Player L5 hit rate over the pick line (0–1) */
   player_l5_hit_rate?: number | null;
+  /** Data source provenance chain from nba-context enricher */
+  data_source_chain?: DataSourceEntry[];
 }
 
 /**
@@ -440,6 +471,15 @@ export function scoreNBAFeaturesWithSnapshot(
     player_avg_minutes_l5: contextHints?.player_avg_minutes_l5 ?? null,
     player_avg_stat_l5: contextHints?.player_avg_stat_l5 ?? null,
     player_l5_hit_rate: contextHints?.player_l5_hit_rate ?? null,
+    // Data provenance: pull from context hints if present, otherwise minimal entry
+    data_source_chain: contextHints?.data_source_chain ?? [
+      {
+        source: "goose_feature_scorer",
+        context: `market_type=${marketType}`,
+        cached: false,
+        fetched_at: new Date().toISOString(),
+      },
+    ],
   };
 
   return { score, snapshot };

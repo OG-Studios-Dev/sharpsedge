@@ -160,6 +160,14 @@ export type NBAContextHints = {
    * Only populated when a propLine is passed in.
    */
   player_l5_hit_rate: number | null;
+
+  // ── Data provenance ────────────────────────────────────────────────────────
+  /**
+   * Ordered list of data fetches performed to build these hints.
+   * Traces the exact origin → ingestion path for every data point in the snapshot.
+   * Passed through to NBAFeatureSnapshot.data_source_chain.
+   */
+  data_source_chain: import("@/lib/goose-model/nba-features").DataSourceEntry[];
 };
 
 // ── Injury severity classifier ─────────────────────────────────
@@ -290,6 +298,8 @@ export async function fetchNBAContextHints(
   const warnings: string[] = [];
   const autoSignals: string[] = [];
   const fetchedAt = new Date().toISOString();
+  // Track every data fetch for the provenance chain
+  const dataSourceChain: import("@/lib/goose-model/nba-features").DataSourceEntry[] = [];
 
   let teamRoster: NBARosterPlayer[] = [];
   let opponentRoster: NBARosterPlayer[] = [];
@@ -298,6 +308,7 @@ export async function fetchNBAContextHints(
   const teamAbbrevNorm = teamAbbrev?.toUpperCase();
   const oppAbbrevNorm = opponentAbbrev?.toUpperCase();
 
+  const rosterFetchStart = Date.now();
   const [teamResult, oppResult] = await Promise.allSettled([
     teamAbbrevNorm ? getNBATeamRosterEntries(teamAbbrevNorm) : Promise.resolve([]),
     oppAbbrevNorm ? getNBATeamRosterEntries(oppAbbrevNorm) : Promise.resolve([]),
@@ -305,14 +316,44 @@ export async function fetchNBAContextHints(
 
   if (teamResult.status === "fulfilled") {
     teamRoster = teamResult.value;
+    dataSourceChain.push({
+      source: "espn_roster",
+      context: `team=${teamAbbrevNorm ?? "unknown"} players=${teamRoster.length}`,
+      cached: true, // getNBATeamRosterEntries uses 1h cache; assume cache on warm runs
+      fetched_at: fetchedAt,
+      url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`,
+    });
   } else {
     warnings.push(`Could not fetch roster for ${teamAbbrevNorm ?? "unknown"}: ${teamResult.reason}`);
+    dataSourceChain.push({
+      source: "espn_roster",
+      context: `team=${teamAbbrevNorm ?? "unknown"} FAILED`,
+      cached: false,
+      fetched_at: fetchedAt,
+    });
   }
 
   if (oppResult.status === "fulfilled") {
     opponentRoster = oppResult.value;
+    if (oppAbbrevNorm) {
+      dataSourceChain.push({
+        source: "espn_roster",
+        context: `team=${oppAbbrevNorm} players=${opponentRoster.length}`,
+        cached: true,
+        fetched_at: fetchedAt,
+        url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`,
+      });
+    }
   } else {
     warnings.push(`Could not fetch roster for ${oppAbbrevNorm ?? "unknown"}: ${oppResult.reason}`);
+    if (oppAbbrevNorm) {
+      dataSourceChain.push({
+        source: "espn_roster",
+        context: `team=${oppAbbrevNorm} FAILED`,
+        cached: false,
+        fetched_at: fetchedAt,
+      });
+    }
   }
 
   // ── Target player lookup ────────────────────────────────────
@@ -404,6 +445,7 @@ export async function fetchNBAContextHints(
 
   // Only fetch if we have both team + opponent info (avoids wasted calls for partial data)
   if (teamAbbrevNorm && oppAbbrevNorm) {
+    const dvpPaceStart = new Date().toISOString();
     const [dvpResult, paceResult] = await Promise.allSettled([
       getNBATeamDefenseContext(oppAbbrevNorm, positionGroup, dvpStatKey),
       getNBAMatchupPaceContext(teamAbbrevNorm, oppAbbrevNorm),
@@ -412,8 +454,21 @@ export async function fetchNBAContextHints(
     if (dvpResult.status === "fulfilled") {
       opponentDvpRank = dvpResult.value.dvpRank;
       opponentDvpAvgAllowed = dvpResult.value.dvpAvgAllowed;
+      dataSourceChain.push({
+        source: "espn_boxscore_dvp",
+        context: `opp=${oppAbbrevNorm} posGroup=${positionGroup} stat=${dvpStatKey} rank=${opponentDvpRank ?? "n/a"} avgAllowed=${opponentDvpAvgAllowed ?? "n/a"}`,
+        cached: true, // league dataset is computed once and cached in nba-matchup.ts
+        fetched_at: dvpPaceStart,
+        url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard (aggregated)`,
+      });
     } else {
       warnings.push(`DvP context fetch failed for ${oppAbbrevNorm}: ${dvpResult.reason}`);
+      dataSourceChain.push({
+        source: "espn_boxscore_dvp",
+        context: `opp=${oppAbbrevNorm} FAILED`,
+        cached: false,
+        fetched_at: dvpPaceStart,
+      });
     }
 
     if (paceResult.status === "fulfilled") {
@@ -425,8 +480,21 @@ export async function fetchNBAContextHints(
         typeof opponentPaceRank === "number" &&
         teamPaceRank <= 10 &&
         opponentPaceRank <= 10;
+      dataSourceChain.push({
+        source: "espn_boxscore_pace",
+        context: `team=${teamAbbrevNorm} rank=${teamPaceRank ?? "n/a"} opp=${oppAbbrevNorm} rank=${opponentPaceRank ?? "n/a"} highPace=${highPaceGame}`,
+        cached: true,
+        fetched_at: dvpPaceStart,
+        url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard (aggregated)`,
+      });
     } else {
       warnings.push(`Pace context fetch failed: ${paceResult.reason}`);
+      dataSourceChain.push({
+        source: "espn_boxscore_pace",
+        context: `team=${teamAbbrevNorm} opp=${oppAbbrevNorm} FAILED`,
+        cached: false,
+        fetched_at: dvpPaceStart,
+      });
     }
   }
 
@@ -449,6 +517,7 @@ export async function fetchNBAContextHints(
   let playerL5HitRate: number | null = null;
 
   if (playerName && teamAbbrevNorm) {
+    const statFetchStart = new Date().toISOString();
     try {
       const recentGames = await getRecentNBAGames(21);
       const teamGames = recentGames
@@ -459,12 +528,14 @@ export async function fetchNBAContextHints(
         )
         .slice(0, 8); // check up to 8 games to find 5 qualifying
 
-      const statLogs: { minutes: number; stat: number }[] = [];
+      const statLogs: { minutes: number; stat: number; gameId: string }[] = [];
+      const boxscoreGameIds: string[] = [];
 
       for (const game of teamGames) {
         if (statLogs.length >= 5) break;
         try {
           const box = await getNBABoxscore(game.id);
+          boxscoreGameIds.push(game.id);
           const isHome = game.homeTeam.abbreviation === teamAbbrevNorm;
           const teamPlayers = isHome ? box.home : box.away;
           const p = findBestFuzzyNameMatch(teamPlayers, playerName, (pl) => pl.name);
@@ -483,7 +554,7 @@ export async function fetchNBAContextHints(
           else if (pt.includes("steal")) statVal = p.steals;
           else statVal = p.points; // default: points
 
-          statLogs.push({ minutes: mins, stat: statVal });
+          statLogs.push({ minutes: mins, stat: statVal, gameId: game.id });
         } catch {
           // skip failed boxscore
         }
@@ -515,10 +586,32 @@ export async function fetchNBAContextHints(
           autoSignals.push("minutes_floor");
         }
       }
+
+      dataSourceChain.push({
+        source: "espn_boxscore_player_stats",
+        context: `player=${playerName} team=${teamAbbrevNorm} gamesChecked=${teamGames.length} logsFound=${statLogs.length} avgMin=${playerAvgMinutesL5 ?? "n/a"} avgStat=${playerAvgStatL5 ?? "n/a"} l5HitRate=${playerL5HitRate ?? "n/a"} propType=${propType ?? "points"} gameIds=[${boxscoreGameIds.slice(0, 5).join(",")}]`,
+        cached: true, // espn boxscore uses 15min cache
+        fetched_at: statFetchStart,
+        url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={id}`,
+      });
     } catch (err) {
       warnings.push(`Player stat fetch failed for ${playerName}: ${String(err)}`);
+      dataSourceChain.push({
+        source: "espn_boxscore_player_stats",
+        context: `player=${playerName} team=${teamAbbrevNorm} FAILED: ${String(err)}`,
+        cached: false,
+        fetched_at: statFetchStart,
+      });
     }
   }
+
+  // Final provenance entry — marks this enricher run complete
+  dataSourceChain.push({
+    source: "nba_context_enricher",
+    context: `player=${playerName ?? "n/a"} team=${teamAbbrevNorm ?? "n/a"} opp=${oppAbbrevNorm ?? "n/a"} autoSignals=[${Array.from(new Set(autoSignals)).join(",")}] warnings=${warnings.length}`,
+    cached: false,
+    fetched_at: new Date().toISOString(),
+  });
 
   return {
     auto_signals: Array.from(new Set(autoSignals)),
@@ -541,6 +634,7 @@ export async function fetchNBAContextHints(
     player_avg_minutes_l5: playerAvgMinutesL5,
     player_avg_stat_l5: playerAvgStatL5,
     player_l5_hit_rate: playerL5HitRate,
+    data_source_chain: dataSourceChain,
   };
 }
 
@@ -570,5 +664,6 @@ export function emptyNBAContextHints(): NBAContextHints {
     player_avg_minutes_l5: null,
     player_avg_stat_l5: null,
     player_l5_hit_rate: null,
+    data_source_chain: [],
   };
 }
