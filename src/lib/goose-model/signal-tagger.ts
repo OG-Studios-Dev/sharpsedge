@@ -166,6 +166,38 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /high.*3-point.*rate/i,
     /rank.*(?:last|bottom|worst).*three/i,
   ],
+  // ── Extended NBA signals ─────────────────────────────────
+  minutes_floor: [
+    /\bminutes?\s+(?:floor|guarantee|secured|lock(?:ed)?)\b/i,
+    /\bstarter\s+(?:confirmed|locked|set)\b/i,
+    /\bheavy\s+rotation\b/i,
+    /\b(?:30|32|33|34|35|36|37|38|39|40)\+?\s*(?:min|minutes)\b/i,
+    /\bplaying\s+(?:big|major|starter)\s+(?:minutes|role)\b/i,
+    /\bguaranteed\s+(?:start|minutes|role)\b/i,
+  ],
+  home_court_edge: [
+    /\bhome\s+court\b/i,
+    /\bhome\s+advantage\b/i,
+    /\bplaying\s+at\s+home\b/i,
+    /\b(?:strong|great|good)\s+home\s+(?:record|crowd|atmosphere)\b/i,
+    /\bnba\s+home\b/i,
+    /\bchasing\s+a?\s*home\s+win\b/i,
+  ],
+  recent_trend_over: [
+    /\btrend(?:ing)?\s+over\b/i,
+    /\bover\s+(?:in\s+)?(?:last\s+)?\d+\s*(?:of\s+)?\d+\s*games\b/i,
+    /\bhit\s+over.*(?:in\s+)?(?:last\s+)?\d+\s*straight\b/i,
+    /\b(?:3|4|5|6|7)\+?\s*(?:consecutive|straight|straight games)\s+over\b/i,
+    /\bsurpassed\s+(?:the\s+)?line\s+(?:in\s+)?(?:last\s+)?\d+\s*games\b/i,
+    /over\s+in\s+(?:\d+\s*of\s+)?(?:last\s+)?(?:3|4|5|6|7)/i,
+  ],
+  recent_trend_under: [
+    /\btrend(?:ing)?\s+under\b/i,
+    /\bunder\s+(?:in\s+)?(?:last\s+)?\d+\s*(?:of\s+)?\d+\s*games\b/i,
+    /\bhit\s+under.*(?:in\s+)?(?:last\s+)?\d+\s*straight\b/i,
+    /\b(?:3|4|5|6|7)\+?\s*(?:consecutive|straight|straight games)\s+under\b/i,
+    /under\s+in\s+(?:\d+\s*of\s+)?(?:last\s+)?(?:3|4|5|6|7)/i,
+  ],
 };
 
 /**

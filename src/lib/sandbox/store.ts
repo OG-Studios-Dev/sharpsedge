@@ -437,3 +437,160 @@ export async function listSandboxBundlesByLeague(league: SandboxLeague, limit: n
     throw error;
   }
 }
+
+// ── Individual pick CRUD ─────────────────────────────────────
+
+/**
+ * Fetch a single sandbox pick by id from sandbox_pick_history.
+ * Returns null if not found.
+ */
+export async function getSandboxPickById(id: string): Promise<SandboxPickRecord | null> {
+  try {
+    const rows = await postgrest<any[]>(
+      `/rest/v1/sandbox_pick_history?id=eq.${eq(id)}&select=*&limit=1`,
+    );
+    const row = rows?.[0];
+    return row ? normalizePick(row) : null;
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) return null;
+    throw error;
+  }
+}
+
+/**
+ * Set the outcome on a sandbox pick and return the updated record.
+ * Merges outcome and outcome_notes into review_snapshot.
+ *
+ * @param id           sandbox_pick_history.id
+ * @param outcome      New outcome value
+ * @param outcomeNotes Optional notes describing what happened
+ * @returns Updated SandboxPickRecord, or null if not found
+ */
+export async function setSandboxPickOutcome(
+  id: string,
+  outcome: SandboxOutcome,
+  outcomeNotes?: string | null,
+): Promise<SandboxPickRecord | null> {
+  const existing = await getSandboxPickById(id);
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+
+  // Merge outcome into the existing review_snapshot JSON
+  const updatedSnapshot = {
+    ...existing.review_snapshot,
+    outcome,
+    outcome_notes: outcomeNotes ?? existing.review_snapshot.outcome_notes,
+  };
+
+  try {
+    const rows = await postgrest<any[]>(`/rest/v1/sandbox_pick_history?id=eq.${eq(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        review_snapshot: updatedSnapshot,
+        result: outcome === "void" ? "void" : outcome, // keep result column in sync
+        updated_at: now,
+      }),
+    });
+    const row = rows?.[0];
+    return row ? normalizePick(row) : null;
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) return null;
+    throw error;
+  }
+}
+
+// ── Goose-model learning bridge ──────────────────────────────
+
+/**
+ * Convert a SandboxOutcome to a GoosePickResult.
+ * Sandbox uses "void" for DNP; goose model uses the same.
+ * "pending" outcomes are excluded from weight learning.
+ */
+function sandboxOutcomeToGooseResult(outcome: SandboxOutcome): "win" | "loss" | "push" | "void" | null {
+  if (outcome === "win") return "win";
+  if (outcome === "loss") return "loss";
+  if (outcome === "push") return "push";
+  if (outcome === "void") return "void";
+  return null; // "pending" → skip
+}
+
+/**
+ * Extract signal tags from a sandbox pick for goose-model learning.
+ * Uses pick_snapshot.factors.signals when present; falls back to
+ * re-tagging from reasoning text.
+ */
+function extractSandboxSignals(pick: SandboxPickRecord): string[] {
+  // If the pick was generated through goose-model, factors.signals is the ground truth
+  const snapshot = pick.pick_snapshot as any;
+  const factorSignals = snapshot?.factors?.signals;
+  if (Array.isArray(factorSignals) && factorSignals.length > 0) {
+    return factorSignals as string[];
+  }
+
+  // Fallback: re-tag from reasoning — import inline to avoid circular deps
+  // (signal-tagger is side-effect free and has no server-only imports)
+  try {
+    // Dynamic require at runtime (server-only context)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { tagSignals } = require("@/lib/goose-model/signal-tagger") as {
+      tagSignals: (reasoning: string | null, label?: string | null) => string[];
+    };
+    return tagSignals(pick.reasoning, pick.pick_label);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Propagate sandbox pick outcomes to goose_signal_weights so the
+ * learning engine picks up on sandbox results automatically.
+ *
+ * Called after a sandbox pick is graded (outcome set to win/loss/push).
+ * Skips pending and void outcomes (void = DNP, no learning signal).
+ *
+ * This is the key bridge between the sandbox test lane and the
+ * goose-model learning layer.
+ */
+export async function applyOutcomeToGooseWeights(pick: SandboxPickRecord): Promise<void> {
+  const gooseResult = sandboxOutcomeToGooseResult(pick.review_snapshot.outcome);
+  if (!gooseResult || gooseResult === "void") return;
+
+  const signals = extractSandboxSignals(pick);
+  if (!signals.length) return;
+
+  const sport = (pick.league || "").toUpperCase() || "NBA";
+
+  try {
+    // Import at call time to avoid circular dependency at module load
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { updateSignalWeightsForPick } = require("@/lib/goose-model/store") as {
+      updateSignalWeightsForPick: (signals: string[], sport: string, result: "win" | "loss" | "push") => Promise<void>;
+    };
+    await updateSignalWeightsForPick(signals, sport, gooseResult);
+    console.info(`[sandbox/store] applied sandbox outcome (${gooseResult}) to goose weights for ${signals.length} signals (${sport})`);
+  } catch (err) {
+    // Non-fatal — learning propagation failure should never block grading
+    console.warn("[sandbox/store] failed to propagate outcome to goose weights", { error: String(err) });
+  }
+}
+
+/**
+ * Apply outcomes from a batch of graded sandbox picks to goose_signal_weights.
+ * Skips any pick that is still pending.
+ */
+export async function applyBatchOutcomesToGooseWeights(picks: SandboxPickRecord[]): Promise<number> {
+  let applied = 0;
+  for (const pick of picks) {
+    try {
+      await applyOutcomeToGooseWeights(pick);
+      applied++;
+    } catch {
+      // already logged inside applyOutcomeToGooseWeights
+    }
+  }
+  return applied;
+}

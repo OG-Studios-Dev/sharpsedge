@@ -6,7 +6,83 @@
 // accumulate the DB weights naturally take over via scorePickBySignals().
 //
 // Design: additive bonus only — never overrides the DB when populated.
+//
+// Market-type awareness: different priors apply depending on whether
+// the pick is a player prop (pts/reb/ast/3pt), team ML, spread, or total.
+// This reflects the reality that dvp_advantage matters far more for a
+// player points prop than it does for a team ML bet.
 // ============================================================
+
+/**
+ * NBA market types — used to select the right prior for each signal.
+ */
+export type NBAMarketType =
+  | "player_pts"
+  | "player_reb"
+  | "player_ast"
+  | "player_3pt"
+  | "player_combo"   // pts+reb+ast, blk, stl, pra, etc.
+  | "team_ml"
+  | "team_spread"
+  | "total"
+  | "unknown";
+
+/**
+ * Detect NBA market type from pick_label and propType strings.
+ * Returns "unknown" when no match is found.
+ */
+export function detectNBAMarketType(
+  pickLabel: string | null | undefined,
+  propType?: string | null,
+): NBAMarketType {
+  const label = (pickLabel ?? "").toLowerCase();
+  const prop = (propType ?? "").toLowerCase();
+
+  const combined = `${label} ${prop}`.trim();
+
+  // Player 3-pointers (check before generic shot/pts patterns)
+  if (/\b3[- ]?(?:pm|pt|pointer)s?\b/i.test(combined) || /three[- ]pointer/i.test(combined) || /\b3pm\b/i.test(combined)) {
+    return "player_3pt";
+  }
+  // Combo props (pts+reb+ast, pra, dd, td, blk, stl — check BEFORE individual stats)
+  if (
+    /\bpts\+(?:reb|ast)\b/.test(combined) ||
+    /\bpra\b/.test(combined) ||
+    /double.double/i.test(combined) ||
+    /triple.double/i.test(combined) ||
+    /\bblk\b/.test(combined) ||
+    /\bstl\b/.test(combined) ||
+    /\bpra\b/.test(combined)
+  ) {
+    return "player_combo";
+  }
+  // Player rebounds
+  if (/\brebound[s]?\b/.test(combined) || /\breb\b/.test(combined)) {
+    return "player_reb";
+  }
+  // Player assists
+  if (/\bassist[s]?\b/.test(combined) || /\bast\b/.test(combined)) {
+    return "player_ast";
+  }
+  // Player points
+  if (/\bpoints?\b/.test(combined) || /\bpts\b/.test(combined)) {
+    return "player_pts";
+  }
+  // Team spread
+  if (/spread|[+-]\d+(?:\.\d)?\s*(?:pts)?/.test(combined) || /\bspread\b/.test(combined)) {
+    return "team_spread";
+  }
+  // Total (game over/under)
+  if (/\b(?:game\s+)?total\b/.test(combined) || /\bo\/u\b/.test(combined) || /over.*under/.test(combined)) {
+    return "total";
+  }
+  // Team ML
+  if (/\bml\b/.test(combined) || /\bmoneyline\b/.test(combined) || /\bwin\b/.test(combined)) {
+    return "team_ml";
+  }
+
+  return "unknown";
+}
 
 /**
  * NBA signal priors: empirical win-rate estimates for each NBA-specific
@@ -28,6 +104,14 @@ export const NBA_SIGNAL_PRIORS: Record<string, number> = {
   usage_surge: 0.70,
   /** Opponent allows high 3PA rate → shooter sees inflated attempts. */
   opponent_3pt_rate: 0.61,
+  /** Player confirmed starter with 30+ minutes expected — prop floor raised. */
+  minutes_floor: 0.63,
+  /** Playing at home in NBA — meaningful for both player props and team MLs. */
+  home_court_edge: 0.61,
+  /** Player has been going over the line in 3+ consecutive recent games. */
+  recent_trend_over: 0.64,
+  /** Player has been going under the line in 3+ consecutive recent games. */
+  recent_trend_under: 0.62,
 
   // ── General signals with NBA-tuned priors ────────────────
   /** Back-to-back is a meaningful penalty in NBA — fatigue is real. */
@@ -43,10 +127,111 @@ export const NBA_SIGNAL_PRIORS: Record<string, number> = {
 };
 
 /**
+ * Market-type-aware priors.
+ *
+ * Override the base prior for a (signal, market) combination when we
+ * have specific knowledge that the signal's impact differs by market type.
+ *
+ * Only entries that meaningfully differ from NBA_SIGNAL_PRIORS are listed.
+ * Falls back to NBA_SIGNAL_PRIORS[signal] when no market-specific entry exists.
+ */
+export const NBA_MARKET_PRIORS: Partial<Record<NBAMarketType, Record<string, number>>> = {
+  player_pts: {
+    dvp_advantage: 0.69,    // strongest signal for pts props — opponent's pts allowed/game is well-researched
+    usage_surge: 0.72,       // usage spike directly inflates points
+    pace_matchup: 0.65,      // high pace = more shot attempts
+    minutes_floor: 0.65,     // starters get more shot attempts
+    recent_trend_over: 0.65,
+  },
+  player_reb: {
+    dvp_advantage: 0.63,    // rebounding matchups are less reliable than scoring matchups
+    pace_matchup: 0.62,      // pace helps volume rebounds
+    usage_surge: 0.65,       // usage surge often includes rebounding load
+    minutes_floor: 0.64,
+    recent_trend_over: 0.63,
+  },
+  player_ast: {
+    dvp_advantage: 0.62,    // assists DVP less reliable than scoring DVP
+    usage_surge: 0.68,       // usage surge usually means more playmaking too
+    pace_matchup: 0.62,
+    minutes_floor: 0.62,
+    recent_trend_over: 0.63,
+  },
+  player_3pt: {
+    opponent_3pt_rate: 0.66, // strongest signal for 3pt props
+    dvp_advantage: 0.64,
+    pace_matchup: 0.61,
+    recent_trend_over: 0.65,
+  },
+  player_combo: {
+    dvp_advantage: 0.65,
+    usage_surge: 0.69,
+    pace_matchup: 0.63,
+    minutes_floor: 0.65,
+    recent_trend_over: 0.64,
+  },
+  team_ml: {
+    home_court_edge: 0.63,   // more meaningful for team outcomes
+    back_to_back: 0.40,      // even more penalizing for team MLs
+    rest_days: 0.64,
+    dvp_advantage: 0.58,     // less direct signal for team ML
+    usage_surge: 0.55,       // individual usage surge less relevant for team ML
+  },
+  team_spread: {
+    home_court_edge: 0.62,
+    back_to_back: 0.41,
+    rest_days: 0.63,
+    dvp_advantage: 0.60,
+  },
+  total: {
+    pace_matchup: 0.66,      // most directly relevant for totals
+    back_to_back: 0.45,      // totals less affected by fatigue than MLs
+    dvp_advantage: 0.60,
+  },
+};
+
+/**
+ * Structured NBA feature snapshot captured at pick time.
+ * Stored in pick_snapshot.factors.nba_features for future analytics.
+ */
+export interface NBAFeatureSnapshot {
+  /** Detected market type for this pick */
+  market_type: NBAMarketType;
+  /** Whether market-type-aware priors were used (vs base priors) */
+  market_aware_priors: boolean;
+  /** Which signals had NBA priors applied (not yet DB-backed) */
+  prior_signals: string[];
+  /** The blended NBA feature score [0,1] returned by the scorer */
+  nba_feature_score: number;
+  /** Per-signal prior values used (for auditability) */
+  signal_priors_applied: Record<string, number>;
+  /** Whether back-to-back penalty was active */
+  back_to_back_penalty: boolean;
+  /** Whether a usage surge signal boosted this pick */
+  usage_surge_active: boolean;
+  /** Whether DVP advantage was present */
+  dvp_advantage_present: boolean;
+  /** Whether recent trend (over or under) was present */
+  recent_trend_active: boolean;
+}
+
+/**
  * Minimum number of DB appearances before we trust the live weight
  * over the prior. Matches the threshold in store.scorePickBySignals().
  */
 const MIN_APPEARANCES = 5;
+
+/**
+ * Look up the effective prior for a signal given a market type.
+ * Returns market-specific prior when available, falls back to base prior.
+ */
+function effectivePrior(signal: string, marketType: NBAMarketType): number | undefined {
+  const marketOverrides = NBA_MARKET_PRIORS[marketType];
+  if (marketOverrides && signal in marketOverrides) {
+    return marketOverrides[signal];
+  }
+  return NBA_SIGNAL_PRIORS[signal];
+}
 
 /**
  * Compute an NBA-specific prior score for a candidate pick.
@@ -55,13 +240,15 @@ const MIN_APPEARANCES = 5;
  * the signals present, using priors ONLY for signals not yet well-established
  * in the live weight DB.
  *
- * @param signals       Signals tagged on this pick
- * @param liveWeightMap Map of signal → live DB win_rate (undefined if < MIN_APPEARANCES)
+ * @param signals        Signals tagged on this pick
+ * @param liveWeightMap  Map of signal → live DB win_rate (undefined if < MIN_APPEARANCES)
+ * @param marketType     Market type for market-aware prior selection (default: "unknown")
  * @returns Blended NBA prior score, or 0 if no NBA priors apply
  */
 export function scoreNBAFeatures(
   signals: string[],
   liveWeightMap: Map<string, { win_rate: number; appearances: number }>,
+  marketType: NBAMarketType = "unknown",
 ): number {
   if (!signals.length) return 0;
 
@@ -69,7 +256,7 @@ export function scoreNBAFeatures(
   let count = 0;
 
   for (const sig of signals) {
-    const prior = NBA_SIGNAL_PRIORS[sig];
+    const prior = effectivePrior(sig, marketType);
     if (prior === undefined) continue; // no NBA prior for this signal
 
     const liveWeight = liveWeightMap.get(sig);
@@ -86,8 +273,65 @@ export function scoreNBAFeatures(
 }
 
 /**
+ * Score NBA features and return a full NBAFeatureSnapshot for auditability.
+ *
+ * @param signals        Signals tagged on this pick
+ * @param liveWeightMap  Live DB weight map
+ * @param pickLabel      Pick label string (for market type detection)
+ * @param propType       PropType string (for market type detection)
+ * @returns { score, snapshot }
+ */
+export function scoreNBAFeaturesWithSnapshot(
+  signals: string[],
+  liveWeightMap: Map<string, { win_rate: number; appearances: number }>,
+  pickLabel?: string | null,
+  propType?: string | null,
+): { score: number; snapshot: NBAFeatureSnapshot } {
+  const marketType = detectNBAMarketType(pickLabel, propType);
+  const priorsApplied: Record<string, number> = {};
+  const priorSignals: string[] = [];
+
+  let total = 0;
+  let count = 0;
+
+  for (const sig of signals) {
+    const prior = effectivePrior(sig, marketType);
+    if (prior === undefined) continue;
+
+    const liveWeight = liveWeightMap.get(sig);
+    const hasTrustedLiveData = liveWeight && liveWeight.appearances >= MIN_APPEARANCES;
+
+    if (!hasTrustedLiveData) {
+      total += prior;
+      count++;
+      priorsApplied[sig] = prior;
+      priorSignals.push(sig);
+    }
+  }
+
+  const score = count > 0 ? total / count : 0;
+  const usingMarketAware =
+    marketType !== "unknown" && (NBA_MARKET_PRIORS[marketType] !== undefined);
+
+  const snapshot: NBAFeatureSnapshot = {
+    market_type: marketType,
+    market_aware_priors: usingMarketAware,
+    prior_signals: priorSignals,
+    nba_feature_score: score,
+    signal_priors_applied: priorsApplied,
+    back_to_back_penalty: signals.includes("back_to_back"),
+    usage_surge_active: signals.includes("usage_surge"),
+    dvp_advantage_present: signals.includes("dvp_advantage"),
+    recent_trend_active:
+      signals.includes("recent_trend_over") || signals.includes("recent_trend_under"),
+  };
+
+  return { score, snapshot };
+}
+
+/**
  * Build a signal → live-weight map for NBA from an array of GooseSignalWeight rows.
- * Used to pass into scoreNBAFeatures().
+ * Used to pass into scoreNBAFeatures() and scoreNBAFeaturesWithSnapshot().
  */
 export function buildNBAWeightMap(
   weights: Array<{ signal: string; win_rate: number; appearances: number }>,

@@ -42,6 +42,14 @@ export const GOOSE_SIGNALS = [
   "usage_surge",
   /** Opponent concedes high 3-point attempt rate — shooter benefits */
   "opponent_3pt_rate",
+  /** Player has a guaranteed minutes floor (starter confirmed, heavy rotation) */
+  "minutes_floor",
+  /** NBA home-court advantage: meaningful for player props and team MLs */
+  "home_court_edge",
+  /** Recent games: player has been trending OVER the prop line in last 3+ games */
+  "recent_trend_over",
+  /** Recent games: player has been trending UNDER the prop line in last 3+ games */
+  "recent_trend_under",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

@@ -7,7 +7,12 @@
 import type { AIPick } from "@/lib/types";
 import { tagSignals } from "./signal-tagger";
 import { scorePickBySignals, listSignalWeights } from "./store";
-import { scoreNBAFeatures, buildNBAWeightMap } from "./nba-features";
+import {
+  scoreNBAFeaturesWithSnapshot,
+  buildNBAWeightMap,
+  detectNBAMarketType,
+} from "./nba-features";
+import type { NBAFeatureSnapshot } from "./nba-features";
 import type { GooseSport } from "./types";
 
 export const GOOSE_MODEL_VERSION = "goose-v1";
@@ -60,6 +65,12 @@ export interface PickFactors {
   on_streak: boolean;
   has_matchup_edge: boolean;
   has_travel_penalty: boolean;
+  /** NBA-specific feature snapshot (only populated when sport === "NBA") */
+  nba_features: NBAFeatureSnapshot | null;
+  /** Detected NBA market type (player_pts / player_reb / team_ml / total / etc.) */
+  nba_market_type: string | null;
+  /** Prop type extracted from pick label */
+  prop_type: string | null;
 }
 
 function buildPickFactors(
@@ -68,6 +79,20 @@ function buildPickFactors(
   experimentTag: string | null,
 ): PickFactors {
   const sigs = candidate.signals_present ?? [];
+  const isNBA = candidate.sport === "NBA";
+
+  // Extract prop_type from pick_label (e.g. "LeBron James Over 25.5 Points" → "Points")
+  const propTypeMatch = candidate.pick_label?.match(
+    /\b(Points|Rebounds|Assists|3-Pointers Made|Pts\+Reb|Pts\+Ast|Pts\+Reb\+Ast|Blocks|Steals|PRA)\b/i,
+  );
+  const propType = propTypeMatch ? propTypeMatch[1] : null;
+
+  // Build NBA feature snapshot if applicable
+  const nbaMarketType = isNBA
+    ? detectNBAMarketType(candidate.pick_label, candidate.prop_type ?? propType)
+    : null;
+  const nbaFeatures = (candidate as any)._nba_feature_snapshot as NBAFeatureSnapshot | null ?? null;
+
   return {
     edge_pct: typeof candidate.edge === "number" ? candidate.edge : null,
     hit_rate_pct: typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time : null,
@@ -89,6 +114,9 @@ function buildPickFactors(
     on_streak: sigs.includes("streak_form"),
     has_matchup_edge: sigs.includes("matchup_edge"),
     has_travel_penalty: sigs.includes("travel_fatigue"),
+    nba_features: nbaFeatures,
+    nba_market_type: nbaMarketType,
+    prop_type: propType,
   };
 }
 
@@ -110,6 +138,8 @@ export interface GooseModelCandidate {
   confidence?: number | null;
   /** True if team is playing at home */
   is_home?: boolean | null;
+  /** Prop type string from the source pick (e.g. "points", "rebounds") */
+  prop_type?: string | null;
   sport: GooseSport;
   pick_snapshot?: Record<string, unknown>;
 }
@@ -163,8 +193,16 @@ export async function scoreGooseCandidates(
     // When sport is NBA and the pick has NBA-specific signals, blend in
     // a prior score for signals not yet backed by live DB data.
     // Weight: 20% NBA prior, 80% existing blend — additive and conservative.
+    // Also captures a full NBAFeatureSnapshot for pick_snapshot.factors.
+    let nbaFeatureSnapshot = null;
     if (candidate.sport === "NBA" && signals.length > 0) {
-      const nbaFeatureScore = scoreNBAFeatures(signals, nbaWeightMap);
+      const { score: nbaFeatureScore, snapshot } = scoreNBAFeaturesWithSnapshot(
+        signals,
+        nbaWeightMap,
+        candidate.pick_label,
+        candidate.prop_type,
+      );
+      nbaFeatureSnapshot = snapshot;
       if (nbaFeatureScore > 0) {
         blendedScore = blendedScore * 0.8 + nbaFeatureScore * 0.2;
       }
@@ -174,7 +212,9 @@ export async function scoreGooseCandidates(
       ...candidate,
       signals_present: signals,
       model_score: blendedScore,
-    });
+      // Stash snapshot for buildPickFactors to consume (private field, not part of interface)
+      _nba_feature_snapshot: nbaFeatureSnapshot,
+    } as ScoredGooseCandidate & { _nba_feature_snapshot: typeof nbaFeatureSnapshot });
   }
 
   return scored.sort((a, b) => b.model_score - a.model_score);
@@ -204,6 +244,7 @@ export function aiPicksToGooseCandidates(
     edge: typeof pick.edge === "number" ? pick.edge : null,
     confidence: typeof pick.confidence === "number" ? pick.confidence : null,
     is_home: pick.isAway === false ? true : pick.isAway === true ? false : null,
+    prop_type: pick.propType ?? null,
     sport,
     pick_snapshot: pick as unknown as Record<string, unknown>,
   }));
