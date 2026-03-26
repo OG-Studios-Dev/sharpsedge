@@ -180,16 +180,38 @@ const AUGUSTA_PROFILES: Record<string, CourseProfile> = {
   },
 };
 
+function normalizePlayerName(player: string): string {
+  return player
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function getProfile(player: string): CourseProfile {
-  // Try exact match first
-  if (AUGUSTA_PROFILES[player]) return AUGUSTA_PROFILES[player];
-  // Try partial match
-  const key = Object.keys(AUGUSTA_PROFILES).find(
-    (k) =>
-      k.toLowerCase().includes(player.toLowerCase().split(" ").pop() || "") ||
-      player.toLowerCase().includes(k.toLowerCase().split(" ").pop() || "")
-  );
-  if (key) return AUGUSTA_PROFILES[key];
+  const normalized = normalizePlayerName(player);
+
+  for (const [name, profile] of Object.entries(AUGUSTA_PROFILES)) {
+    if (normalizePlayerName(name) === normalized) return profile;
+  }
+
+  // Only allow exact last-name fallback, never substring matching (Roy -> Rory bug)
+  const parts = normalized.split(" ").filter(Boolean);
+  const lastName = parts.length >= 2 ? parts[parts.length - 1] : null;
+
+  if (lastName) {
+    const exactLastNameMatches = Object.entries(AUGUSTA_PROFILES).filter(([name]) => {
+      const n = normalizePlayerName(name).split(" ").filter(Boolean);
+      return n.length >= 2 && n[n.length - 1] === lastName;
+    });
+
+    if (exactLastNameMatches.length === 1) {
+      return exactLastNameMatches[0][1];
+    }
+  }
+
   // Default unknown player
   return {
     approachFit: 5,

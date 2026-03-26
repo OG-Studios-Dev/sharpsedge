@@ -116,22 +116,41 @@ export async function POST(req: NextRequest) {
       experimentTag,
     });
 
+    const fallbackSelected =
+      isSandbox &&
+      result.selected.length === 0 &&
+      candidates.length > 0 &&
+      (body.hit_rate_floor === 0 || body.edge_floor === 0)
+        ? await generateGoosePicks({
+            date: body.date,
+            sport,
+            candidates,
+            topN,
+            sandbox: false,
+            hitRateFloor: 0,
+            edgeFloor: 0,
+            experimentTag,
+          })
+        : null;
+
+    const finalResult = fallbackSelected && fallbackSelected.selected.length > 0 ? fallbackSelected : result;
+
     if (isDryRun) {
       return NextResponse.json({
         date: body.date,
         sport,
         sandbox: isSandbox,
         experiment_tag: experimentTag,
-        model_version: result.model_version,
-        scored_count: result.scored_candidates.length,
-        selected: result.selected,
+        model_version: finalResult.model_version,
+        scored_count: finalResult.scored_candidates.length,
+        selected: finalResult.selected,
         odds_rejected: oddsRejected,
         dry_run: true,
       });
     }
 
     // Persist to goose_model_picks
-    const pickRows = result.selected.map((c) =>
+    const pickRows = finalResult.selected.map((c) =>
       scoredCandidateToPickRow(c, body.date, experimentTag),
     );
     const stored = await captureGoosePicks({
@@ -145,11 +164,15 @@ export async function POST(req: NextRequest) {
       sport,
       sandbox: isSandbox,
       experiment_tag: experimentTag,
-      model_version: result.model_version,
-      scored_count: result.scored_candidates.length,
+      model_version: finalResult.model_version,
+      scored_count: finalResult.scored_candidates.length,
       selected_count: stored.length,
       odds_rejected: oddsRejected,
       picks: stored,
+      fallback_mode:
+        finalResult !== result
+          ? "sandbox-wide-net-selected-from-scored-candidates"
+          : null,
     });
   } catch (error) {
     console.error("[goose-model/generate] failed", error);
