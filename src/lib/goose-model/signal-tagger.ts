@@ -61,6 +61,19 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /inserted/i,
     /starting lineup/i,
     /projected lineup/i,
+    // Additional lineup / role continuity patterns
+    /\bconfirmed\s+starter\b/i,
+    /\bmoving\s+(?:into|to)\s+(?:the\s+)?starting/i,
+    /\bpromotion\b.*(?:line|role|slot)/i,
+    /\bdemot(?:ed|ion)\b/i,
+    /\bfirst\s+line\b/i,
+    /\bpower\s+play\s+(?:unit|time|role)/i,
+    /\bpp\s+(?:time|unit|role|quarterback)\b/i,
+    /\bincreased\s+(?:role|usage|ice\s+time|minutes)\b/i,
+    /\bexpanded\s+role\b/i,
+    /\brotation\s+(?:change|update|spot)\b/i,
+    /\bstarting\s+in\s+place\b/i,
+    /\bfilling\s+in\s+for\b/i,
   ],
   odds_movement: [
     /odds.*moved/i,
@@ -123,6 +136,16 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bDNP\b/i,
     /\bmissing\b.*game/i,
     /\bout\b.*game/i,
+    // Additional injury / health patterns
+    /\bruled\s+out\b/i,
+    /\bsidelined\b/i,
+    /\blimited\b.*(?:practice|game|min|minutes)/i,
+    /\bnot\s+(?:playing|available)\b/i,
+    /\bhealth\s+(?:protocol|issue|concern)\b/i,
+    /\bpain\s+(?:management|injection)\b/i,
+    /\bload\s+management\b/i,
+    /\brest(?:ed|ing)?\b.*(?:game|tonight|matchup)/i,
+    /\bspray\b|\bswelling\b|\bsoreness\b/i,
   ],
   // ── NBA-specific patterns ────────────────────────────────
   dvp_advantage: [
@@ -157,6 +180,15 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bmore\s+(?:shots|minutes|touches)\b/i,
     /\brole.*expand/i,
     /\bopportunity.*(?:increase|more)\b/i,
+    // Injury-triggered surge: "[X] out → [Y] benefits"
+    /\bbenefits?\s+(?:from|with)\b.*(?:absence|out|dnp)/i,
+    /\b(?:absence|missing)\s+of\b/i,
+    /\bstep\s+(?:up|into\s+(?:a\s+)?(?:bigger|larger|starting))/i,
+    /\bfill(?:ing)?\s+the\s+(?:void|gap|role)/i,
+    /\bpromotion\s+to\s+(?:the\s+)?(?:first|starting|top)/i,
+    /\bpoint\s+guard\s+(?:duties|role|responsibilities)\b/i,
+    /\bcreation\s+(?:load|duties|responsibility)\b/i,
+    /\bmore\s+(?:plays?|looks?|possessions?)\b/i,
   ],
   opponent_3pt_rate: [
     /\b3(?:-point|pt|pm).*(?:allow|rate|concede)/i,

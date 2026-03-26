@@ -14,6 +14,7 @@
 
 import { findBestFuzzyNameMatch } from "@/lib/name-match";
 import type { AIPick } from "@/lib/types";
+import { parsePropLine } from "@/lib/goose-model/prop-parser";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -562,13 +563,26 @@ export function normalizeIncomingPick(raw: AIPick): AIPick {
 
   const parsedPlayer = type === "player"
     ? (() => {
+      // Primary: match the standard "Over/Under <line> <propType>" format
       const match = pickLabel.match(/\b(Over|Under)\s+(-?\d+(?:\.\d+)?)\s+(.+)$/i);
-      if (!match) return null;
-      return {
-        direction: match[1].toLowerCase() === "under" ? "Under" as const : "Over" as const,
-        line: Number(match[2]),
-        propType: match[3].trim() || undefined,
-      };
+      if (match) {
+        return {
+          direction: match[1].toLowerCase() === "under" ? "Under" as const : "Over" as const,
+          line: Number(match[2]),
+          propType: match[3].trim() || undefined,
+        };
+      }
+      // Fallback: use the richer prop-parser for non-standard label formats
+      // (e.g. "25.5+ Points", "O 25.5 Reb", combo props like "Pts+Reb Over 42.5")
+      const parsed = parsePropLine(pickLabel);
+      if (parsed.line !== null) {
+        return {
+          direction: parsed.direction === "under" ? "Under" as const : parsed.direction === "over" ? "Over" as const : undefined,
+          line: parsed.line,
+          propType: parsed.propType ?? undefined,
+        };
+      }
+      return null;
     })()
     : null;
 

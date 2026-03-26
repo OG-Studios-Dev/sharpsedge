@@ -44,15 +44,15 @@ export function detectNBAMarketType(
   if (/\b3[- ]?(?:pm|pt|pointer)s?\b/i.test(combined) || /three[- ]pointer/i.test(combined) || /\b3pm\b/i.test(combined)) {
     return "player_3pt";
   }
-  // Combo props (pts+reb+ast, pra, dd, td, blk, stl — check BEFORE individual stats)
+  // Combo props (pts+reb+ast, pra, dd, td, blk+stl — check BEFORE individual stats)
   if (
     /\bpts\+(?:reb|ast)\b/.test(combined) ||
+    /\breb\+ast\b/.test(combined) ||
+    /\bblk\+stl\b/.test(combined) ||
+    /\bblocks?\s*\+\s*steals?\b/i.test(combined) ||
     /\bpra\b/.test(combined) ||
-    /double.double/i.test(combined) ||
-    /triple.double/i.test(combined) ||
-    /\bblk\b/.test(combined) ||
-    /\bstl\b/.test(combined) ||
-    /\bpra\b/.test(combined)
+    /double[- ]double/i.test(combined) ||
+    /triple[- ]double/i.test(combined)
   ) {
     return "player_combo";
   }

@@ -8,6 +8,8 @@
  *   - sport
  *   - signal name (mirrors signal leaderboard)
  *   - experiment_tag (cohort comparison)
+ *   - prop_type (Points, Rebounds, Assists, PRA, etc.) — NBA/player picks
+ *   - prop_direction (over vs under)
  *   - PGA-specific: outright winner vs placement picks
  *
  * Only returns buckets with ≥ MIN_SAMPLE graded picks (default 10).
@@ -174,11 +176,13 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Build buckets ───────────────────────────────────────────
-    const edgeMap:   BucketMap = new Map();
-    const hrMap:     BucketMap = new Map();
-    const sigMap:    BucketMap = new Map();
-    const sportMap:  BucketMap = new Map();
-    const signalMap: BucketMap = new Map();
+    const edgeMap:      BucketMap = new Map();
+    const hrMap:        BucketMap = new Map();
+    const sigMap:       BucketMap = new Map();
+    const sportMap:     BucketMap = new Map();
+    const signalMap:    BucketMap = new Map();
+    const propTypeMap:  BucketMap = new Map();
+    const propDirMap:   BucketMap = new Map();
 
     for (const pick of graded) {
       const eb = edgeBucket(pick.edge_at_capture);
@@ -194,13 +198,25 @@ export async function GET(req: NextRequest) {
       for (const signal of pick.signals_present ?? []) {
         if (signal) addToBucket(signalMap, signal, pick.result);
       }
+
+      // Prop type and direction from factors snapshot
+      const factors = (pick.pick_snapshot as any)?.factors as Record<string, unknown> | undefined;
+      if (factors) {
+        const pt = factors.prop_type as string | null;
+        if (pt) addToBucket(propTypeMap, pt, pick.result);
+
+        const dir = factors.prop_direction as string | null;
+        if (dir) addToBucket(propDirMap, dir === "over" ? "Over" : "Under", pick.result);
+      }
     }
 
-    const byEdge       = bucketMapToArray(edgeMap,   minSample, EDGE_BUCKET_ORDER);
-    const byHitRate    = bucketMapToArray(hrMap,      minSample, HR_BUCKET_ORDER);
-    const bySignalsCt  = bucketMapToArray(sigMap,     minSample, SIGNALS_COUNT_ORDER);
-    const bySport      = bucketMapToArray(sportMap,   minSample);
-    const bySignal     = bucketMapToArray(signalMap,  minSample);
+    const byEdge       = bucketMapToArray(edgeMap,     minSample, EDGE_BUCKET_ORDER);
+    const byHitRate    = bucketMapToArray(hrMap,       minSample, HR_BUCKET_ORDER);
+    const bySignalsCt  = bucketMapToArray(sigMap,      minSample, SIGNALS_COUNT_ORDER);
+    const bySport      = bucketMapToArray(sportMap,    minSample);
+    const bySignal     = bucketMapToArray(signalMap,   minSample);
+    const byPropType   = bucketMapToArray(propTypeMap, Math.max(1, Math.floor(minSample / 2)));
+    const byPropDir    = bucketMapToArray(propDirMap,  Math.max(1, Math.floor(minSample / 2)));
 
     const recommendation = buildRecommendation(graded.length, [...byEdge], [...bySport]);
 
@@ -212,7 +228,11 @@ export async function GET(req: NextRequest) {
     }
     const byCohort = bucketMapToArray(cohortMap, 1); // no min sample for cohorts
 
-    const result: GooseAnalyticsResult & { by_cohort: GooseAnalyticsBucket[] } = {
+    const result: GooseAnalyticsResult & {
+      by_cohort: GooseAnalyticsBucket[];
+      by_prop_type: GooseAnalyticsBucket[];
+      by_prop_direction: GooseAnalyticsBucket[];
+    } = {
       total_graded: graded.length,
       by_edge_bucket: byEdge,
       by_hit_rate_bucket: byHitRate,
@@ -220,6 +240,8 @@ export async function GET(req: NextRequest) {
       by_sport: bySport,
       by_signal: bySignal,
       by_cohort: byCohort,
+      by_prop_type: byPropType,
+      by_prop_direction: byPropDir,
       recommendation,
     };
 

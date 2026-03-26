@@ -16,6 +16,8 @@ import type { NBAFeatureSnapshot } from "./nba-features";
 import { fetchNBAContextHints, emptyNBAContextHints } from "./nba-context";
 import type { NBAContextHints } from "./nba-context";
 import type { GooseSport } from "./types";
+import { parsePropLine } from "./prop-parser";
+import type { ParsedPropLine } from "./prop-parser";
 
 export const GOOSE_MODEL_VERSION = "goose-v1";
 
@@ -73,6 +75,16 @@ export interface PickFactors {
   nba_market_type: string | null;
   /** Prop type extracted from pick label */
   prop_type: string | null;
+  /** Parsed prop line: numeric line value */
+  prop_line: number | null;
+  /** Parsed prop direction: over / under / null */
+  prop_direction: "over" | "under" | null;
+  /** True when this is a combo prop (PRA, Pts+Reb, etc.) */
+  prop_is_combo: boolean;
+  /** L5 hit rate from live context (0–1). Alias of nba_features.player_l5_hit_rate for quick access. */
+  l5_hit_rate: number | null;
+  /** Player's avg stat over last 5 games. Alias of nba_features.player_avg_stat_l5 for quick access. */
+  l5_avg_stat: number | null;
 }
 
 function buildPickFactors(
@@ -83,15 +95,13 @@ function buildPickFactors(
   const sigs = candidate.signals_present ?? [];
   const isNBA = candidate.sport === "NBA";
 
-  // Extract prop_type from pick_label (e.g. "LeBron James Over 25.5 Points" → "Points")
-  const propTypeMatch = candidate.pick_label?.match(
-    /\b(Points|Rebounds|Assists|3-Pointers Made|Pts\+Reb|Pts\+Ast|Pts\+Reb\+Ast|Blocks|Steals|PRA)\b/i,
-  );
-  const propType = propTypeMatch ? propTypeMatch[1] : null;
+  // Parse prop line using the dedicated parser (handles direction, combo, line value)
+  const parsed: ParsedPropLine = parsePropLine(candidate.pick_label);
+  const propType = candidate.prop_type ?? parsed.propType;
 
   // Build NBA feature snapshot if applicable
   const nbaMarketType = isNBA
-    ? detectNBAMarketType(candidate.pick_label, candidate.prop_type ?? propType)
+    ? detectNBAMarketType(candidate.pick_label, propType)
     : null;
   const nbaFeatures = (candidate as any)._nba_feature_snapshot as NBAFeatureSnapshot | null ?? null;
 
@@ -119,6 +129,11 @@ function buildPickFactors(
     nba_features: nbaFeatures,
     nba_market_type: nbaMarketType,
     prop_type: propType,
+    prop_line: parsed.line,
+    prop_direction: parsed.direction,
+    prop_is_combo: parsed.isCombo,
+    l5_hit_rate: nbaFeatures?.player_l5_hit_rate ?? null,
+    l5_avg_stat: nbaFeatures?.player_avg_stat_l5 ?? null,
   };
 }
 
@@ -191,10 +206,8 @@ export async function scoreGooseCandidates(
 
     const contextResults = await Promise.allSettled(
       nbaIndices.map(({ c }) => {
-        // Extract prop line from pick_label for L5 hit rate computation
-        // e.g. "LeBron James Over 25.5 Points" → 25.5
-        const linMatch = c.pick_label?.match(/\b(\d+(?:\.\d+)?)\b/);
-        const propLine = linMatch ? parseFloat(linMatch[1]) : null;
+        // Parse prop line via dedicated parser (handles Over/Under/combo formats)
+        const { line: propLine } = parsePropLine(c.pick_label);
         return fetchNBAContextHints(
           c.player_name,
           c.team,

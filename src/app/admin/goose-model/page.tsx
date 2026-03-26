@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import type {
   GooseModelPick,
   GooseSignalWeight,
@@ -147,6 +147,38 @@ function PickRow({
             {pick.signals_count != null && (
               <span title="signals count">🔬 {pick.signals_count}</span>
             )}
+            {/* Prop-line data from factors snapshot */}
+            {(() => {
+              const factors = (pick.pick_snapshot as any)?.factors;
+              if (!factors) return null;
+              const parts: React.ReactNode[] = [];
+              if (factors.prop_line != null) {
+                const dir = factors.prop_direction ? (factors.prop_direction === "over" ? "O" : "U") : "";
+                parts.push(
+                  <span key="line" title="prop line" className="text-blue-400 font-mono">
+                    {dir && `${dir} `}{factors.prop_line}
+                    {factors.prop_is_combo && <span className="ml-0.5 text-purple-400">combo</span>}
+                  </span>
+                );
+              }
+              if (factors.l5_hit_rate != null) {
+                const pctVal = (factors.l5_hit_rate * 100).toFixed(0);
+                const tone = factors.l5_hit_rate >= 0.6 ? "text-emerald-400" : factors.l5_hit_rate >= 0.4 ? "text-yellow-400" : "text-rose-400";
+                parts.push(
+                  <span key="l5hr" title="L5 hit rate over line" className={tone}>L5: {pctVal}%</span>
+                );
+              }
+              if (factors.l5_avg_stat != null && factors.prop_line != null) {
+                const delta = (factors.l5_avg_stat - factors.prop_line).toFixed(1);
+                const tone = parseFloat(delta) > 0 ? "text-emerald-500" : "text-rose-500";
+                parts.push(
+                  <span key="l5avg" title={`L5 avg ${factors.l5_avg_stat} vs line ${factors.prop_line}`} className={tone}>
+                    avg {factors.l5_avg_stat.toFixed(1)} ({parseFloat(delta) > 0 ? "+" : ""}{delta})
+                  </span>
+                );
+              }
+              return parts;
+            })()}
             {pick.book && <span>{pick.book}</span>}
             <span className="text-gray-600">{pick.model_version}</span>
           </div>
@@ -177,23 +209,159 @@ function PickRow({
           )}
 
           {/* Factors snapshot */}
-          {pick.pick_snapshot && (pick.pick_snapshot as any).factors && (
-            <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 p-3 space-y-1">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Capture factors
-              </p>
-              {Object.entries((pick.pick_snapshot as any).factors as Record<string, unknown>)
-                .filter(([, v]) => v !== null && v !== undefined && v !== false && v !== "")
-                .map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">{k.replace(/_/g, " ")}</span>
-                    <span className="text-gray-300 font-mono">
-                      {Array.isArray(v) ? v.join(", ") : String(v)}
-                    </span>
+          {pick.pick_snapshot && (pick.pick_snapshot as any).factors && (() => {
+            const factors = (pick.pick_snapshot as any).factors as Record<string, unknown>;
+            const nbaFeatures = factors.nba_features as Record<string, unknown> | null | undefined;
+            // Top-level factors without the nba_features blob (rendered separately)
+            const topFactors = Object.entries(factors)
+              .filter(([k, v]) => k !== "nba_features" && v !== null && v !== undefined && v !== false && v !== "" && !(Array.isArray(v) && (v as unknown[]).length === 0))
+              .filter(([, v]) => typeof v !== "object"); // objects rendered below
+
+            return (
+              <div className="space-y-2">
+                {/* Core factors */}
+                <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 p-3 space-y-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Capture factors
+                  </p>
+                  {topFactors.map(([k, v]) => (
+                    <div key={k} className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">{k.replace(/_/g, " ")}</span>
+                      <span className="text-gray-300 font-mono">{String(v)}</span>
+                    </div>
+                  ))}
+                  {/* Signals array inline */}
+                  {Array.isArray(factors.signals) && (factors.signals as string[]).length > 0 && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {(factors.signals as string[]).map((s) => (
+                        <span key={s} className="rounded bg-accent-blue/10 border border-accent-blue/20 px-1.5 py-0.5 text-[10px] text-accent-blue">{s.replace(/_/g, " ")}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* NBA feature snapshot — rich display */}
+                {nbaFeatures && (() => {
+                  // Cast to any for JSX rendering since nbaFeatures is Record<string, unknown>
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const nba = nbaFeatures as any;
+                  return (
+                  <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">
+                        NBA feature snapshot
+                      </p>
+                      <span className="rounded-full border border-purple-500/30 px-2 py-0.5 text-[10px] text-purple-400">
+                        {String(nba.market_type ?? "unknown")}
+                        {nba.market_aware_priors ? " · market-aware" : ""}
+                      </span>
+                    </div>
+
+                    {/* Numeric context */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      {nba.opponent_dvp_rank != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Opp DvP rank</span>
+                          <span className={`font-mono ${Number(nba.opponent_dvp_rank) >= 20 ? "text-emerald-400" : "text-gray-300"}`}>
+                            {"#"}{String(nba.opponent_dvp_rank)} / 30
+                          </span>
+                        </div>
+                      )}
+                      {nba.opponent_dvp_avg_allowed != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Opp avg allowed</span>
+                          <span className="font-mono text-gray-300">{Number(nba.opponent_dvp_avg_allowed).toFixed(1)}</span>
+                        </div>
+                      )}
+                      {nba.player_avg_minutes_l5 != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Avg min L5</span>
+                          <span className="font-mono text-gray-300">{Number(nba.player_avg_minutes_l5).toFixed(1)}</span>
+                        </div>
+                      )}
+                      {nba.player_avg_stat_l5 != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Avg stat L5</span>
+                          <span className="font-mono text-gray-300">{Number(nba.player_avg_stat_l5).toFixed(1)}</span>
+                        </div>
+                      )}
+                      {nba.player_l5_hit_rate != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">L5 hit rate</span>
+                          <span className={`font-mono ${Number(nba.player_l5_hit_rate) >= 0.6 ? "text-emerald-400" : Number(nba.player_l5_hit_rate) >= 0.4 ? "text-yellow-400" : "text-rose-400"}`}>
+                            {(Number(nba.player_l5_hit_rate) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+                      {nba.team_pace_rank != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Team pace rank</span>
+                          <span className={`font-mono ${Number(nba.team_pace_rank) <= 10 ? "text-emerald-400" : "text-gray-300"}`}>{"#"}{String(nba.team_pace_rank)}</span>
+                        </div>
+                      )}
+                      {nba.opponent_pace_rank != null && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Opp pace rank</span>
+                          <span className={`font-mono ${Number(nba.opponent_pace_rank) <= 10 ? "text-emerald-400" : "text-gray-300"}`}>{"#"}{String(nba.opponent_pace_rank)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Boolean flags */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {nba.high_pace_game && (
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">⚡ high-pace game</span>
+                      )}
+                      {nba.dvp_advantage_present && (
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">📊 DvP advantage</span>
+                      )}
+                      {nba.usage_surge_active && (
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">📈 usage surge</span>
+                      )}
+                      {nba.recent_trend_active && (
+                        <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-400">📈 recent trend</span>
+                      )}
+                      {nba.back_to_back_penalty && (
+                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400">⚠️ B2B penalty</span>
+                      )}
+                      {nba.player_confirmed_active === true && (
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">✓ confirmed active</span>
+                      )}
+                      {nba.player_confirmed_active === false && (
+                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400">✗ not confirmed</span>
+                      )}
+                      {nba.key_teammate_out && (
+                        <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-[10px] text-orange-400">
+                          🏥 key teammate out{Array.isArray(nba.key_teammates_out) && (nba.key_teammates_out as string[]).length > 0 ? `: ${(nba.key_teammates_out as string[]).join(", ")}` : ""}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* NBA feature score */}
+                    {nba.nba_feature_score != null && Number(nba.nba_feature_score) > 0 && (
+                      <div className="flex items-center justify-between text-xs border-t border-purple-500/10 pt-2">
+                        <span className="text-gray-500">NBA feature score</span>
+                        <span className={`font-mono font-bold ${Number(nba.nba_feature_score) >= 0.63 ? "text-emerald-400" : "text-gray-300"}`}>
+                          {(Number(nba.nba_feature_score) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Context warnings */}
+                    {Array.isArray(nba.context_warnings) && (nba.context_warnings as string[]).length > 0 && (
+                      <div className="border-t border-purple-500/10 pt-2">
+                        <p className="text-[10px] text-gray-600 mb-1">Context warnings:</p>
+                        {(nba.context_warnings as string[]).map((w, i) => (
+                          <p key={i} className="text-[10px] text-yellow-600">{w}</p>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ))}
-            </div>
-          )}
+                  );
+                })()}
+              </div>
+            );
+          })()}
 
           {pick.result === "pending" && (
             <div className="flex flex-wrap gap-2">
@@ -337,7 +505,11 @@ function BucketTable({
 
 // ── analytics tab ─────────────────────────────────────────────
 
-type AnalyticsData = GooseAnalyticsResult & { by_cohort: GooseAnalyticsBucket[] };
+type AnalyticsData = GooseAnalyticsResult & {
+  by_cohort: GooseAnalyticsBucket[];
+  by_prop_type: GooseAnalyticsBucket[];
+  by_prop_direction: GooseAnalyticsBucket[];
+};
 
 function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -448,6 +620,20 @@ function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
               title="Win rate by sport"
               buckets={data.by_sport}
             />
+            {data.by_prop_type?.length > 0 && (
+              <BucketTable
+                title="Win rate by prop type (player picks)"
+                buckets={data.by_prop_type}
+                emptyMsg="Need more graded player prop picks."
+              />
+            )}
+            {data.by_prop_direction?.length > 0 && (
+              <BucketTable
+                title="Win rate by prop direction (Over vs Under)"
+                buckets={data.by_prop_direction}
+                emptyMsg="Need more graded over/under picks."
+              />
+            )}
           </div>
 
           {/* Signal win rates */}
