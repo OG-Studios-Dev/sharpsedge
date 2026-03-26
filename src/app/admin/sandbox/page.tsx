@@ -243,11 +243,11 @@ export default async function AdminSandboxPage() {
 
       {loadError ? (
         <section className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-4 text-sm text-amber-100">
-          <p className="font-semibold">Sandbox storage is not fully live yet.</p>
-          <p className="mt-1 text-amber-50/90">{loadError}</p>
-          <p className="mt-2 text-xs text-amber-50/80">
-            The code/UI/model layer is implemented with graceful fallback when newer review columns are missing, but the org-owned Supabase sandbox tables still need to exist before live generation/storage works. Apply <code className="text-amber-50">scripts/setup-sandbox-picks.sql</code> (and ideally extend it with the new <code className="text-amber-50">review_snapshot</code> JSONB columns) on the org-owned Supabase project.
+          <p className="font-semibold">Sandbox tables not yet set up — ask Nick to apply the migration.</p>
+          <p className="mt-1 text-amber-50/90">
+            Migration file: <code className="rounded bg-black/20 px-1 text-amber-50">supabase/migrations/20260325090000_sandbox_picks.sql</code>
           </p>
+          <p className="mt-2 text-xs text-amber-50/70">{loadError}</p>
         </section>
       ) : null}
 

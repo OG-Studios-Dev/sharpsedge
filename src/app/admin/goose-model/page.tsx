@@ -477,6 +477,7 @@ export default function GooseModelAdminPage() {
   const [stats, setStats] = useState<GooseModelStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dbNotReady, setDbNotReady] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateSport, setGenerateSport] = useState("NHL");
   const [topN, setTopN] = useState(5);
@@ -495,7 +496,12 @@ export default function GooseModelAdminPage() {
       if (data.error) throw new Error(data.error);
       setPicks(data.picks ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load picks");
+      const msg = e instanceof Error ? e.message : "Failed to load picks";
+      setError(msg);
+      // If the table doesn't exist yet, surface a friendly setup banner
+      if (msg.toLowerCase().includes("does not exist") || msg.toLowerCase().includes("relation") || msg.toLowerCase().includes("undefined")) {
+        setDbNotReady(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -752,8 +758,18 @@ export default function GooseModelAdminPage() {
         </div>
       )}
 
+      {/* DB not ready banner */}
+      {dbNotReady && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <p className="font-semibold">Goose model DB not ready — ask Nick to apply the migration.</p>
+          <p className="mt-1">
+            Migration file: <code className="rounded bg-black/20 px-1 text-amber-50">supabase/migrations/20260325120000_goose_model_picks.sql</code>
+          </p>
+        </div>
+      )}
+
       {/* Error */}
-      {error && (
+      {error && !dbNotReady && (
         <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-400">
           {error}
         </div>
