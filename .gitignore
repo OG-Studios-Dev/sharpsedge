@@ -43,7 +43,9 @@ next-env.d.ts
 # generated local data / QA artifacts
 data/daily-props-*.json
 data/market-snapshots/
+data/golf-odds-snapshots/
 test-results/
+dev.pid
 
 # local env
 .env.local

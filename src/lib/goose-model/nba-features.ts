@@ -213,6 +213,22 @@ export interface NBAFeatureSnapshot {
   dvp_advantage_present: boolean;
   /** Whether recent trend (over or under) was present */
   recent_trend_active: boolean;
+
+  // ── Live context enrichment (populated when context fetch is run) ──────────
+  /** Whether the target player was confirmed active per ESPN roster */
+  player_confirmed_active: boolean | null;
+  /** Whether a key teammate is out (could inflate usage/minutes for target) */
+  key_teammate_out: boolean;
+  /** Names of key teammates confirmed out or doubtful */
+  key_teammates_out: string[];
+  /** Whether any key opponent player is out (relevant for team picks) */
+  opponent_key_out: boolean;
+  /** Estimated minutes tier: "starter" | "rotation" | "bench" | "unknown" */
+  estimated_minutes_tier: string;
+  /** Signals that were auto-tagged from live context (not from reasoning text) */
+  context_auto_signals: string[];
+  /** Warnings from the live context fetch (non-fatal) */
+  context_warnings: string[];
 }
 
 /**
@@ -273,12 +289,29 @@ export function scoreNBAFeatures(
 }
 
 /**
+ * Optional live context hints from nba-context.ts.
+ * Passed into scoreNBAFeaturesWithSnapshot when available.
+ * Matches the shape of NBAContextHints (the "warnings" field maps to context_warnings).
+ */
+export interface NBAContextHintsInput {
+  auto_signals: string[];
+  player_confirmed_active: boolean | null;
+  key_teammate_out: boolean;
+  key_teammates_out: string[];
+  opponent_key_out: boolean;
+  estimated_minutes_tier: string;
+  /** Alias for NBAContextHints.warnings — non-fatal context fetch issues */
+  warnings: string[];
+}
+
+/**
  * Score NBA features and return a full NBAFeatureSnapshot for auditability.
  *
- * @param signals        Signals tagged on this pick
+ * @param signals        Signals tagged on this pick (from reasoning text)
  * @param liveWeightMap  Live DB weight map
  * @param pickLabel      Pick label string (for market type detection)
  * @param propType       PropType string (for market type detection)
+ * @param contextHints   Optional live context hints from nba-context enricher
  * @returns { score, snapshot }
  */
 export function scoreNBAFeaturesWithSnapshot(
@@ -286,15 +319,20 @@ export function scoreNBAFeaturesWithSnapshot(
   liveWeightMap: Map<string, { win_rate: number; appearances: number }>,
   pickLabel?: string | null,
   propType?: string | null,
+  contextHints?: NBAContextHintsInput | null,
 ): { score: number; snapshot: NBAFeatureSnapshot } {
   const marketType = detectNBAMarketType(pickLabel, propType);
   const priorsApplied: Record<string, number> = {};
   const priorSignals: string[] = [];
 
+  // Merge reasoning-text signals with live-context auto-signals (deduplicated)
+  const contextAutoSignals = contextHints?.auto_signals ?? [];
+  const allSignals = Array.from(new Set([...signals, ...contextAutoSignals]));
+
   let total = 0;
   let count = 0;
 
-  for (const sig of signals) {
+  for (const sig of allSignals) {
     const prior = effectivePrior(sig, marketType);
     if (prior === undefined) continue;
 
@@ -319,11 +357,19 @@ export function scoreNBAFeaturesWithSnapshot(
     prior_signals: priorSignals,
     nba_feature_score: score,
     signal_priors_applied: priorsApplied,
-    back_to_back_penalty: signals.includes("back_to_back"),
-    usage_surge_active: signals.includes("usage_surge"),
-    dvp_advantage_present: signals.includes("dvp_advantage"),
+    back_to_back_penalty: allSignals.includes("back_to_back"),
+    usage_surge_active: allSignals.includes("usage_surge"),
+    dvp_advantage_present: allSignals.includes("dvp_advantage"),
     recent_trend_active:
-      signals.includes("recent_trend_over") || signals.includes("recent_trend_under"),
+      allSignals.includes("recent_trend_over") || allSignals.includes("recent_trend_under"),
+    // Live context fields
+    player_confirmed_active: contextHints?.player_confirmed_active ?? null,
+    key_teammate_out: contextHints?.key_teammate_out ?? false,
+    key_teammates_out: contextHints?.key_teammates_out ?? [],
+    opponent_key_out: contextHints?.opponent_key_out ?? false,
+    estimated_minutes_tier: contextHints?.estimated_minutes_tier ?? "unknown",
+    context_auto_signals: contextAutoSignals,
+    context_warnings: contextHints?.warnings ?? [],
   };
 
   return { score, snapshot };

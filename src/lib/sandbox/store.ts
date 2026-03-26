@@ -579,6 +579,38 @@ export async function applyOutcomeToGooseWeights(pick: SandboxPickRecord): Promi
 }
 
 /**
+ * Fetch sandbox picks that still have outcome=pending and are from before today.
+ * Used by the auto-grading cron/endpoint. Safe to call multiple times (idempotent).
+ *
+ * @param beforeDate ISO date (YYYY-MM-DD, exclusive upper bound). Defaults to today UTC.
+ * @param limit      Max rows to return (default 200).
+ */
+export async function fetchPendingSandboxPicks(
+  beforeDate?: string,
+  limit = 200,
+): Promise<SandboxPickRecord[]> {
+  const cutoff = beforeDate ?? new Date().toISOString().slice(0, 10);
+  const params = [
+    "result=eq.pending",
+    `date=lt.${eq(cutoff)}`,
+    "select=*",
+    `limit=${limit}`,
+    "order=date.asc",
+  ];
+
+  try {
+    const rows = await postgrest<any[]>(
+      `/rest/v1/sandbox_pick_history?${params.join("&")}`,
+    );
+    return (rows ?? []).map(normalizePick);
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingSandboxRelation(message)) return [];
+    throw error;
+  }
+}
+
+/**
  * Apply outcomes from a batch of graded sandbox picks to goose_signal_weights.
  * Skips any pick that is still pending.
  */

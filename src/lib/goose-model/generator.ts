@@ -13,6 +13,8 @@ import {
   detectNBAMarketType,
 } from "./nba-features";
 import type { NBAFeatureSnapshot } from "./nba-features";
+import { fetchNBAContextHints, emptyNBAContextHints } from "./nba-context";
+import type { NBAContextHints } from "./nba-context";
 import type { GooseSport } from "./types";
 
 export const GOOSE_MODEL_VERSION = "goose-v1";
@@ -178,7 +180,32 @@ export async function scoreGooseCandidates(
     ? buildNBAWeightMap(await listSignalWeights("NBA"))
     : new Map<string, { win_rate: number; appearances: number }>();
 
-  for (const candidate of candidates) {
+  // Pre-fetch NBA context hints for all NBA candidates in parallel.
+  // We batch these up front so each candidate doesn't make separate network
+  // calls — the cached fetch layer in nba-api.ts deduplicates team lookups.
+  const nbaContextMap = new Map<number, NBAContextHints>();
+  if (hasNBA) {
+    const nbaIndices = candidates
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => c.sport === "NBA");
+
+    const contextResults = await Promise.allSettled(
+      nbaIndices.map(({ c }) =>
+        fetchNBAContextHints(c.player_name, c.team, c.opponent).catch(() => emptyNBAContextHints()),
+      ),
+    );
+
+    nbaIndices.forEach(({ i }, idx) => {
+      const result = contextResults[idx];
+      nbaContextMap.set(
+        i,
+        result.status === "fulfilled" ? result.value : emptyNBAContextHints(),
+      );
+    });
+  }
+
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
     const modelScore = await scorePickBySignals(signals, candidate.sport);
 
@@ -189,18 +216,20 @@ export async function scoreGooseCandidates(
     let blendedScore =
       modelScore > 0 ? modelScore * 0.7 + hitRateScore * 0.3 : hitRateScore;
 
-    // ── NBA feature priors ───────────────────────────────────
-    // When sport is NBA and the pick has NBA-specific signals, blend in
-    // a prior score for signals not yet backed by live DB data.
+    // ── NBA feature priors + live context enrichment ─────────
+    // For NBA picks: merge live context auto-signals with reasoning-tagged signals,
+    // then score with market-type-aware priors.
     // Weight: 20% NBA prior, 80% existing blend — additive and conservative.
-    // Also captures a full NBAFeatureSnapshot for pick_snapshot.factors.
+    // Context hints are pre-fetched above and keyed by candidate index.
     let nbaFeatureSnapshot = null;
     if (candidate.sport === "NBA" && signals.length > 0) {
+      const contextHints = nbaContextMap.get(i) ?? null;
       const { score: nbaFeatureScore, snapshot } = scoreNBAFeaturesWithSnapshot(
         signals,
         nbaWeightMap,
         candidate.pick_label,
         candidate.prop_type,
+        contextHints,
       );
       nbaFeatureSnapshot = snapshot;
       if (nbaFeatureScore > 0) {
