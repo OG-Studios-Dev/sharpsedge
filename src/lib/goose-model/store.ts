@@ -6,7 +6,7 @@
 // ============================================================
 
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
-import type { GooseModelPick, GoosePickResult, GooseSignalWeight, GooseModelStats } from "./types";
+import type { GooseModelPick, GoosePickResult, GooseSignalWeight, GooseModelStats, GooseIntegrityStatus } from "./types";
 
 // ── helpers ─────────────────────────────────────────────────
 
@@ -62,6 +62,9 @@ function isMissingTableError(message: string, table: string): boolean {
 
 function normalizePick(raw: Record<string, unknown>): GooseModelPick {
   const result = raw.result as string;
+  const is = raw.integrity_status as string | null;
+  const integrityStatus: GooseIntegrityStatus | null =
+    is === "ok" || is === "unresolvable" || is === "postponed" || is === "void" ? is : null;
   return {
     id: String(raw.id ?? ""),
     date: String(raw.date ?? ""),
@@ -79,6 +82,8 @@ function normalizePick(raw: Record<string, unknown>): GooseModelPick {
     hit_rate_at_time: typeof raw.hit_rate_at_time === "number" ? raw.hit_rate_at_time : null,
     confidence: typeof raw.confidence === "number" ? raw.confidence : null,
     result: result === "win" || result === "loss" || result === "push" ? result : "pending",
+    integrity_status: integrityStatus,
+    actual_result: typeof raw.actual_result === "string" ? raw.actual_result : null,
     model_version: String(raw.model_version ?? "v1"),
     source: raw.source === "generated" ? "generated" : "captured",
     pick_snapshot:
@@ -198,12 +203,99 @@ export async function listGoosePicks(opts: {
   }
 }
 
-export async function gradeGoosePick(id: string, result: GoosePickResult): Promise<void> {
+export interface GradeGoosePickOptions {
+  /** The outcome to record */
+  result: GoosePickResult;
+  /** Optional free-text: what actually happened (score, stat, etc.) */
+  actual_result?: string | null;
+  /** Optional integrity status override (ok | unresolvable | postponed | void) */
+  integrity_status?: GooseIntegrityStatus | null;
+}
+
+/**
+ * Grade a goose pick. Handles regrading: if the pick already has a
+ * non-pending result, the old signal-weight contribution is reversed
+ * before the new one is applied.
+ */
+export async function gradeGoosePick(id: string, opts: GoosePickResult | GradeGoosePickOptions): Promise<void> {
+  // Normalise args — accept old string shorthand or new options object
+  const options: GradeGoosePickOptions = typeof opts === "string" ? { result: opts } : opts;
+  const { result, actual_result, integrity_status } = options;
+
+  // Fetch the current pick so we can detect a regrade and get signals
+  let existingPick: Record<string, unknown> | null = null;
   try {
+    const rows = await postgrest<Record<string, unknown>[]>(
+      `/rest/v1/goose_model_picks?id=eq.${eq(id)}&select=id,result,signals_present,sport&limit=1`,
+    );
+    existingPick = rows?.[0] ?? null;
+  } catch {
+    // Non-fatal — proceed without regrade undo
+  }
+
+  const oldResult = existingPick ? String(existingPick.result ?? "") : "pending";
+  const isRegrade = oldResult !== "pending" && oldResult !== result;
+
+  // Undo signal weights for old result if regrading
+  if (isRegrade && existingPick) {
+    const signals = Array.isArray(existingPick.signals_present)
+      ? (existingPick.signals_present as string[])
+      : [];
+    const sport = String(existingPick.sport ?? "");
+    if (signals.length > 0 && sport) {
+      try {
+        await reverseSignalWeightsForPick(signals, sport, oldResult as GoosePickResult);
+      } catch (err) {
+        console.warn("[goose-model/store] regrade: failed to reverse signal weights", {
+          id,
+          oldResult,
+          error: toErrorMessage(err),
+        });
+      }
+    }
+  }
+
+  // Persist the new grade
+  try {
+    const patch: Record<string, unknown> = {
+      result,
+      updated_at: new Date().toISOString(),
+    };
+    if (actual_result !== undefined) patch.actual_result = actual_result ?? null;
+    if (integrity_status !== undefined) patch.integrity_status = integrity_status ?? null;
+
     await postgrest(`/rest/v1/goose_model_picks?id=eq.${eq(id)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ result, updated_at: new Date().toISOString() }),
+      body: JSON.stringify(patch),
+    });
+  } catch (error) {
+    const msg = toErrorMessage(error);
+    if (isMissingTableError(msg, "goose_model_picks")) return;
+    throw error;
+  }
+}
+
+/**
+ * Mark a pick with a terminal integrity status without changing the result.
+ * Used for: unresolvable, postponed, void.
+ */
+export async function setGoosePickIntegrity(
+  id: string,
+  integrity_status: GooseIntegrityStatus,
+  extra?: { actual_result?: string },
+): Promise<void> {
+  try {
+    const patch: Record<string, unknown> = {
+      integrity_status,
+      updated_at: new Date().toISOString(),
+    };
+    if (extra?.actual_result !== undefined) patch.actual_result = extra.actual_result;
+
+    await postgrest(`/rest/v1/goose_model_picks?id=eq.${eq(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(patch),
     });
   } catch (error) {
     const msg = toErrorMessage(error);
@@ -264,12 +356,62 @@ export async function listSignalWeights(sport?: string): Promise<GooseSignalWeig
   }
 }
 
+/**
+ * Reverse the signal-weight contribution of a previously graded pick.
+ * Called during regrading to undo the old result before applying the new one.
+ */
+export async function reverseSignalWeightsForPick(
+  signals: string[],
+  sport: string,
+  result: GoosePickResult,
+): Promise<void> {
+  // Pushes never modified weights, so nothing to reverse
+  if (!signals.length || result === "pending" || result === "push") return;
+
+  const now = new Date().toISOString();
+  const sportsToUpdate = Array.from(new Set([sport, "ALL"]));
+
+  for (const sig of signals) {
+    for (const sp of sportsToUpdate) {
+      try {
+        const existing = await postgrest<Record<string, unknown>[]>(
+          `/rest/v1/goose_signal_weights?select=*&signal=eq.${eq(sig)}&sport=eq.${eq(sp)}&limit=1`,
+        );
+        const row = existing?.[0];
+        if (!row) continue;
+
+        // Cast to string to avoid TS narrowing complaints after the push guard above
+        const r = result as string;
+        const appearances = Math.max(0, Number(row.appearances ?? 0) - 1);
+        const wins = Math.max(0, Number(row.wins ?? 0) - (r === "win" ? 1 : 0));
+        const losses = Math.max(0, Number(row.losses ?? 0) - (r === "loss" ? 1 : 0));
+        const pushes = Number(row.pushes ?? 0); // pushes never modified weights; nothing to reverse
+        const settled = wins + losses;
+        const win_rate = settled > 0 ? wins / settled : 0;
+
+        const payload = { signal: sig, sport: sp, appearances, wins, losses, pushes, win_rate, last_updated: now };
+
+        await postgrest("/rest/v1/goose_signal_weights?on_conflict=signal,sport", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(payload),
+        });
+      } catch (error) {
+        const msg = toErrorMessage(error);
+        if (isMissingTableError(msg, "goose_signal_weights")) return;
+        console.warn("[goose-model] failed to reverse signal weight", { sig, sp, error: msg });
+      }
+    }
+  }
+}
+
 export async function updateSignalWeightsForPick(
   signals: string[],
   sport: string,
   result: GoosePickResult,
 ): Promise<void> {
-  if (!signals.length || result === "pending") return;
+  // Pushes leave signal weights unchanged per spec (units = 0, no learning signal)
+  if (!signals.length || result === "pending" || result === "push") return;
 
   const now = new Date().toISOString();
 
@@ -284,11 +426,13 @@ export async function updateSignalWeightsForPick(
           `/rest/v1/goose_signal_weights?select=*&signal=eq.${eq(sig)}&sport=eq.${eq(sp)}&limit=1`,
         );
 
+        // Cast to string to avoid TS narrowing complaints after the push guard above
+        const r = result as string;
         const row = existing?.[0];
         const appearances = Number(row?.appearances ?? 0) + 1;
-        const wins = Number(row?.wins ?? 0) + (result === "win" ? 1 : 0);
-        const losses = Number(row?.losses ?? 0) + (result === "loss" ? 1 : 0);
-        const pushes = Number(row?.pushes ?? 0) + (result === "push" ? 1 : 0);
+        const wins = Number(row?.wins ?? 0) + (r === "win" ? 1 : 0);
+        const losses = Number(row?.losses ?? 0) + (r === "loss" ? 1 : 0);
+        const pushes = Number(row?.pushes ?? 0); // pushes never update weights per spec
         const settled = wins + losses; // pushes excluded from win_rate
         const win_rate = settled > 0 ? wins / settled : 0;
 
@@ -317,6 +461,67 @@ export async function applyGradedPicksToWeights(picks: GooseModelPick[]): Promis
   );
   for (const pick of settled) {
     await updateSignalWeightsForPick(pick.signals_present, pick.sport, pick.result);
+  }
+}
+
+// ── match helpers for auto-grading ───────────────────────────
+
+/**
+ * Find pending goose picks for a given date + sport.
+ * Optionally filter by game_id.
+ */
+export async function findPendingGoosePicks(opts: {
+  date: string;
+  sport: string;
+  game_id?: string;
+}): Promise<GooseModelPick[]> {
+  const params: string[] = [
+    "result=eq.pending",
+    `date=eq.${eq(opts.date)}`,
+    `sport=eq.${eq(opts.sport.toUpperCase())}`,
+    "select=*",
+  ];
+  if (opts.game_id) params.push(`game_id=eq.${eq(opts.game_id)}`);
+
+  try {
+    const rows = await postgrest<Record<string, unknown>[]>(
+      `/rest/v1/goose_model_picks?${params.join("&")}`,
+    );
+    return (rows ?? []).map(normalizePick);
+  } catch (error) {
+    const msg = toErrorMessage(error);
+    if (isMissingTableError(msg, "goose_model_picks")) return [];
+    throw error;
+  }
+}
+
+/**
+ * Fetch goose picks from yesterday that are still pending and have no
+ * terminal integrity_status. Used by the 2am grading cron.
+ */
+export async function fetchUngradedYesterdayPicks(): Promise<GooseModelPick[]> {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const dateStr = yesterday.toISOString().slice(0, 10);
+
+  const params = [
+    `date=eq.${eq(dateStr)}`,
+    "result=eq.pending",
+    // Exclude postponed (will retry) and unresolvable (permanent skip)
+    "integrity_status=is.null",
+    "select=*",
+    "limit=200",
+  ];
+
+  try {
+    const rows = await postgrest<Record<string, unknown>[]>(
+      `/rest/v1/goose_model_picks?${params.join("&")}`,
+    );
+    return (rows ?? []).map(normalizePick);
+  } catch (error) {
+    const msg = toErrorMessage(error);
+    if (isMissingTableError(msg, "goose_model_picks")) return [];
+    throw error;
   }
 }
 

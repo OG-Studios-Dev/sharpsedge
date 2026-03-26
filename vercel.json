@@ -21,6 +21,14 @@
     {
       "path": "/api/systems/refresh?cron=true",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/admin/goose-model/generate-daily",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/admin/goose-model/auto-grade",
+      "schedule": "0 7 * * *"
     }
   ]
 }

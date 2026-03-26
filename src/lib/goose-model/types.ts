@@ -6,6 +6,16 @@ export type GoosePickResult = "pending" | "win" | "loss" | "push";
 export type GoosePickSource = "captured" | "generated";
 export type GoosePickType = "player" | "team";
 
+/**
+ * integrity_status tracks resolution quality for a goose pick.
+ * null = not yet assessed
+ * ok   = resolved cleanly
+ * unresolvable = no game found after retries; permanently skipped
+ * postponed    = game postponed; will retry next day
+ * void         = DNP / player scratch; units = 0, no weight update
+ */
+export type GooseIntegrityStatus = "ok" | "unresolvable" | "postponed" | "void";
+
 export type GooseSport = "NHL" | "NBA" | "MLB" | "PGA" | string;
 
 export const GOOSE_SIGNALS = [
@@ -44,6 +54,10 @@ export interface GooseModelPick {
   hit_rate_at_time: number | null;
   confidence: number | null;
   result: GoosePickResult;
+  /** Resolution quality — null means not yet assessed */
+  integrity_status: GooseIntegrityStatus | null;
+  /** Free-text description of what actually happened (score, stat, etc.) */
+  actual_result: string | null;
   model_version: string;
   source: GoosePickSource;
   pick_snapshot: Record<string, unknown> | null;
