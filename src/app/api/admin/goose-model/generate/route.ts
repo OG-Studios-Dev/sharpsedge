@@ -34,30 +34,35 @@ import type { AIPick } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-async function fetchCandidatesForSport(sport: string, date: string): Promise<AIPick[]> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+async function fetchCandidatesForSport(sport: string, date: string, baseUrl: string): Promise<AIPick[]> {
 
-  const endpoints: Record<string, string> = {
-    NHL: `/api/picks?date=${date}&league=NHL`,
-    NBA: `/api/nba/picks?date=${date}`,
-    MLB: `/api/mlb/picks?date=${date}`,
-    PGA: `/api/golf/picks?date=${date}`,
+  const endpointCandidates: Record<string, string[]> = {
+    NHL: [`/api/picks?date=${date}&league=NHL`, "/api/picks?league=NHL", "/api/picks"],
+    NBA: [`/api/nba/picks?date=${date}`, "/api/nba/picks"],
+    MLB: [`/api/mlb/picks?date=${date}`, "/api/mlb/picks"],
+    PGA: [`/api/golf/picks?date=${date}`, "/api/golf/picks"],
   };
 
-  const endpoint = endpoints[sport.toUpperCase()];
-  if (!endpoint) return [];
+  const endpoints = endpointCandidates[sport.toUpperCase()];
+  if (!endpoints?.length) return [];
 
-  try {
-    const res = await fetch(`${baseUrl}${endpoint}`, {
-      headers: { "x-goose-model-agent": "1" },
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    const data = await res.json() as { picks?: AIPick[] };
-    return Array.isArray(data?.picks) ? data.picks : [];
-  } catch {
-    return [];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(`${baseUrl}${endpoint}`, {
+        headers: { "x-goose-model-agent": "1" },
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as { picks?: AIPick[] };
+      if (Array.isArray(data?.picks) && data.picks.length > 0) {
+        return data.picks;
+      }
+    } catch {
+      // try the next fallback endpoint
+    }
   }
+
+  return [];
 }
 
 export async function POST(req: NextRequest) {
@@ -82,9 +87,11 @@ export async function POST(req: NextRequest) {
     const isDryRun = body.dry_run ?? false;
     const experimentTag = body.experiment_tag ?? (isSandbox ? SANDBOX_EXPERIMENT_TAG : null);
     const topN = body.topN ?? (isSandbox ? SANDBOX_TOP_N : 5);
+    const requestOrigin = req.nextUrl.origin;
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestOrigin || "http://localhost:3000";
 
     // Fetch candidates from live engine
-    const liveAIPicks = await fetchCandidatesForSport(sport, body.date);
+    const liveAIPicks = await fetchCandidatesForSport(sport, body.date, baseUrl);
 
     // HARD RULE: apply -200 odds cap before any other processing
     const oddsFiltered = liveAIPicks.filter((p) => isWithinOddsCap(p.odds));
