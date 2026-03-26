@@ -27,7 +27,7 @@ const PAGES = [
   { name: "props", path: "/props" },
   { name: "nba-picks", path: "/picks?league=NBA" },
   { name: "pga", path: "/picks?league=PGA" },
-  { name: "epl", path: "/leagues/epl" },
+  { name: "epl-schedule", path: "/schedule?league=EPL" },
   { name: "login", path: "/login" },
   { name: "signup", path: "/signup" },
 ];

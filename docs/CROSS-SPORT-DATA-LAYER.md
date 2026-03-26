@@ -49,6 +49,7 @@ Next sensible steps on top of this brick:
 
 ## Current live cadence
 - Vercel cron now captures `NHL,NBA,MLB` aggregated-board snapshots once per hour at minute 17 via `/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB`.
+- A separate daily NBA checkpoint now runs via `/api/odds/aggregated/snapshot?cron=true&sports=NBA&reason=nba-q1-q3-daily-archive` so Goose-style quarter rails have an explicit archive target even when hourly snapshots are sparse or operationally noisy.
 - This is intentionally conservative: enough to start building line-history without burning unnecessary upstream calls or pretending we have a full intraday warehouse.
 - The route stays failure-safe:
   - cron-mode requests require `CRON_SECRET`; if it is missing, the route returns `503` instead of silently allowing public cron access

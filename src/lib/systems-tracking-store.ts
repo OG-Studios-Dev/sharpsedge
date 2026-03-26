@@ -989,6 +989,9 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   [TONYS_HOT_BATS_SYSTEM_ID]: {
     refresh: refreshTonysHotBatsSystemData,
   },
+  [SWAGGY_STRETCH_DRIVE_SYSTEM_ID]: {
+    refresh: refreshSwaggyStretchDriveSystemData,
+  },
 };
 
 function defaultData(): SystemsTrackingData {
@@ -2365,7 +2368,23 @@ export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
     applySimpleWatchlistReadiness(getTheBlowoutSystem(data));
     applySimpleWatchlistReadiness(getHotTeamsMatchupSystem(data));
     applyFalconsFightPummeledPitchersReadiness(getFalconsFightPummeledPitchersSystem(data));
+    applyTonysHotBatsReadiness(getTonysHotBatsSystem(data));
     for (const system of data.systems) {
+      if (system.id === SWAGGY_STRETCH_DRIVE_SYSTEM_ID) {
+        const qualifiers = system.records.length;
+        const withMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
+        const withXg = system.records.filter((record) => record.xGoalsPercentage != null && record.opponentXGoalsPercentage != null).length;
+        const withGoalies = system.records.filter((record) => record.goalieStatus || record.opponentGoalieStatus).length;
+        const withTotals = system.records.filter((record) => record.totalLine != null).length;
+        system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
+        system.snapshot = qualifiers > 0
+          ? `${qualifiers} Swaggy qualifier${qualifiers === 1 ? "" : "s"} stored.`
+          : system.snapshot || "No Swaggy qualifiers met the current rule-gated screen.";
+        system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + price discipline" : "Awaiting fresh qualifiers";
+        system.automationStatusDetail = qualifiers > 0
+          ? `${qualifiers} NHL qualifier${qualifiers === 1 ? "" : "s"} passed the urgency + MoneyPuck + goalie + fatigue + price screen. ${withMoneyline} stored with moneyline, ${withXg} with xG context, ${withGoalies} with goalie context, and ${withTotals} with posted totals context.`
+          : "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. No rows are created when the board does not qualify honestly.";
+      }
       upsertSystemQualificationLog(data, system);
     }
     return data;
@@ -2695,6 +2714,24 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
 
   const targetGames = (board.games || []).filter((game) => game.gameDate === targetDate);
   const freshRecords: SystemTrackingRecord[] = [];
+  const audit = {
+    gamesScanned: targetGames.length,
+    matchedOddsEvent: 0,
+    teamChecks: 0,
+    failedNoOddsEvent: 0,
+    failedUrgency: 0,
+    failedOpponentUrgency: 0,
+    failedMissingXg: 0,
+    failedWeakXg: 0,
+    failedXgEdge: 0,
+    failedMissingGoalie: 0,
+    failedBackupGoalie: 0,
+    failedGoalieStatus: 0,
+    failedFatigue: 0,
+    failedFatigueGap: 0,
+    failedNoPrice: 0,
+    failedPriceBand: 0,
+  };
 
   for (const game of targetGames) {
     const event = aggregated.find((candidate) => {
@@ -2702,30 +2739,84 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
       const sameTeams = candidate.awayAbbrev === game.matchup.awayTeam.abbrev && candidate.homeAbbrev === game.matchup.homeTeam.abbrev;
       return sameTeams;
     });
-    if (!event) continue;
-
-    const awayPrice = getNHLMoneylineForTeam(event, game.teams.away.teamAbbrev);
-    const homePrice = getNHLMoneylineForTeam(event, game.teams.home.teamAbbrev);
-
-    if (qualifiesForSwaggy(game.teams.away, game.teams.home, awayPrice?.odds ?? null)) {
-      freshRecords.push(buildSwaggyQualifierRecord({
-        boardGame: game,
-        qualified: game.teams.away,
-        opponent: game.teams.home,
-        event,
-        currentMoneyline: awayPrice!.odds,
-        moneylineBook: awayPrice?.book ?? null,
-      }));
+    if (!event) {
+      audit.failedNoOddsEvent += 1;
+      continue;
     }
+    audit.matchedOddsEvent += 1;
 
-    if (qualifiesForSwaggy(game.teams.home, game.teams.away, homePrice?.odds ?? null)) {
+    const candidates = [
+      { qualified: game.teams.away, opponent: game.teams.home, price: getNHLMoneylineForTeam(event, game.teams.away.teamAbbrev)?.odds ?? null, book: getNHLMoneylineForTeam(event, game.teams.away.teamAbbrev)?.book ?? null },
+      { qualified: game.teams.home, opponent: game.teams.away, price: getNHLMoneylineForTeam(event, game.teams.home.teamAbbrev)?.odds ?? null, book: getNHLMoneylineForTeam(event, game.teams.home.teamAbbrev)?.book ?? null },
+    ];
+
+    for (const candidate of candidates) {
+      audit.teamChecks += 1;
+      const entry = candidate.qualified;
+      const opponent = candidate.opponent;
+      const price = candidate.price;
+      const xg = entry.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const oppXg = opponent.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const starter = entry.sourced.goalie.starter;
+      const fatigue = entry.derived.fatigueScore;
+      const oppFatigue = opponent.derived.fatigueScore;
+
+      if (entry.derived.playoffPressure.urgencyTier !== 'high') {
+        audit.failedUrgency += 1;
+        continue;
+      }
+      if (opponent.derived.playoffPressure.urgencyTier === 'high') {
+        audit.failedOpponentUrgency += 1;
+        continue;
+      }
+      if (xg == null || oppXg == null) {
+        audit.failedMissingXg += 1;
+        continue;
+      }
+      if (xg < 0.515) {
+        audit.failedWeakXg += 1;
+        continue;
+      }
+      if (xg - oppXg < 0.02) {
+        audit.failedXgEdge += 1;
+        continue;
+      }
+      if (!starter) {
+        audit.failedMissingGoalie += 1;
+        continue;
+      }
+      if (starter.isBackup) {
+        audit.failedBackupGoalie += 1;
+        continue;
+      }
+      if (starter.status !== 'confirmed' && starter.status !== 'probable') {
+        audit.failedGoalieStatus += 1;
+        continue;
+      }
+      if (fatigue != null && fatigue >= 55) {
+        audit.failedFatigue += 1;
+        continue;
+      }
+      if (fatigue != null && oppFatigue != null && fatigue - oppFatigue >= 15) {
+        audit.failedFatigueGap += 1;
+        continue;
+      }
+      if (typeof price !== 'number' || !Number.isFinite(price)) {
+        audit.failedNoPrice += 1;
+        continue;
+      }
+      if (price < -145 || price > 115) {
+        audit.failedPriceBand += 1;
+        continue;
+      }
+
       freshRecords.push(buildSwaggyQualifierRecord({
         boardGame: game,
-        qualified: game.teams.home,
-        opponent: game.teams.away,
+        qualified: entry,
+        opponent,
         event,
-        currentMoneyline: homePrice!.odds,
-        moneylineBook: homePrice?.book ?? null,
+        currentMoneyline: price,
+        moneylineBook: candidate.book,
       }));
     }
   }
@@ -2740,15 +2831,16 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
   const withXg = system.records.filter((record) => record.xGoalsPercentage != null && record.opponentXGoalsPercentage != null).length;
   const withGoalies = system.records.filter((record) => record.goalieStatus || record.opponentGoalieStatus).length;
   const withTotals = system.records.filter((record) => record.totalLine != null).length;
+  const auditSummary = `Audit ${audit.gamesScanned} games / ${audit.teamChecks} team checks • no odds event ${audit.failedNoOddsEvent} • urgency ${audit.failedUrgency} • opp urgency ${audit.failedOpponentUrgency} • xG missing ${audit.failedMissingXg} • xG floor ${audit.failedWeakXg} • xG edge ${audit.failedXgEdge} • goalie missing ${audit.failedMissingGoalie} • backup ${audit.failedBackupGoalie} • goalie status ${audit.failedGoalieStatus} • fatigue ${audit.failedFatigue} • fatigue gap ${audit.failedFatigueGap} • no price ${audit.failedNoPrice} • price band ${audit.failedPriceBand}.`;
 
   system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
   system.snapshot = qualifiers > 0
-    ? `${qualifiers} Swaggy qualifier${qualifiers === 1 ? "" : "s"} stored for ${targetDate}.`
-    : `No Swaggy qualifiers met the rule-gated screen for ${targetDate}.`;
+    ? `${qualifiers} Swaggy qualifier${qualifiers === 1 ? "" : "s"} stored for ${targetDate}. ${auditSummary}`
+    : `No Swaggy qualifiers met the rule-gated screen for ${targetDate}. ${auditSummary}`;
   system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + price discipline" : "Awaiting fresh qualifiers";
   system.automationStatusDetail = qualifiers > 0
-    ? `${qualifiers} NHL qualifier${qualifiers === 1 ? "" : "s"} passed the urgency + MoneyPuck + goalie + fatigue + price screen. ${withMoneyline} stored with moneyline, ${withXg} with xG context, ${withGoalies} with goalie context, and ${withTotals} with posted totals context.`
-    : "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. No rows are created when the board does not qualify honestly.";
+    ? `${qualifiers} NHL qualifier${qualifiers === 1 ? "" : "s"} passed the urgency + MoneyPuck + goalie + fatigue + price screen. ${withMoneyline} stored with moneyline, ${withXg} with xG context, ${withGoalies} with goalie context, and ${withTotals} with posted totals context. ${auditSummary}`
+    : `Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. ${auditSummary}`;
 
   return system;
 }
@@ -2765,9 +2857,22 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
   const targetGames = schedule.filter((game) => game.date === targetDate && game.status !== "Final");
   const enrichmentByGameId = new Map((enrichmentBoard.games ?? []).map((game) => [game.gameId, game]));
   const freshRecords: SystemTrackingRecord[] = [];
+  const audit = {
+    gamesScanned: targetGames.length,
+    starterChecks: 0,
+    matchedEventGames: 0,
+    failedNoEvent: 0,
+    failedNoProbableStarter: 0,
+    failedEra: 0,
+    failedNoMoneyline: 0,
+    failedMoneylineBand: 0,
+    failedNoPriorStart: 0,
+    failedNotPummeled: 0,
+  };
 
   for (const game of targetGames) {
     const event = findMLBOddsForGame(oddsEvents, game.homeTeam.abbreviation, game.awayTeam.abbreviation);
+    if (event) audit.matchedEventGames += 1;
     const enrichment = enrichmentByGameId.get(game.id);
     const starterCandidates = [
       {
@@ -2785,9 +2890,16 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
     ];
 
     for (const candidate of starterCandidates) {
+      audit.starterChecks += 1;
       const starter = candidate.starter;
-      if (!starter?.id || !starter.name) continue;
-      if (starter.era != null && starter.era > 4.5) continue;
+      if (!starter?.id || !starter.name) {
+        audit.failedNoProbableStarter += 1;
+        continue;
+      }
+      if (starter.era != null && starter.era > 4.5) {
+        audit.failedEra += 1;
+        continue;
+      }
 
       const lineupSide = candidate.side === "away" ? enrichment?.lineups?.away : enrichment?.lineups?.home;
       const bullpenSide = candidate.side === "away" ? enrichment?.matchup?.away?.bullpen : enrichment?.matchup?.home?.bullpen;
@@ -2815,16 +2927,31 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
           : `F5 not posted: ${enrichment.markets.f5.source.notes.join(" ")}`
         : "F5 rail unavailable for this game.";
 
-      const moneyline = event
-        ? getBestOdds(event, "h2h", candidate.side === "away" ? event.away_team : event.home_team)
-        : null;
+      if (!event) {
+        audit.failedNoEvent += 1;
+        continue;
+      }
+      const moneyline = getBestOdds(event, "h2h", candidate.side === "away" ? event.away_team : event.home_team);
       const currentMoneyline = moneyline?.odds ?? null;
-      if (currentMoneyline == null || currentMoneyline < -140 || currentMoneyline > 125) continue;
+      if (currentMoneyline == null) {
+        audit.failedNoMoneyline += 1;
+        continue;
+      }
+      if (currentMoneyline < -140 || currentMoneyline > 125) {
+        audit.failedMoneylineBand += 1;
+        continue;
+      }
 
       const logs = await getMLBPlayerGameLog(Number(starter.id), Number(targetDate.slice(0, 4)), "pitching");
       const priorStart = logs.find((log) => log.gameDate && log.gameDate < targetDate && daysBetween(log.gameDate, targetDate) <= 10);
-      if (!priorStart) continue;
-      if (!isPummeledStart(priorStart)) continue;
+      if (!priorStart) {
+        audit.failedNoPriorStart += 1;
+        continue;
+      }
+      if (!isPummeledStart(priorStart)) {
+        audit.failedNotPummeled += 1;
+        continue;
+      }
 
       freshRecords.push(await buildFalconsQualifierRecord({
         gameId: game.id,
@@ -2857,7 +2984,12 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
       || left.matchup.localeCompare(right.matchup)
       || (left.starterName || "").localeCompare(right.starterName || "");
   });
+  const auditSummary = `Audit ${audit.gamesScanned} games (${audit.matchedEventGames} matched odds events) / ${audit.starterChecks} starter checks • no matched event ${audit.failedNoEvent} • no probable starter ${audit.failedNoProbableStarter} • ERA filter ${audit.failedEra} • no moneyline ${audit.failedNoMoneyline} • moneyline band ${audit.failedMoneylineBand} • no prior start ${audit.failedNoPriorStart} • prior start not pummeled ${audit.failedNotPummeled}.`;
   applyFalconsFightPummeledPitchersReadiness(system);
+  system.snapshot = freshRecords.length > 0
+    ? `${system.snapshot} ${auditSummary}`
+    : `No Falcons qualifiers met the current screen for ${targetDate}. ${auditSummary}`;
+  system.automationStatusDetail = `${system.automationStatusDetail} ${auditSummary}`;
   return system;
 }
 
