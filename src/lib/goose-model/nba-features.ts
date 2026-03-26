@@ -229,6 +229,50 @@ export interface NBAFeatureSnapshot {
   context_auto_signals: string[];
   /** Warnings from the live context fetch (non-fatal) */
   context_warnings: string[];
+
+  // ── Real numeric features (populated from ESPN boxscore data) ─────────────
+  /**
+   * Opponent's DvP rank for this pick's position group + stat key.
+   * 1 = best defense (hard to beat), 30 = worst defense (favorable).
+   * null = data not available.
+   */
+  opponent_dvp_rank: number | null;
+  /**
+   * Avg stat allowed per game to this position group by the opponent.
+   * e.g. for a PG points prop: avg pts allowed to guards per game.
+   */
+  opponent_dvp_avg_allowed: number | null;
+  /**
+   * Pace proxy rank for the player's team (by scoring avg).
+   * 1 = highest-scoring team (best pace for prop volume).
+   */
+  team_pace_rank: number | null;
+  /**
+   * Pace proxy rank for the opponent team.
+   * Both teams in top 10 → high-pace game → more total possessions.
+   */
+  opponent_pace_rank: number | null;
+  /**
+   * Whether this game is expected to be high-pace (both teams rank top 10 by scoring avg).
+   * Computed from real ESPN boxscore data, not reasoning text.
+   */
+  high_pace_game: boolean;
+  /**
+   * Player's average minutes over last 5 qualifying games (≥15 min).
+   * Null if not enough data available.
+   */
+  player_avg_minutes_l5: number | null;
+  /**
+   * Player's rolling average for the pick's primary stat over last 5 games.
+   * e.g. for a points prop: avg points in L5 games.
+   * Null if not enough data available.
+   */
+  player_avg_stat_l5: number | null;
+  /**
+   * Numeric hit rate for the player over the pick line in last 5 games (0–1).
+   * More granular than the rounded hit_rate_at_time field on the pick.
+   */
+  player_l5_hit_rate: number | null;
 }
 
 /**
@@ -302,6 +346,23 @@ export interface NBAContextHintsInput {
   estimated_minutes_tier: string;
   /** Alias for NBAContextHints.warnings — non-fatal context fetch issues */
   warnings: string[];
+  // ── Real numeric features ─────────────────────────────────────────────────
+  /** Opponent DvP rank for this position group + stat (1=best D, 30=worst D) */
+  opponent_dvp_rank?: number | null;
+  /** Avg stat allowed per game by opponent to this position group */
+  opponent_dvp_avg_allowed?: number | null;
+  /** Player team's pace rank (1=highest scoring = fastest pace) */
+  team_pace_rank?: number | null;
+  /** Opponent team's pace rank */
+  opponent_pace_rank?: number | null;
+  /** Whether both teams are in top 10 scoring (high-pace game) */
+  high_pace_game?: boolean;
+  /** Player avg minutes L5 qualifying games */
+  player_avg_minutes_l5?: number | null;
+  /** Player rolling avg for this stat type over L5 games */
+  player_avg_stat_l5?: number | null;
+  /** Player L5 hit rate over the pick line (0–1) */
+  player_l5_hit_rate?: number | null;
 }
 
 /**
@@ -370,6 +431,15 @@ export function scoreNBAFeaturesWithSnapshot(
     estimated_minutes_tier: contextHints?.estimated_minutes_tier ?? "unknown",
     context_auto_signals: contextAutoSignals,
     context_warnings: contextHints?.warnings ?? [],
+    // Real numeric features (from ESPN boxscore data via nba-context.ts)
+    opponent_dvp_rank: contextHints?.opponent_dvp_rank ?? null,
+    opponent_dvp_avg_allowed: contextHints?.opponent_dvp_avg_allowed ?? null,
+    team_pace_rank: contextHints?.team_pace_rank ?? null,
+    opponent_pace_rank: contextHints?.opponent_pace_rank ?? null,
+    high_pace_game: contextHints?.high_pace_game ?? false,
+    player_avg_minutes_l5: contextHints?.player_avg_minutes_l5 ?? null,
+    player_avg_stat_l5: contextHints?.player_avg_stat_l5 ?? null,
+    player_l5_hit_rate: contextHints?.player_l5_hit_rate ?? null,
   };
 
   return { score, snapshot };

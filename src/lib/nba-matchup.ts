@@ -773,6 +773,92 @@ function normalizePlayerProps(props: any[]): MatchupPropCard[] {
   }));
 }
 
+// ── Goose-model numeric context export ────────────────────────────────────────
+
+/**
+ * Stat keys used in DvP and offense/defense rankings.
+ * Mirrors NBAStatKey but exported so callers don't need internal types.
+ */
+export type NBADefenseStatKey = "points" | "rebounds" | "assists" | "threes" | "blocks" | "steals";
+
+/**
+ * Real-data defensive context for a team, derived from the cached league dataset.
+ * Used by goose-model/nba-context.ts to auto-tag dvp_advantage and pace_matchup
+ * signals from actual ESPN boxscore data rather than reasoning-text patterns.
+ */
+export type NBATeamDefenseContext = {
+  /** DvP rank for the given position group + stat (1=best defense, 30=worst defense) */
+  dvpRank: number | null;
+  /** Avg stat allowed per game to this position group (e.g. avg pts allowed to Gs) */
+  dvpAvgAllowed: number | null;
+  /** Team's overall offense rank by scoring — used as a pace proxy (1=highest scoring) */
+  offensePaceRank: number | null;
+  /** Team's average points scored per game (raw pace proxy value) */
+  offensePtsAvg: number | null;
+};
+
+/**
+ * Fetch real defensive and pace data for a team from the cached league dataset.
+ *
+ * DvP (Defense vs Position): how many points/rebounds/assists/etc. the opponent
+ * allows per game to the given position group (G/F/C). Rank 23-30 = weak defender.
+ *
+ * Pace proxy: team's average points scored per game. Both teams in top 10 scoring
+ * implies a high-pace/high-scoring game — more total stat volume for props.
+ *
+ * This is server-side only — calls getLeagueDataset() which fetches ESPN boxscores
+ * and caches them for 15 minutes.
+ */
+export async function getNBATeamDefenseContext(
+  opponentAbbrev: string,
+  positionGroup: "G" | "F" | "C",
+  statKey: NBADefenseStatKey,
+): Promise<NBATeamDefenseContext> {
+  try {
+    const dataset = await getLeagueDataset();
+    const dvpEntry = dataset.dvp[opponentAbbrev]?.[positionGroup]?.[statKey as NBAStatKey];
+    const offEntry = dataset.offense[opponentAbbrev]?.points;
+
+    return {
+      dvpRank: dvpEntry?.rank ?? null,
+      dvpAvgAllowed: dvpEntry?.avg ?? null,
+      offensePaceRank: offEntry?.rank ?? null,
+      offensePtsAvg: offEntry?.avg ?? null,
+    };
+  } catch {
+    return {
+      dvpRank: null,
+      dvpAvgAllowed: null,
+      offensePaceRank: null,
+      offensePtsAvg: null,
+    };
+  }
+}
+
+/**
+ * Fetch pace context for both teams in a matchup.
+ * Returns each team's offensive scoring rank (pace proxy).
+ * Both in top 10 → high-pace game → more stat volume for props.
+ */
+export async function getNBAMatchupPaceContext(
+  teamAbbrev: string,
+  opponentAbbrev: string,
+): Promise<{ teamPaceRank: number | null; opponentPaceRank: number | null; teamPtsAvg: number | null; opponentPtsAvg: number | null }> {
+  try {
+    const dataset = await getLeagueDataset();
+    const teamOff = dataset.offense[teamAbbrev]?.points;
+    const oppOff = dataset.offense[opponentAbbrev]?.points;
+    return {
+      teamPaceRank: teamOff?.rank ?? null,
+      opponentPaceRank: oppOff?.rank ?? null,
+      teamPtsAvg: teamOff?.avg ?? null,
+      opponentPtsAvg: oppOff?.avg ?? null,
+    };
+  } catch {
+    return { teamPaceRank: null, opponentPaceRank: null, teamPtsAvg: null, opponentPtsAvg: null };
+  }
+}
+
 export async function getNBAMatchupData(gameId: string): Promise<MatchupPageData | null> {
   const [summary, dataset, odds] = await Promise.all([
     getNBAGameSummary(gameId),

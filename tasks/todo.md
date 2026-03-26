@@ -6,11 +6,14 @@
 - [x] Clean repo noise from the latest learning-system work if needed.
 - [x] Add sandbox auto-grading loop.
 - [x] Wire richer NBA injury / lineup / minutes context into goose feature snapshots.
-- [x] Verify generate/build behavior locally.
-- [x] Commit and push changes.
+- [ ] Wire actual NBA numeric/context features into goose snapshots where current project data allows.
+- [ ] Strengthen sandbox/goose learning flow where obvious gaps remain.
+- [ ] Verify generate/build behavior locally.
+- [ ] Commit and push changes.
 - [ ] Add review notes / outcome summary.
 
 ## Review
 - 3589f31: NBA prior registry + signal tagging + generator scoring hook.
 - b938ab6: fuller NBA learning system with market priors, structured snapshots, and sandbox→goose grading bridge.
-- Marco requested full next phase: do all remaining high-value pieces now.
+- b11e3d8: sandbox auto-grade, NBA live context enricher, repo cleanup.
+- Current phase: move from heuristic context toward actual numeric NBA feature capture.

@@ -29,8 +29,17 @@
 
 import {
   getNBATeamRosterEntries,
+  getRecentNBAGames,
+  getNBABoxscore,
   type NBARosterPlayer,
+  type NBAGame,
 } from "@/lib/nba-api";
+import {
+  getNBATeamDefenseContext,
+  getNBAMatchupPaceContext,
+  type NBADefenseStatKey,
+} from "@/lib/nba-matchup";
+import { findBestFuzzyNameMatch } from "@/lib/name-match";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -64,7 +73,7 @@ export type PlayerInjuryContext = {
 };
 
 /**
- * Live NBA context hints derived from roster/injury data.
+ * Live NBA context hints derived from roster/injury data and real boxscore statistics.
  * Attached to picks at generation time for enriching signal tags.
  */
 export type NBAContextHints = {
@@ -100,6 +109,57 @@ export type NBAContextHints = {
 
   /** Any errors/warnings from the fetch (non-fatal) */
   warnings: string[];
+
+  // ── Real numeric features (from ESPN boxscore + league dataset) ────────────
+
+  /**
+   * Opponent's DvP rank for this position group + stat key.
+   * 1=best defense (hardest to beat), 30=worst defense (most favorable).
+   * Auto-derived from cached ESPN boxscore data via getLeagueDataset().
+   */
+  opponent_dvp_rank: number | null;
+
+  /**
+   * Average stat allowed per game by the opponent to this position group.
+   * e.g. for a guard points prop: avg pts allowed to guards per game.
+   */
+  opponent_dvp_avg_allowed: number | null;
+
+  /**
+   * Pace proxy rank for the player's team (by average points scored per game).
+   * 1 = highest-scoring team = best pace for counting stat props.
+   */
+  team_pace_rank: number | null;
+
+  /**
+   * Pace proxy rank for the opponent.
+   * When both teams rank in top 10 scoring, expect more total possessions.
+   */
+  opponent_pace_rank: number | null;
+
+  /**
+   * Whether this game is a high-pace matchup (both teams rank top 10 by scoring avg).
+   * Derived from real ESPN data — not reasoning-text patterns.
+   */
+  high_pace_game: boolean;
+
+  /**
+   * Player's average minutes over last 5 qualifying games (≥15 min threshold).
+   * Null when fewer than 3 qualifying games found.
+   */
+  player_avg_minutes_l5: number | null;
+
+  /**
+   * Player's rolling average for the primary prop stat over last 5 qualifying games.
+   * e.g. points avg for a points prop, rebounds avg for a rebounds prop.
+   */
+  player_avg_stat_l5: number | null;
+
+  /**
+   * Player's hit rate over the pick line in last 5 qualifying games (0.0–1.0).
+   * Only populated when a propLine is passed in.
+   */
+  player_l5_hit_rate: number | null;
 };
 
 // ── Injury severity classifier ─────────────────────────────────
@@ -160,6 +220,19 @@ function nameMatches(rosterName: string, pickName: string): boolean {
   return true;
 }
 
+// ── Position group normalizer ─────────────────────────────────
+
+/**
+ * Normalize a player's position string to the G/F/C groups used in DvP rankings.
+ * Mirrors the logic in nba-matchup.ts (private there — duplicated here intentionally).
+ */
+function normalizePositionGroup(position: string): "G" | "F" | "C" {
+  const upper = String(position || "").toUpperCase();
+  if (upper.includes("C")) return "C";
+  if (upper.includes("F")) return "F";
+  return "G";
+}
+
 // ── Minutes tier classifier ───────────────────────────────────
 
 /**
@@ -181,20 +254,38 @@ function estimateMinutesTier(
 // ── Main enricher ─────────────────────────────────────────────
 
 /**
+ * Map a prop type string to the DvP stat key used in nba-matchup's league dataset.
+ * Returns a best-effort mapping for known prop types.
+ */
+function propTypeToDvpStatKey(propType?: string | null): NBADefenseStatKey {
+  const pt = (propType ?? "").toLowerCase();
+  if (pt.includes("rebound")) return "rebounds";
+  if (pt.includes("assist")) return "assists";
+  if (pt.includes("3") || pt.includes("three")) return "threes";
+  if (pt.includes("block")) return "blocks";
+  if (pt.includes("steal")) return "steals";
+  return "points"; // default: points (most common prop type)
+}
+
+/**
  * Fetch live NBA context for a pick and return NBAContextHints.
  *
  * Called once per NBA candidate in the generator pipeline.
  * All network fetches go through the cached ESPN layer, so repeated
  * calls for the same team in a single generation run are fast.
  *
- * @param playerName  Target player name (from pick). Null for team picks.
- * @param teamAbbrev  Team abbreviation (e.g. "LAL", "BOS")
+ * @param playerName      Target player name (from pick). Null for team picks.
+ * @param teamAbbrev      Team abbreviation (e.g. "LAL", "BOS")
  * @param opponentAbbrev  Opponent team abbreviation (optional)
+ * @param propType        Prop type string for DvP stat key lookup (e.g. "Points", "Rebounds")
+ * @param propLine        The pick's prop line value (for L5 hit rate computation)
  */
 export async function fetchNBAContextHints(
   playerName: string | null | undefined,
   teamAbbrev: string | null | undefined,
   opponentAbbrev: string | null | undefined,
+  propType?: string | null,
+  propLine?: number | null,
 ): Promise<NBAContextHints> {
   const warnings: string[] = [];
   const autoSignals: string[] = [];
@@ -297,6 +388,138 @@ export async function fetchNBAContextHints(
   // 5. home_court_edge is handled at the reasoning-text level by the signal tagger,
   //    not here (we don't have home/away context in the enricher).
 
+  // ── Real numeric features: DvP + pace from league dataset ─────────────────
+  // These use the same cached ESPN boxscore data as the matchup page.
+  // All fetches are wrapped in try/catch so any failure only adds a warning.
+
+  const dvpStatKey = propTypeToDvpStatKey(propType);
+  const targetPosition = targetPlayer?.position ?? null;
+  const positionGroup = normalizePositionGroup(targetPosition ?? "G");
+
+  let opponentDvpRank: number | null = null;
+  let opponentDvpAvgAllowed: number | null = null;
+  let teamPaceRank: number | null = null;
+  let opponentPaceRank: number | null = null;
+  let highPaceGame = false;
+
+  // Only fetch if we have both team + opponent info (avoids wasted calls for partial data)
+  if (teamAbbrevNorm && oppAbbrevNorm) {
+    const [dvpResult, paceResult] = await Promise.allSettled([
+      getNBATeamDefenseContext(oppAbbrevNorm, positionGroup, dvpStatKey),
+      getNBAMatchupPaceContext(teamAbbrevNorm, oppAbbrevNorm),
+    ]);
+
+    if (dvpResult.status === "fulfilled") {
+      opponentDvpRank = dvpResult.value.dvpRank;
+      opponentDvpAvgAllowed = dvpResult.value.dvpAvgAllowed;
+    } else {
+      warnings.push(`DvP context fetch failed for ${oppAbbrevNorm}: ${dvpResult.reason}`);
+    }
+
+    if (paceResult.status === "fulfilled") {
+      teamPaceRank = paceResult.value.teamPaceRank;
+      opponentPaceRank = paceResult.value.opponentPaceRank;
+      // High-pace game: both teams rank in top 10 by scoring avg (1=highest scorer)
+      highPaceGame =
+        typeof teamPaceRank === "number" &&
+        typeof opponentPaceRank === "number" &&
+        teamPaceRank <= 10 &&
+        opponentPaceRank <= 10;
+    } else {
+      warnings.push(`Pace context fetch failed: ${paceResult.reason}`);
+    }
+  }
+
+  // 6. dvp_advantage: opponent ranks 23rd or worse at defending this position/stat
+  //    Triggered from REAL data, not text patterns — more reliable signal source
+  if (opponentDvpRank !== null && opponentDvpRank >= 23) {
+    autoSignals.push("dvp_advantage");
+  }
+
+  // 7. pace_matchup: both teams are in the top 10 scoring teams (high-volume game)
+  if (highPaceGame) {
+    autoSignals.push("pace_matchup");
+  }
+
+  // ── Player rolling averages from recent boxscores ─────────────────────────
+  // Compute L5 avg minutes and the primary stat for this prop type.
+  // Uses the same cached ESPN boxscore data as the stats engine.
+  let playerAvgMinutesL5: number | null = null;
+  let playerAvgStatL5: number | null = null;
+  let playerL5HitRate: number | null = null;
+
+  if (playerName && teamAbbrevNorm) {
+    try {
+      const recentGames = await getRecentNBAGames(21);
+      const teamGames = recentGames
+        .filter(
+          (g: NBAGame) =>
+            g.status === "Final" &&
+            (g.homeTeam.abbreviation === teamAbbrevNorm || g.awayTeam.abbreviation === teamAbbrevNorm),
+        )
+        .slice(0, 8); // check up to 8 games to find 5 qualifying
+
+      const statLogs: { minutes: number; stat: number }[] = [];
+
+      for (const game of teamGames) {
+        if (statLogs.length >= 5) break;
+        try {
+          const box = await getNBABoxscore(game.id);
+          const isHome = game.homeTeam.abbreviation === teamAbbrevNorm;
+          const teamPlayers = isHome ? box.home : box.away;
+          const p = findBestFuzzyNameMatch(teamPlayers, playerName, (pl) => pl.name);
+          if (!p) continue;
+          const mins = parseFloat(p.minutes) || 0;
+          if (mins < 15) continue; // skip DNP / garbage time
+
+          // Map prop type to the boxscore stat
+          let statVal = 0;
+          const pt = (propType ?? "").toLowerCase();
+          if (pt.includes("rebound")) statVal = p.rebounds;
+          else if (pt.includes("assist")) statVal = p.assists;
+          else if (pt.includes("3") || pt.includes("three")) {
+            statVal = parseInt(String(p.threePointers || "0").split("-")[0], 10) || 0;
+          } else if (pt.includes("block")) statVal = p.blocks;
+          else if (pt.includes("steal")) statVal = p.steals;
+          else statVal = p.points; // default: points
+
+          statLogs.push({ minutes: mins, stat: statVal });
+        } catch {
+          // skip failed boxscore
+        }
+      }
+
+      if (statLogs.length >= 3) {
+        playerAvgMinutesL5 = Number(
+          (statLogs.reduce((s, g) => s + g.minutes, 0) / statLogs.length).toFixed(1),
+        );
+        playerAvgStatL5 = Number(
+          (statLogs.reduce((s, g) => s + g.stat, 0) / statLogs.length).toFixed(1),
+        );
+
+        // L5 hit rate: fraction of games where player exceeded the prop line
+        if (typeof propLine === "number") {
+          const hits = statLogs.filter((g) => g.stat > propLine).length;
+          playerL5HitRate = Number((hits / statLogs.length).toFixed(3));
+
+          // Auto-tag recent trend signals from real data when > 60% hit rate in L5
+          if (playerL5HitRate >= 0.6 && !autoSignals.includes("recent_trend_over")) {
+            autoSignals.push("recent_trend_over");
+          } else if (playerL5HitRate <= 0.4 && !autoSignals.includes("recent_trend_under")) {
+            autoSignals.push("recent_trend_under");
+          }
+        }
+
+        // Upgrade minutes tier if real data suggests starter-level minutes
+        if (playerAvgMinutesL5 >= 28 && estimatedMinutesTier !== "starter") {
+          autoSignals.push("minutes_floor");
+        }
+      }
+    } catch (err) {
+      warnings.push(`Player stat fetch failed for ${playerName}: ${String(err)}`);
+    }
+  }
+
   return {
     auto_signals: Array.from(new Set(autoSignals)),
     player_confirmed_active: playerFound ? playerSeverity === "active" || playerSeverity === "probable" : null,
@@ -309,6 +532,15 @@ export async function fetchNBAContextHints(
     estimated_minutes_tier: estimatedMinutesTier,
     fetched_at: fetchedAt,
     warnings,
+    // Real numeric features
+    opponent_dvp_rank: opponentDvpRank,
+    opponent_dvp_avg_allowed: opponentDvpAvgAllowed,
+    team_pace_rank: teamPaceRank,
+    opponent_pace_rank: opponentPaceRank,
+    high_pace_game: highPaceGame,
+    player_avg_minutes_l5: playerAvgMinutesL5,
+    player_avg_stat_l5: playerAvgStatL5,
+    player_l5_hit_rate: playerL5HitRate,
   };
 }
 
@@ -329,5 +561,14 @@ export function emptyNBAContextHints(): NBAContextHints {
     estimated_minutes_tier: "unknown",
     fetched_at: new Date().toISOString(),
     warnings: [],
+    // Numeric fields — null = not available
+    opponent_dvp_rank: null,
+    opponent_dvp_avg_allowed: null,
+    team_pace_rank: null,
+    opponent_pace_rank: null,
+    high_pace_game: false,
+    player_avg_minutes_l5: null,
+    player_avg_stat_l5: null,
+    player_l5_hit_rate: null,
   };
 }

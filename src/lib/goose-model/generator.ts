@@ -190,9 +190,19 @@ export async function scoreGooseCandidates(
       .filter(({ c }) => c.sport === "NBA");
 
     const contextResults = await Promise.allSettled(
-      nbaIndices.map(({ c }) =>
-        fetchNBAContextHints(c.player_name, c.team, c.opponent).catch(() => emptyNBAContextHints()),
-      ),
+      nbaIndices.map(({ c }) => {
+        // Extract prop line from pick_label for L5 hit rate computation
+        // e.g. "LeBron James Over 25.5 Points" → 25.5
+        const linMatch = c.pick_label?.match(/\b(\d+(?:\.\d+)?)\b/);
+        const propLine = linMatch ? parseFloat(linMatch[1]) : null;
+        return fetchNBAContextHints(
+          c.player_name,
+          c.team,
+          c.opponent,
+          c.prop_type,
+          propLine,
+        ).catch(() => emptyNBAContextHints());
+      }),
     );
 
     nbaIndices.forEach(({ i }, idx) => {
