@@ -6,7 +6,8 @@
 
 import type { AIPick } from "@/lib/types";
 import { tagSignals } from "./signal-tagger";
-import { scorePickBySignals } from "./store";
+import { scorePickBySignals, listSignalWeights } from "./store";
+import { scoreNBAFeatures, buildNBAWeightMap } from "./nba-features";
 import type { GooseSport } from "./types";
 
 export const GOOSE_MODEL_VERSION = "goose-v1";
@@ -131,11 +132,21 @@ export interface GooseGeneratorResult {
 /**
  * Score a list of candidate picks using learned signal weights.
  * For sports without weight data yet, falls back to hit_rate_at_time.
+ *
+ * For NBA picks, applies NBA-specific feature priors (dvp_advantage,
+ * pace_matchup, usage_surge, opponent_3pt_rate) when the live weight DB
+ * doesn't yet have enough data for those signals.
  */
 export async function scoreGooseCandidates(
   candidates: GooseModelCandidate[],
 ): Promise<ScoredGooseCandidate[]> {
   const scored: ScoredGooseCandidate[] = [];
+
+  // Pre-fetch NBA weights once if any candidates are NBA (avoids N DB calls)
+  const hasNBA = candidates.some((c) => c.sport === "NBA");
+  const nbaWeightMap = hasNBA
+    ? buildNBAWeightMap(await listSignalWeights("NBA"))
+    : new Map<string, { win_rate: number; appearances: number }>();
 
   for (const candidate of candidates) {
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
@@ -145,8 +156,19 @@ export async function scoreGooseCandidates(
     const hitRateScore =
       typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time / 100 : 0;
 
-    const blendedScore =
+    let blendedScore =
       modelScore > 0 ? modelScore * 0.7 + hitRateScore * 0.3 : hitRateScore;
+
+    // ── NBA feature priors ───────────────────────────────────
+    // When sport is NBA and the pick has NBA-specific signals, blend in
+    // a prior score for signals not yet backed by live DB data.
+    // Weight: 20% NBA prior, 80% existing blend — additive and conservative.
+    if (candidate.sport === "NBA" && signals.length > 0) {
+      const nbaFeatureScore = scoreNBAFeatures(signals, nbaWeightMap);
+      if (nbaFeatureScore > 0) {
+        blendedScore = blendedScore * 0.8 + nbaFeatureScore * 0.2;
+      }
+    }
 
     scored.push({
       ...candidate,

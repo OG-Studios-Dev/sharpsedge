@@ -124,6 +124,48 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bmissing\b.*game/i,
     /\bout\b.*game/i,
   ],
+  // ── NBA-specific patterns ────────────────────────────────
+  dvp_advantage: [
+    /\bDVP\b/i,
+    /defense.*vs.*position/i,
+    /weak.*defending/i,
+    /\ballow[s]?.*(?:points|rebounds|assists|threes|3-pointer)/i,
+    /\bvulnerable.*(?:point|rebound|assist)/i,
+    /\bpoor.*perimeter\s*defense/i,
+    /favorable.*defensive\s*matchup/i,
+    /rank(?:s|ed)?.*(?:last|bottom|worst).*allow/i,
+  ],
+  pace_matchup: [
+    /\bpace\b/i,
+    /fast.*pace/i,
+    /high.*pace/i,
+    /\bpossession[s]?\b/i,
+    /up-tempo/i,
+    /pace.*advantage/i,
+    /more.*possessions/i,
+    /\bpace.*game\b/i,
+    /\bfull.*court\b/i,
+  ],
+  usage_surge: [
+    /usage.*(?:up|increase|spike|surge|rise)/i,
+    /(?:increased|elevated|higher)\s+usage/i,
+    /\bload.*(?:increase|up)\b/i,
+    /\bvolume.*(?:up|spike|increase)/i,
+    /teammate.*out/i,
+    /with.*(?:out|absent|miss|dnp)/i,
+    /\bstarter\s+out\b/i,
+    /\bmore\s+(?:shots|minutes|touches)\b/i,
+    /\brole.*expand/i,
+    /\bopportunity.*(?:increase|more)\b/i,
+  ],
+  opponent_3pt_rate: [
+    /\b3(?:-point|pt|pm).*(?:allow|rate|concede)/i,
+    /opponent.*allow.*(?:three|3)/i,
+    /(?:weak|poor)\s+(?:perimeter|3-point)\s*defense/i,
+    /\b3pa\s*rate\b/i,
+    /high.*3-point.*rate/i,
+    /rank.*(?:last|bottom|worst).*three/i,
+  ],
 };
 
 /**

@@ -33,6 +33,15 @@ export const GOOSE_SIGNALS = [
   "park_factor",
   "bullpen_strength",
   "injury_news",
+  // ── NBA-specific signals ─────────────────────────────────
+  /** Defense vs Position: opponent is weak at defending this player's primary stat */
+  "dvp_advantage",
+  /** Pace matchup: high-pace game means more possessions / stat opportunities */
+  "pace_matchup",
+  /** Usage surge: teammate out or role expanded, player's usage/minutes up */
+  "usage_surge",
+  /** Opponent concedes high 3-point attempt rate — shooter benefits */
+  "opponent_3pt_rate",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];
