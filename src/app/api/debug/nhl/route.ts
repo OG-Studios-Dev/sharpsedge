@@ -15,7 +15,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getTodaySchedule } from "@/lib/nhl-api";
+import { getTodaySchedule, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats } from "@/lib/nhl-api";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 import {
   fetchNHLContextHints,
@@ -52,7 +52,38 @@ export async function GET() {
     steps.schedule = { error: String(err) };
   }
 
-  // Step 2: NHL Context Board
+  // Step 2: PP/PK + Goalie strength stats (direct API check)
+  try {
+    const t2pp = Date.now();
+    const [ppStats, pkStats, goalieStrength] = await Promise.all([
+      getNHLTeamPPStats(),
+      getNHLTeamPKStats(),
+      getNHLGoalieStrengthStats(),
+    ]);
+    // Find top PP team as sample
+    const topPP = [...ppStats].sort((a, b) => b.powerPlayPct - a.powerPlayPct)[0] ?? null;
+    const topPK = [...pkStats].sort((a, b) => b.penaltyKillPct - a.penaltyKillPct)[0] ?? null;
+    steps.special_teams = {
+      ppTeams: ppStats.length,
+      pkTeams: pkStats.length,
+      goalieStrengthRows: goalieStrength.length,
+      topPP: topPP ? { team: topPP.teamAbbrev, pct: topPP.powerPlayPct } : null,
+      topPK: topPK ? { team: topPK.teamAbbrev, pct: topPK.penaltyKillPct } : null,
+      sampleGoalieStrength: goalieStrength[0] ? {
+        goalie: goalieStrength[0].goalieFullName,
+        evSavePct: goalieStrength[0].evSavePct,
+        ppSavePct: goalieStrength[0].ppSavePct,
+        shSavePct: goalieStrength[0].shSavePct,
+      } : null,
+      note: "PP/PK from api.nhle.com/stats/rest; goalie EV/PP/SH splits from savesByStrength. HIGH-DANGER zone SV% blocked (not in NHL API).",
+      ms: Date.now() - t2pp,
+    };
+  } catch (err) {
+    errors.push("special teams fetch failed: " + String(err));
+    steps.special_teams = { error: String(err) };
+  }
+
+  // Step 3: NHL Context Board
   let contextBoard: Awaited<ReturnType<typeof getTodayNHLContextBoard>> | null = null;
   try {
     const t2 = Date.now();
@@ -64,6 +95,7 @@ export async function GET() {
       season: contextBoard.season,
       moneyPuckSource: contextBoard.meta.sources.moneyPuck.kind,
       moneyPuckTeams: contextBoard.meta.sources.moneyPuck.teamCount,
+      specialTeams: contextBoard.meta.sources.specialTeams,
       sourceHealth: contextBoard.sourceHealth.status,
       sampleGame: firstGame
         ? {
@@ -79,6 +111,14 @@ export async function GET() {
             homePlayoffPressure: firstGame.teams.home.derived.playoffPressure.urgencyTier,
             awayXGoalsPct: firstGame.teams.away.sourced.moneyPuck?.xGoalsPercentage ?? null,
             homeXGoalsPct: firstGame.teams.home.sourced.moneyPuck?.xGoalsPercentage ?? null,
+            awayPP: firstGame.teams.away.sourced.pp,
+            homePP: firstGame.teams.home.sourced.pp,
+            awayPK: firstGame.teams.away.sourced.pk,
+            homePK: firstGame.teams.home.sourced.pk,
+            awayPPEfficiency: firstGame.teams.away.derived.ppEfficiency,
+            homePPEfficiency: firstGame.teams.home.derived.ppEfficiency,
+            awayGoalieStrength: firstGame.teams.away.derived.goalie.strengthSplits,
+            homeGoalieStrength: firstGame.teams.home.derived.goalie.strengthSplits,
           }
         : null,
       ms: Date.now() - t2,
@@ -88,7 +128,7 @@ export async function GET() {
     steps.context_board = { error: String(err) };
   }
 
-  // Step 3: NHL context hints for a sample pick (first game's away team)
+  // Step 4: NHL context hints for a sample pick (first game's away team)
   const firstGame = contextBoard?.games[0] ?? null;
   const sampleTeam = firstGame?.teams.away.teamAbbrev ?? null;
   const sampleOpponent = firstGame?.teams.home.teamAbbrev ?? null;
@@ -112,6 +152,13 @@ export async function GET() {
       opponent_goalie_quality: hints.opponent_goalie_quality,
       opponent_goalie_sv_pct: hints.opponent_goalie_sv_pct,
       opponent_goalie_gaa: hints.opponent_goalie_gaa,
+      opponent_goalie_pp_sv_pct: hints.opponent_goalie_pp_sv_pct,
+      opponent_goalie_ev_sv_pct: hints.opponent_goalie_ev_sv_pct,
+      team_pp_pct: hints.team_pp_pct,
+      opponent_pk_pct: hints.opponent_pk_pct,
+      pp_efficiency_differential: hints.pp_efficiency_differential,
+      net_special_teams_differential: hints.net_special_teams_differential,
+      pp_efficiency_tier: hints.pp_efficiency_tier,
       team_xgoals_pct: hints.team_xgoals_pct,
       opponent_xgoals_pct: hints.opponent_xgoals_pct,
       warnings: hints.warnings,
@@ -122,10 +169,10 @@ export async function GET() {
     steps.context_hints = { error: String(err) };
   }
 
-  // Step 4: Signal tagger smoke-test
+  // Step 5: Signal tagger smoke-test
   try {
     const sampleReasoning =
-      "Boston Bruins have a strong home record this season. Back-to-back situation for visiting team with travel fatigue. Bruins goalie confirmed. L10 home win rate: 80%.";
+      "Boston Bruins have a strong home record this season. Back-to-back situation for visiting team with travel fatigue. Bruins goalie confirmed. L10 home win rate: 80%. Strong PP unit vs weak penalty kill.";
     const signals = tagSignals(sampleReasoning, `${sampleTeam ?? "BOS"} Win ML`);
     steps.signal_tagger = {
       sample_reasoning: sampleReasoning.slice(0, 80) + "...",
@@ -137,9 +184,9 @@ export async function GET() {
     steps.signal_tagger = { error: String(err) };
   }
 
-  // Step 5: NHL feature scorer smoke-test
+  // Step 6: NHL feature scorer smoke-test (includes PP signals)
   try {
-    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days"];
+    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days", "pp_efficiency_edge"];
     const emptyWeightMap = buildNHLWeightMap([]);
     const { score, snapshot } = scoreNHLFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
     steps.feature_scorer = {
@@ -150,7 +197,10 @@ export async function GET() {
       goalie_quality_signal_active: snapshot.goalie_quality_signal_active,
       back_to_back_active: snapshot.back_to_back_active,
       three_in_four_active: snapshot.three_in_four_active,
+      pp_efficiency_edge_active: snapshot.pp_efficiency_edge_active,
+      goalie_pp_weakness_active: snapshot.goalie_pp_weakness_active,
       opponent_goalie_quality: snapshot.opponent_goalie_quality,
+      pp_efficiency_differential: snapshot.pp_efficiency_differential,
       priors_applied: snapshot.signal_priors_applied,
     };
   } catch (err) {
@@ -169,11 +219,18 @@ export async function GET() {
     steps,
     timestamp: new Date().toISOString(),
     pipeline: {
-      source: "NHL API (api-web.nhle.com/v1) + MoneyPuck GitHub mirror",
+      source: "NHL API (api-web.nhle.com/v1) + NHL Stats REST (api.nhle.com/stats/rest) + MoneyPuck GitHub mirror",
       ingestion: "/api/picks → live-data.ts → nhl-stats-engine.ts + nhl-team-trends.ts",
       feature_path: "nhl-context.ts → nhl-features.ts → scoreNHLFeaturesWithSnapshot()",
       goose_model: "/api/admin/goose-model/generate { sport: NHL }",
-      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel)",
+      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel/PP-efficiency)",
+      specialTeamsRails: "api.nhle.com/stats/rest/en/team/{powerplay,penaltykill} + goalie/savesByStrength",
+      dataLattice: "src/lib/nhl-data-lattice.ts — canonical schema, provenance, backtest types, source gap map",
+      sourceGaps: [
+        "HDSV% (high-danger zone save %) — not in NHL API; requires MoneyPuck/NST analytics",
+        "Zone-specific xG (HDCF%/HDSA%) — MoneyPuck mirror only exposes aggregate xGoalsPercentage",
+        "Player-level injury certainty — nhl.com news links are URL-slug approximation only",
+      ],
     },
   });
 }

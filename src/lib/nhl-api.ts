@@ -352,6 +352,188 @@ export async function getGameGoalies(gameId: number): Promise<GameGoalies> {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// PP / PK team stats (api.nhle.com/stats/rest)
+// ──────────────────────────────────────────────────────────────────────
+
+const NHL_STATS_BASE = "https://api.nhle.com/stats/rest/en";
+
+/**
+ * Maps teamFullName (as returned by NHL stats REST API) → teamAbbrev.
+ * Built from the live `/team/powerplay` response for season 20252026.
+ */
+const TEAM_FULLNAME_TO_ABBREV: Record<string, string> = {
+  "Anaheim Ducks": "ANA",
+  "Boston Bruins": "BOS",
+  "Buffalo Sabres": "BUF",
+  "Calgary Flames": "CGY",
+  "Carolina Hurricanes": "CAR",
+  "Chicago Blackhawks": "CHI",
+  "Colorado Avalanche": "COL",
+  "Columbus Blue Jackets": "CBJ",
+  "Dallas Stars": "DAL",
+  "Detroit Red Wings": "DET",
+  "Edmonton Oilers": "EDM",
+  "Florida Panthers": "FLA",
+  "Los Angeles Kings": "LAK",
+  "Minnesota Wild": "MIN",
+  "Montréal Canadiens": "MTL",
+  "Nashville Predators": "NSH",
+  "New Jersey Devils": "NJD",
+  "New York Islanders": "NYI",
+  "New York Rangers": "NYR",
+  "Ottawa Senators": "OTT",
+  "Philadelphia Flyers": "PHI",
+  "Pittsburgh Penguins": "PIT",
+  "San Jose Sharks": "SJS",
+  "Seattle Kraken": "SEA",
+  "St. Louis Blues": "STL",
+  "Tampa Bay Lightning": "TBL",
+  "Toronto Maple Leafs": "TOR",
+  "Utah Mammoth": "UTA",
+  "Vancouver Canucks": "VAN",
+  "Vegas Golden Knights": "VGK",
+  "Washington Capitals": "WSH",
+  "Winnipeg Jets": "WPG",
+};
+
+export type TeamPPStats = {
+  teamAbbrev: string;
+  gamesPlayed: number;
+  /** Power-play conversion rate (goals / opportunities) */
+  powerPlayPct: number;
+  /** Net PP% (excluding short-handed goals against) */
+  powerPlayNetPct: number;
+  powerPlayGoalsFor: number;
+  ppOpportunities: number;
+  ppTimeOnIcePerGame: number;
+  /** Short-handed goals allowed while on PP */
+  shGoalsAgainst: number;
+};
+
+export type TeamPKStats = {
+  teamAbbrev: string;
+  gamesPlayed: number;
+  /** Penalty-kill success rate */
+  penaltyKillPct: number;
+  /** Net PK% (excluding shorthanded goals for) */
+  penaltyKillNetPct: number;
+  timesShorthanded: number;
+  /** PP goals allowed */
+  ppGoalsAgainst: number;
+  /** Short-handed goals scored while killing a penalty */
+  shGoalsFor: number;
+};
+
+export type GoalieStrengthStats = {
+  playerId: number;
+  goalieFullName: string;
+  teamAbbrevs: string;
+  gamesPlayed: number;
+  savePct: number;
+  /** Even-strength save % */
+  evSavePct: number;
+  evSaves: number;
+  evShotsAgainst: number;
+  /** Power-play save % (opponent on PP) */
+  ppSavePct: number;
+  ppSaves: number;
+  ppShotsAgainst: number;
+  /** Short-handed save % (team on PP) */
+  shSavePct: number;
+  shSaves: number;
+  shShotsAgainst: number;
+};
+
+const PP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes — changes rarely
+const CURRENT_SEASON = "20252026";
+const GAME_TYPE_REGULAR = "2";
+
+async function fetchNHLStatsRest<T>(path: string, ttl: number = PP_CACHE_TTL): Promise<T> {
+  return cachedFetch<T>(`${NHL_STATS_BASE}/${path}`, ttl);
+}
+
+export async function getNHLTeamPPStats(season: string = CURRENT_SEASON): Promise<TeamPPStats[]> {
+  try {
+    const data = await fetchNHLStatsRest<{ data: any[] }>(
+      `team/powerplay?isAggregate=false&isGame=false&limit=40&cayenneExp=gameTypeId%3D${GAME_TYPE_REGULAR}%20and%20seasonId%3D${season}`
+    );
+    return (data.data || []).map((row): TeamPPStats | null => {
+      const abbrev = TEAM_FULLNAME_TO_ABBREV[row.teamFullName];
+      if (!abbrev) return null;
+      return {
+        teamAbbrev: abbrev,
+        gamesPlayed: row.gamesPlayed ?? 0,
+        powerPlayPct: row.powerPlayPct ?? 0,
+        powerPlayNetPct: row.powerPlayNetPct ?? 0,
+        powerPlayGoalsFor: row.powerPlayGoalsFor ?? 0,
+        ppOpportunities: row.ppOpportunities ?? 0,
+        ppTimeOnIcePerGame: row.ppTimeOnIcePerGame ?? 0,
+        shGoalsAgainst: row.shGoalsAgainst ?? 0,
+      };
+    }).filter((r): r is TeamPPStats => r !== null);
+  } catch {
+    return [];
+  }
+}
+
+export async function getNHLTeamPKStats(season: string = CURRENT_SEASON): Promise<TeamPKStats[]> {
+  try {
+    const data = await fetchNHLStatsRest<{ data: any[] }>(
+      `team/penaltykill?isAggregate=false&isGame=false&limit=40&cayenneExp=gameTypeId%3D${GAME_TYPE_REGULAR}%20and%20seasonId%3D${season}`
+    );
+    return (data.data || []).map((row): TeamPKStats | null => {
+      const abbrev = TEAM_FULLNAME_TO_ABBREV[row.teamFullName];
+      if (!abbrev) return null;
+      return {
+        teamAbbrev: abbrev,
+        gamesPlayed: row.gamesPlayed ?? 0,
+        penaltyKillPct: row.penaltyKillPct ?? 0,
+        penaltyKillNetPct: row.penaltyKillNetPct ?? 0,
+        timesShorthanded: row.timesShorthanded ?? 0,
+        ppGoalsAgainst: row.ppGoalsAgainst ?? 0,
+        shGoalsFor: row.shGoalsFor ?? 0,
+      };
+    }).filter((r): r is TeamPKStats => r !== null);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Goalie save breakdown by game situation (EV / PP / SH).
+ * Sourced from NHL stats REST API — season aggregates.
+ *
+ * NOTE: High-danger zone-specific save % is NOT available from NHL API.
+ * That level of granularity (HDSA, MDSV%) is only in MoneyPuck/NST analytics.
+ * This endpoint provides EV/PP/SH strength breakdown only.
+ */
+export async function getNHLGoalieStrengthStats(season: string = CURRENT_SEASON): Promise<GoalieStrengthStats[]> {
+  try {
+    const data = await fetchNHLStatsRest<{ data: any[] }>(
+      `goalie/savesByStrength?isAggregate=false&isGame=false&limit=80&cayenneExp=gameTypeId%3D${GAME_TYPE_REGULAR}%20and%20seasonId%3D${season}`
+    );
+    return (data.data || []).map((row): GoalieStrengthStats => ({
+      playerId: row.playerId ?? 0,
+      goalieFullName: row.goalieFullName ?? "",
+      teamAbbrevs: row.teamAbbrevs ?? "",
+      gamesPlayed: row.gamesPlayed ?? 0,
+      savePct: row.savePct ?? 0,
+      evSavePct: row.evSavePct ?? 0,
+      evSaves: row.evSaves ?? 0,
+      evShotsAgainst: row.evShotsAgainst ?? 0,
+      ppSavePct: row.ppSavePct ?? 0,
+      ppSaves: row.ppSaves ?? 0,
+      ppShotsAgainst: row.ppShotsAgainst ?? 0,
+      shSavePct: row.shSavePct ?? 0,
+      shSaves: row.shSaves ?? 0,
+      shShotsAgainst: row.shShotsAgainst ?? 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // NHL team colors for rendering
 export const NHL_TEAM_COLORS: Record<string, string> = {
   ANA: "#F47A38", ARI: "#8C2633", BOS: "#FFB81C", BUF: "#002654",

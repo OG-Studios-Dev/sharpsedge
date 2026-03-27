@@ -50,6 +50,19 @@ export const GOOSE_SIGNALS = [
   "recent_trend_over",
   /** Recent games: player has been trending UNDER the prop line in last 3+ games */
   "recent_trend_under",
+  // ── NHL-specific special teams signals ──────────────────────────
+  /**
+   * PP efficiency edge: team PP% meaningfully outperforms opponent PK%.
+   * Fires when ppEfficiencyDifferential >= 0.02 (moderate) or >= 0.04 (strong).
+   * Source: NHL stats REST API season aggregates.
+   */
+  "pp_efficiency_edge",
+  /**
+   * Opponent goalie is weak on the power-play (ppSavePct < 0.85 with >= 10 shots faced).
+   * Most relevant for PP specialist player props.
+   * Source: NHL stats REST API goalie/savesByStrength.
+   */
+  "goalie_pp_weakness",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

@@ -1,8 +1,8 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { getDateKey } from "@/lib/date-utils";
-import { getUpcomingSchedule, getGameGoalies } from "@/lib/nhl-api";
-import type { GoalieStarter } from "@/lib/nhl-api";
+import { getUpcomingSchedule, getGameGoalies, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats } from "@/lib/nhl-api";
+import type { GoalieStarter, TeamPPStats, TeamPKStats, GoalieStrengthStats } from "@/lib/nhl-api";
 import type { NHLGame } from "@/lib/types";
 import { buildSourceHealthCheck, summarizeSourceHealth } from "@/lib/source-health";
 
@@ -101,8 +101,82 @@ type DerivedPlayoffPressure = {
 
 type SourcedGoalieContext = {
   starter: GoalieStarter | null;
+  /**
+   * EV/PP/SH save breakdown — sourced from NHL stats REST API (goalie/savesByStrength).
+   * Null when goalie is unconfirmed pre-game or not found in season stats.
+   *
+   * NOTE: High-danger zone SV% (HDSV%) is NOT available from NHL API.
+   * Only EV/PP/SH strength splits are exposed. HDSV% requires MoneyPuck/NST analytics.
+   */
+  strengthSplits: GoalieStrengthStats | null;
   source: "nhl-api";
   fetchedAt: string;
+};
+
+// ─── PP / PK context types ──────────────────────────────────────────────
+
+/**
+ * Sourced power-play data for a team — from NHL stats REST API.
+ */
+type SourcedPPContext = {
+  powerPlayPct: number;
+  powerPlayNetPct: number;
+  powerPlayGoalsFor: number;
+  ppOpportunities: number;
+  /** Average PP time per game (seconds) */
+  ppTimeOnIcePerGame: number;
+  /** Short-handed goals allowed while on PP (negative efficiency signal) */
+  shGoalsAgainst: number;
+  season: string;
+  source: "nhl-stats-rest";
+  fetchedAt: string;
+} | null;
+
+/**
+ * Sourced penalty-kill data for a team — from NHL stats REST API.
+ */
+type SourcedPKContext = {
+  penaltyKillPct: number;
+  penaltyKillNetPct: number;
+  timesShorthanded: number;
+  ppGoalsAgainst: number;
+  /** Short-handed goals for (bonus negative for opponent PP) */
+  shGoalsFor: number;
+  season: string;
+  source: "nhl-stats-rest";
+  fetchedAt: string;
+} | null;
+
+/**
+ * Derived PP efficiency differential for this matchup.
+ *
+ * PP efficiency differential = team PP% minus opponent PK%.
+ * Positive value means team's PP is stronger than opponent's PK → PP edge.
+ * Negative value means opponent's PK is suppressing the team's PP unit.
+ *
+ * Signal tier:
+ *   "strong"   → differential >= 0.04  (4pp over opp PK — actionable)
+ *   "moderate" → differential >= 0.02
+ *   "neutral"  → |differential| < 0.02
+ *   "adverse"  → differential < -0.02  (opponent PK dominates)
+ *   "unavailable" → PP/PK data not loaded
+ */
+type DerivedPPEfficiency = {
+  teamPPPct: number | null;
+  opponentPKPct: number | null;
+  /**
+   * Raw differential (teamPPPct - opponentPKPct).
+   * Positive = team PP likely to convert if drawn. Negative = PK advantage for opponent.
+   */
+  ppEfficiencyDifferential: number | null;
+  /**
+   * Net special teams advantage (also accounts for opponent PP vs team PK).
+   * = teamPPPct - oppPKPct - (oppPPPct - teamPKPct)
+   * Captures full picture: how both teams do on special teams against each other.
+   */
+  netSpecialTeamsDifferential: number | null;
+  tier: "strong" | "moderate" | "neutral" | "adverse" | "unavailable";
+  note: string;
 };
 
 type DerivedGoalieContext = {
@@ -120,6 +194,22 @@ type DerivedGoalieContext = {
   qualityTier: "elite" | "average" | "weak" | "unknown";
   sampleDecisionCount: number | null;
   alertFlags: string[];
+  /**
+   * EV/PP/SH save breakdown from NHL stats REST API (goalie/savesByStrength).
+   * Null when not available or goalie has < 5 GP this season.
+   *
+   * NOTE: High-danger zone SV% is NOT exposed by NHL API. Only strength-situation
+   * splits (even-strength, power-play, shorthanded) are available here.
+   * HDSV% requires MoneyPuck or Natural Stat Trick analytics — currently blocked.
+   */
+  strengthSplits: {
+    evSavePct: number;
+    ppSavePct: number;
+    shSavePct: number;
+    evShotsAgainst: number;
+    ppShotsAgainst: number;
+    shShotsAgainst: number;
+  } | null;
 };
 
 type SourcedNewsItem = {
@@ -177,6 +267,10 @@ export type NHLContextTeamBoardEntry = {
     } | null;
     goalie: SourcedGoalieContext;
     news: SourcedNewsContext;
+    /** PP stats for this team — sourced from NHL stats REST API */
+    pp: SourcedPPContext;
+    /** PK stats for this team — sourced from NHL stats REST API */
+    pk: SourcedPKContext;
   };
   derived: {
     rest: DerivedRestContext;
@@ -186,6 +280,11 @@ export type NHLContextTeamBoardEntry = {
     fatigueFlags: string[];
     goalie: DerivedGoalieContext;
     news: DerivedNewsContext;
+    /**
+     * PP efficiency differential vs this opponent.
+     * Measures team PP% vs opponent PK% — computed at matchup level.
+     */
+    ppEfficiency: DerivedPPEfficiency;
   };
 };
 
@@ -243,6 +342,16 @@ export type NHLContextBoardResponse = {
         provider: "nhl.com";
         kind: "team-site-links" | "unavailable";
         fetchedAt: string;
+        note: string;
+      };
+      specialTeams: {
+        provider: "nhl-stats-rest";
+        endpoint: string;
+        fetchedAt: string;
+        teamsWithPP: number;
+        teamsWithPK: number;
+        teamsWithGoalieStrength: number;
+        degraded: boolean;
         note: string;
       };
     };
@@ -640,7 +749,10 @@ function decodeHtml(value: string) {
     .replace(/&gt;/g, ">");
 }
 
-function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalieContext {
+function buildGoalieDerivedContext(
+  starter: GoalieStarter | null,
+  strengthStats: GoalieStrengthStats | null,
+): DerivedGoalieContext {
   if (!starter) {
     return {
       starterStatus: "unavailable",
@@ -650,6 +762,7 @@ function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalie
       qualityTier: "unknown",
       sampleDecisionCount: null,
       alertFlags: ["goalie_unavailable"],
+      strengthSplits: null,
     };
   }
 
@@ -674,6 +787,21 @@ function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalie
     if (qualityTier === "weak") alertFlags.push("weak_starter");
   }
 
+  // PP SV% alert — if goalie is weak on the penalty kill (ppSavePct < 0.85)
+  if (strengthStats && strengthStats.ppShotsAgainst >= 10 && strengthStats.ppSavePct < 0.85) {
+    alertFlags.push("weak_pp_save_pct");
+  }
+
+  // Strength splits — carry forward from NHL stats REST API
+  const strengthSplits = strengthStats ? {
+    evSavePct: strengthStats.evSavePct,
+    ppSavePct: strengthStats.ppSavePct,
+    shSavePct: strengthStats.shSavePct,
+    evShotsAgainst: strengthStats.evShotsAgainst,
+    ppShotsAgainst: strengthStats.ppShotsAgainst,
+    shShotsAgainst: strengthStats.shShotsAgainst,
+  } : null;
+
   return {
     starterStatus: starter.status,
     isConfirmed: starter.status === "confirmed",
@@ -682,6 +810,55 @@ function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalie
     qualityTier,
     sampleDecisionCount,
     alertFlags,
+    strengthSplits,
+  };
+}
+
+function buildPPEfficiency(
+  teamAbbrev: string,
+  opponentAbbrev: string,
+  ppMap: Map<string, TeamPPStats>,
+  pkMap: Map<string, TeamPKStats>,
+): DerivedPPEfficiency {
+  const teamPP = ppMap.get(teamAbbrev) ?? null;
+  const oppPK = pkMap.get(opponentAbbrev) ?? null;
+  const oppPP = ppMap.get(opponentAbbrev) ?? null;
+  const teamPK = pkMap.get(teamAbbrev) ?? null;
+
+  if (!teamPP || !oppPK) {
+    return {
+      teamPPPct: teamPP?.powerPlayPct ?? null,
+      opponentPKPct: oppPK?.penaltyKillPct ?? null,
+      ppEfficiencyDifferential: null,
+      netSpecialTeamsDifferential: null,
+      tier: "unavailable",
+      note: "PP/PK data not available for one or both teams.",
+    };
+  }
+
+  const ppDiff = teamPP.powerPlayPct - oppPK.penaltyKillPct;
+
+  // Net ST = (team PP% - opp PK%) + (team PK% - opp PP%)
+  // Positive = team has special teams advantage in both directions
+  let netSTDiff: number | null = null;
+  if (oppPP && teamPK) {
+    const pkDiff = teamPK.penaltyKillPct - oppPP.powerPlayPct;
+    netSTDiff = Number((ppDiff + pkDiff).toFixed(4));
+  }
+
+  let tier: DerivedPPEfficiency["tier"] = "neutral";
+  if (ppDiff >= 0.04) tier = "strong";
+  else if (ppDiff >= 0.02) tier = "moderate";
+  else if (ppDiff < -0.02) tier = "adverse";
+
+  const pctFmt = (v: number) => `${(v * 100).toFixed(1)}%`;
+  return {
+    teamPPPct: Number(teamPP.powerPlayPct.toFixed(4)),
+    opponentPKPct: Number(oppPK.penaltyKillPct.toFixed(4)),
+    ppEfficiencyDifferential: Number(ppDiff.toFixed(4)),
+    netSpecialTeamsDifferential: netSTDiff,
+    tier,
+    note: `Team PP ${pctFmt(teamPP.powerPlayPct)} vs opp PK ${pctFmt(oppPK.penaltyKillPct)} → diff ${pctFmt(ppDiff)}. Tier: ${tier}.`,
   };
 }
 
@@ -817,8 +994,12 @@ function buildTeamBoardEntry(params: {
   standingsFetchedAt: string;
   moneyPuck: MoneyPuckSnapshotResult;
   goalie: GoalieStarter | null;
+  goalieStrengthStats: GoalieStrengthStats | null;
   goalieFetchedAt: string;
   news: SourcedNewsContext;
+  ppMap: Map<string, TeamPPStats>;
+  pkMap: Map<string, TeamPKStats>;
+  specialTeamsFetchedAt: string;
 }): NHLContextTeamBoardEntry {
   const {
     role,
@@ -831,8 +1012,12 @@ function buildTeamBoardEntry(params: {
     standingsFetchedAt,
     moneyPuck,
     goalie,
+    goalieStrengthStats,
     goalieFetchedAt,
     news,
+    ppMap,
+    pkMap,
+    specialTeamsFetchedAt,
   } = params;
 
   const teamSchedule = schedulesByTeam.get(teamAbbrev) || [];
@@ -846,8 +1031,12 @@ function buildTeamBoardEntry(params: {
   const travel = buildTravelContext(teamAbbrev, teamSchedule, currentGame);
   const playoffPressure = buildPlayoffPressure(teamAbbrev, sameConferenceStandings);
   const fatigue = buildFatigue(rest, travel);
-  const derivedGoalie = buildGoalieDerivedContext(goalie);
+  const derivedGoalie = buildGoalieDerivedContext(goalie, goalieStrengthStats);
   const derivedNews = buildNewsDerivedContext(news.items);
+  const ppEfficiency = buildPPEfficiency(teamAbbrev, opponentAbbrev, ppMap, pkMap);
+
+  const teamPP = ppMap.get(teamAbbrev) ?? null;
+  const teamPK = pkMap.get(teamAbbrev) ?? null;
 
   return {
     role,
@@ -878,10 +1067,32 @@ function buildTeamBoardEntry(params: {
       },
       goalie: {
         starter: goalie,
+        strengthSplits: goalieStrengthStats,
         source: "nhl-api",
         fetchedAt: goalieFetchedAt,
       },
       news,
+      pp: teamPP ? {
+        powerPlayPct: teamPP.powerPlayPct,
+        powerPlayNetPct: teamPP.powerPlayNetPct,
+        powerPlayGoalsFor: teamPP.powerPlayGoalsFor,
+        ppOpportunities: teamPP.ppOpportunities,
+        ppTimeOnIcePerGame: teamPP.ppTimeOnIcePerGame,
+        shGoalsAgainst: teamPP.shGoalsAgainst,
+        season: "20252026",
+        source: "nhl-stats-rest",
+        fetchedAt: specialTeamsFetchedAt,
+      } : null,
+      pk: teamPK ? {
+        penaltyKillPct: teamPK.penaltyKillPct,
+        penaltyKillNetPct: teamPK.penaltyKillNetPct,
+        timesShorthanded: teamPK.timesShorthanded,
+        ppGoalsAgainst: teamPK.ppGoalsAgainst,
+        shGoalsFor: teamPK.shGoalsFor,
+        season: "20252026",
+        source: "nhl-stats-rest",
+        fetchedAt: specialTeamsFetchedAt,
+      } : null,
     },
     derived: {
       rest,
@@ -891,6 +1102,7 @@ function buildTeamBoardEntry(params: {
       fatigueFlags: fatigue.fatigueFlags,
       goalie: derivedGoalie,
       news: derivedNews,
+      ppEfficiency,
     },
   };
 }
@@ -901,10 +1113,13 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
   if (cached) return cached;
 
   const builtAt = new Date().toISOString();
-  const [schedule, rawStandings, moneyPuck] = await Promise.all([
+  const [schedule, rawStandings, moneyPuck, ppStatsRaw, pkStatsRaw, goalieStrengthRaw] = await Promise.all([
     getUpcomingSchedule(1),
     getRawStandings(),
     loadMoneyPuckSnapshot(),
+    getNHLTeamPPStats().catch(() => [] as TeamPPStats[]),
+    getNHLTeamPKStats().catch(() => [] as TeamPKStats[]),
+    getNHLGoalieStrengthStats().catch(() => [] as GoalieStrengthStats[]),
   ]);
 
   const boardDate = schedule.date || getDateKey();
@@ -930,10 +1145,49 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
     (rawStandings.standings || []).map((standing) => [normalizeStandingTeamAbbrev(standing.teamAbbrev), standing]),
   );
 
+  // PP / PK / goalie strength maps
+  const ppMap = new Map<string, TeamPPStats>(ppStatsRaw.map((r) => [r.teamAbbrev, r]));
+  const pkMap = new Map<string, TeamPKStats>(pkStatsRaw.map((r) => [r.teamAbbrev, r]));
+  // Goalie strength: indexed by playerId for fast lookup
+  const goalieStrengthByPlayerId = new Map<number, GoalieStrengthStats>(
+    goalieStrengthRaw.map((r) => [r.playerId, r])
+  );
+
   const standingsFetchedAt = builtAt;
   const goalieFetchedAt = builtAt;
+  const specialTeamsFetchedAt = builtAt;
   const boardGames: NHLContextBoardGame[] = games.map((game) => {
     const gameGoalies = goaliesByGame.get(game.id) || { gameId: game.id, home: null, away: null };
+
+    // Look up goalie strength stats by playerId (from season aggregates)
+    const awayGoalieStrength = gameGoalies.away?.playerId
+      ? goalieStrengthByPlayerId.get(gameGoalies.away.playerId) ?? null
+      : null;
+    const homeGoalieStrength = gameGoalies.home?.playerId
+      ? goalieStrengthByPlayerId.get(gameGoalies.home.playerId) ?? null
+      : null;
+
+    const awayNews = newsByTeam.get(game.awayTeam.abbrev) || {
+      items: [],
+      source: {
+        provider: "nhl.com" as const,
+        kind: "unavailable" as const,
+        url: null,
+        fetchedAt: builtAt,
+        note: `Official team news unavailable for ${game.awayTeam.abbrev}.`,
+      },
+    };
+    const homeNews = newsByTeam.get(game.homeTeam.abbrev) || {
+      items: [],
+      source: {
+        provider: "nhl.com" as const,
+        kind: "unavailable" as const,
+        url: null,
+        fetchedAt: builtAt,
+        note: `Official team news unavailable for ${game.homeTeam.abbrev}.`,
+      },
+    };
+
     return {
       gameId: game.id,
       gameDate: getDateKey(new Date(game.startTimeUTC)),
@@ -955,17 +1209,12 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           standingsFetchedAt,
           moneyPuck,
           goalie: gameGoalies.away,
+          goalieStrengthStats: awayGoalieStrength,
           goalieFetchedAt,
-          news: newsByTeam.get(game.awayTeam.abbrev) || {
-            items: [],
-            source: {
-              provider: "nhl.com",
-              kind: "unavailable",
-              url: null,
-              fetchedAt: builtAt,
-              note: `Official team news unavailable for ${game.awayTeam.abbrev}.`,
-            },
-          },
+          news: awayNews,
+          ppMap,
+          pkMap,
+          specialTeamsFetchedAt,
         }),
         home: buildTeamBoardEntry({
           role: "home",
@@ -978,17 +1227,12 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           standingsFetchedAt,
           moneyPuck,
           goalie: gameGoalies.home,
+          goalieStrengthStats: homeGoalieStrength,
           goalieFetchedAt,
-          news: newsByTeam.get(game.homeTeam.abbrev) || {
-            items: [],
-            source: {
-              provider: "nhl.com",
-              kind: "unavailable",
-              url: null,
-              fetchedAt: builtAt,
-              note: `Official team news unavailable for ${game.homeTeam.abbrev}.`,
-            },
-          },
+          news: homeNews,
+          ppMap,
+          pkMap,
+          specialTeamsFetchedAt,
         }),
       },
     };
@@ -1049,6 +1293,15 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
       degraded: availability.counts.teamsMissingOfficialSignals > 0,
       missingFields: teams.filter((team) => team.sourced.news.items.length === 0).map((team) => `${team.teamAbbrev} official news links missing`),
     }),
+    buildSourceHealthCheck({
+      key: "special-teams",
+      label: "Special teams (PP/PK/goalie strength)",
+      detail: "NHL stats REST API — season PP%, PK%, goalie EV/PP/SH save splits.",
+      fetchedAt: specialTeamsFetchedAt,
+      staleAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      degraded: ppMap.size < 30 || pkMap.size < 30,
+      missingFields: ppMap.size < 30 ? [`Only ${ppMap.size}/32 teams have PP data`] : [],
+    }),
   ]);
 
   const response: NHLContextBoardResponse = {
@@ -1083,10 +1336,23 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           fetchedAt: builtAt,
           note: "News context is limited to official nhl.com team-site article links and simple source-labeled tags. No sentiment or quote inference is used.",
         },
+        specialTeams: {
+          provider: "nhl-stats-rest",
+          endpoint: "api.nhle.com/stats/rest/en/team/{powerplay,penaltykill} + goalie/savesByStrength",
+          fetchedAt: specialTeamsFetchedAt,
+          teamsWithPP: ppMap.size,
+          teamsWithPK: pkMap.size,
+          teamsWithGoalieStrength: goalieStrengthRaw.length,
+          degraded: ppMap.size < 30 || pkMap.size < 30,
+          note: "PP/PK sourced from NHL stats REST API (season aggregates). Goalie EV/PP/SH save breakdown from savesByStrength. HIGH-DANGER zone SV% NOT available from NHL API — requires MoneyPuck/NST analytics (currently blocked by source gap).",
+        },
       },
       notes: [
         "MoneyPuck values are sourced inputs; rest/travel/playoff-pressure are derived heuristics.",
         "Goalie context uses NHL API starter status and season stat lines; derived goalie flags are lightweight labels only.",
+        "Goalie EV/PP/SH strength splits sourced from NHL stats REST API (savesByStrength). HIGH-DANGER zone SV% (HDSV%) is blocked — not exposed by NHL API; requires MoneyPuck/NST analytics.",
+        "PP/PK efficiency differential is a season-aggregate matchup signal: team PP% vs opponent PK%. Does not account for 5v5 xGoals context.",
+        "xGoals context (MoneyPuck xGoalsPercentage) is aggregate season-level; zone-specific shot danger (HDCF%, HDSA%) blocked by source gap — MoneyPuck GitHub mirror does not expose per-zone data.",
         "News context is limited to official nhl.com team-site links when available, with source-labeled derived tags from article titles only.",
         "No coach sentiment, injury sentiment, or locker-room narrative is inferred here.",
         "Playoff pressure uses a simple conference top-8 cutline heuristic, not full tie-breaker or clinch math.",

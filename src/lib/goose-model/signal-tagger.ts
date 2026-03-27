@@ -230,6 +230,23 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\b(?:3|4|5|6|7)\+?\s*(?:consecutive|straight|straight games)\s+under\b/i,
     /under\s+in\s+(?:\d+\s*of\s+)?(?:last\s+)?(?:3|4|5|6|7)/i,
   ],
+  // ── NHL special teams signals ──────────────────────────────
+  pp_efficiency_edge: [
+    /\bpower[\s-]?play\s+(?:efficiency|advantage|edge|unit)\b/i,
+    /\bstrong\s+pp\b/i,
+    /\bpp\s+(?:efficiency|advantage|edge)\b/i,
+    /\bweak\s+(?:penalty\s+kill|pk)\b/i,
+    /\bpenalty\s+kill\s+(?:weakness|struggles|giving up)\b/i,
+    /pp\s*%\s+(?:advantage|differential|edge)/i,
+    /\bspecial\s+teams\s+(?:advantage|edge|differential)\b/i,
+  ],
+  goalie_pp_weakness: [
+    /\bweak\s+(?:on\s+the\s+)?(?:power[\s-]?play|pp)\b/i,
+    /\bgoalie.*(?:weak|poor|bad)\s+(?:on|against)\s+(?:pp|power[\s-]?play)\b/i,
+    /\bpp\s+save\s+(?:rate|percentage|pct)\b/i,
+    /\bopponent\s+goalie.*pp\b/i,
+    /exploitable\s+(?:on|against)\s+pp/i,
+  ],
 };
 
 /**

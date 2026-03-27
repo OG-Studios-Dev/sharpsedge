@@ -1,5 +1,82 @@
 # TODO
 
+## NHL Data Lattice Implementation — 2026-03-27
+
+### What was implemented
+
+**1. PP Efficiency Differential Signal** ✅ LIVE
+- New API functions: `getNHLTeamPPStats()`, `getNHLTeamPKStats()` in `nhl-api.ts`
+- Source: `api.nhle.com/stats/rest/en/team/{powerplay,penaltykill}` — 32 teams, live
+- New context types: `SourcedPPContext`, `SourcedPKContext`, `DerivedPPEfficiency`
+- PP efficiency differential wired into every `NHLContextTeamBoardEntry` as `sourced.pp`, `sourced.pk`, `derived.ppEfficiency`
+- New signals: `pp_efficiency_edge` (fires at ≥0.02 diff) + `goalie_pp_weakness` (ppSavePct < 0.85)
+- Signal priors: `pp_efficiency_edge: 0.57`, `goalie_pp_weakness: 0.55`
+- Net special teams differential computed (team PP+PK vs opponent PP+PK)
+
+**2. Goalie Zone Save Breakdown (EV/PP/SH)** ✅ LIVE (high-danger BLOCKED — see below)
+- New API function: `getNHLGoalieStrengthStats()` in `nhl-api.ts`
+- Source: `api.nhle.com/stats/rest/en/goalie/savesByStrength` — 80 goalies, live
+- EV/PP/SH save % + shot counts now attached to `SourcedGoalieContext.strengthSplits`
+- Propagated into `DerivedGoalieContext.strengthSplits`
+- Alert flag `weak_pp_save_pct` fires when goalie ppSavePct < 0.85 with ≥10 shots
+- New context hints: `opponent_goalie_pp_sv_pct`, `opponent_goalie_ev_sv_pct`
+
+**3. NHL Data Lattice** ✅ NEW FILE
+- `src/lib/nhl-data-lattice.ts` — canonical schema for all NHL ingestion layers:
+  - `NHLIngestRecord` (audit trail per fetch)
+  - `NHLOutcomeRecord` (graded pick + feature reference for model learning)
+  - `NHLPickFeatureReference` (compact feature freeze for backtest queries)
+  - `NHLBacktestConfig` + `NHLBacktestResult` + `NHLBacktestStratum` (multi-season backtest direction)
+  - `NHLShotDangerContext` + `NHLMatchupXGByZone` (blocked schema, defined for when source gap resolves)
+  - `NHLGoalieGameContext` (unified goalie schema combining available + blocked fields)
+  - Full source gap map with explicit blockers and unblock paths
+
+**4. Signal Registry** ✅
+- `pp_efficiency_edge` and `goalie_pp_weakness` added to `GOOSE_SIGNALS` in `types.ts`
+- Signal patterns added to `signal-tagger.ts`
+- `NHLContextHints` expanded with PP fields + goalie strength split fields
+- `NHLFeatureSnapshot` expanded with PP differential + PP signal flags
+
+**5. Debug Route** ✅ UPDATED
+- `GET /api/debug/nhl` now includes:
+  - Step 2: Direct PP/PK/goalie strength API health check
+  - Step 3: Context board (expanded with PP, PK, ppEfficiency, goalieStrength in sampleGame)
+  - Step 4: Context hints (expanded with all new PP + goalie strength fields)
+  - Step 6: Feature scorer (includes pp_efficiency_edge signal)
+  - Pipeline description updated with source gap list
+
+**6. Source Health** ✅
+- New `special-teams` source health entry in `NHLContextBoardResponse`
+- `meta.sources.specialTeams` with team counts, degradation flag, and source gap note
+
+### What remains BLOCKED by source gaps
+
+**Shot danger zones / xG-by-zone (HDSV%, HDCF%, HDSA%):**
+- NHL API does NOT expose zone-level shot coordinates as team aggregates
+- MoneyPuck GitHub mirror only exposes aggregate xGoalsPercentage (no zone breakdown)
+- `NHLShotDangerContext` and `NHLMatchupXGByZone` types defined in lattice file for when this resolves
+- Unblock path A: Aggregate NHL play-by-play shot x/y per team per season (doable, expensive)
+- Unblock path B: MoneyPuck API subscription or find public NST/MP zone JSON endpoint
+
+**High-danger SV% (HDSV%):**
+- Only EV/PP/SH strength splits available from NHL stats REST API
+- HDSV% specifically requires play-by-play shot coordinate classification
+- `NHLGoalieGameContext` has hdSavePct/mdSavePct/ldSavePct fields defined but null until resolved
+
+**Player-level injury certainty:**
+- nhl.com team news links give URL-slug roster-move signals only
+- No structured NHL injury/availability feed exists in the public API
+
+### Multi-season backtest storage direction
+
+Schema defined in `NHLBacktestConfig` / `NHLBacktestResult` / `NHLBacktestStratum`.
+Requires: `NHLOutcomeRecord` rows populated as picks are graded (each graded pick in goose_model_picks
+Supabase table should have its nhl_features snapshot extracted into this compact format for fast query).
+
+To implement: add a post-grading hook that extracts NHLPickFeatureReference from pick_snapshot.factors.nhl_features and writes it to a `nhl_outcome_records` Supabase table. Then backtest runs can JOIN on signals, feature tiers, and season.
+
+---
+
 ## Current push — fortress data + systems firing
 
 - [x] NBA explicit feature/snapshot/debug parity
@@ -28,13 +105,19 @@
 - Goose model: generating picks today (e.g. Dyson Daniels 3.5 Assists)
 - Debug: /api/debug/nba → all steps green
 
-### NHL ✅ FIRING (partial degradation expected)
-- Source: NHL API (api-web.nhle.com/v1) + MoneyPuck GitHub mirror
+### NHL ✅ FIRING — upgraded 2026-03-27
+- Source: NHL API (api-web.nhle.com/v1) + NHL Stats REST (api.nhle.com/stats/rest) + MoneyPuck GitHub mirror
 - Schedule: 13 games yesterday, 2 today
 - Goalie starters: "unavailable" pre-game (normal — goalies announced closer to game time)
 - Rest/travel context: ✅ (back-to-back, rest days, travel km all populated)
 - MoneyPuck xGoals: ✅ 32 teams, sourced from GitHub mirror
-- Feature pipeline: nhl-features + nhl-context → pick_snapshot.factors.nhl_features
+- PP stats: ✅ 32 teams, from NHL stats REST API (live)
+- PK stats: ✅ 32 teams, from NHL stats REST API (live)
+- Goalie EV/PP/SH strength splits: ✅ 80 goalie rows from savesByStrength
+- PP efficiency differential signal: ✅ fires at ≥0.02 diff (moderate/strong tier)
+- Goalie PP weakness signal: ✅ fires when ppSavePct < 0.85 with ≥10 shots
+- Data lattice: ✅ nhl-data-lattice.ts — schemas, provenance, backtest types, source gap map
+- Feature pipeline: nhl-features + nhl-context → pick_snapshot.factors.nhl_features (PP fields added)
 - Debug: /api/debug/nhl → ok (goalie unavailable is expected pre-game)
 
 ### MLB ✅ FIRING
