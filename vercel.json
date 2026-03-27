@@ -37,6 +37,14 @@
     {
       "path": "/api/admin/sandbox/auto-grade",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/admin/nhl-shot-refresh?cron=true",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/admin/nhl-shot-refresh?cron=true&mode=full",
+      "schedule": "0 12 * * 1"
     }
   ]
 }

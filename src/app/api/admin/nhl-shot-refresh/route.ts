@@ -63,20 +63,36 @@ const ALL_NHL_TEAMS = [
 function isAuthorized(request: NextRequest): boolean {
   const adminSecret = process.env.ADMIN_SECRET;
   const scrapeSecret = process.env.SCRAPE_SECRET;
+  const cronSecret = process.env.CRON_SECRET;
 
   // No secrets configured → allow in dev
-  if (!adminSecret && !scrapeSecret) return true;
+  if (!adminSecret && !scrapeSecret && !cronSecret) return true;
 
   const authHeader = request.headers.get("authorization");
   const xKey = request.headers.get("x-admin-key") || request.headers.get("x-scrape-key");
 
+  // Vercel cron sends Authorization: Bearer <CRON_SECRET>
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
   if (adminSecret && (authHeader === `Bearer ${adminSecret}` || xKey === adminSecret)) return true;
   if (scrapeSecret && (authHeader === `Bearer ${scrapeSecret}` || xKey === scrapeSecret)) return true;
 
   return false;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const isCron = url.searchParams.get("cron") === "true";
+
+  // Vercel cron calls GET with Authorization: Bearer <CRON_SECRET>.
+  // When ?cron=true is present, authenticate and execute the actual prewarm.
+  if (isCron) {
+    if (!isAuthorized(request)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Delegate to POST handler (shares all prewarm logic)
+    return POST(request);
+  }
+
   return NextResponse.json({
     mode: "dry-run",
     teams: ALL_NHL_TEAMS.length,
@@ -87,12 +103,12 @@ export async function GET() {
       players: "POST /api/admin/nhl-shot-refresh?mode=players — per-player xG profiles, 10-game window",
     },
     cadenceRecommendation: {
-      rolling: "daily, ~6:00 AM ET before picks generate",
-      full: "weekly, Monday 7:00 AM ET",
+      rolling: "daily, ~6:00 AM ET before picks generate (cron: 0 11 * * *)",
+      full: "weekly, Monday 7:00 AM ET (cron: 0 12 * * 1)",
       players: "daily alongside rolling",
     },
     dataFlow: "aggregateTeamShotProfileWithStorage() → L1 in-process cache → L2 Supabase nhl_shot_aggregates → L3 fresh PBP",
-    note: "GET mode is a dry-run (no writes). POST to actually prewarm.",
+    note: "GET mode is a dry-run (no writes). Use POST or GET?cron=true (with CRON_SECRET) to actually prewarm.",
   });
 }
 
