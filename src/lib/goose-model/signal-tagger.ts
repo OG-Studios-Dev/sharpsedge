@@ -264,6 +264,16 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bhigh[\s-]?danger\s+save\s+(?:rate|percentage|weakness)\b/i,
     /\bgoalie.*(?:weak|poor|bad)\s+(?:in|from)\s+(?:slot|close|danger)\b/i,
   ],
+  // ── NHL per-player xG quality ──────────────────────────────
+  player_shot_quality_edge: [
+    /\bxg[\s-]?(?:per[\s-]?game|quality|generators?)\b/i,
+    /\bplayer\s+(?:shot\s+)?quality\s+(?:edge|advantage|generators?)\b/i,
+    /\btop\s+shooters?\s+(?:generating|outperforming|edge)\b/i,
+    /\bshot\s+quality\s+(?:concentrated|concentration|generators?)\b/i,
+    /\boffensive\s+player\s+quality\b/i,
+    /\bxg\s+generators?\s+(?:edge|advantage|better)\b/i,
+    /\bscoring\s+(?:quality\s+)?edge\s+(?:in|from)\s+(?:forwards?|top[\s-]?line)\b/i,
+  ],
 };
 
 /**

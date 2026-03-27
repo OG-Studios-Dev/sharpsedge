@@ -75,6 +75,14 @@ export const GOOSE_SIGNALS = [
    * Source: nhl-pbp-aggregate (computed from PBP shot event coordinates).
    */
   "opponent_goalie_hd_weakness",
+  /**
+   * Player shot quality edge: team's top-3 xG/game generators average meaningfully
+   * more expected goals per game than opponent's top-3 xG generators.
+   * Fires when team_top3_avg_xg_per_game - opp_top3_avg_xg_per_game >= 0.025.
+   * Measures concentration of shot quality in a team's best offensive players.
+   * Source: nhl-pbp-aggregate (per-player xG attribution from PBP shootingPlayerId).
+   */
+  "player_shot_quality_edge",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

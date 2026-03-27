@@ -17,7 +17,7 @@
 import { NextResponse } from "next/server";
 import { getTodaySchedule, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats } from "@/lib/nhl-api";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
-import { aggregateTeamShotProfile, getShotEventsForGame, getTeamRecentGameIds } from "@/lib/nhl-shot-events";
+import { aggregateTeamShotProfile, getShotEventsForGame, getTeamRecentGameIds, aggregatePlayerShotProfiles } from "@/lib/nhl-shot-events";
 import {
   fetchNHLContextHints,
   scoreNHLFeaturesWithSnapshot,
@@ -171,6 +171,10 @@ export async function GET() {
       team_hd_save_pct: hints.team_hd_save_pct,
       opponent_hd_save_pct: hints.opponent_hd_save_pct,
       shot_quality_tier: hints.shot_quality_tier,
+      // ── Per-player xG quality ─────────────────────────────
+      team_top3_avg_xg_per_game: hints.team_top3_avg_xg_per_game,
+      opponent_top3_avg_xg_per_game: hints.opponent_top3_avg_xg_per_game,
+      player_xg_edge: hints.player_xg_edge,
       warnings: hints.warnings,
       ms: Date.now() - t3,
     };
@@ -229,6 +233,45 @@ export async function GET() {
     }
   }
 
+  // Step 4c: Per-player xG profiles for sample team
+  if (sampleTeam) {
+    try {
+      const tPlayer = Date.now();
+      const playerProfiles = await aggregatePlayerShotProfiles(sampleTeam, 10);
+      const top5 = playerProfiles.slice(0, 5).map(p => ({
+        player: p.playerName,
+        xgPerGame: p.xgPerGame,
+        xgTotal: p.xgTotal,
+        hdShots: p.hdShots,
+        shots: p.totalShots,
+        goals: p.goals,
+        primaryShotType: p.primaryShotType,
+      }));
+      steps.player_xg_profiles = {
+        team: sampleTeam,
+        playersFound: playerProfiles.length,
+        top5ByXgPerGame: top5,
+        top3AvgXgPerGame: playerProfiles.length >= 1
+          ? (() => {
+              const top3 = playerProfiles
+                .filter(p => p.xgPerGame !== null && p.xgPerGame > 0)
+                .slice(0, 3);
+              if (top3.length === 0) return null;
+              return Math.round(
+                top3.reduce((s, p) => s + (p.xgPerGame ?? 0), 0) / top3.length * 1000
+              ) / 1000;
+            })()
+          : null,
+        source: "nhl-pbp-aggregate (shootingPlayerId attribution, last 10 games)",
+        note: "player_shot_quality_edge fires when team_top3_avg_xg_per_game - opp_top3_avg >= 0.025",
+        ms: Date.now() - tPlayer,
+      };
+    } catch (err) {
+      errors.push("player xG profiles failed: " + String(err));
+      steps.player_xg_profiles = { error: String(err) };
+    }
+  }
+
   // Step 5: Signal tagger smoke-test
   try {
     const sampleReasoning =
@@ -244,9 +287,9 @@ export async function GET() {
     steps.signal_tagger = { error: String(err) };
   }
 
-  // Step 6: NHL feature scorer smoke-test (includes PP + shot danger signals)
+  // Step 6: NHL feature scorer smoke-test (includes PP + shot danger + player xG signals)
   try {
-    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days", "pp_efficiency_edge", "shot_danger_edge"];
+    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days", "pp_efficiency_edge", "shot_danger_edge", "player_shot_quality_edge"];
     const emptyWeightMap = buildNHLWeightMap([]);
     const { score, snapshot } = scoreNHLFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
     steps.feature_scorer = {
@@ -260,11 +303,15 @@ export async function GET() {
       pp_efficiency_edge_active: snapshot.pp_efficiency_edge_active,
       goalie_pp_weakness_active: snapshot.goalie_pp_weakness_active,
       shot_danger_edge_active: snapshot.shot_danger_edge_active,
+      player_shot_quality_edge_active: snapshot.player_shot_quality_edge_active,
       opponent_goalie_quality: snapshot.opponent_goalie_quality,
       pp_efficiency_differential: snapshot.pp_efficiency_differential,
       hd_edge: snapshot.hd_edge,
       team_hdcf_pct: snapshot.team_hdcf_pct,
       opponent_hdcf_pct: snapshot.opponent_hdcf_pct,
+      team_top3_avg_xg_per_game: snapshot.team_top3_avg_xg_per_game,
+      opponent_top3_avg_xg_per_game: snapshot.opponent_top3_avg_xg_per_game,
+      player_xg_edge: snapshot.player_xg_edge,
       priors_applied: snapshot.signal_priors_applied,
     };
   } catch (err) {
@@ -287,9 +334,11 @@ export async function GET() {
       ingestion: "/api/picks → live-data.ts → nhl-stats-engine.ts + nhl-team-trends.ts",
       feature_path: "nhl-context.ts → nhl-features.ts → scoreNHLFeaturesWithSnapshot()",
       goose_model: "/api/admin/goose-model/generate { sport: NHL }",
-      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel/PP-efficiency/shot-danger)",
+      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel/PP-efficiency/shot-danger/player-xg-quality)",
       specialTeamsRails: "api.nhle.com/stats/rest/en/team/{powerplay,penaltykill} + goalie/savesByStrength",
       shotDangerRail: "nhl-shot-events.ts → getShotEventsForGame() + aggregateTeamShotProfile() (last 10 games PBP, x/y coords, HD/MD/LD zones, xG model)",
+      playerXgRail: "nhl-shot-events.ts → aggregatePlayerShotProfiles() (per-player xG attribution from PBP shootingPlayerId, stored in nhl_player_shot_profiles)",
+      prewarmRoute: "POST /api/admin/nhl-shot-refresh — pre-computes all 32 team rolling/full-season/player profiles into Supabase L2 cache",
       dataLattice: "src/lib/nhl-data-lattice.ts — canonical schema, provenance, backtest types, source gap map",
       sourceGaps: [
         "Player-level injury certainty — nhl.com news links are URL-slug approximation only",

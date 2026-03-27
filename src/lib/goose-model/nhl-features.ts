@@ -17,7 +17,7 @@
 
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 import type { NHLContextBoardGame } from "@/lib/nhl-context";
-import { aggregateTeamShotProfile, aggregateTeamShotProfileWithStorage } from "@/lib/nhl-shot-events";
+import { aggregateTeamShotProfile, aggregateTeamShotProfileWithStorage, aggregatePlayerShotProfiles } from "@/lib/nhl-shot-events";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -181,6 +181,26 @@ export interface NHLContextHints {
    */
   injury_rail_note: string;
 
+  // ── Per-player xG quality (from nhl-pbp-aggregate player attribution) ─────
+  /**
+   * Average xG/game for the team's top-3 xG generators over last 10 games.
+   * Measures concentration of shot quality in the best offensive players.
+   * Null if player profiles unavailable.
+   * Source: nhl-pbp-aggregate (PBP shootingPlayerId attribution).
+   */
+  team_top3_avg_xg_per_game: number | null;
+  /**
+   * Average xG/game for the opponent's top-3 xG generators.
+   * Null if unavailable.
+   */
+  opponent_top3_avg_xg_per_game: number | null;
+  /**
+   * Player xG edge = team_top3_avg_xg_per_game - opponent_top3_avg_xg_per_game.
+   * Positive = team's top shooters generate more quality chances.
+   * Null if either unavailable.
+   */
+  player_xg_edge: number | null;
+
   /** Non-fatal warnings from context fetch */
   warnings: string[];
 }
@@ -226,6 +246,9 @@ export function emptyNHLContextHints(): NHLContextHints {
     opponent_has_confirmed_injuries: false,
     opponent_confirmed_out_players: [],
     injury_rail_note: "NHL roster API injury data not loaded.",
+    team_top3_avg_xg_per_game: null,
+    opponent_top3_avg_xg_per_game: null,
+    player_xg_edge: null,
     warnings: [],
   };
 }
@@ -288,6 +311,25 @@ export interface NHLFeatureSnapshot {
   opponent_hd_save_pct: number | null;
   /** Whether the shot_danger_edge signal was active */
   shot_danger_edge_active: boolean;
+  /**
+   * Average xG/game for the team's top-3 xG generators (last 10 games).
+   * Source: nhl-pbp-aggregate per-player attribution.
+   * Null if profiles unavailable.
+   */
+  team_top3_avg_xg_per_game: number | null;
+  /**
+   * Average xG/game for the opponent's top-3 xG generators.
+   * Null if unavailable.
+   */
+  opponent_top3_avg_xg_per_game: number | null;
+  /**
+   * Player xG edge = team top3 avg - opponent top3 avg.
+   * Positive = team's top shooters are better quality generators.
+   * Null if either unavailable.
+   */
+  player_xg_edge: number | null;
+  /** Whether the player_shot_quality_edge signal was active */
+  player_shot_quality_edge_active: boolean;
   /** Warnings from context fetch */
   context_warnings: string[];
 }
@@ -383,6 +425,20 @@ export const NHL_SIGNAL_PRIORS: Record<string, number> = {
    * Source: nhl-pbp-aggregate (derived from PBP shot coordinates).
    */
   opponent_goalie_hd_weakness: 0.56,
+  /**
+   * Player shot quality edge: team's top-3 xG/game generators outperform opponent's
+   * by >= 0.025 xG/game. This captures whether the team's best offensive players
+   * consistently generate higher quality looks than their counterparts.
+   *
+   * Why it matters: xG concentration in a team's top players is a leading indicator
+   * of sustained offensive pressure beyond HDCF% — it distinguishes teams with
+   * true shot-quality generators vs. teams that volume-shoot from distance.
+   *
+   * Threshold 0.025 xG/game ≈ ~0.25 more expected goals per 10-game window for
+   * the top-3 players combined. Calibrated to avoid noise from small samples.
+   * Source: nhl-pbp-aggregate (PBP shootingPlayerId, last 10 games per team).
+   */
+  player_shot_quality_edge: 0.57,
 };
 
 /**
@@ -535,13 +591,34 @@ export async function fetchNHLContextHints(
     const ppTier = ppEfficiency.tier;
 
     // ── Shot danger zone profiles (nhl-pbp-aggregate) ────────
-    // Fetch profiles for both teams in parallel — cached per team for 60 min.
-    // Falls back gracefully to null fields if fetch fails.
+    // Fetch team-level profiles + per-player xG profiles in parallel.
+    // All fall back gracefully to null fields if fetch fails.
     // Use storage-backed aggregation (L1 memory → L2 Supabase → L3 fresh PBP)
-    const [teamShotProfile, oppShotProfile] = await Promise.all([
+    const oppAbbrev = oppEntry.teamAbbrev.toUpperCase();
+    const [teamShotProfile, oppShotProfile, teamPlayerProfiles, oppPlayerProfiles] = await Promise.all([
       aggregateTeamShotProfileWithStorage(tAbbrev, 10, "rolling").catch(() => null),
-      aggregateTeamShotProfileWithStorage(oppEntry.teamAbbrev.toUpperCase(), 10, "rolling").catch(() => null),
+      aggregateTeamShotProfileWithStorage(oppAbbrev, 10, "rolling").catch(() => null),
+      aggregatePlayerShotProfiles(tAbbrev, 10).catch(() => null),
+      aggregatePlayerShotProfiles(oppAbbrev, 10).catch(() => null),
     ]);
+
+    // Compute top-3 average xG/game for each team.
+    // Profiles are pre-sorted by xG/game desc; take top 3, filter out nulls.
+    const top3AvgXg = (profiles: typeof teamPlayerProfiles): number | null => {
+      if (!profiles || profiles.length === 0) return null;
+      const top3 = profiles
+        .filter(p => p.xgPerGame !== null && p.xgPerGame > 0)
+        .slice(0, 3);
+      if (top3.length === 0) return null;
+      const avg = top3.reduce((sum, p) => sum + (p.xgPerGame ?? 0), 0) / top3.length;
+      return Math.round(avg * 1000) / 1000;
+    };
+
+    const teamTop3Xg = top3AvgXg(teamPlayerProfiles);
+    const oppTop3Xg = top3AvgXg(oppPlayerProfiles);
+    const playerXgEdge = (teamTop3Xg !== null && oppTop3Xg !== null)
+      ? Math.round((teamTop3Xg - oppTop3Xg) * 1000) / 1000
+      : null;
 
     const teamHdcfPct = teamShotProfile?.hdcfPct ?? null;
     const oppHdcfPct = oppShotProfile?.hdcfPct ?? null;
@@ -623,6 +700,13 @@ export async function fetchNHLContextHints(
       auto_signals.push("opponent_goalie_hd_weakness");
     }
 
+    // Player shot quality edge: team's top-3 xG/game generators outperform opponent's
+    // by >= 0.025. Captures shot quality concentration in best offensive players.
+    // Source: nhl-pbp-aggregate per-player xG attribution.
+    if (playerXgEdge !== null && playerXgEdge >= 0.025) {
+      auto_signals.push("player_shot_quality_edge");
+    }
+
     const xDiff =
       typeof teamXGoalsPct === "number" && typeof oppXGoalsPct === "number"
         ? teamXGoalsPct - oppXGoalsPct
@@ -678,6 +762,10 @@ export async function fetchNHLContextHints(
         .map(p => p.playerName),
       injury_rail_note: teamEntry.sourced.injuries?.railNote ??
         "NHL roster API injury data not loaded.",
+      // ── Per-player xG quality ─────────────────────────────
+      team_top3_avg_xg_per_game: teamTop3Xg,
+      opponent_top3_avg_xg_per_game: oppTop3Xg,
+      player_xg_edge: playerXgEdge,
       warnings,
     };
   } catch (err) {
@@ -757,6 +845,10 @@ export function scoreNHLFeaturesWithSnapshot(
     team_hd_save_pct: contextHints?.team_hd_save_pct ?? null,
     opponent_hd_save_pct: contextHints?.opponent_hd_save_pct ?? null,
     shot_danger_edge_active: allSignals.includes("shot_danger_edge"),
+    team_top3_avg_xg_per_game: contextHints?.team_top3_avg_xg_per_game ?? null,
+    opponent_top3_avg_xg_per_game: contextHints?.opponent_top3_avg_xg_per_game ?? null,
+    player_xg_edge: contextHints?.player_xg_edge ?? null,
+    player_shot_quality_edge_active: allSignals.includes("player_shot_quality_edge"),
     context_warnings: contextHints?.warnings ?? [],
   };
 

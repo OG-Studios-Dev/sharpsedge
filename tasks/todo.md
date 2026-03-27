@@ -64,9 +64,72 @@
 | Shot danger edge signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDCF% diff |
 | Goalie HD weakness signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDSV% |
 | Player injury certainty | ✅ IMPROVED (2026-03-27) | nhl-roster-api injuryStatus + news tags; healthy scratches still blocked |
-| Per-player xG attribution | ✅ IMPLEMENTED (2026-03-27) | aggregatePlayerShotProfiles() via PBP shootingPlayerId + roster name join |
+| Per-player xG attribution | ✅ LIVE IN PICKS (2026-03-27 v3) | aggregatePlayerShotProfiles() in fetchNHLContextHints(); player_shot_quality_edge signal wired |
 | Shot aggregate Supabase storage | ✅ IMPLEMENTED (2026-03-27) | nhl_shot_aggregates + nhl_player_shot_profiles tables; L2 persistent cache |
-| Season-long HDCF (full 73 games) | ⚠️ PARTIAL | Storage infra ready; cron pre-compute route not yet built |
+| Season-long HDCF (full 73 games) | ✅ LIVE (2026-03-27 v3) | /api/admin/nhl-shot-refresh?mode=full — 50-game window, Supabase L2 |
+
+### Status after 2026-03-27 pass (items 1–3, v3 — learning model wired)
+
+**Item 1 (v3): Cron/prewarm route for NHL shot aggregate storage** ✅ COMPLETE
+- `src/app/api/admin/nhl-shot-refresh/route.ts` — new admin route
+  - GET: dry-run status (returns all 32 teams, cadence guidance, mode options)
+  - POST: force-prewarm Supabase L2 cache for all 32 NHL teams
+  - `mode=rolling` (default): last-10-game rolling profiles + player profiles (fast, daily cadence)
+  - `mode=full`: rolling + 50-game full-season profiles (slower, weekly cadence)
+  - `mode=players`: per-player xG profiles only
+  - `?team=TOR`: single-team refresh for debugging
+  - Per-team error isolation: failures collected, non-fatal, reported in response
+  - Guarded by ADMIN_SECRET or SCRAPE_SECRET (dev-unrestricted when no secrets set)
+  - maxDuration=300s for full 32-team run
+- Data flow: same `aggregateTeamShotProfileWithStorage()` function used by pick generation
+  → consistent with what live picks see (no separate pipeline)
+
+**Item 2 (v3): Player shot-quality / xG profile signals → pick generation + goose learning** ✅ COMPLETE
+- `fetchNHLContextHints()` now fetches `aggregatePlayerShotProfiles()` for both teams in parallel
+  (alongside existing team-level shot profiles — one `Promise.all`)
+- `top3AvgXg()`: extracts average xG/game for team's top-3 xG generators
+- New `NHLContextHints` fields:
+  - `team_top3_avg_xg_per_game` — team's top-3 xG/game average (0.421 for DET in live test)
+  - `opponent_top3_avg_xg_per_game` — opponent top-3 xG/game average
+  - `player_xg_edge` — team top3 - opp top3 (0.039 live; >= 0.025 fires signal)
+- New signal: `player_shot_quality_edge` added to `GOOSE_SIGNALS` in types.ts
+  - Prior: 0.57 in `NHL_SIGNAL_PRIORS`
+  - Auto-tags in `fetchNHLContextHints()` when `player_xg_edge >= 0.025`
+  - Text patterns in `signal-tagger.ts` for reasoning-text tagging
+- Live test (DET @ home game, 2026-03-27): 24 players, top-3 avg = 0.421, edge = 0.039 → fires
+
+**Item 3 (v3): Snapshot/provenance capture for goose learning model** ✅ COMPLETE
+- `NHLFeatureSnapshot` now includes:
+  - `team_top3_avg_xg_per_game: number | null` — top xG generator concentration
+  - `opponent_top3_avg_xg_per_game: number | null`
+  - `player_xg_edge: number | null` — differential for this specific matchup
+  - `player_shot_quality_edge_active: boolean` — was signal fired for this pick?
+- All fields frozen into `pick_snapshot.factors.nhl_features` at pick generation time
+  → learning model can query these fields to correlate player xG quality with outcomes
+- `scoreNHLFeaturesWithSnapshot()` properly propagates from `contextHints` → snapshot
+
+**Debug route v3 updates** ✅
+- Step 4c (new): `player_xg_profiles` — top-5 players by xG/game + top-3 average + signal threshold note
+- Step 6 (updated): feature scorer now shows `player_shot_quality_edge_active`, `player_xg_edge`,
+  `team_top3_avg_xg_per_game`, `opponent_top3_avg_xg_per_game`, and `player_shot_quality_edge: 0.57` in priors
+- Pipeline description updated with `playerXgRail` and `prewarmRoute` entries
+
+**Build + live API verification** ✅
+- `tsc --noEmit`: 0 errors
+- `npm run build`: clean (no type or build failures)
+- `GET /api/admin/nhl-shot-refresh`: dry-run response with all 32 teams ✅
+- `GET /api/debug/nhl`: status=ok, all 8 steps pass ✅
+  - `player_xg_profiles.playersFound = 24` (DET), `top3AvgXgPerGame = 0.421`
+  - `context_hints.player_xg_edge = 0.039` (above 0.025 threshold)
+  - `feature_scorer.player_shot_quality_edge_active = True`
+  - `feature_scorer.priors_applied.player_shot_quality_edge = 0.57`
+
+**Remaining blockers** (unchanged):
+- Full-season cron invocation: route exists; wire into Vercel cron config (vercel.json) if desired
+- Healthy scratches / DTD certainty: no public API; paid injury feed only real fix
+- Player injury certainty at lineup announcement time (~1hr pre-puck): real-time monitor needed
+
+---
 
 ### Status after 2026-03-27 pass (items 1–3)
 
