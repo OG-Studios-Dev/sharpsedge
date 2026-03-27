@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listPickHistory, listPickSlates } from "@/lib/pick-history-store";
-import { mapPickHistoryRecordToAIPick } from "@/lib/pick-history-integrity";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +17,10 @@ export async function GET(req: NextRequest) {
     const slates = await listPickSlates(limit, records);
     const filteredRecords = date ? records.filter((p) => p.date === date) : records;
     const filteredSlates = date ? slates.filter((slate) => slate.date === date) : slates;
-    const picks = filteredRecords.map(mapPickHistoryRecordToAIPick);
-    return NextResponse.json({ picks, slates: filteredSlates });
+    // Return PickHistoryRecord objects directly so provenance, pick_label, hit_rate etc.
+    // are available to the client. Mapping to AIPick stripped provenance, causing the
+    // headlineRecords filter (provenance === "original") to always be empty → 0 wins/losses/units.
+    return NextResponse.json({ picks: filteredRecords, slates: filteredSlates });
   } catch (error) {
     return NextResponse.json(
       {
