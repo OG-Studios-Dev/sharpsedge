@@ -44,6 +44,49 @@ import { getDGCache } from "@/lib/datagolf-cache";
 import type { DGCache } from "@/lib/datagolf-cache";
 import { getPGACourseWeather } from "@/lib/pga-course-weather";
 import type { PGACourseWeather } from "@/lib/pga-course-weather";
+import type { GolfCourseType, GolfGrassType } from "@/lib/types";
+
+// ── Course taxonomy (inline — mirrors golf-api.ts COURSE_TAXONOMY) ──────────
+// Keyed by lowercase tournament name. Ported from golf-predictions/data_files/course_metadata.json.
+const PGA_COURSE_TAXONOMY: Record<string, { courseType: GolfCourseType; grassType: GolfGrassType }> = {
+  "masters tournament":            { courseType: "parkland", grassType: "bermuda" },
+  "pga championship":              { courseType: "parkland", grassType: "bentgrass" },
+  "u.s. open":                     { courseType: "links",    grassType: "bentgrass" },
+  "the open championship":         { courseType: "links",    grassType: "rye" },
+  "the players championship":      { courseType: "stadium",  grassType: "bermuda" },
+  "players championship":          { courseType: "stadium",  grassType: "bermuda" },
+  "genesis invitational":          { courseType: "parkland", grassType: "poa_annua" },
+  "arnold palmer invitational":    { courseType: "parkland", grassType: "bermuda" },
+  "the memorial tournament":       { courseType: "parkland", grassType: "bentgrass" },
+  "memorial tournament":           { courseType: "parkland", grassType: "bentgrass" },
+  "farmers insurance open":        { courseType: "parkland", grassType: "poa_annua" },
+  "at&t pebble beach pro-am":      { courseType: "links",    grassType: "poa_annua" },
+  "waste management phoenix open": { courseType: "desert",   grassType: "bermuda" },
+  "sony open in hawaii":           { courseType: "parkland", grassType: "bermuda" },
+  "the american express":          { courseType: "desert",   grassType: "bermuda" },
+  "the sentry":                    { courseType: "resort",   grassType: "bermuda" },
+  "valspar championship":          { courseType: "parkland", grassType: "bermuda" },
+  "the honda classic":             { courseType: "stadium",  grassType: "bermuda" },
+  "cognizant classic in the palm beaches": { courseType: "stadium", grassType: "bermuda" },
+  "truist championship":           { courseType: "stadium",  grassType: "bermuda" },
+  "rbc heritage":                  { courseType: "links",    grassType: "bermuda" },
+  "wells fargo championship":      { courseType: "parkland", grassType: "bentgrass" },
+  "the cj cup byron nelson":       { courseType: "parkland", grassType: "bermuda" },
+  "charles schwab challenge":      { courseType: "parkland", grassType: "bermuda" },
+  "rbc canadian open":             { courseType: "parkland", grassType: "bentgrass" },
+  "travelers championship":        { courseType: "parkland", grassType: "bentgrass" },
+  "rocket mortgage classic":       { courseType: "parkland", grassType: "bentgrass" },
+  "bmw championship":              { courseType: "parkland", grassType: "bentgrass" },
+  "northern trust":                { courseType: "parkland", grassType: "bentgrass" },
+  "tour championship":             { courseType: "parkland", grassType: "bermuda" },
+};
+
+function lookupCourseTaxonomy(tournamentName: string | null | undefined): { courseType: string | null; grassType: string | null } {
+  if (!tournamentName) return { courseType: null, grassType: null };
+  const key = tournamentName.toLowerCase().trim();
+  const entry = PGA_COURSE_TAXONOMY[key];
+  return entry ? { courseType: entry.courseType, grassType: entry.grassType } : { courseType: null, grassType: null };
+}
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -127,6 +170,19 @@ export interface PGAContextHints {
   /** Weather status — available, unavailable, or no_venue_match */
   course_weather_status: string;
 
+  // ── Course taxonomy (from COURSE_TAXONOMY — golf-api enrichment) ────────
+  /**
+   * Course surface type (links / parkland / desert / stadium / resort).
+   * Ported from golf-predictions/data_files/course_metadata.json.
+   * Relevant for SG weighting: links favors ball-strikers, parkland/stadium rewards approach.
+   */
+  course_type: string | null;
+  /**
+   * Dominant grass type (bermuda / bentgrass / poa_annua / rye).
+   * Influences roll, speed, and recovery shot difficulty.
+   */
+  grass_type: string | null;
+
   /** Non-fatal warnings from context fetch */
   warnings: string[];
 }
@@ -159,6 +215,8 @@ export function emptyPGAContextHints(): PGAContextHints {
     course_is_wet: false,
     course_is_good_conditions: false,
     course_weather_status: "unavailable",
+    course_type: null,
+    grass_type: null,
     warnings: [],
   };
 }
@@ -635,6 +693,8 @@ export async function fetchPGAContextHints(
     if (courseWeather?.conditions?.isWet) auto_signals.push("course_wet_conditions");
     if (courseWeather?.conditions?.isGoodConditions) auto_signals.push("course_good_conditions");
 
+    const courseTaxonomy = lookupCourseTaxonomy(tournamentName ?? dgCache.tournament);
+
     return {
       auto_signals,
       dg_rank,
@@ -662,6 +722,8 @@ export async function fetchPGAContextHints(
       course_is_wet: weatherFields.course_is_wet ?? false,
       course_is_good_conditions: weatherFields.course_is_good_conditions ?? false,
       course_weather_status: weatherFields.course_weather_status ?? "unavailable",
+      course_type: courseTaxonomy.courseType,
+      grass_type: courseTaxonomy.grassType,
       warnings,
     };
   } catch (err) {

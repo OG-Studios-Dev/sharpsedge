@@ -1,4 +1,6 @@
 import {
+  GolfCourseType,
+  GolfGrassType,
   GolfLeaderboard,
   GolfPlayer,
   GolfPlayerHistoryResult,
@@ -237,6 +239,71 @@ function getCourseYardage(event: any) {
   );
 }
 
+/**
+ * Course surface taxonomy — ported from golf-predictions/data_files/course_metadata.json.
+ * Keyed by lowercase tournament name (matching KNOWN_COURSES keys).
+ * Used to enrich GolfTournament with courseType and grassType for feature generation.
+ */
+const COURSE_TAXONOMY: Record<string, { courseType: GolfCourseType; grassType: GolfGrassType }> = {
+  // Majors
+  "masters tournament":            { courseType: "parkland", grassType: "bermuda" },
+  "the masters":                   { courseType: "parkland", grassType: "bermuda" },
+  "pga championship":              { courseType: "parkland", grassType: "bentgrass" },
+  "u.s. open":                     { courseType: "links",    grassType: "bentgrass" },
+  "the open championship":         { courseType: "links",    grassType: "rye" },
+  // Signature / elevated events
+  "the players championship":      { courseType: "stadium",  grassType: "bermuda" },
+  "players championship":          { courseType: "stadium",  grassType: "bermuda" },
+  "genesis invitational":          { courseType: "parkland", grassType: "poa_annua" },
+  "arnold palmer invitational":    { courseType: "parkland", grassType: "bermuda" },
+  "the memorial tournament":       { courseType: "parkland", grassType: "bentgrass" },
+  "memorial tournament":           { courseType: "parkland", grassType: "bentgrass" },
+  // West Coast swing
+  "farmers insurance open":        { courseType: "parkland", grassType: "poa_annua" },
+  "at&t pebble beach pro-am":      { courseType: "links",    grassType: "poa_annua" },
+  "waste management phoenix open": { courseType: "desert",   grassType: "bermuda" },
+  "sony open in hawaii":           { courseType: "parkland", grassType: "bermuda" },
+  "the american express":          { courseType: "desert",   grassType: "bermuda" },
+  "the sentry":                    { courseType: "resort",   grassType: "bermuda" },
+  // Florida / Southeast swing
+  "valspar championship":          { courseType: "parkland", grassType: "bermuda" },
+  "the honda classic":             { courseType: "stadium",  grassType: "bermuda" },
+  "cognizant classic in the palm beaches": { courseType: "stadium", grassType: "bermuda" },
+  "truist championship":           { courseType: "stadium",  grassType: "bermuda" },
+  "valero texas open":             { courseType: "parkland", grassType: "bermuda" },
+  // Spring events
+  "rbc heritage":                  { courseType: "links",    grassType: "bermuda" },
+  "wells fargo championship":      { courseType: "parkland", grassType: "bentgrass" },
+  "the cj cup byron nelson":       { courseType: "parkland", grassType: "bermuda" },
+  "charles schwab challenge":      { courseType: "parkland", grassType: "bermuda" },
+  "zurich classic of new orleans": { courseType: "parkland", grassType: "bermuda" },
+  // Summer / summer swing
+  "rbc canadian open":             { courseType: "parkland", grassType: "bentgrass" },
+  "travelers championship":        { courseType: "parkland", grassType: "bentgrass" },
+  "rocket mortgage classic":       { courseType: "parkland", grassType: "bentgrass" },
+  "john deere classic":            { courseType: "parkland", grassType: "bentgrass" },
+  "3m open":                       { courseType: "parkland", grassType: "bentgrass" },
+  "the 3m open":                   { courseType: "parkland", grassType: "bentgrass" },
+  "wyndham championship":          { courseType: "parkland", grassType: "bentgrass" },
+  // FedEx / Playoffs
+  "bmw championship":              { courseType: "parkland", grassType: "bentgrass" },
+  "northern trust":                { courseType: "parkland", grassType: "bentgrass" },
+  "tour championship":             { courseType: "parkland", grassType: "bermuda" },
+  // Fall events
+  "sanderson farms championship":  { courseType: "parkland", grassType: "bermuda" },
+  "shriners children's open":      { courseType: "desert",   grassType: "bermuda" },
+  "world wide technology championship at mayakoba": { courseType: "resort", grassType: "bermuda" },
+  "the rsm classic":               { courseType: "resort",   grassType: "bermuda" },
+  "bermuda championship":          { courseType: "links",    grassType: "bermuda" },
+  "zozo championship":             { courseType: "parkland", grassType: "bermuda" },
+  "hero world challenge":          { courseType: "resort",   grassType: "bermuda" },
+  // WGC events
+  "wgc-dell technologies match play": { courseType: "parkland", grassType: "bermuda" },
+  "dell technologies match play":     { courseType: "parkland", grassType: "bermuda" },
+  "cj cup":                           { courseType: "desert",   grassType: "bermuda" },
+  "the cj cup":                       { courseType: "desert",   grassType: "bermuda" },
+};
+
 /** Fallback course/location data for well-known PGA events when ESPN API returns no venue. */
 const KNOWN_COURSES: Record<string, { course: string; location: string; par?: number; yardage?: number }> = {
   "valspar championship": { course: "Innisbrook Resort (Copperhead)", location: "Palm Harbor, FL", par: 71, yardage: 7340 },
@@ -266,18 +333,37 @@ const KNOWN_COURSES: Record<string, { course: string; location: string; par?: nu
   "tour championship": { course: "East Lake Golf Club", location: "Atlanta, GA", par: 70, yardage: 7346 },
 };
 
-function applyCourseFallback(tournament: GolfTournament): GolfTournament {
-  if (tournament.course !== "Course TBD" && tournament.location) return tournament;
+function applyCourseTaxonomy(tournament: GolfTournament): GolfTournament {
+  // Apply course taxonomy (type + grass) if not already set
+  if (tournament.courseType && tournament.grassType) return tournament;
   const key = tournament.name.toLowerCase().trim();
-  const fallback = KNOWN_COURSES[key];
-  if (!fallback) return tournament;
+  const taxonomy = COURSE_TAXONOMY[key];
+  if (!taxonomy) return tournament;
   return {
     ...tournament,
-    course: tournament.course === "Course TBD" ? fallback.course : tournament.course,
-    location: tournament.location || fallback.location,
-    coursePar: tournament.coursePar ?? fallback.par ?? null,
-    courseYardage: tournament.courseYardage ?? fallback.yardage ?? null,
+    courseType: tournament.courseType ?? taxonomy.courseType,
+    grassType: tournament.grassType ?? taxonomy.grassType,
   };
+}
+
+function applyCourseFallback(tournament: GolfTournament): GolfTournament {
+  const key = tournament.name.toLowerCase().trim();
+  // Apply location/par/yardage fallback
+  let result = tournament;
+  if (tournament.course === "Course TBD" || !tournament.location) {
+    const fallback = KNOWN_COURSES[key];
+    if (fallback) {
+      result = {
+        ...result,
+        course: result.course === "Course TBD" ? fallback.course : result.course,
+        location: result.location || fallback.location,
+        coursePar: result.coursePar ?? fallback.par ?? null,
+        courseYardage: result.courseYardage ?? fallback.yardage ?? null,
+      };
+    }
+  }
+  // Always try to apply course taxonomy enrichment
+  return applyCourseTaxonomy(result);
 }
 
 function getTournamentLocation(event: any) {

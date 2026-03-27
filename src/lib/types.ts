@@ -263,6 +263,20 @@ export type GolfPlayerHitRates = {
   under70_5: number;
 };
 
+/**
+ * Course surface type — ported from golf-predictions/data_files/course_metadata.json.
+ * links = exposed/coastal, parkland = tree-lined inland, desert = SW desert,
+ * stadium = purpose-built spectator design, resort = resort/vacation course.
+ */
+export type GolfCourseType = "links" | "parkland" | "desert" | "stadium" | "resort";
+
+/**
+ * Dominant grass type — affects ball flight, roll, and recovery shots.
+ * bermuda = warm-climate firm/fast, bentgrass = cool-climate soft/true,
+ * poa_annua = West-coast bumpy/slow, rye = links overseeding.
+ */
+export type GolfGrassType = "bermuda" | "bentgrass" | "poa_annua" | "rye";
+
 export type GolfTournament = {
   id: string;
   name: string;
@@ -276,6 +290,10 @@ export type GolfTournament = {
   location?: string;
   coursePar?: number | null;
   courseYardage?: number | null;
+  /** Course surface type (links / parkland / desert / stadium / resort). Sourced from course taxonomy. */
+  courseType?: GolfCourseType | null;
+  /** Dominant grass type (bermuda / bentgrass / poa_annua / rye). Influences ball behavior. */
+  grassType?: GolfGrassType | null;
   round?: number | null;
   statusDetail?: string;
   current?: boolean;

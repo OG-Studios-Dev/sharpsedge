@@ -1,8 +1,16 @@
+/**
+ * Suffix tokens that are stripped before comparison.
+ * Ported from golf-predictions/features/player_ids.py normalize_name().
+ * Handles Jr., Sr., II, III, IV, V — avoids "Davis Love III" ≠ "Davis Love" mismatches.
+ */
+const NAME_SUFFIX_RE = /\s+(jr\.?|sr\.?|ii|iii|iv|v)\s*$/i;
+
 function normalizeName(value: string) {
   return value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(NAME_SUFFIX_RE, "")    // strip generational suffixes (Jr, III, etc.)
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
