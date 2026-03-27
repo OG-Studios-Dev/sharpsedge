@@ -96,6 +96,24 @@ export const GOOSE_SIGNALS = [
    * Source: MLB Stats API standings splitRecords (homeRecord, awayRecord).
    */
   "home_away_edge",
+  /**
+   * Home plate umpire has a pitcher-friendly zone (tight zone → more called strikes,
+   * fewer walks, suppressed run environment). Good for UNDER and pitcher ML picks.
+   * Source: seeded UmpScorecards zone_tier 2019-2024 + MLB Stats API boxscore officials.
+   */
+  "umpire_pitcher_friendly",
+  /**
+   * Home plate umpire has a hitter-friendly zone (loose zone → more walks, more
+   * baserunners, elevated run environment). Good for OVER and run-scoring picks.
+   * Source: seeded UmpScorecards zone_tier 2019-2024 + MLB Stats API boxscore officials.
+   */
+  "umpire_hitter_friendly",
+  /**
+   * Team has a batting handedness advantage vs today's probable starter's throwing hand.
+   * Team OPS >= .720 vs pitcher's hand (moderate) or >= .750 (strong) this season.
+   * Source: MLB Stats API vsLeft/vsRight team batting splits (season cumulative).
+   */
+  "handedness_advantage",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

@@ -30,6 +30,8 @@
 
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { getMLBTeamSplitRates } from "@/lib/mlb-api";
+import { computeHandednessMatchup } from "@/lib/mlb-handedness";
+import type { HandednessAdvantage } from "@/lib/mlb-handedness";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -138,6 +140,30 @@ export interface MLBContextHints {
   /** Qualitative edge label from home/away splits */
   home_away_edge_label: "strong_home_edge" | "weak_road_opponent" | "both" | "none" | "insufficient_data";
 
+  // ── Umpire zone context ────────────────────────────────────
+  /** Home plate umpire name (null if not yet assigned) */
+  hp_ump_name: string | null;
+  /** Umpire zone tendency tier for this game */
+  ump_zone_tier: "pitcher_friendly" | "neutral" | "hitter_friendly";
+  /** Whether ump is pitcher-friendly (tight zone → suppressed run environment) */
+  ump_pitcher_friendly: boolean;
+  /** Whether ump is hitter-friendly (loose zone → elevated run environment) */
+  ump_hitter_friendly: boolean;
+  /** Human-readable umpire zone note */
+  ump_zone_note: string | null;
+
+  // ── Handedness matchup context ─────────────────────────────
+  /** Opponent's probable starter throwing hand (L/R/null) */
+  opponent_pitcher_hand: string | null;
+  /** Team's OPS vs opponent pitcher's hand this season */
+  team_ops_vs_hand: number | null;
+  /** Handedness advantage tier for this matchup */
+  handedness_advantage_tier: HandednessAdvantage;
+  /** Whether the handedness_advantage signal fires */
+  handedness_advantage_fires: boolean;
+  /** Human-readable handedness matchup note */
+  handedness_note: string | null;
+
   // ── Non-fatal warnings ─────────────────────────────────────
   warnings: string[];
 }
@@ -178,6 +204,16 @@ export function emptyMLBContextHints(): MLBContextHints {
     opponent_home_win_rate: null,
     opponent_away_win_rate: null,
     home_away_edge_label: "insufficient_data",
+    hp_ump_name: null,
+    ump_zone_tier: "neutral",
+    ump_pitcher_friendly: false,
+    ump_hitter_friendly: false,
+    ump_zone_note: null,
+    opponent_pitcher_hand: null,
+    team_ops_vs_hand: null,
+    handedness_advantage_tier: "unknown",
+    handedness_advantage_fires: false,
+    handedness_note: null,
     warnings: [],
   };
 }
@@ -251,6 +287,26 @@ export interface MLBFeatureSnapshot {
   is_home: boolean | null;
   /** Home/away edge label */
   home_away_edge_label: string;
+
+  // ── Umpire zone snapshot ───────────────────────────────────
+  /** Whether the umpire_pitcher_friendly signal fired */
+  umpire_pitcher_friendly_active: boolean;
+  /** Whether the umpire_hitter_friendly signal fired */
+  umpire_hitter_friendly_active: boolean;
+  /** Home plate umpire name at pick time */
+  hp_ump_name: string | null;
+  /** Umpire zone tier at pick time */
+  ump_zone_tier: string;
+
+  // ── Handedness matchup snapshot ────────────────────────────
+  /** Whether the handedness_advantage signal fired */
+  handedness_advantage_active: boolean;
+  /** Opponent pitcher hand at pick time */
+  opponent_pitcher_hand: string | null;
+  /** Team OPS vs opponent pitcher hand at pick time */
+  team_ops_vs_hand: number | null;
+  /** Handedness advantage tier at pick time */
+  handedness_advantage_tier: string;
 
   /** Warnings from context fetch */
   context_warnings: string[];
@@ -326,6 +382,25 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
    * Team's starter value is under-estimated by market → value edge for team ML / under bets.
    */
   team_era_unlucky: 0.60,
+  /**
+   * Home plate umpire is pitcher-friendly (tight zone → expanded called-strike rate).
+   * Pitcher-friendly umps suppress run scoring ~3-5% below league average.
+   * Good for UNDER bets, pitcher ML, and low-scoring-game picks.
+   * Source: seeded UmpScorecards 2019-2024 zone_tier classification.
+   */
+  umpire_pitcher_friendly: 0.58,
+  /**
+   * Home plate umpire is hitter-friendly (loose zone → elevated walk/baserunner rate).
+   * Hitter-friendly umps inflate run scoring ~3-5% above league average.
+   * Good for OVER bets and team ML picks with offense edge.
+   */
+  umpire_hitter_friendly: 0.57,
+  /**
+   * Team has a batting handedness advantage vs today's probable starter's hand.
+   * Team OPS >= .720 vs pitcher's hand (moderate) or >= .750 (strong).
+   * Source: MLB Stats API vsLeft/vsRight team batting splits, current season.
+   */
+  handedness_advantage: 0.58,
 };
 
 /**
@@ -429,6 +504,7 @@ export async function fetchMLBContextHints(
       getCachedMLBBoard(),
       getMLBTeamSplitRates(),
     ]);
+    // game-level umpire + handedness data will be pulled from the board once game is found
     const game = findMLBGame(board, team, opponent);
 
     if (!game) {
@@ -557,6 +633,27 @@ export async function fetchMLBContextHints(
       }
     }
 
+    // ── Umpire zone context ──────────────────────────────────
+    const umpireCtx = (game as unknown as { umpire?: { hp_ump_name?: string | null; zone_tier?: string; is_pitcher_friendly?: boolean; is_hitter_friendly?: boolean; zone_note?: string } | null }).umpire ?? null;
+    const hp_ump_name = umpireCtx?.hp_ump_name ?? null;
+    const ump_zone_tier = (umpireCtx?.zone_tier ?? "neutral") as MLBContextHints["ump_zone_tier"];
+    const ump_pitcher_friendly = umpireCtx?.is_pitcher_friendly ?? false;
+    const ump_hitter_friendly = umpireCtx?.is_hitter_friendly ?? false;
+    const ump_zone_note = umpireCtx?.zone_note ?? null;
+
+    // ── Handedness matchup context ───────────────────────────
+    const opponent_pitcher_hand = oppPitcher?.hand ?? null;
+    const boardHandedness = (game as unknown as { handedness?: { away?: unknown; home?: unknown } | null }).handedness ?? null;
+    const teamHandednessSplits = (isAway ? boardHandedness?.away : boardHandedness?.home) as Parameters<typeof computeHandednessMatchup>[0];
+    const handednessMatchup = computeHandednessMatchup(
+      teamHandednessSplits ?? null,
+      opponent_pitcher_hand,
+    );
+    const team_ops_vs_hand = handednessMatchup.team_ops_vs_hand;
+    const handedness_advantage_tier = handednessMatchup.advantage_tier;
+    const handedness_advantage_fires = handednessMatchup.signal_fires;
+    const handedness_note = handednessMatchup.note;
+
     // ── Auto-signal tagging ──────────────────────────────────
     const auto_signals: string[] = [];
 
@@ -605,6 +702,19 @@ export async function fetchMLBContextHints(
       auto_signals.push("team_era_unlucky");
     }
 
+    // Umpire zone signals
+    if (ump_pitcher_friendly) {
+      auto_signals.push("umpire_pitcher_friendly");
+    }
+    if (ump_hitter_friendly) {
+      auto_signals.push("umpire_hitter_friendly");
+    }
+
+    // Handedness advantage signal
+    if (handedness_advantage_fires) {
+      auto_signals.push("handedness_advantage");
+    }
+
     return {
       auto_signals,
       park_environment,
@@ -640,6 +750,16 @@ export async function fetchMLBContextHints(
       opponent_home_win_rate,
       opponent_away_win_rate,
       home_away_edge_label,
+      hp_ump_name,
+      ump_zone_tier,
+      ump_pitcher_friendly,
+      ump_hitter_friendly,
+      ump_zone_note,
+      opponent_pitcher_hand,
+      team_ops_vs_hand,
+      handedness_advantage_tier,
+      handedness_advantage_fires,
+      handedness_note,
       warnings,
     };
   } catch (err) {
@@ -738,6 +858,14 @@ export function scoreMLBFeaturesWithSnapshot(
     opponent_away_win_rate: contextHints?.opponent_away_win_rate ?? null,
     is_home: contextHints?.is_home ?? null,
     home_away_edge_label: contextHints?.home_away_edge_label ?? "insufficient_data",
+    umpire_pitcher_friendly_active: allSignals.includes("umpire_pitcher_friendly"),
+    umpire_hitter_friendly_active: allSignals.includes("umpire_hitter_friendly"),
+    hp_ump_name: contextHints?.hp_ump_name ?? null,
+    ump_zone_tier: contextHints?.ump_zone_tier ?? "neutral",
+    handedness_advantage_active: allSignals.includes("handedness_advantage"),
+    opponent_pitcher_hand: contextHints?.opponent_pitcher_hand ?? null,
+    team_ops_vs_hand: contextHints?.team_ops_vs_hand ?? null,
+    handedness_advantage_tier: contextHints?.handedness_advantage_tier ?? "unknown",
     context_warnings: contextHints?.warnings ?? [],
   };
 

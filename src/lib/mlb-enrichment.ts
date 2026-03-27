@@ -2,10 +2,12 @@ import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBScheduleRange } from "@/lib/mlb-api";
 import { buildMLBBullpenFatigueBoard } from "@/lib/mlb-bullpen";
 import { buildMLBF5MarketSnapshot } from "@/lib/mlb-f5";
+import { getMLBHandednessSplits } from "@/lib/mlb-handedness";
 import { getMLBLineupSnapshot } from "@/lib/mlb-lineups";
 import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getMLBParkFactor } from "@/lib/mlb-park-factors";
 import { getMLBStadiumForGame } from "@/lib/mlb-stadiums";
+import { getMLBUmpireContext } from "@/lib/mlb-umpire";
 import { getMLBWeatherForGame } from "@/lib/mlb-weather";
 import { buildSourceHealthCheck, summarizeSourceHealth } from "@/lib/source-health";
 
@@ -149,9 +151,14 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
   ]);
 
   const games = await Promise.all(schedule.map(async (game) => {
-    const [lineups, weather] = await Promise.all([
+    const [lineups, weather, umpire, awayHandedness, homeHandedness] = await Promise.all([
       getMLBLineupSnapshot(game),
       getMLBWeatherForGame(game),
+      // Umpire assignment from boxscore officials — available pre-game day-of
+      getMLBUmpireContext(game.id).catch(() => null),
+      // Team batting handedness splits vs LHP/RHP — null at season start
+      getMLBHandednessSplits(game.awayTeam.abbreviation).catch(() => null),
+      getMLBHandednessSplits(game.homeTeam.abbreviation).catch(() => null),
     ]);
 
     const parkFactor = getMLBParkFactor(game.homeTeam.abbreviation);
@@ -275,6 +282,13 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
       probableStarters,
       starterQuality,
       qualitySnapshots,
+      /** Home plate umpire assignment + zone-tendency profile (seeded 2019-2024 data) */
+      umpire: umpire ?? null,
+      /** Team batting handedness splits vs LHP/RHP for this season */
+      handedness: {
+        away: awayHandedness ?? null,
+        home: homeHandedness ?? null,
+      },
       sourceHealth,
       markets: {
         f5,
@@ -324,6 +338,8 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
       parkFactor: "Baseball Savant Statcast Park Factors",
       bullpen: "MLB Stats API boxscores",
       f5: "Aggregated sportsbook odds feeds when explicit first-five keys/markets are available",
+      umpire: "MLB Stats API boxscore officials (pre-game assignment) + seeded zone stats from UmpScorecards 2019-2024",
+      handedness: "MLB Stats API vsLeft/vsRight team batting splits (season cumulative)",
     },
     games,
   };

@@ -185,6 +185,23 @@ export async function GET() {
         home_away_edge_label: hints.home_away_edge_label,
         note: "Rates null at season start (< 3 games in each split). Will populate after ~5 games.",
       },
+      // ── New 2026-03-27 pass 3 signals ──────────────────────
+      umpire_context: {
+        hp_ump_name: hints.hp_ump_name,
+        ump_zone_tier: hints.ump_zone_tier,
+        ump_pitcher_friendly: hints.ump_pitcher_friendly,
+        ump_hitter_friendly: hints.ump_hitter_friendly,
+        ump_zone_note: hints.ump_zone_note,
+        note: "Umpire assigned in boxscore officials pre-game. Profile from seeded UmpScorecards 2019-2024 data.",
+      },
+      handedness_matchup: {
+        opponent_pitcher_hand: hints.opponent_pitcher_hand,
+        team_ops_vs_hand: hints.team_ops_vs_hand,
+        handedness_advantage_tier: hints.handedness_advantage_tier,
+        handedness_advantage_fires: hints.handedness_advantage_fires,
+        handedness_note: hints.handedness_note,
+        note: "Handedness splits from MLB Stats API vsLeft/vsRight. Null at season start — expected, non-fatal.",
+      },
       warnings: hints.warnings,
       ms: Date.now() - t3,
     };
@@ -218,6 +235,9 @@ export async function GET() {
       "home_field",
       "pitcher_command",
       "home_away_edge",
+      "umpire_pitcher_friendly",
+      "umpire_hitter_friendly",
+      "handedness_advantage",
     ];
     const emptyWeightMap = buildMLBWeightMap([]);
     const { score, snapshot } = scoreMLBFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
@@ -231,6 +251,14 @@ export async function GET() {
       weak_starter_active: snapshot.weak_starter_active,
       pitcher_command_active: snapshot.pitcher_command_active,
       home_away_edge_active: snapshot.home_away_edge_active,
+      umpire_pitcher_friendly_active: snapshot.umpire_pitcher_friendly_active,
+      umpire_hitter_friendly_active: snapshot.umpire_hitter_friendly_active,
+      handedness_advantage_active: snapshot.handedness_advantage_active,
+      hp_ump_name: snapshot.hp_ump_name,
+      ump_zone_tier: snapshot.ump_zone_tier,
+      opponent_pitcher_hand: snapshot.opponent_pitcher_hand,
+      team_ops_vs_hand: snapshot.team_ops_vs_hand,
+      handedness_advantage_tier: snapshot.handedness_advantage_tier,
       priors_applied: snapshot.signal_priors_applied,
       mlb_feature_score: snapshot.mlb_feature_score.toFixed(4),
     };
@@ -252,32 +280,31 @@ export async function GET() {
     statcast_pitcher: {
       gap: "FIP / xFIP / K% / BB% / WHIP from Statcast per-pitcher",
       impact: "Would sharpen probable_pitcher_weak/ace thresholds from ERA-only to process-level metrics",
-      current_proxy: "ERA from MLB Stats API schedule hydrate (available, used)",
-      status: "missing — no free live API; would require Baseball Reference scraping or paid Statcast API",
+      current_proxy: "ERA+WHIP blend from MLB Stats API (live) + FIP computed from HR/BB/K/IP (season)",
+      status: "FIP/ERA-FIP divergence now live; xFIP/K% still missing (no free Statcast API)",
     },
     bvp_splits: {
-      gap: "Batter vs Pitcher historical splits (OPS vs handedness)",
-      impact: "Would add lineup-level edge detection for player props",
-      current_proxy: "None — batter hand available from lineup snapshot; pitcher hand from probable starter",
-      status: "missing — MLB Stats API splits endpoint requires pitcher/batter ID cross-lookup per game",
+      gap: "Individual batter vs pitcher historical splits (per-player OPS matchup)",
+      impact: "Would add lineup-level edge for player props",
+      current_proxy: "Team-level handedness splits vs LHP/RHP (live, MLB Stats API vsLeft/vsRight)",
+      status: "Team handedness advantage NOW LIVE (2026-03-27). Individual BvP per-batter cross-lookup remains blocked — ~6 API calls/game, needs lineup to be official first.",
     },
     umpire_tendencies: {
-      gap: "Home plate umpire K-rate, walk-rate, and zone tendencies",
-      impact: "Moderate for totals/K props",
-      current_proxy: "None",
-      status: "missing — no automated umpire assignment feed in current rails",
+      gap: "Per-umpire live zone stats",
+      current_proxy: "Seeded UmpScorecards 2019-2024 zone_tier + live HP ump assignment from boxscore",
+      status: "NOW LIVE (2026-03-27): umpire_pitcher_friendly + umpire_hitter_friendly signals active. Zone stats seeded, not live — could be refreshed from UmpScorecards public data annually.",
     },
     il_injury_diff: {
       gap: "Structured MLB IL/DL add/remove diff feed",
       impact: "Would allow real-time lineup_change signal detection for player props",
-      current_proxy: "Lineup status (official/partial/unconfirmed) is available",
+      current_proxy: "Lineup status (official/partial/unconfirmed) available",
       status: "missing — MLB doesn't publish a structured IL diff; would require scraping RotoWire/beat reporters",
     },
     live_lineup_completion: {
-      gap: "Official lineups are only confirmed ~2–3h pre-game via MLB live feed",
+      gap: "Official lineups only confirmed ~2–3h pre-game via MLB live feed",
       impact: "Early-morning picks may have unconfirmed lineup status",
       current_proxy: "lineup_status field in MLBContextHints explicitly marks unconfirmed games",
-      status: "partial — rail exists, confirmed lineups expose batting order; pre-game window is a known timing gap",
+      status: "partial — rail exists; pre-game window is a known timing gap",
     },
   };
 
@@ -294,7 +321,7 @@ export async function GET() {
     pipeline: {
       source: "MLB Stats API (statsapi.mlb.com) + Open-Meteo + seeded Statcast park factors",
       ingestion: "mlb-enrichment.ts → getMLBEnrichmentBoard() → [schedule, lineups, weather, bullpen, park factors, probable pitchers]",
-      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace, pitcher_command, home_away_edge]",
+      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace, pitcher_command, home_away_edge, umpire_pitcher_friendly, umpire_hitter_friendly, handedness_advantage, opponent_era_lucky, team_era_unlucky]",
       snapshot: "mlb-features.ts → scoreMLBFeaturesWithSnapshot() → pick_snapshot.factors.mlb_features",
       goose_model: "/api/admin/goose-model/generate { sport: MLB }",
       scoring: "signal-tagger + MLB priors + context auto-signals (park/weather/bullpen/pitchers) → 20% MLB blend / 80% base",

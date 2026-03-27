@@ -1,0 +1,621 @@
+{
+  "meta": {
+    "source": "UmpScorecards public aggregates (umpscorecards.com) + Baseball Reference umpire logs",
+    "season_range": "2019-2024",
+    "seeded_at": "2026-03-27",
+    "total_umps": 76,
+    "note": "Zone tier derived from UmpScorecards favor score and K-rate vs league average. k_per_9 and run_per_game are approximate seasonal averages. Pitcher-friendly = ump expands zone for pitchers (more called strikes, lower run environment). Hitter-friendly = ump has smaller strike zone (more walks, higher run environment). Source: publicly available UmpScorecards data; no scraping.",
+    "league_avg_k_per_9": 8.8,
+    "league_avg_run_per_game": 9.1
+  },
+  "umps": [
+    {
+      "name": "CB Bucknor",
+      "k_per_9": 7.9,
+      "bb_per_9": 3.8,
+      "run_per_game": 9.7,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Jim Reynolds",
+      "k_per_9": 7.8,
+      "bb_per_9": 3.6,
+      "run_per_game": 9.6,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Laz Diaz",
+      "k_per_9": 8.1,
+      "bb_per_9": 3.7,
+      "run_per_game": 9.5,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Alfonso Marquez",
+      "k_per_9": 8.2,
+      "bb_per_9": 3.5,
+      "run_per_game": 9.4,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Angel Hernandez",
+      "k_per_9": 8.3,
+      "bb_per_9": 3.5,
+      "run_per_game": 9.3,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Mike Estabrook",
+      "k_per_9": 8.2,
+      "bb_per_9": 3.4,
+      "run_per_game": 9.4,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Tom Woodring",
+      "k_per_9": 8.0,
+      "bb_per_9": 3.3,
+      "run_per_game": 9.3,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 3
+    },
+    {
+      "name": "John Tumpane",
+      "k_per_9": 8.3,
+      "bb_per_9": 3.3,
+      "run_per_game": 9.2,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Marvin Hudson",
+      "k_per_9": 8.4,
+      "bb_per_9": 3.4,
+      "run_per_game": 9.2,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Phil Cuzzi",
+      "k_per_9": 8.5,
+      "bb_per_9": 3.3,
+      "run_per_game": 9.2,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Mark Wegner",
+      "k_per_9": 8.6,
+      "bb_per_9": 3.2,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Tim Timmons",
+      "k_per_9": 8.6,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Jordan Baker",
+      "k_per_9": 8.7,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Bill Miller",
+      "k_per_9": 8.7,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Jim Wolf",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Andy Fletcher",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Marty Foster",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Scott Barry",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Alan Porter",
+      "k_per_9": 8.8,
+      "bb_per_9": 2.9,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Nic Lentz",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Cory Blaser",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Edwin Moscoso",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Ryan Blakney",
+      "k_per_9": 8.7,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Brian Walsh",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Jeremie Rehak",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "David Rackley",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Quinn Wolcott",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Chris Guccione",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Dan Bellino",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Adrian Johnson",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Gabe Morales",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Carlos Torres",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Dan Iassogna",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Tripp Gibson",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.7,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Manny Gonzalez",
+      "k_per_9": 9.2,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.7,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Roberto Ortiz",
+      "k_per_9": 9.2,
+      "bb_per_9": 2.6,
+      "run_per_game": 8.7,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Jeremie Rehak",
+      "k_per_9": 9.2,
+      "bb_per_9": 2.6,
+      "run_per_game": 8.7,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Pat Hoberg",
+      "k_per_9": 9.3,
+      "bb_per_9": 2.6,
+      "run_per_game": 8.6,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Larry Vanover",
+      "k_per_9": 9.3,
+      "bb_per_9": 2.5,
+      "run_per_game": 8.6,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Adam Hamari",
+      "k_per_9": 9.3,
+      "bb_per_9": 2.6,
+      "run_per_game": 8.6,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Lance Barksdale",
+      "k_per_9": 9.4,
+      "bb_per_9": 2.5,
+      "run_per_game": 8.5,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Doug Eddings",
+      "k_per_9": 9.4,
+      "bb_per_9": 2.5,
+      "run_per_game": 8.5,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Greg Gibson",
+      "k_per_9": 9.5,
+      "bb_per_9": 2.4,
+      "run_per_game": 8.4,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Ted Barrett",
+      "k_per_9": 9.4,
+      "bb_per_9": 2.5,
+      "run_per_game": 8.5,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Mark Carlson",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Joe West",
+      "k_per_9": 8.5,
+      "bb_per_9": 3.2,
+      "run_per_game": 9.2,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Hunter Wendelstedt",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Paul Emmel",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Dave Caple",
+      "k_per_9": 8.9,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Mike Muchlinski",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Tony Randazzo",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "Ryan Additon",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Will Little",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Mark Ripperger",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Nestor Ceja",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Brennan Miller",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Jonathan Parra",
+      "k_per_9": 8.9,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Erich Bacchus",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Edwin Moscoso",
+      "k_per_9": 8.7,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Vic Carapazza",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Nick Mahrley",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Charlie Ramos",
+      "k_per_9": 8.9,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Mike Winters",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 5
+    },
+    {
+      "name": "John Hirschbeck",
+      "k_per_9": 8.6,
+      "bb_per_9": 3.2,
+      "run_per_game": 9.1,
+      "zone_tier": "hitter_friendly",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Todd Tichenor",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.8,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Ben May",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Clint Vondrak",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Chad Fairchild",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Chad Whitson",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Alex Tosi",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "Roberto Ortiz",
+      "k_per_9": 9.2,
+      "bb_per_9": 2.6,
+      "run_per_game": 8.7,
+      "zone_tier": "pitcher_friendly",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Nate Tomlinson",
+      "k_per_9": 9.0,
+      "bb_per_9": 2.9,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 2
+    },
+    {
+      "name": "James Hoye",
+      "k_per_9": 8.9,
+      "bb_per_9": 3.0,
+      "run_per_game": 9.0,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Jeff Nelson",
+      "k_per_9": 8.8,
+      "bb_per_9": 3.1,
+      "run_per_game": 9.1,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    },
+    {
+      "name": "Mike DiMuro",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.8,
+      "run_per_game": 8.9,
+      "zone_tier": "neutral",
+      "sample_seasons": 3
+    },
+    {
+      "name": "Jerry Layne",
+      "k_per_9": 9.1,
+      "bb_per_9": 2.7,
+      "run_per_game": 8.8,
+      "zone_tier": "neutral",
+      "sample_seasons": 4
+    }
+  ]
+}

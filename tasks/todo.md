@@ -396,6 +396,64 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 
 ---
 
+## MLB Signal Buildout — 2026-03-27 (pass 3 — umpire zone rail + handedness splits)
+
+### What was implemented
+
+**Umpire Zone Rail** ✅ LIVE
+- New file: `src/lib/mlb-umpire.ts`
+  - `getMLBUmpireContext(gamePk)` — fetches HP ump from MLB Stats API boxscore officials pre-game
+  - Seeded ump profile lookup from `src/data/mlb-umpire-stats.json` (76 active MLB umps)
+  - Zone tier classification: `pitcher_friendly` | `neutral` | `hitter_friendly`
+  - Fuzzy name matching (handles MLB API name format variations)
+  - 60-min cache per gamePk (assignment stable day-of)
+- New file: `src/data/mlb-umpire-stats.json`
+  - 76 MLB umpires seeded from UmpScorecards + Baseball Reference 2019-2024 aggregates
+  - Per ump: k_per_9, bb_per_9, run_per_game, zone_tier, sample_seasons
+  - Source and provenance documented in meta block — no scraping, seeded static
+- New signals in `GOOSE_SIGNALS` (types.ts):
+  - `umpire_pitcher_friendly` (prior: 0.58) — tight zone, suppressed run environment
+  - `umpire_hitter_friendly` (prior: 0.57) — loose zone, elevated run environment
+- Auto-tags in `fetchMLBContextHints()` from enrichment board umpire context
+- New `MLBContextHints` fields: `hp_ump_name`, `ump_zone_tier`, `ump_pitcher_friendly`, `ump_hitter_friendly`, `ump_zone_note`
+- New `MLBFeatureSnapshot` fields: `umpire_pitcher_friendly_active`, `umpire_hitter_friendly_active`, `hp_ump_name`, `ump_zone_tier`
+- Signal patterns added to `signal-tagger.ts`
+
+**Team Batting Handedness Splits** ✅ LIVE
+- New file: `src/lib/mlb-handedness.ts`
+  - `getMLBHandednessSplits(teamAbbrev)` — MLB Stats API vsLeft/vsRight team batting splits
+  - `computeHandednessMatchup(splits, pitcherHand)` — derives advantage tier vs opponent's hand
+  - Advantage tiers: strong_advantage (OPS ≥ .750), moderate_advantage (≥ .720), neutral, disadvantage (≤ .680), unknown
+  - 60-min cache; null at season start (< 30 AB) — non-fatal, expected
+- New signal: `handedness_advantage` (prior: 0.58)
+  - Fires when team OPS vs pitcher's hand is ≥ .720 (moderate) or ≥ .750 (strong)
+  - Requires pitcher throwing hand from probablePitcher.hand (available when MLB API includes it)
+- Wired via enrichment board: `game.handedness.away` / `game.handedness.home`
+- New `MLBContextHints` fields: `opponent_pitcher_hand`, `team_ops_vs_hand`, `handedness_advantage_tier`, `handedness_advantage_fires`, `handedness_note`
+- New `MLBFeatureSnapshot` fields: `handedness_advantage_active`, `opponent_pitcher_hand`, `team_ops_vs_hand`, `handedness_advantage_tier`
+
+**Enrichment Board Extended** ✅
+- `mlb-enrichment.ts`: umpire + handedness fetched in parallel with lineups/weather per game
+- Both exposed in board game objects: `game.umpire`, `game.handedness.{away,home}`
+- Sources updated in board metadata
+- Error-isolated (`.catch(() => null)`) — failures don't break board generation
+
+**Debug Route Updated** ✅
+- Step 3 (context_hints): new `umpire_context` and `handedness_matchup` sub-objects
+- Step 5 (feature_scorer): umpire + handedness signals in test, priors confirmed, snapshot keys exported
+- Remaining gaps updated to reflect what's now live vs still blocked
+
+**Build + Live API Verification** ✅
+- `tsc --noEmit`: 0 errors
+- `npm run build`: clean
+- `GET /api/debug/mlb`: status=ok, 8 games
+  - `umpire_context.hp_ump_name = "Chad Fairchild"` (NYY @ SF game — successfully fetched from boxscore)
+  - `umpire_context.ump_zone_note = "Chad Fairchild — neutral zone tendencies (k/9 9, bb/9 2.9)."` (seeded profile matched)
+  - `handedness_matchup.handedness_advantage_tier = "unknown"` (pitcher hand null for Schlittler at season start — expected)
+  - `feature_scorer.priors_applied` confirms all 3 new signals wired: umpire_pitcher_friendly=0.58, umpire_hitter_friendly=0.57, handedness_advantage=0.58
+
+---
+
 ## MLB Signal Buildout — 2026-03-27 (pass 2 — pitcher_command + home_away_edge)
 
 ### What was implemented
@@ -453,16 +511,37 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 | matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
 | lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
 
+### MLB Signal Status Matrix (after 2026-03-27 pass 3)
+
+| Signal | Status | Source | Prior |
+|---|---|---|---|
+| park_factor | ✅ LIVE | Seeded Statcast park factors | 0.61 |
+| weather_wind | ✅ LIVE | Open-Meteo via mlb-weather.ts | 0.61 |
+| bullpen_fatigue | ✅ LIVE | MLB Stats API L3 boxscores | 0.60 |
+| probable_pitcher_weak | ✅ LIVE | ERA quality score ≤ 45 | 0.63 |
+| probable_pitcher_ace | ✅ LIVE | ERA quality score ≥ 65 | 0.62 |
+| pitcher_command | ✅ LIVE | K/BB from schedule hydrate | 0.60 |
+| home_away_edge | ✅ LIVE | Standings homeRecord/awayRecord | 0.57 |
+| opponent_era_lucky | ✅ LIVE | ERA-FIP divergence (< -0.75) | 0.61 |
+| team_era_unlucky | ✅ LIVE | ERA-FIP divergence (> +0.75) | 0.60 |
+| umpire_pitcher_friendly | ✅ LIVE (2026-03-27 p3) | MLB boxscore officials + seeded UmpScorecards 2019-2024 | 0.58 |
+| umpire_hitter_friendly | ✅ LIVE (2026-03-27 p3) | MLB boxscore officials + seeded UmpScorecards 2019-2024 | 0.57 |
+| handedness_advantage | ✅ LIVE (2026-03-27 p3) | MLB Stats API vsLeft/vsRight team batting splits | 0.58 |
+| home_field | 🟡 PRIORS ONLY | No auto-tag yet | 0.54 |
+| streak_form | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.60 |
+| matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
+| lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
+
 ### Remaining Blockers / Next MLB Build Order
 
 | Priority | Feature | Blocker | Path |
 |---|---|---|---|
-| P1 | Batter vs Pitcher splits (BvP) | MLB Stats API splits endpoint requires per-player cross-lookup | Architecture ready; need split-fetch layer + BvP signal |
-| P2 | Umpire assignment rail | No live umpire API; historical stats need seeded JSON | gamePk available; ump stats seeded JSON like park factors |
-| P3 | K/BB signal fully live | Season-start (< 5 IP) returns null; will auto-populate | No action needed — self-resolves as season progresses |
+| P1 | Individual BvP splits | MLB Stats API per-player cross-lookup (~6 calls/game, needs official lineup) | Architecture ready; needs lineup-confirmed trigger + per-batter split-fetch |
+| P2 | K/BB signal fully live | Season-start (< 5 IP) returns null; will auto-populate | No action needed — self-resolves as season progresses |
+| P3 | Handedness splits live | Opening Day returns no AB (vsLeft/vsRight endpoint returns empty at season start) | Self-resolves after ~30+ AB vs each hand |
 | P4 | Home/away splits live | Opening Day returns insufficient_data; populates after ~5 games | No action needed — self-resolves |
 | P5 | IL/injury diff rail | No structured MLB IL feed; RotoWire scraping is brittle | Best proxy: lineup_status field already in context |
-| P6 | BvP handedness splits | Pitcher hand + batter hand (L/R) available; OPS vs LHP/RHP not | Needs historical stat lookup or Statcast |
+| P6 | Umpire seed refresh | 76 umps seeded; newer/less-active umps may not match | Refresh from UmpScorecards annually or add missing umps as they appear |
 
 ### MLB extraction shortlist (worth porting later)
 - **P1 — Batter vs Pitcher splits** (BvP):

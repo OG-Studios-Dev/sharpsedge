@@ -289,6 +289,30 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bhome\/away\s+split\b/i,
     /\bwinning\s+at\s+home\b/i,
   ],
+  // ── MLB umpire zone signals ────────────────────────────────
+  umpire_pitcher_friendly: [
+    /\bumpire.*(?:pitcher[\s-]friendly|tight zone|small zone|low[- ]scoring zone)\b/i,
+    /\b(?:HP|home\s+plate)\s+ump(?:ire)?\s+(?:favors?|tight|suppresses?)\b/i,
+    /\bumpire\s+(?:zone\s+)?tends?\s+(?:to\s+)?(?:favor|help)\s+pitchers?\b/i,
+    /\bpitcher[\s-]friendly\s+(?:zone|ump(?:ire)?)\b/i,
+    /\btight\s+strike\s+zone\b/i,
+  ],
+  umpire_hitter_friendly: [
+    /\bumpire.*(?:hitter[\s-]friendly|loose zone|wide zone|high[- ]scoring zone)\b/i,
+    /\b(?:HP|home\s+plate)\s+ump(?:ire)?\s+(?:loose|favors?\s+hitters?|expands?)\b/i,
+    /\bumpire\s+(?:zone\s+)?tends?\s+(?:to\s+)?(?:favor|help)\s+(?:hitters?|batters?)\b/i,
+    /\bhitter[\s-]friendly\s+(?:zone|ump(?:ire)?)\b/i,
+    /\bexpanded?\s+strike\s+zone\b/i,
+  ],
+  // ── MLB handedness advantage ───────────────────────────────
+  handedness_advantage: [
+    /\bhandedness\s+(?:advantage|edge|matchup)\b/i,
+    /\bops\s+vs\s+(?:lhp|rhp|lefty|righty)\b/i,
+    /\bteam\s+(?:hits|bats)\s+well\s+(?:vs|against)\s+(?:left|right)[\s-]?handers?\b/i,
+    /\bbatting\s+(?:split|splits)\s+(?:vs|against)\s+(?:lhp|rhp|lefties?|righties?)\b/i,
+    /\bfavorable\s+(?:pitcher\s+)?hand(?:edness)?\s+matchup\b/i,
+    /\bteam\s+(?:advantage|edge)\s+(?:vs|against)\s+(?:lefties?|righties?|lhp|rhp)\b/i,
+  ],
   // ── NHL per-player xG quality ──────────────────────────────
   player_shot_quality_edge: [
     /\bxg[\s-]?(?:per[\s-]?game|quality|generators?)\b/i,
