@@ -264,6 +264,31 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bhigh[\s-]?danger\s+save\s+(?:rate|percentage|weakness)\b/i,
     /\bgoalie.*(?:weak|poor|bad)\s+(?:in|from)\s+(?:slot|close|danger)\b/i,
   ],
+  // ── MLB pitcher command / K/BB ────────────────────────────
+  pitcher_command: [
+    /\bk\/bb\b/i,
+    /\bstrike[\s-]?out.*walk.*ratio\b/i,
+    /\bcommand\b.*(?:pitcher|starter|mound)/i,
+    /\bfew(?:er)?\s+walks\b/i,
+    /\blow\s+walk\s+rate\b/i,
+    /\bhigh\s+strikeout.*walk\b/i,
+    /\bpitcher.*control\b/i,
+    /\bgood\s+command\b/i,
+    /\blimits?\s+(?:free\s+)?(?:baserunners?|walks?)\b/i,
+    /\bk\s+rate.*bb\s+rate\b/i,
+  ],
+  // ── MLB home/away split edge ──────────────────────────────
+  home_away_edge: [
+    /\bstrong\s+at\s+home\b/i,
+    /\bhome\s+win\s+(?:rate|percentage|record)\b/i,
+    /\baway\s+win\s+(?:rate|percentage|record)\b/i,
+    /\bstruggl(?:es?|ing)\s+on\s+(?:the\s+)?road\b/i,
+    /\bpoor\s+(?:away|road)\s+(?:record|team)\b/i,
+    /\bsolid\s+home(?:\s+record)?\b/i,
+    /\bexcellent\s+(?:home|away)\s+record\b/i,
+    /\bhome\/away\s+split\b/i,
+    /\bwinning\s+at\s+home\b/i,
+  ],
   // ── NHL per-player xG quality ──────────────────────────────
   player_shot_quality_edge: [
     /\bxg[\s-]?(?:per[\s-]?game|quality|generators?)\b/i,

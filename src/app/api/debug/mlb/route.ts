@@ -168,6 +168,23 @@ export async function GET() {
       opponent_starter_quality: hints.opponent_starter_quality,
       team_lineup_status: hints.team_lineup_status,
       opponent_lineup_status: hints.opponent_lineup_status,
+      // ── New MLB signals (2026-03-27 pass 2) ────────────────
+      pitcher_command: {
+        team_starter_k_bb: hints.team_starter_k_bb,
+        opponent_starter_k_bb: hints.opponent_starter_k_bb,
+        team_starter_command: hints.team_starter_command,
+        opponent_starter_weak_command: hints.opponent_starter_weak_command,
+        note: "K/BB requires >= 5 IP; null at season start is expected and not a bug",
+      },
+      home_away_splits: {
+        is_home: hints.is_home,
+        team_home_win_rate: hints.team_home_win_rate,
+        team_away_win_rate: hints.team_away_win_rate,
+        opponent_home_win_rate: hints.opponent_home_win_rate,
+        opponent_away_win_rate: hints.opponent_away_win_rate,
+        home_away_edge_label: hints.home_away_edge_label,
+        note: "Rates null at season start (< 3 games in each split). Will populate after ~5 games.",
+      },
       warnings: hints.warnings,
       ms: Date.now() - t3,
     };
@@ -199,6 +216,8 @@ export async function GET() {
       "weather_wind",
       "bullpen_fatigue",
       "home_field",
+      "pitcher_command",
+      "home_away_edge",
     ];
     const emptyWeightMap = buildMLBWeightMap([]);
     const { score, snapshot } = scoreMLBFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
@@ -210,6 +229,8 @@ export async function GET() {
       weather_wind_active: snapshot.weather_wind_active,
       bullpen_fatigue_active: snapshot.bullpen_fatigue_active,
       weak_starter_active: snapshot.weak_starter_active,
+      pitcher_command_active: snapshot.pitcher_command_active,
+      home_away_edge_active: snapshot.home_away_edge_active,
       priors_applied: snapshot.signal_priors_applied,
       mlb_feature_score: snapshot.mlb_feature_score.toFixed(4),
     };
@@ -273,7 +294,7 @@ export async function GET() {
     pipeline: {
       source: "MLB Stats API (statsapi.mlb.com) + Open-Meteo + seeded Statcast park factors",
       ingestion: "mlb-enrichment.ts → getMLBEnrichmentBoard() → [schedule, lineups, weather, bullpen, park factors, probable pitchers]",
-      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace]",
+      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace, pitcher_command, home_away_edge]",
       snapshot: "mlb-features.ts → scoreMLBFeaturesWithSnapshot() → pick_snapshot.factors.mlb_features",
       goose_model: "/api/admin/goose-model/generate { sport: MLB }",
       scoring: "signal-tagger + MLB priors + context auto-signals (park/weather/bullpen/pitchers) → 20% MLB blend / 80% base",

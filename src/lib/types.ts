@@ -174,6 +174,10 @@ export type MLBProbablePitcher = {
   name: string;
   hand?: string;
   era?: number | null;
+  whip?: number | null;
+  strikeOuts?: number | null;
+  baseOnBalls?: number | null;
+  inningsPitched?: number | null;
   wins?: number;
   losses?: number;
 };

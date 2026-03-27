@@ -49,10 +49,11 @@ function buildStarterQuality(pitcher: {
   hand?: string;
   era?: number | null;
   whip?: number | null;
-  strikeOuts?: number;
-  baseOnBalls?: number;
-  wins?: number;
-  losses?: number;
+  strikeOuts?: number | null;
+  baseOnBalls?: number | null;
+  inningsPitched?: number | null;
+  wins?: number | null;
+  losses?: number | null;
 }) {
   const era = pitcher.era ?? null;
   const whip = pitcher.whip ?? null;

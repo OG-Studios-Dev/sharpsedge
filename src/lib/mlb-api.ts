@@ -571,3 +571,71 @@ export async function getMLBTeamRoster(teamId: number): Promise<MLBPlayer[]> {
 export function getCurrentMLBSeason(date = new Date()) {
   return Number(getDateKey(date, MLB_TIME_ZONE).slice(0, 4));
 }
+
+// ── Team split rates ─────────────────────────────────────────
+
+export type MLBTeamSplitRates = {
+  teamAbbrev: string;
+  homeWins: number;
+  homeLosses: number;
+  homeWinRate: number | null;
+  awayWins: number;
+  awayLosses: number;
+  awayWinRate: number | null;
+  lastTenWins: number;
+  lastTenLosses: number;
+  lastTenWinRate: number | null;
+};
+
+/** Standing split-rate cache: abbrev → rates */
+const _splitRateCache: Map<string, MLBTeamSplitRates> = new Map();
+let _splitRateCacheExpiry = 0;
+const SPLIT_RATE_TTL = 30 * 60 * 1000; // 30 min
+
+function parseWinRate(record: string): { wins: number; losses: number; rate: number | null } {
+  const [wStr, lStr] = record.split("-");
+  const wins = parseInt(wStr, 10) || 0;
+  const losses = parseInt(lStr, 10) || 0;
+  const total = wins + losses;
+  return { wins, losses, rate: total >= 3 ? wins / total : null };
+}
+
+/**
+ * Fetch home/away/last-10 win rates for all MLB teams from the standings API.
+ * Returns a map of teamAbbrev → MLBTeamSplitRates.
+ * Results are cached for 30 min (standings only update after completed games).
+ */
+export async function getMLBTeamSplitRates(
+  season = getCurrentMLBSeason(),
+): Promise<Map<string, MLBTeamSplitRates>> {
+  const now = Date.now();
+  if (_splitRateCache.size > 0 && now < _splitRateCacheExpiry) {
+    return _splitRateCache;
+  }
+
+  try {
+    const standings = await getMLBStandings(season);
+    _splitRateCache.clear();
+    for (const s of standings) {
+      const home = parseWinRate(s.homeRecord);
+      const away = parseWinRate(s.awayRecord);
+      // lastTen from streak is not directly available in standing object; use wins/losses only
+      _splitRateCache.set(s.teamAbbrev, {
+        teamAbbrev: s.teamAbbrev,
+        homeWins: home.wins,
+        homeLosses: home.losses,
+        homeWinRate: home.rate,
+        awayWins: away.wins,
+        awayLosses: away.losses,
+        awayWinRate: away.rate,
+        lastTenWins: 0,
+        lastTenLosses: 0,
+        lastTenWinRate: null,
+      });
+    }
+    _splitRateCacheExpiry = now + SPLIT_RATE_TTL;
+  } catch (err) {
+    console.warn("[mlb-api] getMLBTeamSplitRates failed:", err);
+  }
+  return _splitRateCache;
+}

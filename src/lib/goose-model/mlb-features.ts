@@ -29,6 +29,7 @@
 // ============================================================
 
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
+import { getMLBTeamSplitRates } from "@/lib/mlb-api";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -84,6 +85,30 @@ export interface MLBContextHints {
   /** Lineup confirmation status for the opponent */
   opponent_lineup_status: "official" | "partial" | "unconfirmed" | "unknown";
 
+  // ── Pitcher command (K/BB) context ────────────────────────
+  /** K/BB ratio for team's probable starter (null if insufficient IP or missing stats) */
+  team_starter_k_bb: number | null;
+  /** K/BB ratio for opponent's probable starter */
+  opponent_starter_k_bb: number | null;
+  /** Whether team's starter has commanding K/BB (>= 3.0, with >= 5 IP) */
+  team_starter_command: boolean;
+  /** Whether opponent's starter has weak command (K/BB < 2.0, with >= 5 IP) */
+  opponent_starter_weak_command: boolean;
+
+  // ── Home/away split context ────────────────────────────────
+  /** Whether the team for this pick is the home team */
+  is_home: boolean | null;
+  /** Team's home win rate (null if fewer than 3 home games played) */
+  team_home_win_rate: number | null;
+  /** Team's away win rate (null if fewer than 3 away games played) */
+  team_away_win_rate: number | null;
+  /** Opponent's home win rate */
+  opponent_home_win_rate: number | null;
+  /** Opponent's away win rate */
+  opponent_away_win_rate: number | null;
+  /** Qualitative edge label from home/away splits */
+  home_away_edge_label: "strong_home_edge" | "weak_road_opponent" | "both" | "none" | "insufficient_data";
+
   // ── Non-fatal warnings ─────────────────────────────────────
   warnings: string[];
 }
@@ -108,6 +133,16 @@ export function emptyMLBContextHints(): MLBContextHints {
     opponent_starter_quality: null,
     team_lineup_status: "unknown",
     opponent_lineup_status: "unknown",
+    team_starter_k_bb: null,
+    opponent_starter_k_bb: null,
+    team_starter_command: false,
+    opponent_starter_weak_command: false,
+    is_home: null,
+    team_home_win_rate: null,
+    team_away_win_rate: null,
+    opponent_home_win_rate: null,
+    opponent_away_win_rate: null,
+    home_away_edge_label: "insufficient_data",
     warnings: [],
   };
 }
@@ -150,6 +185,25 @@ export interface MLBFeatureSnapshot {
   team_starter_quality: number | null;
   /** Opponent starter quality score */
   opponent_starter_quality: number | null;
+
+  /** Whether pitcher command signal fired for team's starter */
+  pitcher_command_active: boolean;
+  /** Whether home/away split edge fired */
+  home_away_edge_active: boolean;
+
+  // ── Numeric snapshots for new signals ─────────────────────
+  /** K/BB ratio for team's starter at pick time */
+  team_starter_k_bb: number | null;
+  /** K/BB ratio for opponent's starter at pick time */
+  opponent_starter_k_bb: number | null;
+  /** Team's home win rate at pick time */
+  team_home_win_rate: number | null;
+  /** Opponent's away win rate at pick time */
+  opponent_away_win_rate: number | null;
+  /** Whether team is the home team */
+  is_home: boolean | null;
+  /** Home/away edge label */
+  home_away_edge_label: string;
 
   /** Warnings from context fetch */
   context_warnings: string[];
@@ -200,6 +254,18 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
   odds_movement: 0.59,
   /** Lineup confirmed and strong (all starters in card) */
   lineup_change: 0.57,
+  /**
+   * Pitcher command edge: team's probable starter K/BB >= 3.0 with >= 5 IP.
+   * Higher K/BB = fewer free baserunners, harder to manufacture runs against.
+   * Prior based on MLB research showing high-K/BB starters suppress run scoring ~3-5% above baseline.
+   */
+  pitcher_command: 0.60,
+  /**
+   * Home/away split edge: team has a strong home win rate (>= .560) while playing at home,
+   * or the opponent has a poor away win rate (<= .440) on the road.
+   * MLB home field advantage is well-documented; strong home teams amplify it.
+   */
+  home_away_edge: 0.57,
 };
 
 /**
@@ -299,7 +365,10 @@ export async function fetchMLBContextHints(
   }
 
   try {
-    const board = await getCachedMLBBoard();
+    const [board, splitRates] = await Promise.all([
+      getCachedMLBBoard(),
+      getMLBTeamSplitRates(),
+    ]);
     const game = findMLBGame(board, team, opponent);
 
     if (!game) {
@@ -350,6 +419,64 @@ export async function fetchMLBContextHints(
     const team_lineup_status = (isAway ? lineups.away?.status : lineups.home?.status) ?? "unknown";
     const opponent_lineup_status = (isAway ? lineups.home?.status : lineups.away?.status) ?? "unknown";
 
+    // ── Pitcher command (K/BB) ───────────────────────────────
+    const teamPitcher = isAway
+      ? game.matchup.away.probablePitcher
+      : game.matchup.home.probablePitcher;
+    const oppPitcher = isAway
+      ? game.matchup.home.probablePitcher
+      : game.matchup.away.probablePitcher;
+
+    const team_starter_k_bb = computeKBB(teamPitcher);
+    const opponent_starter_k_bb = computeKBB(oppPitcher);
+    const team_starter_command = team_starter_k_bb !== null && team_starter_k_bb >= 3.0;
+    const opponent_starter_weak_command = opponent_starter_k_bb !== null && opponent_starter_k_bb < 2.0;
+
+    // ── Home/away split rates from standings ─────────────────
+    const is_home = !isAway;
+    const teamSplits = splitRates.get(tAbbrev) ?? splitRates.get(team.toUpperCase()) ?? null;
+    const oppAbbrev = (isAway ? game.matchup.home.abbreviation : game.matchup.away.abbreviation).toUpperCase();
+    const oppSplits = splitRates.get(oppAbbrev) ?? null;
+
+    const team_home_win_rate = teamSplits?.homeWinRate ?? null;
+    const team_away_win_rate = teamSplits?.awayWinRate ?? null;
+    const opponent_home_win_rate = oppSplits?.homeWinRate ?? null;
+    const opponent_away_win_rate = oppSplits?.awayWinRate ?? null;
+
+    // Derive home/away edge label
+    // "strong_home_edge": team is at home AND team home_win_rate >= .560
+    // "weak_road_opponent": team is at home AND opponent away_win_rate <= .440
+    // "both": both fire
+    // "none": conditions not met (or team is away)
+    // "insufficient_data": not enough games to judge
+    let home_away_edge_label: MLBContextHints["home_away_edge_label"] = "insufficient_data";
+    if (is_home) {
+      const strongHome = team_home_win_rate !== null && team_home_win_rate >= 0.560;
+      const weakRoadOpp = opponent_away_win_rate !== null && opponent_away_win_rate <= 0.440;
+      if (strongHome && weakRoadOpp) {
+        home_away_edge_label = "both";
+      } else if (strongHome) {
+        home_away_edge_label = "strong_home_edge";
+      } else if (weakRoadOpp) {
+        home_away_edge_label = "weak_road_opponent";
+      } else if (team_home_win_rate !== null || opponent_away_win_rate !== null) {
+        home_away_edge_label = "none";
+      }
+    } else {
+      // Team is away — check if team has a strong road record
+      const strongAway = team_away_win_rate !== null && team_away_win_rate >= 0.560;
+      const weakHomeOpp = opponent_home_win_rate !== null && opponent_home_win_rate <= 0.440;
+      if (strongAway && weakHomeOpp) {
+        home_away_edge_label = "both";
+      } else if (strongAway) {
+        home_away_edge_label = "strong_home_edge"; // reuse label for strong road team
+      } else if (weakHomeOpp) {
+        home_away_edge_label = "weak_road_opponent"; // reuse label for weak home opponent
+      } else if (team_away_win_rate !== null || opponent_home_win_rate !== null) {
+        home_away_edge_label = "none";
+      }
+    }
+
     // ── Auto-signal tagging ──────────────────────────────────
     const auto_signals: string[] = [];
 
@@ -378,6 +505,16 @@ export async function fetchMLBContextHints(
       auto_signals.push("probable_pitcher_ace");
     }
 
+    // Pitcher command: team K/BB >= 3.0 with sufficient IP → pitcher_command signal
+    if (team_starter_command) {
+      auto_signals.push("pitcher_command");
+    }
+
+    // Home/away edge: strong home team or weak road opponent → home_away_edge signal
+    if (home_away_edge_label === "strong_home_edge" || home_away_edge_label === "weak_road_opponent" || home_away_edge_label === "both") {
+      auto_signals.push("home_away_edge");
+    }
+
     return {
       auto_signals,
       park_environment,
@@ -397,12 +534,40 @@ export async function fetchMLBContextHints(
       opponent_starter_quality,
       team_lineup_status: team_lineup_status as MLBContextHints["team_lineup_status"],
       opponent_lineup_status: opponent_lineup_status as MLBContextHints["opponent_lineup_status"],
+      team_starter_k_bb,
+      opponent_starter_k_bb,
+      team_starter_command,
+      opponent_starter_weak_command,
+      is_home,
+      team_home_win_rate,
+      team_away_win_rate,
+      opponent_home_win_rate,
+      opponent_away_win_rate,
+      home_away_edge_label,
       warnings,
     };
   } catch (err) {
     warnings.push(`MLB context fetch failed: ${err instanceof Error ? err.message : String(err)}`);
     return { ...emptyMLBContextHints(), warnings };
   }
+}
+
+// ── K/BB ratio helper ─────────────────────────────────────────
+
+/**
+ * Compute K/BB ratio for a probable starter.
+ * Returns null if insufficient IP (< 5) to trust the ratio, or if baseOnBalls is 0.
+ * At season start (Opening Day), this will typically return null — expected and non-fatal.
+ */
+function computeKBB(
+  pitcher: { strikeOuts?: number | null; baseOnBalls?: number | null; inningsPitched?: number | null } | null,
+): number | null {
+  if (!pitcher) return null;
+  const k = pitcher.strikeOuts ?? 0;
+  const bb = pitcher.baseOnBalls ?? 0;
+  const ip = pitcher.inningsPitched ?? 0;
+  if (ip < 5 || bb === 0) return null;
+  return Math.round((k / bb) * 100) / 100;
 }
 
 // ── Feature scoring ───────────────────────────────────────────
@@ -457,12 +622,20 @@ export function scoreMLBFeaturesWithSnapshot(
     bullpen_fatigue_active: allSignals.includes("bullpen_fatigue"),
     weak_starter_active: allSignals.includes("probable_pitcher_weak"),
     ace_starter_active: allSignals.includes("probable_pitcher_ace"),
+    pitcher_command_active: allSignals.includes("pitcher_command"),
+    home_away_edge_active: allSignals.includes("home_away_edge"),
     park_runs_index: contextHints?.park_runs_index ?? null,
     wind_speed_mph: contextHints?.wind_speed_mph ?? null,
     temperature_f: contextHints?.temperature_f ?? null,
     opponent_bullpen_score: contextHints?.opponent_bullpen_score ?? null,
     team_starter_quality: contextHints?.team_starter_quality ?? null,
     opponent_starter_quality: contextHints?.opponent_starter_quality ?? null,
+    team_starter_k_bb: contextHints?.team_starter_k_bb ?? null,
+    opponent_starter_k_bb: contextHints?.opponent_starter_k_bb ?? null,
+    team_home_win_rate: contextHints?.team_home_win_rate ?? null,
+    opponent_away_win_rate: contextHints?.opponent_away_win_rate ?? null,
+    is_home: contextHints?.is_home ?? null,
+    home_away_edge_label: contextHints?.home_away_edge_label ?? "insufficient_data",
     context_warnings: contextHints?.warnings ?? [],
   };
 

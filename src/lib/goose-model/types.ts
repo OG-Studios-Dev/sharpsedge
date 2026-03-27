@@ -83,6 +83,19 @@ export const GOOSE_SIGNALS = [
    * Source: nhl-pbp-aggregate (per-player xG attribution from PBP shootingPlayerId).
    */
   "player_shot_quality_edge",
+  // ── MLB-specific signals ──────────────────────────────────────
+  /**
+   * Pitcher command edge: team's probable starter has K/BB ratio >= 3.0 (with >= 5 IP).
+   * High K/BB = fewer free baserunners, harder for opponents to manufacture runs.
+   * Source: MLB Stats API schedule hydrate (strikeOuts + baseOnBalls in season stats).
+   */
+  "pitcher_command",
+  /**
+   * Home/away split edge: team's home win rate significantly above .500 (playing at home),
+   * or opponent's away win rate significantly below .500 (visiting team struggles on road).
+   * Source: MLB Stats API standings splitRecords (homeRecord, awayRecord).
+   */
+  "home_away_edge",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];
