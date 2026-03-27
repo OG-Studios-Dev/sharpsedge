@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { getTodaySchedule, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats } from "@/lib/nhl-api";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
+import { aggregateTeamShotProfile, getShotEventsForGame, getTeamRecentGameIds } from "@/lib/nhl-shot-events";
 import {
   fetchNHLContextHints,
   scoreNHLFeaturesWithSnapshot,
@@ -161,12 +162,71 @@ export async function GET() {
       pp_efficiency_tier: hints.pp_efficiency_tier,
       team_xgoals_pct: hints.team_xgoals_pct,
       opponent_xgoals_pct: hints.opponent_xgoals_pct,
+      // ── Shot danger zone fields ───────────────────────────
+      team_hdcf_pct: hints.team_hdcf_pct,
+      opponent_hdcf_pct: hints.opponent_hdcf_pct,
+      hd_edge: hints.hd_edge,
+      team_xgf_pct: hints.team_xgf_pct,
+      opponent_xgf_pct: hints.opponent_xgf_pct,
+      team_hd_save_pct: hints.team_hd_save_pct,
+      opponent_hd_save_pct: hints.opponent_hd_save_pct,
+      shot_quality_tier: hints.shot_quality_tier,
       warnings: hints.warnings,
       ms: Date.now() - t3,
     };
   } catch (err) {
     errors.push("context hints failed: " + String(err));
     steps.context_hints = { error: String(err) };
+  }
+
+  // Step 4b: Shot event zone profile for a sample team (direct PBP check)
+  if (sampleTeam) {
+    try {
+      const tShot = Date.now();
+      const profile = await aggregateTeamShotProfile(sampleTeam, 5); // use 5 games for speed in debug
+      if (profile) {
+        // Also pull a single game's shot events as a spot-check
+        const gameIds = await getTeamRecentGameIds(sampleTeam, 1);
+        const sampleGameEvents = gameIds.length > 0
+          ? await getShotEventsForGame(gameIds[0])
+          : [];
+        const hdShots = sampleGameEvents.filter(e => e.zone === "HD");
+        const sampleHD = hdShots.slice(0, 3).map(e => ({
+          type: e.typeDescKey,
+          team: e.shootingTeamAbbrev,
+          dist: e.distanceToNet,
+          angle: e.angleFromCenter,
+          shotType: e.shotType,
+          xg: e.xg,
+          isGoal: e.isGoal,
+        }));
+        steps.shot_zone_profile = {
+          team: sampleTeam,
+          gamesAnalyzed: profile.gamesAnalyzed,
+          cfPct: profile.cfPct,
+          hdcfPct: profile.hdcfPct,
+          hdSavePct: profile.hdSavePct,
+          xgForPct: profile.xgForPct,
+          scoreAdjCfPct: profile.scoreAdjCfPct,
+          hdcf: profile.hdcf,
+          hdca: profile.hdca,
+          xgFor: profile.xgFor,
+          xgAgainst: profile.xgAgainst,
+          sampleGameId: gameIds[0] ?? null,
+          sampleGameTotalEvents: sampleGameEvents.length,
+          sampleGameHdEvents: hdShots.length,
+          sampleHdShots: sampleHD,
+          source: profile.source,
+          sourceNotes: profile.sourceNotes,
+          ms: Date.now() - tShot,
+        };
+      } else {
+        steps.shot_zone_profile = { team: sampleTeam, status: "unavailable", ms: Date.now() - tShot };
+      }
+    } catch (err) {
+      errors.push("shot zone profile failed: " + String(err));
+      steps.shot_zone_profile = { error: String(err) };
+    }
   }
 
   // Step 5: Signal tagger smoke-test
@@ -184,9 +244,9 @@ export async function GET() {
     steps.signal_tagger = { error: String(err) };
   }
 
-  // Step 6: NHL feature scorer smoke-test (includes PP signals)
+  // Step 6: NHL feature scorer smoke-test (includes PP + shot danger signals)
   try {
-    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days", "pp_efficiency_edge"];
+    const testSignals = ["goalie_news", "back_to_back", "home_away_split", "rest_days", "pp_efficiency_edge", "shot_danger_edge"];
     const emptyWeightMap = buildNHLWeightMap([]);
     const { score, snapshot } = scoreNHLFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
     steps.feature_scorer = {
@@ -199,8 +259,12 @@ export async function GET() {
       three_in_four_active: snapshot.three_in_four_active,
       pp_efficiency_edge_active: snapshot.pp_efficiency_edge_active,
       goalie_pp_weakness_active: snapshot.goalie_pp_weakness_active,
+      shot_danger_edge_active: snapshot.shot_danger_edge_active,
       opponent_goalie_quality: snapshot.opponent_goalie_quality,
       pp_efficiency_differential: snapshot.pp_efficiency_differential,
+      hd_edge: snapshot.hd_edge,
+      team_hdcf_pct: snapshot.team_hdcf_pct,
+      opponent_hdcf_pct: snapshot.opponent_hdcf_pct,
       priors_applied: snapshot.signal_priors_applied,
     };
   } catch (err) {
@@ -219,17 +283,18 @@ export async function GET() {
     steps,
     timestamp: new Date().toISOString(),
     pipeline: {
-      source: "NHL API (api-web.nhle.com/v1) + NHL Stats REST (api.nhle.com/stats/rest) + MoneyPuck GitHub mirror",
+      source: "NHL API (api-web.nhle.com/v1) + NHL Stats REST (api.nhle.com/stats/rest) + MoneyPuck GitHub mirror + NHL PBP aggregate",
       ingestion: "/api/picks → live-data.ts → nhl-stats-engine.ts + nhl-team-trends.ts",
       feature_path: "nhl-context.ts → nhl-features.ts → scoreNHLFeaturesWithSnapshot()",
       goose_model: "/api/admin/goose-model/generate { sport: NHL }",
-      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel/PP-efficiency)",
+      scoring: "signal-tagger + NHL priors + context auto-signals (goalie/rest/travel/PP-efficiency/shot-danger)",
       specialTeamsRails: "api.nhle.com/stats/rest/en/team/{powerplay,penaltykill} + goalie/savesByStrength",
+      shotDangerRail: "nhl-shot-events.ts → getShotEventsForGame() + aggregateTeamShotProfile() (last 10 games PBP, x/y coords, HD/MD/LD zones, xG model)",
       dataLattice: "src/lib/nhl-data-lattice.ts — canonical schema, provenance, backtest types, source gap map",
       sourceGaps: [
-        "HDSV% (high-danger zone save %) — not in NHL API; requires MoneyPuck/NST analytics",
-        "Zone-specific xG (HDCF%/HDSA%) — MoneyPuck mirror only exposes aggregate xGoalsPercentage",
         "Player-level injury certainty — nhl.com news links are URL-slug approximation only",
+        "MoneyPuck HDCF%/HDSA% — mirror only exposes aggregate xGoalsPercentage; now replaced by PBP-aggregate path",
+        "HDSV% from external analytics (NST/MP) — now replaced by PBP-derived HDSV% from nhl-shot-events.ts",
       ],
     },
   });

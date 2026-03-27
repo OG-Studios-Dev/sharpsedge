@@ -23,38 +23,37 @@
  * NHL schedule/standings | api-web.nhle.com/v1           | LIVE ✅
  * NHL PP/PK team stats   | api.nhle.com/stats/rest       | LIVE ✅
  * NHL goalie EV/PP/SH SV%| api.nhle.com/stats/rest       | LIVE ✅
- * NHL goalie HDSV%       | —                             | BLOCKED ❌
- *   (high-danger zone)   | (not in NHL API)              | MoneyPuck/NST only
+ * NHL goalie HDSV%       | nhl-shot-events.ts (PBP agg.) | LIVE ✅ (2026-03-27)
+ *   (high-danger zone)   | api-web.nhle.com/v1 PBP       | last 10 games, x/y coords
  * MoneyPuck xGoals%      | GitHub mirror (daily CSV)     | LIVE ✅ (30-team aggregate)
- * MoneyPuck HDCF%/HDSA%  | —                             | BLOCKED ❌
- *   (zone danger %)      | Mirror only exposes aggregate | Requires direct MP access
- * Shot location / danger | NHL play-by-play (per-game)   | PARTIAL ⚠️
- *   zone xG              | Needs per-game aggregation    | Not yet implemented
+ * MoneyPuck HDCF%/HDSA%  | nhl-shot-events.ts (PBP agg.) | LIVE ✅ (2026-03-27)
+ *   (zone danger %)      | api-web.nhle.com/v1 PBP       | replaces blocked MP path
+ * Shot location / danger | nhl-shot-events.ts            | LIVE ✅ (2026-03-27)
+ *   zone xG              | aggregateTeamShotProfile()    | HD/MD/LD + xG model
  * Injury/availability    | nhl.com team news links       | PARTIAL ⚠️
  *   (player-level)       | URL slug tags only            | No structured feed
- * Corsi/Fenwick (CF%/FF%)| NHL stats REST realtimeStats  | DERIVABLE ✅
+ * Corsi/Fenwick (CF%/FF%)| nhl-shot-events.ts (PBP agg.) | LIVE ✅ (derived CF%)
  * Multiple seasons       | club-stats-season endpoint    | LIVE ✅ (any season)
  * Backtest outcomes      | Supabase goose_model_picks    | LIVE ✅ (this season+)
  *
  * ─── Source Gap Blockers ────────────────────────────────────────────
  *
- * 1. HIGH-DANGER ZONE SV% (HDSV%):
- *    NHL API exposes only EV/PP/SH strength splits, not zone-specific
- *    danger rates. Natural Stat Trick and MoneyPuck compute HDCF%/HDSV%
- *    from play-by-play shot coordinates. The MoneyPuck GitHub mirror
- *    does not expose zone breakdowns. Options to unblock:
- *    (a) Aggregate NHL play-by-play shot coordinates per team/goalie
- *        across a season → expensive but doable in TypeScript.
- *    (b) Find a public JSON endpoint for NST/MoneyPuck zone data.
- *    CURRENT STATUS: Blocked. Noted in nhl-context.ts source notes.
+ * 1. HIGH-DANGER ZONE SV% (HDSV%): ✅ RESOLVED 2026-03-27
+ *    Implemented via nhl-shot-events.ts → aggregateTeamShotProfile().
+ *    Source: api-web.nhle.com/v1/gamecenter/{gameId}/play-by-play
+ *    Each shot event has x/y coordinates + shotType + situationCode.
+ *    Zone thresholds (NST convention): HD ≤ 20ft, MD ≤ 55ft, LD > 55ft.
+ *    HDSV% is computed from HD shots on goal against / saves.
+ *    Cache: 24hr per game PBP (data immutable after completion), 60min per profile.
  *
- * 2. ZONE-LEVEL xG:
- *    MoneyPuck's xGoalsPercentage is a season aggregate — not broken
- *    down by zone or shot type. Zone-specific xG requires play-by-play
- *    shot coordinate aggregation or a direct analytics API.
- *    CURRENT STATUS: Blocked. xGoalsPercentage is aggregate only.
+ * 2. ZONE-LEVEL xG: ✅ RESOLVED 2026-03-27
+ *    Implemented via nhl-shot-events.ts → computeShotXG().
+ *    xG model: logistic regression on distance + angle + shot type + situation.
+ *    Coefficients aligned with MoneyPuck published methodology.
+ *    xGF% per team computed from last 10 games PBP.
+ *    New signals: shot_danger_edge (HDCF% diff ≥ 3.0), opponent_goalie_hd_weakness.
  *
- * 3. REAL-TIME INJURY FEED:
+ * 3. REAL-TIME INJURY FEED: ⚠️ STILL PARTIAL
  *    No structured NHL injury API. nhl.com team news links give
  *    roster-move signals but not player-level injury certainty.
  *    CURRENT STATUS: Partial approximation via team news URL tags.
@@ -102,6 +101,7 @@ export type NHLDataSource =
   | "nhl-club-schedule"
   | "nhl-gamecenter-landing"
   | "nhl-gamecenter-boxscore"
+  | "nhl-gamecenter-pbp"         // play-by-play (shot x/y coordinates, event types)
   | "nhl-roster"
   | "nhl-player-game-log"
   | "nhl-stats-rest-pp"
@@ -109,7 +109,8 @@ export type NHLDataSource =
   | "nhl-stats-rest-goalie-strength"
   | "moneypuck-mirror"
   | "moneypuck-bundled"
-  | "nhl-team-news";
+  | "nhl-team-news"
+  | "nhl-pbp-aggregate";          // aggregated from multiple PBP game files
 
 // ────────────────────────────────────────────────────────────────────
 // Multi-season outcome storage
@@ -258,27 +259,26 @@ export type NHLBacktestResult = {
 // ────────────────────────────────────────────────────────────────────
 
 /**
- * Zone-level shot danger context — CURRENTLY BLOCKED BY SOURCE GAP.
+ * Zone-level shot danger context — LIVE ✅ (2026-03-27)
  *
- * This type defines the target schema for when zone data becomes available.
+ * Source: api-web.nhle.com/v1/gamecenter/{gameId}/play-by-play
+ * Implemented in nhl-shot-events.ts → aggregateTeamShotProfile()
+ *
  * Three tiers follow Natural Stat Trick convention:
- *   High danger  = slot area, directly in front of net, 0–15 feet
- *   Medium danger= inside blue line but outside high-danger zone
- *   Low danger   = outside blue line, point shots
+ *   High danger  = ≤ 20 ft to net (slot area, crease, directly in front)
+ *   Medium danger = 20–55 ft (inside blue line)
+ *   Low danger   = > 55 ft (outside blue line, point shots)
  *
- * SOURCE GAP: NHL API does not expose zone-level shot coordinates as
- * team-season aggregates. Individual game play-by-play has x/y coordinates
- * but requires aggregation across all games. MoneyPuck has HDCF% etc.
- * but the GitHub mirror does not expose these fields.
- *
- * TO UNBLOCK: Either aggregate NHL play-by-play per team per season,
- * or find a structured feed (MoneyPuck API subscription / NST JSON).
+ * Coordinates: NHL PBP provides xCoord + yCoord per event.
+ * homeTeamDefendingSide per event handles period-to-period side changes.
+ * Distance computed via sqrt((netX - x)^2 + (netY - y)^2) where net is at (±89, 0).
+ * Data is aggregated from last 10 regular season completed games per team.
  */
 export type NHLShotDangerContext = {
   teamAbbrev: string;
   season: string;
-  /** Sourced zone: "nhl-pbp-aggregate" | "moneypuck" | "nst" */
-  source: string;
+  /** Source: "nhl-pbp-aggregate" (implemented) | "moneypuck" | "nst" */
+  source: "nhl-pbp-aggregate" | "moneypuck" | "nst";
   asOf: string;
   /** High-danger chances for (HDCF) — team offensive zone pressure */
   hdChancesFor: number | null;
@@ -356,22 +356,28 @@ export type NHLGoalieGameContext = {
   /** Short-handed SV% (team on PP). From NHL stats REST API. */
   shSavePct: number | null;
 
-  // ── BLOCKED: Zone-level danger splits ───────────────────────────
+  // ── Zone-level danger splits — LIVE via nhl-pbp-aggregate ──────────
   /**
-   * High-danger SV% — NOT available from NHL API.
-   * Requires MoneyPuck/NST analytics. Null until source gap resolved.
+   * High-danger SV% — derived from NHL PBP shot x/y coordinates.
+   * Source: nhl-shot-events.ts → aggregateTeamShotProfile() (last 10 games).
+   * Computed as HD saves / HD shots on goal against.
    */
   hdSavePct: number | null;
-  /** Medium-danger SV% — BLOCKED (same reason) */
+  /**
+   * Medium-danger SV% — STILL BLOCKED (not computed in current implementation).
+   * Could be added to aggregateTeamShotProfile() if needed.
+   */
   mdSavePct: number | null;
-  /** Low-danger SV% — BLOCKED (same reason) */
+  /**
+   * Low-danger SV% — STILL BLOCKED (not computed in current implementation).
+   */
   ldSavePct: number | null;
 
   /** Source flags for each field */
   provenance: {
     seasonStats: "nhl-api";
     strengthSplits: "nhl-stats-rest" | null;
-    zoneSplits: "moneypuck" | "nst" | null;
+    zoneSplits: "nhl-pbp-aggregate" | "moneypuck" | "nst" | null;
   };
 };
 

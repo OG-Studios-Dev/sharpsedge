@@ -1,6 +1,85 @@
 # TODO
 
-## NHL Data Lattice Implementation — 2026-03-27
+## NHL Shot Event Rail — 2026-03-27 (v2, PBP aggregate implemented)
+
+### What was implemented in this build
+
+**5. Shot Event Ingestion + Zone Classification + xG Model** ✅ LIVE
+- **New file:** `src/lib/nhl-shot-events.ts` (pure TypeScript, no external deps)
+- Source: `api-web.nhle.com/v1/gamecenter/{gameId}/play-by-play`
+  - All shot event types: shot-on-goal, missed-shot, blocked-shot, goal
+  - Each event has x/y coordinates (x ∈ [-100, 100], y ∈ [-42, 42]), shot type, situationCode
+  - `homeTeamDefendingSide` per event handles period-to-period side switching
+- **Zone classification** (NST convention): HD ≤ 20ft, MD ≤ 55ft, LD > 55ft
+  - Distance computed: sqrt((netX - x)^2 + (netY - y)^2), net at (±89, 0)
+  - Coordinate normalization uses `homeTeamDefendingSide` + event owner team ID
+- **xG model**: logistic(β0=-1.5, β_dist=-0.030/ft, β_angle=-0.009/°) + shot type + situation mods
+  - Calibrated: HD tip-in 5ft → 26.2%, avg shot 40ft → 5.3%, LD 60ft slap → 2.1%
+  - Shot type modifiers: deflection +0.97, tip-in +0.82, wrist 0 (baseline), slap -0.35
+  - Situation mods: PP +0.12, SH -0.08, EN +0.20, 5v5 0
+- **`aggregateTeamShotProfile()`**: last 10 completed regular-season games per team
+  - Returns: CF%, HDCF%, HDCA%, HDSV% (goalie), xGF%, xGAgainst%, score-adj CF%
+  - Cache: 24hr per completed game PBP (data immutable), 60min per team profile
+- **`getShotEventsForGame()`**: raw shot events with classification for any gameId
+- **`getTeamRecentGameIds()`**: last N regular-season completed games per team
+- **`getMatchupShotContext()`**: both teams' profiles + HD edge + xG edge + quality tier
+
+**6. New Signals: shot_danger_edge + opponent_goalie_hd_weakness** ✅ LIVE
+- `shot_danger_edge`: fires when team HDCF% ≥ 3.0pp above opponent (prior 0.58)
+- `opponent_goalie_hd_weakness`: fires when opponent goalie HDSV% < 0.80 (prior 0.56)
+- Both added to `GOOSE_SIGNALS` in types.ts + patterns in signal-tagger.ts
+- Signal priors in `NHL_SIGNAL_PRIORS` in nhl-features.ts
+
+**7. NHLContextHints + NHLFeatureSnapshot Extended** ✅
+- New fields: `team_hdcf_pct`, `opponent_hdcf_pct`, `hd_edge`, `team_xgf_pct`,
+  `opponent_xgf_pct`, `team_hd_save_pct`, `opponent_hd_save_pct`, `shot_quality_tier`
+- `fetchNHLContextHints()` now calls `aggregateTeamShotProfile()` for both teams in parallel
+- `shot_danger_edge` and `opponent_goalie_hd_weakness` auto-tagged in context hints
+- `scoreNHLFeaturesWithSnapshot()` includes all new shot zone fields in frozen snapshot
+
+**8. Debug Route Updated** ✅
+- Step 4b: `shot_zone_profile` — 5-game PBP profile for sample team (live)
+- Context hints now show all shot zone fields
+- Feature scorer shows `shot_danger_edge_active` + new snapshot keys
+
+**9. Source Map Updated** ✅
+- `nhl-data-lattice.ts`: HDSV% and HDCF% now LIVE (was BLOCKED)
+- `NHLDataSource` enum: added `nhl-gamecenter-pbp` and `nhl-pbp-aggregate`
+- `NHLGoalieGameContext.provenance.zoneSplits`: now accepts `"nhl-pbp-aggregate"`
+
+### Current vs Blocked Matrix
+
+| Feature | Status | Source |
+|---|---|---|
+| Schedule/standings | ✅ LIVE | api-web.nhle.com/v1 |
+| Team PP/PK stats | ✅ LIVE | api.nhle.com/stats/rest |
+| Goalie EV/PP/SH SV% | ✅ LIVE | api.nhle.com/stats/rest (savesByStrength) |
+| Goalie HDSV% | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate (PBP x/y coords) |
+| Team HDCF%/HDCA% | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate (PBP x/y coords) |
+| Zone-level xG model | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate (dist+angle+type) |
+| CF% (Corsi) | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate |
+| MoneyPuck aggregate xG% | ✅ LIVE | GitHub mirror CSV |
+| PP efficiency signal | ✅ LIVE | NHL stats REST |
+| Goalie PP weakness | ✅ LIVE | NHL stats REST (savesByStrength) |
+| Shot danger edge signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDCF% diff |
+| Goalie HD weakness signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDSV% |
+| Player injury certainty | ⚠️ PARTIAL | nhl.com news URL slug tags only |
+| Per-player shot quality | ❌ TODO | Would require player ID→team roster join |
+| Season-long HDCF (full 73 games) | ❌ NOT DONE | Too expensive per-request; need cron |
+
+### Remaining blockers / next steps
+
+| Item | Status | Notes |
+|---|---|---|
+| Full-season HDCF% | Not implemented | 73 PBP fetches per team too slow; cron+cache recommended |
+| Per-player xG attribution | Not implemented | Needs player ID → team mapping, skip for now |
+| Mid-danger HDSV%/LDSV% | Not implemented | Could add to aggregateTeamShotProfile() when needed |
+| Player-level injury certainty | Partial | nhl.com news URL tags only |
+| Grading loop tightening | P1 | More outcomes needed before DB weights overtake priors |
+
+---
+
+## NHL Data Lattice Implementation — 2026-03-27 (v1, PP + goalie splits)
 
 ### What was implemented
 

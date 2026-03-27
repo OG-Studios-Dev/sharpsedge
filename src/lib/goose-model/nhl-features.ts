@@ -17,6 +17,7 @@
 
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 import type { NHLContextBoardGame } from "@/lib/nhl-context";
+import { aggregateTeamShotProfile } from "@/lib/nhl-shot-events";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -100,6 +101,51 @@ export interface NHLContextHints {
   /** PP efficiency tier from DerivedPPEfficiency */
   pp_efficiency_tier: "strong" | "moderate" | "neutral" | "adverse" | "unavailable";
 
+  // ── Shot danger zone / xG (from NHL PBP aggregate) ────────────────
+  /**
+   * Team HDCF% (high-danger chances for %) over last N games.
+   * Source: nhl-pbp-aggregate (api-web.nhle.com play-by-play).
+   * Null if profile unavailable.
+   */
+  team_hdcf_pct: number | null;
+  /**
+   * Opponent HDCF% over last N games.
+   * Null if profile unavailable.
+   */
+  opponent_hdcf_pct: number | null;
+  /**
+   * HD edge = team HDCF% - opponent HDCF%.
+   * Positive = team has more high-danger shot share.
+   * Null if either profile unavailable.
+   */
+  hd_edge: number | null;
+  /**
+   * Team xGF% (expected goals for %) over last N games.
+   * Source: nhl-pbp-aggregate xG model (distance + angle + shot type).
+   * Null if profile unavailable.
+   */
+  team_xgf_pct: number | null;
+  /**
+   * Opponent xGF% over last N games.
+   * Null if profile unavailable.
+   */
+  opponent_xgf_pct: number | null;
+  /**
+   * Team HDSV% (high-danger save %) allowed by team's goalie.
+   * Derived from PBP: HD shots on goal against / saves.
+   * Null if insufficient sample.
+   */
+  team_hd_save_pct: number | null;
+  /**
+   * Opponent HDSV% (goalie's HD save %).
+   * Null if insufficient sample.
+   */
+  opponent_hd_save_pct: number | null;
+  /**
+   * Shot quality tier from matchup comparison.
+   */
+  shot_quality_tier: "strong_away" | "edge_away" | "neutral" | "edge_home" | "strong_home" | "unavailable";
+
   /** Non-fatal warnings from context fetch */
   warnings: string[];
 }
@@ -128,6 +174,14 @@ export function emptyNHLContextHints(): NHLContextHints {
     pp_efficiency_differential: null,
     net_special_teams_differential: null,
     pp_efficiency_tier: "unavailable",
+    team_hdcf_pct: null,
+    opponent_hdcf_pct: null,
+    hd_edge: null,
+    team_xgf_pct: null,
+    opponent_xgf_pct: null,
+    team_hd_save_pct: null,
+    opponent_hd_save_pct: null,
+    shot_quality_tier: "unavailable",
     warnings: [],
   };
 }
@@ -173,6 +227,23 @@ export interface NHLFeatureSnapshot {
   goalie_pp_weakness_active: boolean;
   /** Net special teams differential (team PP+PK vs opponent PP+PK) */
   net_special_teams_differential: number | null;
+  /**
+   * Team HDCF% (high-danger chances for %) from PBP aggregate.
+   * Source: nhl-pbp-aggregate — last 10 games.
+   */
+  team_hdcf_pct: number | null;
+  /** Opponent HDCF% from PBP aggregate */
+  opponent_hdcf_pct: number | null;
+  /** HD edge = team HDCF% - opponent HDCF% */
+  hd_edge: number | null;
+  /** Team xGF% from PBP xG model */
+  team_xgf_pct: number | null;
+  /** Team HDSV% (goalie's high-danger save %) from PBP */
+  team_hd_save_pct: number | null;
+  /** Opponent HDSV% from PBP */
+  opponent_hd_save_pct: number | null;
+  /** Whether the shot_danger_edge signal was active */
+  shot_danger_edge_active: boolean;
   /** Warnings from context fetch */
   context_warnings: string[];
 }
@@ -252,6 +323,22 @@ export const NHL_SIGNAL_PRIORS: Record<string, number> = {
    * Weaker signal than overall goalie_quality because it's situational.
    */
   goalie_pp_weakness: 0.55,
+  /**
+   * Shot danger edge: team's HDCF% >= 3.0 percentage points above opponent's.
+   * High-danger chance dominance is a strong predictor of sustained offensive pressure
+   * and goal-scoring in the NHL. HDCF% > 52% teams win at ~60% over a season.
+   * Source: nhl-pbp-aggregate (play-by-play x/y coordinates, last 10 games, NST convention).
+   * Signal fires at ≥3.0 pp difference to avoid noise.
+   */
+  shot_danger_edge: 0.58,
+  /**
+   * Opponent goalie high-danger weakness: opponent HDSV% < 0.80 (poor in HD zone).
+   * League average HDSV% is approximately 0.82–0.84.
+   * Fires when the opponent's goalie has allowed above-average HD conversion
+   * in their last 10 games. Compound effect with shot_danger_edge.
+   * Source: nhl-pbp-aggregate (derived from PBP shot coordinates).
+   */
+  opponent_goalie_hd_weakness: 0.56,
 };
 
 /**
@@ -403,6 +490,24 @@ export async function fetchNHLContextHints(
     const netSTDiff = ppEfficiency.netSpecialTeamsDifferential;
     const ppTier = ppEfficiency.tier;
 
+    // ── Shot danger zone profiles (nhl-pbp-aggregate) ────────
+    // Fetch profiles for both teams in parallel — cached per team for 60 min.
+    // Falls back gracefully to null fields if fetch fails.
+    const [teamShotProfile, oppShotProfile] = await Promise.all([
+      aggregateTeamShotProfile(tAbbrev, 10).catch(() => null),
+      aggregateTeamShotProfile(oppEntry.teamAbbrev.toUpperCase(), 10).catch(() => null),
+    ]);
+
+    const teamHdcfPct = teamShotProfile?.hdcfPct ?? null;
+    const oppHdcfPct = oppShotProfile?.hdcfPct ?? null;
+    const hdEdge = teamHdcfPct !== null && oppHdcfPct !== null
+      ? Math.round((teamHdcfPct - oppHdcfPct) * 10) / 10
+      : null;
+    const teamXgfPct = teamShotProfile?.xgForPct ?? null;
+    const oppXgfPct = oppShotProfile?.xgForPct ?? null;
+    const teamHdSavePct = teamShotProfile?.hdSavePct ?? null;
+    const oppHdSavePct = oppShotProfile?.hdSavePct ?? null;
+
     // ── Auto-signal tagging ───────────────────────────────────
     const auto_signals: string[] = [];
 
@@ -461,6 +566,18 @@ export async function fetchNHLContextHints(
       auto_signals.push("goalie_pp_weakness");
     }
 
+    // Shot danger edge: team's HDCF% >= 3.0 pp above opponent's.
+    // Source: nhl-pbp-aggregate (play-by-play shot x/y coordinates).
+    if (hdEdge !== null && hdEdge >= 3.0) {
+      auto_signals.push("shot_danger_edge");
+    }
+
+    // Opponent goalie HD weakness: opponent's HDSV% < 0.80 (poor HD zone performance).
+    // League average HDSV% is ~0.82–0.84; < 0.80 is exploitable.
+    if (oppHdSavePct !== null && oppHdSavePct < 0.80 && !oppIsBackup) {
+      auto_signals.push("opponent_goalie_hd_weakness");
+    }
+
     const xDiff =
       typeof teamXGoalsPct === "number" && typeof oppXGoalsPct === "number"
         ? teamXGoalsPct - oppXGoalsPct
@@ -489,6 +606,18 @@ export async function fetchNHLContextHints(
       pp_efficiency_differential: ppDiff,
       net_special_teams_differential: netSTDiff,
       pp_efficiency_tier: ppTier,
+      team_hdcf_pct: teamHdcfPct,
+      opponent_hdcf_pct: oppHdcfPct,
+      hd_edge: hdEdge,
+      team_xgf_pct: teamXgfPct,
+      opponent_xgf_pct: oppXgfPct,
+      team_hd_save_pct: teamHdSavePct,
+      opponent_hd_save_pct: oppHdSavePct,
+      // shot_quality_tier: from TEAM's perspective (positive hdEdge = team advantage)
+      shot_quality_tier:
+        hdEdge !== null
+          ? (hdEdge > 3.0 ? "strong_away" : hdEdge > 1.5 ? "edge_away" : hdEdge < -3.0 ? "strong_home" : hdEdge < -1.5 ? "edge_home" : "neutral")
+          : "unavailable",
       warnings,
     };
   } catch (err) {
@@ -561,6 +690,13 @@ export function scoreNHLFeaturesWithSnapshot(
     pp_efficiency_edge_active: allSignals.includes("pp_efficiency_edge"),
     goalie_pp_weakness_active: allSignals.includes("goalie_pp_weakness"),
     net_special_teams_differential: contextHints?.net_special_teams_differential ?? null,
+    team_hdcf_pct: contextHints?.team_hdcf_pct ?? null,
+    opponent_hdcf_pct: contextHints?.opponent_hdcf_pct ?? null,
+    hd_edge: contextHints?.hd_edge ?? null,
+    team_xgf_pct: contextHints?.team_xgf_pct ?? null,
+    team_hd_save_pct: contextHints?.team_hd_save_pct ?? null,
+    opponent_hd_save_pct: contextHints?.opponent_hd_save_pct ?? null,
+    shot_danger_edge_active: allSignals.includes("shot_danger_edge"),
     context_warnings: contextHints?.warnings ?? [],
   };
 

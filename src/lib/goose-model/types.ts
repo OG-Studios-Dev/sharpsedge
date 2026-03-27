@@ -63,6 +63,18 @@ export const GOOSE_SIGNALS = [
    * Source: NHL stats REST API goalie/savesByStrength.
    */
   "goalie_pp_weakness",
+  /**
+   * Shot danger edge: team's HDCF% meaningfully higher than opponent's (>= 3.0 pp diff).
+   * Fires when team generates more high-danger scoring chances (slot, crease area).
+   * Source: nhl-pbp-aggregate (NHL play-by-play x/y coordinates, last 10 games).
+   */
+  "shot_danger_edge",
+  /**
+   * Opponent goalie high-danger weakness: opponent goalie's HDSV% < 0.80.
+   * Fires when the goalie allows more than expected from the high-danger zone.
+   * Source: nhl-pbp-aggregate (computed from PBP shot event coordinates).
+   */
+  "opponent_goalie_hd_weakness",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

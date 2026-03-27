@@ -247,6 +247,23 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bopponent\s+goalie.*pp\b/i,
     /exploitable\s+(?:on|against)\s+pp/i,
   ],
+  // ── NHL shot danger zone signals ──────────────────────────────
+  shot_danger_edge: [
+    /\bhigh[\s-]?danger\s+(?:chances|shots|zone|scoring)\b/i,
+    /\bhdcf\b/i,
+    /\bslot\s+(?:shots|chances|zone)\b/i,
+    /\bdanger[\s-]?zone\s+(?:advantage|edge|dominance)\b/i,
+    /\bshot\s+quality\s+(?:advantage|edge|edge)\b/i,
+    /\bhigh[\s-]?danger\s+(?:area|attack|rate)\b/i,
+    /\bscoring[\s-]?chances?\s+(?:for|advantage|dominance)\b/i,
+  ],
+  opponent_goalie_hd_weakness: [
+    /\bgoalie.*high[\s-]?danger\b/i,
+    /\bopponent\s+goalie.*(?:slot|hd|danger\s+zone)\b/i,
+    /\bhd\s*sv\s*%\b/i,
+    /\bhigh[\s-]?danger\s+save\s+(?:rate|percentage|weakness)\b/i,
+    /\bgoalie.*(?:weak|poor|bad)\s+(?:in|from)\s+(?:slot|close|danger)\b/i,
+  ],
 };
 
 /**
