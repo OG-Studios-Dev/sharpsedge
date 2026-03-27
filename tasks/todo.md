@@ -571,7 +571,7 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 | matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
 | lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
 
-### MLB Signal Status Matrix (after 2026-03-27 pass 3)
+### MLB Signal Status Matrix (after 2026-03-27 BvP pass)
 
 | Signal | Status | Source | Prior |
 |---|---|---|---|
@@ -587,21 +587,24 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 | umpire_pitcher_friendly | ✅ LIVE (2026-03-27 p3) | MLB boxscore officials + seeded UmpScorecards 2019-2024 | 0.58 |
 | umpire_hitter_friendly | ✅ LIVE (2026-03-27 p3) | MLB boxscore officials + seeded UmpScorecards 2019-2024 | 0.57 |
 | handedness_advantage | ✅ LIVE (2026-03-27 p3) | MLB Stats API vsLeft/vsRight team batting splits | 0.58 |
+| lineup_bvp_edge | ✅ LIVE (2026-03-27 BvP pass) | MLB Stats API vsPlayer career splits (top-5 batting order × opposing starter) | 0.61 |
 | home_field | 🟡 PRIORS ONLY | No auto-tag yet | 0.54 |
 | streak_form | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.60 |
 | matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
 | lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
 
-### Remaining Blockers / Next MLB Build Order
+### Remaining Blockers / Next MLB Build Order (after 2026-03-27 BvP pass)
 
 | Priority | Feature | Blocker | Path |
 |---|---|---|---|
-| P1 | Individual BvP splits | MLB Stats API per-player cross-lookup (~6 calls/game, needs official lineup) | Architecture ready; needs lineup-confirmed trigger + per-batter split-fetch |
-| P2 | K/BB signal fully live | Season-start (< 5 IP) returns null; will auto-populate | No action needed — self-resolves as season progresses |
-| P3 | Handedness splits live | Opening Day returns no AB (vsLeft/vsRight endpoint returns empty at season start) | Self-resolves after ~30+ AB vs each hand |
-| P4 | Home/away splits live | Opening Day returns insufficient_data; populates after ~5 games | No action needed — self-resolves |
-| P5 | IL/injury diff rail | No structured MLB IL feed; RotoWire scraping is brittle | Best proxy: lineup_status field already in context |
-| P6 | Umpire seed refresh | 76 umps seeded; newer/less-active umps may not match | Refresh from UmpScorecards annually or add missing umps as they appear |
+| P1 | ~~Individual BvP splits~~ | ~~MLB Stats API per-player cross-lookup~~ | ✅ LIVE — lineup_bvp_edge signal implemented (2026-03-27 BvP pass) |
+| P2 | BvP history population | Career data sparse on early-season matchups (players/pitchers haven't faced each other yet in 2026) | Self-resolves as career matchups accumulate. Degrades gracefully to insufficient_bvp_history. |
+| P3 | K/BB signal fully live | Season-start (< 5 IP) returns null; will auto-populate | No action needed — self-resolves as season progresses |
+| P4 | Handedness splits live | Opening Day returns no AB (vsLeft/vsRight endpoint returns empty at season start) | Self-resolves after ~30+ AB vs each hand |
+| P5 | Home/away splits live | Opening Day returns insufficient_data; populates after ~5 games | No action needed — self-resolves |
+| P6 | IL/injury diff rail | No structured MLB IL feed; RotoWire scraping is brittle | Best proxy: lineup_status field already in context |
+| P7 | Umpire seed refresh | 76 umps seeded; newer/less-active umps may not match | Refresh from UmpScorecards annually or add missing umps as they appear |
+| P8 | Lineup timing window | Official lineups only 2–3h pre-game — BvP layer fires late | No fix available without a beat reporter feed. Rail explicit about status = insufficient_lineup until official. |
 
 ### MLB extraction shortlist (worth porting later)
 - **P1 — Batter vs Pitcher splits** (BvP):
