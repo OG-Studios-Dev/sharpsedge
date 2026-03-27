@@ -79,6 +79,19 @@ export async function GET() {
       predictionsCount: dgRaw?.data?.predictions?.length ?? 0,
       courseFitCount: dgRaw?.data?.courseFit?.length ?? 0,
       fieldCount: dgRaw?.data?.field?.length ?? 0,
+      owgrCoverage: (() => {
+        const fieldPlayers = dgRaw?.data?.field ?? [];
+        const withOwgr = fieldPlayers.filter(p => p.worldRank !== null && p.worldRank !== undefined && p.worldRank > 0);
+        return {
+          totalFieldPlayers: fieldPlayers.length,
+          playersWithOwgr: withOwgr.length,
+          owgrCoveragePct: fieldPlayers.length > 0
+            ? `${Math.round(withOwgr.length / fieldPlayers.length * 100)}%`
+            : "0%",
+          sampleOwgrPlayers: withOwgr.slice(0, 5).map(p => ({ name: p.name, owgr: p.worldRank })),
+          note: "OWGR data from DataGolf field page hourly blob — secondary confirmatory layer",
+        };
+      })(),
       scrapeErrors: dgRaw?.data?.errors ?? [],
       samplePlayer: firstRanking
         ? {
@@ -114,6 +127,11 @@ export async function GET() {
       dg_top10_prob: hints.dg_top10_prob,
       dg_top20_prob: hints.dg_top20_prob,
       dg_course_fit: hints.dg_course_fit,
+      // OWGR supplement visibility
+      owgr_rank: hints.owgr_rank,
+      owgr_supplement: hints.owgr_rank !== null
+        ? `✅ OWGR rank available (${hints.owgr_rank}) — from DG field page`
+        : "⚠️ OWGR rank not available for this player in DG field data",
       form_score: hints.form_score,
       course_history_score: hints.course_history_score,
       market_type: hints.market_type,

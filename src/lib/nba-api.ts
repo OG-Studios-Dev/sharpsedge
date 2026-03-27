@@ -410,37 +410,46 @@ export async function getNBATeamRoster(teamId: number): Promise<Array<{ id: numb
   }
 }
 
-export async function getNBATeamRosterEntries(teamAbbrev: string): Promise<NBARosterPlayer[]> {
+/**
+ * Fetch NBA roster with explicit source provenance.
+ * Primary: ESPN roster API (includes injury status).
+ * Fallback: BallDontLie (basic name/position only — no injury status).
+ *
+ * Returns both the players array and metadata about which source was used.
+ * Use this when provenance tracking matters (e.g. nba-context enricher).
+ */
+export async function getNBATeamRosterEntriesWithSource(teamAbbrev: string): Promise<{
+  players: NBARosterPlayer[];
+  source: "espn" | "bdl" | "none";
+  degraded: boolean;
+  degradedReason?: string;
+}> {
   const teamId = ESPN_TEAM_IDS[teamAbbrev];
-  if (!teamId) return [];
+  if (!teamId) {
+    return { players: [], source: "none", degraded: true, degradedReason: `Unknown team abbreviation: ${teamAbbrev}` };
+  }
 
+  // ── Primary: ESPN ────────────────────────────────────────────
   try {
     const data = await cachedFetch<any>(`${ESPN_BASE}/teams/${teamId}/roster`, 60 * 60 * 1000);
     const raw = Array.isArray(data?.athletes) ? data.athletes : [];
 
-    // ESPN NBA roster returns a flat array of athlete objects (not grouped by position).
-    // Each element is either a flat athlete OR a position-group object with an `items` array.
-    // We handle both shapes here.
     const athletes: any[] = [];
     for (const entry of raw) {
       if (Array.isArray(entry?.items)) {
-        // Old grouped shape: { position, items: [...athletes] }
         for (const a of entry.items) athletes.push(a);
       } else if (entry?.displayName || entry?.fullName) {
-        // Flat shape: the entry IS the athlete
         athletes.push(entry);
       }
     }
 
-    return athletes.map((athlete: any) => {
-      // Injury status: check injuries[] array first, then status field
+    const players = athletes.map((athlete: any) => {
       const injuryEntry = Array.isArray(athlete?.injuries) ? athlete.injuries[0] : null;
       const injuryStatus =
         injuryEntry?.status ||
         injuryEntry?.type?.description ||
         injuryEntry?.shortDetail ||
         injuryEntry?.detail ||
-        // If status.type !== "active", treat it as an injury note
         (athlete?.status?.type && athlete.status.type !== "active" ? athlete.status.type : null) ||
         null;
       return {
@@ -452,9 +461,58 @@ export async function getNBATeamRosterEntries(teamAbbrev: string): Promise<NBARo
         injuryStatus,
       };
     }).filter((player: { id: number; name: string }) => player.id && player.name);
-  } catch {
-    return [];
+
+    return { players, source: "espn", degraded: false };
+  } catch (espnErr) {
+    // ── Fallback: BallDontLie (no injury status) ─────────────
+    const bdlTeamId = BDL_TEAM_IDS[teamAbbrev];
+    const bdlKey = process.env.BALLDONTLIE_API_KEY;
+
+    if (bdlKey && bdlTeamId) {
+      try {
+        const bdlData = await cachedFetch<any>(
+          `${BDL_BASE}/players?team_ids[]=${bdlTeamId}&per_page=50`,
+          60 * 60 * 1000,
+          { Authorization: bdlKey },
+        );
+        const players = (bdlData.data ?? []).map((p: any) => ({
+          id: p.id as number,
+          name: `${p.first_name} ${p.last_name}`.trim(),
+          position: p.position ?? "",
+          jersey: "",
+          headshot: null,
+          // BDL does not provide injury status — explicitly null (not "active")
+          injuryStatus: null,
+        })).filter((p: { id: number; name: string }) => p.id && p.name);
+
+        return {
+          players,
+          source: "bdl",
+          degraded: true,
+          degradedReason: `ESPN roster failed (${String(espnErr)}); BDL fallback used (no injury status)`,
+        };
+      } catch (bdlErr) {
+        return {
+          players: [],
+          source: "none",
+          degraded: true,
+          degradedReason: `ESPN failed (${String(espnErr)}); BDL also failed (${String(bdlErr)})`,
+        };
+      }
+    }
+
+    return {
+      players: [],
+      source: "none",
+      degraded: true,
+      degradedReason: `ESPN roster failed (${String(espnErr)}); no BDL key configured`,
+    };
   }
+}
+
+export async function getNBATeamRosterEntries(teamAbbrev: string): Promise<NBARosterPlayer[]> {
+  const result = await getNBATeamRosterEntriesWithSource(teamAbbrev);
+  return result.players;
 }
 
 // ── Team ID mappings ──────────────────────────────────────────────────────────

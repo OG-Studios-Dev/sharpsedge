@@ -28,7 +28,7 @@
 // ============================================================
 
 import {
-  getNBATeamRosterEntries,
+  getNBATeamRosterEntriesWithSource,
   getRecentNBAGames,
   getNBABoxscore,
   type NBARosterPlayer,
@@ -168,6 +168,27 @@ export type NBAContextHints = {
    * Passed through to NBAFeatureSnapshot.data_source_chain.
    */
   data_source_chain: import("@/lib/goose-model/nba-features").DataSourceEntry[];
+
+  // ── Degraded-state indicators ──────────────────────────────────────────────
+  /**
+   * Whether context fetch is operating in degraded mode.
+   * True when ESPN roster API failed and BDL fallback was used (or both failed).
+   * When degraded=true, injury status data is unavailable — signals that depend
+   * on injury status (usage_surge, minutes_floor, injury_news) may be unreliable.
+   */
+  source_degraded: boolean;
+  /**
+   * Which fallback source was used when ESPN failed.
+   * "bdl" = BallDontLie fallback (no injury status).
+   * "none" = no roster data at all.
+   * null = ESPN succeeded (not degraded).
+   */
+  fallback_source: "bdl" | "none" | null;
+  /**
+   * Human-readable description of the degraded state (if any).
+   * Null when not degraded.
+   */
+  degraded_reason: string | null;
 };
 
 // ── Injury severity classifier ─────────────────────────────────
@@ -309,22 +330,41 @@ export async function fetchNBAContextHints(
   const oppAbbrevNorm = opponentAbbrev?.toUpperCase();
 
   const rosterFetchStart = Date.now();
+
+  // Track roster source provenance
+  let teamRosterSource: "espn" | "bdl" | "none" = "none";
+  let oppRosterSource: "espn" | "bdl" | "none" = "none";
+  let rosterDegraded = false;
+  let degradedReason: string | null = null;
+
   const [teamResult, oppResult] = await Promise.allSettled([
-    teamAbbrevNorm ? getNBATeamRosterEntries(teamAbbrevNorm) : Promise.resolve([]),
-    oppAbbrevNorm ? getNBATeamRosterEntries(oppAbbrevNorm) : Promise.resolve([]),
+    teamAbbrevNorm ? getNBATeamRosterEntriesWithSource(teamAbbrevNorm) : Promise.resolve({ players: [] as NBARosterPlayer[], source: "none" as const, degraded: false, degradedReason: undefined }),
+    oppAbbrevNorm ? getNBATeamRosterEntriesWithSource(oppAbbrevNorm) : Promise.resolve({ players: [] as NBARosterPlayer[], source: "none" as const, degraded: false, degradedReason: undefined }),
   ]);
 
   if (teamResult.status === "fulfilled") {
-    teamRoster = teamResult.value;
+    teamRoster = teamResult.value.players;
+    teamRosterSource = teamResult.value.source;
+    if (teamResult.value.degraded) {
+      rosterDegraded = true;
+      degradedReason = teamResult.value.degradedReason ?? `Team roster degraded: ${teamAbbrevNorm}`;
+      warnings.push(`Roster degraded for ${teamAbbrevNorm ?? "unknown"}: ${teamResult.value.degradedReason ?? "fallback used"}`);
+    }
     dataSourceChain.push({
-      source: "espn_roster",
-      context: `team=${teamAbbrevNorm ?? "unknown"} players=${teamRoster.length}`,
-      cached: true, // getNBATeamRosterEntries uses 1h cache; assume cache on warm runs
+      source: `${teamResult.value.source}_roster`,
+      context: `team=${teamAbbrevNorm ?? "unknown"} players=${teamRoster.length} degraded=${teamResult.value.degraded}${teamResult.value.degraded ? " NO_INJURY_STATUS" : ""}`,
+      cached: true,
       fetched_at: fetchedAt,
-      url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`,
+      url: teamResult.value.source === "espn"
+        ? `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`
+        : teamResult.value.source === "bdl"
+          ? `api.balldontlie.io/v1/players?team_ids[]={id}`
+          : undefined,
     });
   } else {
     warnings.push(`Could not fetch roster for ${teamAbbrevNorm ?? "unknown"}: ${teamResult.reason}`);
+    rosterDegraded = true;
+    degradedReason = `Team roster fetch failed: ${teamResult.reason}`;
     dataSourceChain.push({
       source: "espn_roster",
       context: `team=${teamAbbrevNorm ?? "unknown"} FAILED`,
@@ -334,19 +374,30 @@ export async function fetchNBAContextHints(
   }
 
   if (oppResult.status === "fulfilled") {
-    opponentRoster = oppResult.value;
+    opponentRoster = oppResult.value.players;
+    oppRosterSource = oppResult.value.source;
+    if (oppAbbrevNorm && oppResult.value.degraded) {
+      rosterDegraded = true;
+      if (!degradedReason) degradedReason = oppResult.value.degradedReason ?? `Opp roster degraded: ${oppAbbrevNorm}`;
+      warnings.push(`Roster degraded for ${oppAbbrevNorm}: ${oppResult.value.degradedReason ?? "fallback used"}`);
+    }
     if (oppAbbrevNorm) {
       dataSourceChain.push({
-        source: "espn_roster",
-        context: `team=${oppAbbrevNorm} players=${opponentRoster.length}`,
+        source: `${oppResult.value.source}_roster`,
+        context: `team=${oppAbbrevNorm} players=${opponentRoster.length} degraded=${oppResult.value.degraded}${oppResult.value.degraded ? " NO_INJURY_STATUS" : ""}`,
         cached: true,
         fetched_at: fetchedAt,
-        url: `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`,
+        url: oppResult.value.source === "espn"
+          ? `site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{id}/roster`
+          : oppResult.value.source === "bdl"
+            ? `api.balldontlie.io/v1/players?team_ids[]={id}`
+            : undefined,
       });
     }
   } else {
     warnings.push(`Could not fetch roster for ${oppAbbrevNorm ?? "unknown"}: ${oppResult.reason}`);
     if (oppAbbrevNorm) {
+      rosterDegraded = true;
       dataSourceChain.push({
         source: "espn_roster",
         context: `team=${oppAbbrevNorm} FAILED`,
@@ -605,10 +656,15 @@ export async function fetchNBAContextHints(
     }
   }
 
+  // Determine the effective fallback_source from the roster fetch results
+  const effectiveFallbackSource: "bdl" | "none" | null = rosterDegraded
+    ? (teamRosterSource === "bdl" || oppRosterSource === "bdl" ? "bdl" : "none")
+    : null;
+
   // Final provenance entry — marks this enricher run complete
   dataSourceChain.push({
     source: "nba_context_enricher",
-    context: `player=${playerName ?? "n/a"} team=${teamAbbrevNorm ?? "n/a"} opp=${oppAbbrevNorm ?? "n/a"} autoSignals=[${Array.from(new Set(autoSignals)).join(",")}] warnings=${warnings.length}`,
+    context: `player=${playerName ?? "n/a"} team=${teamAbbrevNorm ?? "n/a"} opp=${oppAbbrevNorm ?? "n/a"} rosterSrc=${teamRosterSource}/${oppRosterSource} degraded=${rosterDegraded} autoSignals=[${Array.from(new Set(autoSignals)).join(",")}] warnings=${warnings.length}`,
     cached: false,
     fetched_at: new Date().toISOString(),
   });
@@ -635,6 +691,10 @@ export async function fetchNBAContextHints(
     player_avg_stat_l5: playerAvgStatL5,
     player_l5_hit_rate: playerL5HitRate,
     data_source_chain: dataSourceChain,
+    // Degraded-state indicators
+    source_degraded: rosterDegraded,
+    fallback_source: effectiveFallbackSource,
+    degraded_reason: rosterDegraded ? degradedReason : null,
   };
 }
 
@@ -665,5 +725,8 @@ export function emptyNBAContextHints(): NBAContextHints {
     player_avg_stat_l5: null,
     player_l5_hit_rate: null,
     data_source_chain: [],
+    source_degraded: false,
+    fallback_source: null,
+    degraded_reason: null,
   };
 }

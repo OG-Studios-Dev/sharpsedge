@@ -274,6 +274,21 @@ export interface NBAFeatureSnapshot {
    */
   player_l5_hit_rate: number | null;
 
+  // ── Degraded-state indicators ──────────────────────────────────────────────
+  /**
+   * Whether the context enricher ran in degraded mode (ESPN failed, fallback used).
+   * When true, injury-dependent signals (usage_surge, minutes_floor, injury_news)
+   * may be unreliable or missing. Reviewers should treat those signals with lower confidence.
+   */
+  context_source_degraded: boolean;
+  /**
+   * The fallback source used when ESPN failed.
+   * "bdl" = BallDontLie (basic roster, no injury status).
+   * "none" = no roster data.
+   * null = ESPN succeeded.
+   */
+  context_fallback_source: "bdl" | "none" | null;
+
   // ── Data provenance / source chain ────────────────────────────────────────
   /**
    * Structured record of data sources used to populate this snapshot.
@@ -375,6 +390,10 @@ export interface NBAContextHintsInput {
   estimated_minutes_tier: string;
   /** Alias for NBAContextHints.warnings — non-fatal context fetch issues */
   warnings: string[];
+  /** Whether context fetch was degraded (ESPN failed, fallback used) */
+  source_degraded?: boolean;
+  /** Fallback source when degraded */
+  fallback_source?: "bdl" | "none" | null;
   // ── Real numeric features ─────────────────────────────────────────────────
   /** Opponent DvP rank for this position group + stat (1=best D, 30=worst D) */
   opponent_dvp_rank?: number | null;
@@ -480,6 +499,9 @@ export function scoreNBAFeaturesWithSnapshot(
         fetched_at: new Date().toISOString(),
       },
     ],
+    // Degraded-state indicators from context enricher
+    context_source_degraded: contextHints?.source_degraded ?? false,
+    context_fallback_source: contextHints?.fallback_source ?? null,
   };
 
   return { score, snapshot };

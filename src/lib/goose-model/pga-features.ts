@@ -17,10 +17,15 @@
 //   value_play         — model probability meaningfully exceeds implied odds
 //   top_finish_market  — pick is a top-5/10/20 market (more stable than outright)
 //
+// OWGR supplement (secondary to DataGolf — same DG field cache, no extra fetch):
+//   owgr_top50_field   — player ranks top 50 in world (OWGR from DG field scrape)
+//   owgr_top20_field   — player ranks top 20 in world (stronger field filter)
+//
 // Real inputs consumed (all available from existing DG cache):
 //   ✅ DataGolf rankings: dgRank, sgT2G, sgAPP, sgPUTT
 //   ✅ DataGolf predictions: dgWinProb, dgTop5Prob, dgTop10Prob, dgTop20Prob
 //   ✅ DataGolf course-fit scores: dgCourseFit
+//   ✅ OWGR world rank (from DG field page hourly blob — already scraped)
 //   ✅ Form score (from ESPN recent tournament history via golf-stats-engine)
 //   ✅ Course history score (from ESPN player history via golf-stats-engine)
 //   ✅ Book odds (from golf-odds.ts aggregation)
@@ -71,6 +76,17 @@ export interface PGAContextHints {
   /** Course history score (0–100; derived from historical results at this course) */
   course_history_score: number | null;
 
+  // ── OWGR supplement (from DG field scrape — secondary to DG skill metrics) ──
+  /**
+   * Official World Golf Ranking (OWGR) from the DataGolf field page hourly blob.
+   * Sourced from the same DG field scrape that populates predictions/course-fit.
+   * Lower = better (rank 1 = world #1). Null if player not found in DG field data.
+   *
+   * NOTE: This is a supplemental signal. DataGolf skill metrics (DG rank, SG data)
+   * are primary — OWGR is a secondary confirmatory layer only.
+   */
+  owgr_rank: number | null;
+
   // ── Market context ─────────────────────────────────────────
   /** The pick's market type (outright winner / top 5 / top 10 / top 20 / matchup) */
   market_type: PGAMarketType;
@@ -98,6 +114,7 @@ export function emptyPGAContextHints(): PGAContextHints {
     dg_top10_prob: null,
     dg_top20_prob: null,
     dg_course_fit: null,
+    owgr_rank: null,
     form_score: null,
     course_history_score: null,
     market_type: "unknown",
@@ -154,6 +171,18 @@ export interface PGAFeatureSnapshot {
   market_type: PGAMarketType;
   /** Model edge vs book implied probability */
   model_edge: number | null;
+
+  // ── OWGR supplement ────────────────────────────────────────
+  /**
+   * OWGR world rank at pick time (from DG field data).
+   * Null if not found in DG field data.
+   * Secondary to DG metrics — used as confirmatory layer only.
+   */
+  owgr_rank: number | null;
+  /** Whether OWGR top-50 signal was active for this pick */
+  owgr_top50_active: boolean;
+  /** Whether OWGR top-20 signal was active for this pick */
+  owgr_top20_active: boolean;
 
   /** Warnings from context fetch */
   context_warnings: string[];
@@ -225,6 +254,21 @@ export const PGA_SIGNAL_PRIORS: Record<string, number> = {
   course_history_edge: 0.60,
   /** Model probability materially exceeds book implied probability (value play) */
   value_play: 0.62,
+  /**
+   * OWGR supplement — player ranks top 50 in the Official World Golf Ranking.
+   * Sourced from the DataGolf field page (same scrape as DG predictions/course-fit).
+   * SECONDARY to DG metrics. Used as a confirmatory filter — top-50 OWGR players
+   * in favorable markets have slightly higher base hit rates (~59–61%).
+   * Prior is intentionally conservative (lower than DG signals) since OWGR
+   * correlates with DG rank and adding both would overcount the same signal.
+   */
+  owgr_top50_field: 0.59,
+  /**
+   * OWGR top-20 world ranking — stronger confirmatory signal.
+   * Reserved for elite world-class players (Scheffler, McIlroy, Rahm tier).
+   * Used for outright and top-5 markets where elite field strength matters most.
+   */
+  owgr_top20_field: 0.61,
   /** Pick is a top-5/10/20 finish market rather than outright */
   top_finish_market: 0.59,
   /** H2H matchup: player has skill/form edge over opponent */
@@ -346,6 +390,8 @@ export async function fetchPGAContextHints(
     const ranking = findDGMatch(dgCache.data.rankings, playerName);
     const prediction = findDGMatch(dgCache.data.predictions, playerName);
     const courseFitEntry = findDGMatch(dgCache.data.courseFit, playerName);
+    // OWGR supplement: world rank from DG field page (same scrape, no extra fetch)
+    const fieldEntry = findDGMatch(dgCache.data.field, playerName);
 
     if (!ranking && !prediction && !courseFitEntry) {
       warnings.push(`Player "${playerName}" not found in DataGolf cache`);
@@ -357,6 +403,11 @@ export async function fetchPGAContextHints(
     const sg_app = ranking?.sgAPP ?? null;
     const sg_putt = ranking?.sgPUTT ?? null;
     const sg_total = ranking?.sgTotal ?? null;
+
+    // ── OWGR supplement (from DG field data — secondary layer) ──
+    // worldRank in DGFieldPlayer is sourced from the DataGolf field page hourly blob
+    // (field.owgr or field.world_rank keys in the JS blob). Free, no extra fetch.
+    const owgr_rank = fieldEntry?.worldRank ?? null;
 
     // ── DataGolf predictions ─────────────────────────────────
     // DG probabilities may be raw fractions or percentages; normalize to 0–1
@@ -432,6 +483,17 @@ export async function fetchPGAContextHints(
       auto_signals.push("top_finish_market");
     }
 
+    // OWGR supplement signals — secondary to DG metrics
+    // Only tag if DG ranking doesn't already cover this player (avoids double-counting)
+    // owgr_top50: player is ranked in the OWGR top 50 (world-class field strength)
+    if (typeof owgr_rank === "number" && owgr_rank <= 50 && owgr_rank > 0) {
+      auto_signals.push("owgr_top50_field");
+    }
+    // owgr_top20: elite world top-20 players — stronger signal for outright/top-5
+    if (typeof owgr_rank === "number" && owgr_rank <= 20 && owgr_rank > 0) {
+      auto_signals.push("owgr_top20_field");
+    }
+
     return {
       auto_signals,
       dg_rank,
@@ -444,6 +506,7 @@ export async function fetchPGAContextHints(
       dg_top10_prob,
       dg_top20_prob,
       dg_course_fit,
+      owgr_rank,
       form_score: formScore ?? null,
       course_history_score: courseHistoryScore ?? null,
       market_type: marketType,
@@ -530,6 +593,10 @@ export function scorePGAFeaturesWithSnapshot(
     course_history_score: contextHints?.course_history_score ?? null,
     market_type: contextHints?.market_type ?? "unknown",
     model_edge: contextHints?.model_edge ?? null,
+    // OWGR supplement
+    owgr_rank: contextHints?.owgr_rank ?? null,
+    owgr_top50_active: allSignals.includes("owgr_top50_field"),
+    owgr_top20_active: allSignals.includes("owgr_top20_field"),
     context_warnings: contextHints?.warnings ?? [],
   };
 

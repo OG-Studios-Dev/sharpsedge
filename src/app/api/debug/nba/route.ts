@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getNBASchedule, getRecentNBAGames, getNBABoxscore } from "@/lib/nba-api";
+import { getNBASchedule, getRecentNBAGames, getNBABoxscore, getNBATeamRosterEntriesWithSource } from "@/lib/nba-api";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -34,7 +34,41 @@ export async function GET() {
       steps.recentGames = { count: 0, ms: Date.now() - t2, error: String(err) };
     }
 
-    // Step 3: Check team coverage for first 2 active games
+    // Step 3: Roster provenance check — ESPN vs BDL fallback visibility
+    const activeOrRecent = activeGames.length > 0 ? activeGames : recentGames;
+    const probeTeams = activeOrRecent.length > 0
+      ? [activeOrRecent[0].homeTeam.abbreviation, activeOrRecent[0].awayTeam.abbreviation]
+      : ["LAL", "BOS"]; // safe default if no games found
+
+    const rosterChecks: Record<string, unknown> = {};
+    for (const team of probeTeams.slice(0, 2)) {
+      try {
+        const t = Date.now();
+        const result = await getNBATeamRosterEntriesWithSource(team);
+        rosterChecks[team] = {
+          source: result.source,
+          degraded: result.degraded,
+          degradedReason: result.degradedReason ?? null,
+          playerCount: result.players.length,
+          injuryStatusAvailable: result.source === "espn",
+          samplePlayers: result.players.slice(0, 3).map(p => ({
+            name: p.name,
+            position: p.position,
+            injuryStatus: p.injuryStatus ?? null,
+          })),
+          ms: Date.now() - t,
+        };
+      } catch (err) {
+        rosterChecks[team] = { error: String(err) };
+      }
+    }
+    steps.rosterProvenance = rosterChecks;
+
+    // Also indicate if BDL key is configured
+    steps.bdlKeyConfigured = Boolean(process.env.BALLDONTLIE_API_KEY);
+    steps.espnRosterNote = "ESPN is primary (includes injury status). BDL fallback = basic roster only, no injury status.";
+
+    // Step 3b: Check team coverage for first 2 active games
     const targetGames = activeGames.slice(0, 2);
     const teams = new Set<string>();
     targetGames.forEach((g) => {
