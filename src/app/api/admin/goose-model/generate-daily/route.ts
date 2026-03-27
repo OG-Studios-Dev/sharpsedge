@@ -16,6 +16,9 @@
  *       • After Wednesday 10 PM ET → skip PGA (picks already locked).
  *       • Thursday–Sunday → skip PGA.
  *   - PGA outright winner picks: minimum +200 odds (no chalk below this).
+ *   - MLB timing:
+ *       • Off-season (Nov 1 – Mar 19): MLB picks skipped automatically.
+ *       • Regular season (Mar 20 – Oct 31): picks enabled every day.
  *
  * Manual POST body (all optional):
  *   { date?: string; sports?: string[]; sandbox?: boolean; experiment_tag?: string }
@@ -31,6 +34,7 @@ import {
   SANDBOX_EXPERIMENT_TAG,
 } from "@/lib/goose-model/generator";
 import { getPGATimingStatus, canGeneratePGAPicksNow } from "@/lib/goose-model/pga-timing";
+import { getMLBSeasonTimingStatus, canGenerateMLBPicksNow } from "@/lib/goose-model/mlb-timing";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 150;
@@ -169,6 +173,7 @@ async function runDailyGeneration(opts: {
   sports: SportResult[];
   total_picks: number;
   pga_timing?: ReturnType<typeof getPGATimingStatus>;
+  mlb_timing?: ReturnType<typeof getMLBSeasonTimingStatus>;
 }> {
   const date = opts.targetDate ?? new Date().toISOString().slice(0, 10);
   const sandbox = opts.sandbox ?? true; // default: sandbox mode for data collection
@@ -192,6 +197,15 @@ async function runDailyGeneration(opts: {
       requestedSports = ["PGA", ...requestedSports.filter((s) => s !== "PGA")];
       console.info("[goose-model/generate-daily] PGA is priority today:", pgaTiming.reason);
     }
+  }
+
+  // MLB off-season check
+  const mlbTiming = getMLBSeasonTimingStatus();
+  const mlbIncluded = requestedSports.includes("MLB");
+
+  if (mlbIncluded && !canGenerateMLBPicksNow()) {
+    requestedSports = requestedSports.filter((s) => s !== "MLB");
+    console.info("[goose-model/generate-daily] MLB skipped (off-season):", mlbTiming.reason);
   }
 
   // Run sports sequentially to avoid thundering-herd on pick APIs
@@ -239,6 +253,16 @@ async function runDailyGeneration(opts: {
     });
   }
 
+  // Report skipped MLB if it was excluded (off-season)
+  if (mlbIncluded && !requestedSports.includes("MLB")) {
+    results.push({
+      sport: "MLB",
+      success: true,
+      skipped: true,
+      skip_reason: mlbTiming.reason,
+    });
+  }
+
   return {
     date,
     sandbox,
@@ -246,6 +270,7 @@ async function runDailyGeneration(opts: {
     sports: results,
     total_picks: results.reduce((sum, r) => sum + (r.picks ?? 0), 0),
     pga_timing: pgaTiming,
+    mlb_timing: mlbTiming,
   };
 }
 

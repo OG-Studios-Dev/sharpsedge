@@ -244,6 +244,10 @@ function parseProbablePitcher(pitcher: any) {
     name: pitcher.fullName ?? pitcher.name ?? "",
     hand: pitcher.pitchHand?.code || pitcher.pitchHand?.description || undefined,
     era: parseFloatOrNull(stat.era),
+    whip: parseFloatOrNull(stat.whip),
+    strikeOuts: toNumber(stat.strikeOuts),
+    baseOnBalls: toNumber(stat.baseOnBalls),
+    inningsPitched: parseFloatOrNull(stat.inningsPitched),
     wins: toNumber(stat.wins),
     losses: toNumber(stat.losses),
   };
@@ -288,7 +292,8 @@ function parseScheduleGame(game: any): MLBGame {
 }
 
 function scheduleUrlForDate(date: string) {
-  return `${MLB_BASE}/schedule?date=${date}&sportId=1&hydrate=team,linescore,probablePitcher`;
+  // Request pitcher season stats alongside probablePitcher so ERA, WHIP, K, BB are available
+  return `${MLB_BASE}/schedule?date=${date}&sportId=1&hydrate=team,linescore,probablePitcher(stats(group=[pitching],type=[season]))`;
 }
 
 export async function getMLBSchedule(daysAhead = 2): Promise<MLBGame[]> {

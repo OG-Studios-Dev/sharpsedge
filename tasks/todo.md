@@ -364,6 +364,61 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 - DG doesn't expose per-category SG on the rankings page
 - Action: check if DG player profile pages expose these (would require per-player fetch)
 
+---
+
+## 2026-03-27 — NHL Cron Wire + MLB Regular Season Enablement
+
+### NHL — Cron wired ✅
+- **vercel.json**: Added two NHL shot refresh cron entries
+  - `0 11 * * *` → `GET /api/admin/nhl-shot-refresh?cron=true` — daily rolling prewarm (6 AM ET)
+  - `0 12 * * 1` → `GET /api/admin/nhl-shot-refresh?cron=true&mode=full` — weekly full-season prewarm (7 AM ET Mon)
+- **Route updated** (`nhl-shot-refresh/route.ts`):
+  - GET now handles `?cron=true` — executes prewarm instead of dry-run
+  - `isAuthorized()` now accepts `CRON_SECRET` (Vercel cron pattern, consistent with rest of codebase)
+  - Dry-run cadence doc updated to reflect cron schedule
+
+### MLB — Regular season launch ✅
+- **`/api/mlb/picks` enabled**: Removed hardcoded early return ("MLB picks launch with regular season"). Opening Day 2026 is today.
+  - Picks flow confirmed: 8 games today, picks generating (e.g. CLE Win ML Road +151 Pinnacle)
+  - Added `meta` to response (propsConsidered, trendsConsidered, gamesActive)
+- **WHIP added to starter quality**:
+  - `mlb-api.ts`: Schedule hydrate now requests `probablePitcher(stats(group=[pitching],type=[season]))` for season stats
+  - `parseProbablePitcher()`: Now extracts `whip`, `strikeOuts`, `baseOnBalls`, `inningsPitched`
+  - `mlb-enrichment.ts`: New `buildStarterQuality()` + `computeStarterQualityScore()` helpers
+    - Blends ERA (60%) + WHIP (40%) when both available; falls back to ERA-only
+    - `qualityMethod` field: `"era+whip-blend"` | `"era-only"` | `"unavailable"`
+    - Season start note: ERA/WHIP null is expected until innings accumulate (qualityScore=null, method="unavailable")
+- **`mlb-timing.ts` created** (`src/lib/goose-model/mlb-timing.ts`):
+  - `getMLBSeasonTimingStatus()` — returns inSeason, reason (off-season Nov 1 – Mar 19)
+  - `canGenerateMLBPicksNow()` — gate function for generate-daily
+- **`generate-daily` updated**: MLB timing check wired — off-season generates skip MLB cleanly with reason logged
+- **TypeScript**: Clean — `npx tsc --noEmit` produces 0 errors
+
+### MLB extraction shortlist (worth porting later)
+- **P1 — Batter vs Pitcher splits** (BvP):
+  - MLB Stats API has a splits endpoint: `/api/v1/people/{id}/stats?stats=vsPlayer&group=pitching&opposingPlayerId={pitcherId}`
+  - Requires lineup ID × starter ID cross-lookup per game (~4-6 API calls/game)
+  - Highest signal leverage for player props (K-rate, OPS vs LHP/RHP)
+  - Status: architecture ready (lineup IDs + starter IDs both available); need split-fetch layer + BvP signal
+- **P2 — Umpire assignment rail**:
+  - MLB umpire assignments published ~2h pre-game on MLB Stats API: `/api/v1/game/{gamePk}/boxscore` → officials
+  - Home plate umpire K-rate and zone-expansion tendencies matter for totals/K props
+  - Source: Baseball Reference / Retrosheet have historical umpire stats (not live API)
+  - Status: gamePk available; umpire lookup would need separate ump-stats seeded JSON (like park factors)
+- **P3 — Team L10 home/away splits from standings**:
+  - MLB Stats API standings endpoint returns `splitRecords` (homeRecord, awayRecord, lastTen)
+  - Currently used for streaks/record only; could add home_win_rate and away_win_rate signals
+  - Low implementation cost, moderate signal value
+  - Status: `getMLBStandings()` already fetches standings; just need split extraction
+- **P4 — Pitcher K/BB ratio signal**:
+  - `strikeOuts` and `baseOnBalls` now available via WHIP upgrade (see this build)
+  - K/BB ≥ 3.0 → `pitcher_command` signal (good command = fewer walks = harder to score)
+  - Status: data available now from schedule hydrate; just need signal definition + prior
+- **P5 — IL/injury diff rail**:
+  - No structured MLB IL diff feed; RotoWire/beat reporters are the only real-time source
+  - Best approach: compare current roster vs yesterday's cached roster for additions
+  - Low ROI given implementation complexity; lineup_status captures the downstream impact
+
 ## Review
 - 1bfe9b9: NHL feature module, context scoring, debug route.
 - 12588bf: MLB feature module, generator parity, debug route.
@@ -371,4 +426,5 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 - 7394196: PGA bundled fallback snapshot + 3-tier DG fallback chain.
 - c24bc22: NBA fallback/provenance hardening + PGA OWGR supplement infrastructure.
 - fca9cae: OWGR status corrected to dormant/secondary when unavailable.
-- [CURRENT]: MLB weather floor-to-hour fix (0/8→8/8), PGA course weather rail, bundled snapshot refresh tooling.
+- [PREV]: MLB weather floor-to-hour fix (0/8→8/8), PGA course weather rail, bundled snapshot refresh tooling.
+- [CURRENT]: NHL cron wired (rolling daily + full weekly), MLB picks enabled (Opening Day 2026), WHIP in starter quality, MLB timing guard, BvP/umpire shortlist documented.

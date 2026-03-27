@@ -9,6 +9,83 @@ import { getMLBStadiumForGame } from "@/lib/mlb-stadiums";
 import { getMLBWeatherForGame } from "@/lib/mlb-weather";
 import { buildSourceHealthCheck, summarizeSourceHealth } from "@/lib/source-health";
 
+// ── Starter quality scoring ───────────────────────────────────
+
+/**
+ * Compute a 30–80 qualityScore for a probable starter.
+ *
+ * When both ERA and WHIP are available, we blend them (60/40) for a more
+ * process-level assessment. ERA alone is the fallback when WHIP is null
+ * (e.g. early season before enough innings logged).
+ *
+ * Scale anchors:
+ *   80 → elite ace  (ERA ≤ 2.50, WHIP ≤ 0.90)
+ *   68 → avg starter (ERA ≈ 3.50, WHIP ≈ 1.20)
+ *   45 → below avg  (ERA ≈ 5.00, WHIP ≈ 1.50)
+ *   30 → replacement (ERA ≈ 6.50+, WHIP ≈ 1.80+)
+ */
+function computeStarterQualityScore(era: number | null, whip: number | null): number | null {
+  if (era == null) return null;
+
+  // ERA component: 68 baseline, ±9 pts per run above/below 3.5 ERA
+  const eraScore = 68 - (era - 3.5) * 9;
+
+  if (whip == null) {
+    // ERA-only path
+    return Math.max(30, Math.min(80, Math.round(eraScore)));
+  }
+
+  // WHIP component: 68 baseline, ±40 pts per unit above/below 1.20 WHIP
+  const whipScore = 68 - (whip - 1.20) * 40;
+
+  // Blend 60% ERA / 40% WHIP
+  const blended = 0.6 * eraScore + 0.4 * whipScore;
+  return Math.max(30, Math.min(80, Math.round(blended)));
+}
+
+function buildStarterQuality(pitcher: {
+  id: string;
+  name: string;
+  hand?: string;
+  era?: number | null;
+  whip?: number | null;
+  strikeOuts?: number;
+  baseOnBalls?: number;
+  wins?: number;
+  losses?: number;
+}) {
+  const era = pitcher.era ?? null;
+  const whip = pitcher.whip ?? null;
+  const qualityScore = computeStarterQualityScore(era, whip);
+  const hasEra = era != null;
+  const hasWhip = whip != null;
+
+  let summary: string;
+  if (!hasEra) {
+    summary = `${pitcher.name} listed without current ERA context.`;
+  } else {
+    const eraStr = `ERA ${era.toFixed(2)}`;
+    const whipStr = hasWhip ? ` WHIP ${whip.toFixed(2)}` : "";
+    const recordStr = `${pitcher.wins ?? 0}-${pitcher.losses ?? 0}`;
+    summary = `${pitcher.name} (${pitcher.hand || "—"}) ${eraStr}${whipStr} • ${recordStr}`;
+  }
+
+  return {
+    pitcherId: pitcher.id ?? null,
+    pitcherName: pitcher.name ?? null,
+    hand: pitcher.hand ?? null,
+    era,
+    whip,
+    strikeOuts: pitcher.strikeOuts ?? null,
+    baseOnBalls: pitcher.baseOnBalls ?? null,
+    wins: pitcher.wins ?? null,
+    losses: pitcher.losses ?? null,
+    qualityScore,
+    qualityMethod: hasEra && hasWhip ? "era+whip-blend" : hasEra ? "era-only" : "unavailable",
+    summary,
+  };
+}
+
 export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TIME_ZONE)) {
   const schedule = await getMLBScheduleRange(date, date);
   const [bullpenBoard, odds] = await Promise.all([
@@ -33,36 +110,10 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
     };
     const starterQuality = {
       away: probableStarters.away
-        ? {
-            pitcherId: probableStarters.away.id ?? null,
-            pitcherName: probableStarters.away.name ?? null,
-            hand: probableStarters.away.hand ?? null,
-            era: probableStarters.away.era ?? null,
-            wins: probableStarters.away.wins ?? null,
-            losses: probableStarters.away.losses ?? null,
-            qualityScore: probableStarters.away.era == null
-              ? null
-              : Math.max(30, Math.min(80, Math.round(68 - (probableStarters.away.era - 3.5) * 9))),
-            summary: probableStarters.away.era == null
-              ? `${probableStarters.away.name} listed without current ERA context.`
-              : `${probableStarters.away.name} (${probableStarters.away.hand || "—"}) ERA ${probableStarters.away.era.toFixed(2)} • ${probableStarters.away.wins ?? 0}-${probableStarters.away.losses ?? 0}`,
-          }
+        ? buildStarterQuality(probableStarters.away)
         : null,
       home: probableStarters.home
-        ? {
-            pitcherId: probableStarters.home.id ?? null,
-            pitcherName: probableStarters.home.name ?? null,
-            hand: probableStarters.home.hand ?? null,
-            era: probableStarters.home.era ?? null,
-            wins: probableStarters.home.wins ?? null,
-            losses: probableStarters.home.losses ?? null,
-            qualityScore: probableStarters.home.era == null
-              ? null
-              : Math.max(30, Math.min(80, Math.round(68 - (probableStarters.home.era - 3.5) * 9))),
-            summary: probableStarters.home.era == null
-              ? `${probableStarters.home.name} listed without current ERA context.`
-              : `${probableStarters.home.name} (${probableStarters.home.hand || "—"}) ERA ${probableStarters.home.era.toFixed(2)} • ${probableStarters.home.wins ?? 0}-${probableStarters.home.losses ?? 0}`,
-          }
+        ? buildStarterQuality(probableStarters.home)
         : null,
     };
 
@@ -73,9 +124,9 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
         note: "Best sustainable repo-native approximation until a dedicated daily Statcast snapshot rail is added.",
       },
       pitchers: {
-        approximation: "probable-starter-era-form",
-        scope: "listed probable starters from MLB Stats API schedule hydrate",
-        note: "Use as a conservative daily starter-quality rail, not a Statcast replacement.",
+        approximation: "probable-starter-era-whip-form",
+        scope: "listed probable starters from MLB Stats API schedule hydrate (ERA + WHIP when available)",
+        note: "qualityScore blends ERA and WHIP (60/40) when both are available; ERA-only otherwise.",
       },
     };
 
