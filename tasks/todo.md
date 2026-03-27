@@ -17,7 +17,7 @@
 - [x] Add PGA debug route (/api/debug/pga) for pipeline health visibility.
 - [x] Add bundled DG snapshot fallback (similar to NHL moneypuck-team-context.snapshot.json pattern).
 - [x] NBA backup/provenance hardening: BDL fallback in roster fetch, explicit degraded-state metadata, observability in debug route.
-- [x] Add OWGR supplement layer for PGA (from existing DG field data — secondary to DataGolf, no extra fetch).
+- [x] Add OWGR supplement layer for PGA (signal infrastructure + debug visibility implemented; DG field blob lacks owgr key for current tournament — signals dormant but degrade gracefully).
 - [ ] Add Open-Meteo weather at course for PGA (requires course geocoordinates table).
 - [ ] Wire live leaderboard position into PGA context hints for in-progress picks.
 - [ ] Add formScore/courseHistoryScore passthrough from AIPick snapshot → PGA context hints.
@@ -74,7 +74,7 @@
 | **Primary source** | DataGolf HTML scraper (datagolf.com via cheerio) — parses inline JS blobs |
 | **Cache layer** | Supabase DB (24h TTL) + /tmp local fallback |
 | **Secondary source** | ESPN Golf API — leaderboard, schedule, player tournament history |
-| **OWGR supplement** | OWGR world rank sourced from DataGolf field page hourly blob (same scrape — no extra fetch). Exposed as `owgr_rank` in `PGAContextHints`. Signals: `owgr_top50_field` (prior 0.59), `owgr_top20_field` (prior 0.61). Secondary/confirmatory only — DG metrics are primary. |
+| **OWGR supplement** | OWGR layer implemented: `owgr_rank` field in `PGAContextHints`/`PGAFeatureSnapshot`, `owgr_top50_field` (prior 0.59) + `owgr_top20_field` (prior 0.61) signals, OWGR coverage in debug route. **Data status: DG field blob lacks owgr key for this tournament (0% coverage confirmed). Signals dormant but degrade gracefully.** DG metrics remain primary. |
 | **Fallback** | Supabase (24h TTL) → /tmp local file → **bundled repo snapshot** (`data/pga/datagolf-field.snapshot.json`). Bundled snapshot is book-odds-derived (Masters 2026 Bovada field + implied win probs). No DG skill/SG data in bundled tier. |
 | **Validation/provenance** | `dgStatus.ready` gate in picks route; `DGCacheSummary` with reason string; `context_warnings[]` in PGAContextHints; OWGR coverage metrics in `/api/debug/pga` |
 | **Fragility** | **Medium** — HTML scraping is brittle (DG changed URLs March 2026); bundled fallback now added (was High before this pass) |
@@ -123,7 +123,7 @@
 
 1. ~~**PGA: No bundled DG snapshot**~~ ✅ RESOLVED — bundled snapshot added (`data/pga/datagolf-field.snapshot.json`).
 2. ~~**NBA: BDL fallback silent on degradation**~~ ✅ RESOLVED — `getNBATeamRosterEntriesWithSource()` returns explicit `{ source, degraded, degradedReason }`. Context enricher propagates `source_degraded` + `fallback_source` + `degraded_reason` into `NBAContextHints` and `NBAFeatureSnapshot`. Debug route shows roster provenance per team.
-3. ~~**PGA: No OWGR supplement**~~ ✅ RESOLVED — OWGR world rank now extracted from DG field page (same scrape, no extra fetch). Wired as `owgr_rank` in `PGAContextHints` + `PGAFeatureSnapshot`. Signals: `owgr_top50_field` (0.59), `owgr_top20_field` (0.61). Secondary to DataGolf metrics by design.
+3. **PGA: OWGR supplement — data layer not available (signals dormant)** — OWGR signal layer is implemented (`owgr_rank` field, `owgr_top50_field`/`owgr_top20_field` signals, debug visibility). However, the DG field page hourly blob does NOT include OWGR/world_rank keys for this tournament (0% coverage confirmed). Direct OWGR API (owgr.com) blocks programmatic access. ESPN golf API has no world ranking. Code degrades gracefully (null rank → no signals fire). Need a reliable OWGR source to activate: candidate = bundled weekly OWGR JSON from a public dataset, or DG's owgr key appearing in a different tournament's field blob.
 4. **PGA: DG scraper fragility** — HTML scraping already broke once (March 2026). DG API access (paid) would be the right long-term fix. Current bundled fallback degrades gracefully but lacks skill/SG data.
 5. **NBA: ESPN ToS exposure** — commercial use requires MySportsFeeds or SportsDataIO migration. BDL fallback now explicit but also lacks injury data.
 6. **MLB: No Statcast advanced metrics** — ERA proxy is adequate but FIP/xFIP would sharpen pitcher signals.
