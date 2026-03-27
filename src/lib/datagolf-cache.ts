@@ -1,12 +1,25 @@
 /**
  * DataGolf Cache — stores scraped data in Supabase with /tmp as a local fallback.
+ *
+ * Fallback chain (in priority order):
+ *   1. Supabase DB (datagolf_cache table, 24h TTL) — primary persistent cache
+ *   2. /tmp/datagolf-cache.json — local process-level fallback (survives Supabase outages)
+ *   3. data/pga/datagolf-field.snapshot.json — bundled repo snapshot (last resort;
+ *      contains book-odds-derived field/predictions — see _meta.honestLimitations)
+ *
+ * Source strategy:
+ *   - DataGolf is the current backbone (HTML scraper → Supabase → /tmp → bundled)
+ *   - PGA Tour pages: manual validation only, no automated scraping (ToS)
+ *   - Future prod path: licensed feeds (Sportradar / SportsDataIO)
  */
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import { join } from "path";
 import type { DGScrapeResult } from "./datagolf-scraper";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "./supabase-shared";
 import type { GolfDGCacheSummary } from "./types";
 
 const CACHE_PATH = "/tmp/datagolf-cache.json";
+const BUNDLED_SNAPSHOT_PATH = join(process.cwd(), "data/pga/datagolf-field.snapshot.json");
 const STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 type DGCacheRow = {
@@ -164,6 +177,39 @@ function readTmpCache(): DGCache | null {
   }
 }
 
+/**
+ * Read the bundled repo snapshot — last-resort fallback.
+ *
+ * This snapshot contains book-odds-derived data (NOT actual DataGolf model output).
+ * Specifically: rankings are odds-order proxies (no SG data), predictions are
+ * book-implied win probabilities, and courseFit is empty.
+ *
+ * It is returned with a source_tier="bundled" flag on the cache object so
+ * callers can detect degraded-mode operation and surface warnings accordingly.
+ *
+ * See data/pga/datagolf-field.snapshot.json → _meta.honestLimitations for details.
+ */
+function readBundledSnapshot(): DGCache | null {
+  try {
+    if (!existsSync(BUNDLED_SNAPSHOT_PATH)) return null;
+    const raw = readFileSync(BUNDLED_SNAPSHOT_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+
+    // Extract the DGScrapeResult-compatible shape (top-level has rankings/predictions/field etc.)
+    const cache = normalizeCachePayload(parsed, parsed.tournament ?? null, parsed.timestamp ?? null);
+    if (!cache) return null;
+
+    // Tag the cache so callers know this is bundled fallback data
+    return {
+      ...cache,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...(({ source_tier: "bundled", bundled_limitations: (parsed as any)?._meta?.honestLimitations ?? [] } as unknown) as object),
+    } as DGCache;
+  } catch {
+    return null;
+  }
+}
+
 function writeTmpCache(cache: DGCache) {
   writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2), "utf-8");
 }
@@ -288,15 +334,45 @@ async function writeSupabaseCache(cache: DGCache): Promise<void> {
   );
 }
 
+/** Internal: track which tier served the last getDGCache() call */
+let _lastCacheTier: "supabase" | "tmp" | "bundled" | "none" = "none";
+
+/** Returns the source tier that served the most recent getDGCache() call. */
+export function getLastCacheTier(): "supabase" | "tmp" | "bundled" | "none" {
+  return _lastCacheTier;
+}
+
 export async function getDGCache(): Promise<DGCache | null> {
+  // Tier 1: Supabase DB (primary persistent cache)
   try {
     const cache = await readSupabaseCache();
-    if (cache) return cache;
+    if (cache) {
+      _lastCacheTier = "supabase";
+      return cache;
+    }
   } catch (error) {
     console.error("[DG Cache] Supabase read failed:", toErrorMessage(error));
   }
 
-  return readTmpCache();
+  // Tier 2: /tmp local file (survives Supabase outages within same process/deploy)
+  const tmpCache = readTmpCache();
+  if (tmpCache) {
+    _lastCacheTier = "tmp";
+    return tmpCache;
+  }
+
+  // Tier 3: Bundled repo snapshot (last resort — book-odds-derived, not actual DG data)
+  // This ensures the PGA pick pipeline degrades gracefully with partial signal coverage
+  // rather than hard-failing when both Supabase and /tmp are unavailable.
+  const bundled = readBundledSnapshot();
+  if (bundled) {
+    _lastCacheTier = "bundled";
+    console.warn("[DG Cache] Using bundled fallback snapshot — DG skill/SG data unavailable. Picks will have degraded signal quality.");
+    return bundled;
+  }
+
+  _lastCacheTier = "none";
+  return null;
 }
 
 /** Get venue info (course name + location) from DG cache if available */
@@ -341,6 +417,17 @@ export function summarizeDGCache(params?: {
   const sufficientFieldCoverage = totalPlayers === 0 || matchedPlayers >= requiredMatches;
   const ready = populated && usableModelData && knownTournament && fresh && tournamentMatch && sufficientFieldCoverage;
 
+  // Detect if the cache is from the bundled snapshot (it has source_tier tag)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isBundled = Boolean(cache && (cache as any).source_tier === "bundled");
+  const sourceTier: GolfDGCacheSummary["sourceTier"] = !available
+    ? "none"
+    : isBundled
+      ? "bundled"
+      : _lastCacheTier === "tmp"
+        ? "tmp"
+        : "supabase";
+
   return {
     available,
     populated,
@@ -354,6 +441,7 @@ export function summarizeDGCache(params?: {
     fieldCount: data?.field.length ?? 0,
     matchedPlayers,
     totalPlayers,
+    sourceTier,
     reason: buildReason({
       available,
       populated,

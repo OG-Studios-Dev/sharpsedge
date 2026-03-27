@@ -15,11 +15,11 @@
 - [x] Implement PGA feature module (pga-features.ts) — highest-leverage hardening: brings PGA to feature parity with NBA/NHL/MLB in the goose generator.
 - [x] Wire PGA features into generator.ts (context pre-fetch + blended scoring + pga_features in PickFactors).
 - [x] Add PGA debug route (/api/debug/pga) for pipeline health visibility.
-- [ ] Add bundled DG snapshot fallback (similar to NHL moneypuck-team-context.snapshot.json pattern).
+- [x] Add bundled DG snapshot fallback (similar to NHL moneypuck-team-context.snapshot.json pattern).
 - [ ] Add Open-Meteo weather at course for PGA (requires course geocoordinates table).
 - [ ] Wire live leaderboard position into PGA context hints for in-progress picks.
 - [ ] Add formScore/courseHistoryScore passthrough from AIPick snapshot → PGA context hints.
-- [ ] Commit and push changes.
+- [x] Commit and push changes.
 - [ ] Add review notes / outcome summary.
 
 ---
@@ -71,9 +71,9 @@
 | **Primary source** | DataGolf HTML scraper (datagolf.com via cheerio) — parses inline JS blobs |
 | **Cache layer** | Supabase DB (24h TTL) + /tmp local fallback |
 | **Secondary source** | ESPN Golf API — leaderboard, schedule, player tournament history |
-| **Fallback** | Supabase cache (stale data up to 24h) then /tmp file. No bundled snapshot (unlike NHL). |
+| **Fallback** | Supabase (24h TTL) → /tmp local file → **bundled repo snapshot** (`data/pga/datagolf-field.snapshot.json`). Bundled snapshot is book-odds-derived (Masters 2026 Bovada field + implied win probs). No DG skill/SG data in bundled tier. |
 | **Validation/provenance** | `dgStatus.ready` gate in picks route; `DGCacheSummary` with reason string; `context_warnings[]` in PGAContextHints |
-| **Fragility** | **High** — HTML scraping is brittle (DG changed URLs March 2026); no bundled fallback; was previously missing feature module entirely |
+| **Fragility** | **Medium** — HTML scraping is brittle (DG changed URLs March 2026); bundled fallback now added (was High before this pass) |
 | **Feature module** | ✅ `pga-features.ts` (added in this hardening pass) — `fetchPGAContextHints` + `scorePGAFeaturesWithSnapshot` |
 | **Debug route** | ✅ `/api/debug/pga` (added in this hardening pass) |
 | **Highest-value missing** | Bundled DG snapshot fallback; Open-Meteo weather at course; live leaderboard position context |
@@ -98,14 +98,42 @@
 
 ---
 
+## PGA Source Strategy
+
+**Current backbone:** DataGolf (datagolf.com) — HTML scraper → Supabase (24h TTL) → /tmp → bundled snapshot.
+
+**Fallback chain (3 tiers):**
+1. Supabase `datagolf_cache` table (primary — full DG signal quality: rankings, predictions, course-fit, field)
+2. `/tmp/datagolf-cache.json` (local fallback — survives Supabase outages; may be stale up to 24h)
+3. `data/pga/datagolf-field.snapshot.json` (bundled last resort — book-odds-derived only; no DG skill/SG; 121 Masters 2026 players)
+
+**PGA Tour pages policy:** Manual validation only. No automated scraping (ToS). Use only for spot-checks.
+
+**Future prod path:** Licensed feeds (Sportradar / SportsDataIO) — planned when commercial volume justifies cost.
+
+**Source tier visibility:** `getDGCacheSummary().sourceTier` = "supabase" | "tmp" | "bundled" | "none". Exposed in `/api/debug/pga` response.
+
+---
+
 ## Remaining Weak Rails (priority order)
 
-1. **PGA: No bundled DG snapshot** — if Supabase + /tmp both fail, picks fail entirely. NHL's `moneypuck-team-context.snapshot.json` pattern should be replicated.
-2. **PGA: DG scraper fragility** — HTML scraping already broke once (March 2026). DG API access (paid) would be the right long-term fix.
+1. ~~**PGA: No bundled DG snapshot**~~ ✅ RESOLVED — bundled snapshot added (`data/pga/datagolf-field.snapshot.json`).
+2. **PGA: DG scraper fragility** — HTML scraping already broke once (March 2026). DG API access (paid) would be the right long-term fix. Current bundled fallback degrades gracefully but lacks skill/SG data.
 3. **NBA: ESPN ToS exposure** — commercial use requires MySportsFeeds or SportsDataIO migration.
 4. **MLB: No Statcast advanced metrics** — ERA proxy is adequate but FIP/xFIP would sharpen pitcher signals.
 5. **NHL: Late goalie confirmation** — goalie status often only confirmed 1–2h before puck drop; pre-game generation gap.
 6. **PGA: No course weather** — wind at tournament course is meaningful (Augusta, Pebble Beach, etc.); requires adding course geocoordinates.
+7. **PGA: Bundled snapshot is Masters-only** — ideally updated each week with the current tournament's odds data. Consider a script to regenerate it from the latest golf-odds-snapshot file.
+
+---
+
+## Next Build Order (post-fallback-hardening)
+
+1. **PGA weather** — add course geocoordinates table + Open-Meteo call for wind/temp at course (same pattern as MLB). Medium effort, high signal value for Augusta/coastal courses.
+2. **PGA live leaderboard context** — wire ESPN leaderboard position into `pga-features.ts` context hints for in-progress round picks (make/miss cut markets).
+3. **PGA bundled snapshot refresh script** — `scripts/refresh-pga-snapshot.ts` that reads the latest `golf-odds-snapshots/*.json` and writes `data/pga/datagolf-field.snapshot.json`. Run before each tournament week.
+4. **NBA: MySportsFeeds or SportsDataIO migration** — replace ESPN unofficial API for commercial ToS compliance.
+5. **MLB: Statcast FIP/xFIP** — replace ERA proxy with FIP for sharper pitcher quality signal.
 
 ---
 
@@ -119,3 +147,4 @@
 - 1bfe9b9: NHL feature module, context scoring, debug route.
 - 12588bf: MLB feature module, generator parity, debug route.
 - TBD: PGA feature module, generator parity, debug route — hardening matrix complete (4/4 sports).
+- TBD: PGA bundled fallback snapshot + 3-tier fallback chain + source tier visibility in debug route.

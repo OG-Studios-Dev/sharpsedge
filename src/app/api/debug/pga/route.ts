@@ -32,7 +32,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getDGCache, getDGCacheSummary } from "@/lib/datagolf-cache";
+import { getDGCache, getDGCacheSummary, getLastCacheTier } from "@/lib/datagolf-cache";
 import {
   fetchPGAContextHints,
   scorePGAFeaturesWithSnapshot,
@@ -61,11 +61,20 @@ export async function GET() {
     const firstRanking = dgRaw?.data?.rankings?.[0] ?? null;
     samplePlayerName = firstRanking?.name ?? null;
 
+    const cacheTier = getLastCacheTier();
     steps.dg_cache = {
       ready: dgCacheSummary.ready,
       reason: dgCacheSummary.reason,
       tournament: dgCacheSummary.tournament,
       lastScrape: dgCacheSummary.lastScrape,
+      sourceTier: dgCacheSummary.sourceTier ?? cacheTier,
+      sourceTierNote: cacheTier === "bundled"
+        ? "⚠️ DEGRADED: Using bundled fallback snapshot — book-odds-derived data only. No DG skill ratings or SG data. Trigger a re-scrape to restore full signal quality."
+        : cacheTier === "tmp"
+          ? "⚠️ DEGRADED: Serving from /tmp local file — Supabase was unreachable. Data may be stale."
+          : cacheTier === "supabase"
+            ? "✅ Serving from Supabase primary cache."
+            : "❌ No cache available — all tiers failed.",
       rankingsCount: dgRaw?.data?.rankings?.length ?? 0,
       predictionsCount: dgRaw?.data?.predictions?.length ?? 0,
       courseFitCount: dgRaw?.data?.courseFit?.length ?? 0,
@@ -184,9 +193,10 @@ export async function GET() {
     dg_scraper_fragility: {
       gap: "DataGolf HTML scraper — parses inline JS blobs from datagolf.com pages",
       impact: "URL/structure changes break the entire PGA pick pipeline (already happened in March 2026)",
-      current_proxy: "Supabase cache (24h TTL) + /tmp local file provide a stale-data fallback",
-      status: "partial — no bundled snapshot fallback (unlike NHL which has moneypuck-team-context.snapshot.json)",
-      recommendation: "Add a bundled DG snapshot (similar to NHL pattern) so at least the last good scrape survives deploys",
+      current_fallback_chain: "Supabase (24h TTL) → /tmp local file → bundled repo snapshot (data/pga/datagolf-field.snapshot.json)",
+      bundled_snapshot_note: "Bundled snapshot is book-odds-derived (Masters 2026 Bovada data). Provides field coverage and win probability proxies but NO DG skill/SG ratings or course-fit scores.",
+      status: "✅ RESOLVED: Bundled fallback added in this pass — pipeline no longer hard-fails when Supabase + /tmp both unavailable",
+      future_path: "Licensed feed (Sportradar / SportsDataIO) for production-grade signal quality",
     },
     live_weather_at_course: {
       gap: "Wind speed, rain, and temperature at the actual tournament course during rounds",
@@ -218,7 +228,7 @@ export async function GET() {
     steps,
     timestamp: new Date().toISOString(),
     pipeline: {
-      source: "DataGolf HTML scraper (datagolf.com) + Supabase DG cache + /tmp fallback + ESPN Golf API",
+      source: "DataGolf HTML scraper (datagolf.com) → Supabase DG cache (24h TTL) → /tmp local fallback → bundled repo snapshot (data/pga/datagolf-field.snapshot.json) → ESPN Golf API",
       ingestion: "datagolf-cache.ts → getDGCache() → [rankings, predictions, course-fit, field]",
       context: "pga-features.ts → fetchPGAContextHints() → auto-signals [dg_skill_edge, dg_course_fit_edge, dg_win_prob_edge, sg_tg_advantage, form_surge, course_history_edge, value_play, top_finish_market]",
       snapshot: "pga-features.ts → scorePGAFeaturesWithSnapshot() → pick_snapshot.factors.pga_features",

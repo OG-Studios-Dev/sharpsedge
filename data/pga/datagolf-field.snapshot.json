@@ -1,0 +1,2943 @@
+{
+  "_meta": {
+    "kind": "bundled-fallback-snapshot",
+    "version": "1.0",
+    "bundledAt": "2026-03-27T00:00:00.000Z",
+    "tournament": "The Masters 2026",
+    "tournamentStart": "2026-04-09",
+    "sourceStrategy": "DataGolf as primary backbone (live scrape → Supabase 24h cache → /tmp file). This bundled snapshot is last-resort only. Data is derived from public Bovada odds, NOT actual DataGolf model output.",
+    "sourceDetails": {
+      "field": "Bovada outright winner market — The Masters 2026 (scraped 2026-03-26)",
+      "rankings": "Ordered by book odds only (shorter odds → higher rank proxy). No DG skill ratings or SG data.",
+      "predictions": "winProb = book-implied probability from Bovada American odds. top5/10/20/makeCut = power-law rough approximation from winProb — NOT calibrated DG model output.",
+      "courseFit": "Not available in bundled snapshot — requires live DG course-fit scrape.",
+      "worldRanks": "Sequential odds-order proxy (rank 1 = shortest odds = Scheffler). NOT actual OWGR."
+    },
+    "honestLimitations": [
+      "No DG skill ratings: dgRating, sgTotal, sgT2G, sgAPP, sgPUTT are all null",
+      "No DG course-fit scores: courseFit array is empty",
+      "winProb = book-implied prob (market price, not DG model prediction)",
+      "top5/top10/top20/makeCutProb = rough power-law approximations only",
+      "worldRank = odds-order proxy, not actual OWGR",
+      "Field coverage: Masters 2026 only (91 players with winner odds)"
+    ]
+  },
+  "timestamp": "2026-03-26T17:11:06.946Z",
+  "tournament": "The Masters 2026",
+  "venue": {
+    "courseName": "Augusta National Golf Club",
+    "location": "Augusta, GA"
+  },
+  "rankings": [
+    {
+      "name": "Scottie Scheffler",
+      "rank": 1,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Rory McIlroy",
+      "rank": 2,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Bryson DeChambeau",
+      "rank": 3,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jon Rahm",
+      "rank": 4,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Ludvig Aberg",
+      "rank": 5,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Xander Schauffele",
+      "rank": 6,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Cameron Young",
+      "rank": 7,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tommy Fleetwood",
+      "rank": 8,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Matt Fitzpatrick",
+      "rank": 9,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Collin Morikawa",
+      "rank": 10,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Brooks Koepka",
+      "rank": 11,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Justin Rose",
+      "rank": 12,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Patrick Reed",
+      "rank": 13,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Hideki Matsuyama",
+      "rank": 14,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jordan Spieth",
+      "rank": 15,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Viktor Hovland",
+      "rank": 16,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Robert MacIntyre",
+      "rank": 17,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Akshay Bhatia",
+      "rank": 18,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Justin Thomas",
+      "rank": 19,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Chris Gotterup",
+      "rank": 20,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Shane Lowry",
+      "rank": 21,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Min Woo Lee",
+      "rank": 22,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sepp Straka",
+      "rank": 23,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tyrrell Hatton",
+      "rank": 24,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Patrick Cantlay",
+      "rank": 25,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Joaquin Niemann",
+      "rank": 26,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Russell Henley",
+      "rank": 27,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Si Woo Kim",
+      "rank": 28,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sungjae Im",
+      "rank": 29,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Adam Scott",
+      "rank": 30,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Cameron Smith",
+      "rank": 31,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Corey Conners",
+      "rank": 32,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jacob Bridgeman",
+      "rank": 33,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jason Day",
+      "rank": 34,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sam Burns",
+      "rank": 35,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Ben Griffin",
+      "rank": 36,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Marco Penge",
+      "rank": 37,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Daniel Berger",
+      "rank": 38,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Harris English",
+      "rank": 39,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "J.J. Spaun",
+      "rank": 40,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sahith Theegala",
+      "rank": 41,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tony Finau",
+      "rank": 42,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Will Zalatoris",
+      "rank": 43,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Maverick McNealy",
+      "rank": 44,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Max Homa",
+      "rank": 45,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Nicolai Hojgaard",
+      "rank": 46,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Wyndham Clark",
+      "rank": 47,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Aaron Rai",
+      "rank": 48,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Alex Noren",
+      "rank": 49,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Dustin Johnson",
+      "rank": 50,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Keegan Bradley",
+      "rank": 51,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Kurt Kitayama",
+      "rank": 52,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sergio Garcia",
+      "rank": 53,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tiger Woods",
+      "rank": 54,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tom Kim",
+      "rank": 55,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tom McKibbin",
+      "rank": 56,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Billy Horschel",
+      "rank": 57,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Brian Harman",
+      "rank": 58,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Casey Jarvis",
+      "rank": 59,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Davis Thompson",
+      "rank": 60,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Harry Hall",
+      "rank": 61,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Rasmus Hojgaard",
+      "rank": 62,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Rasmus Neergaard-Petersen",
+      "rank": 63,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Ryan Fox",
+      "rank": 64,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Ryan Gerard",
+      "rank": 65,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Andrew Novak",
+      "rank": 66,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Carlos Ortiz",
+      "rank": 67,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Denny McCarthy",
+      "rank": 68,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Nico Echavarria",
+      "rank": 69,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Phil Mickelson",
+      "rank": 70,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Taylor Pendrith",
+      "rank": 71,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Thomas Detry",
+      "rank": 72,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Max Greyserman",
+      "rank": 73,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Aldrich Potgieter",
+      "rank": 74,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Austin Eckroat",
+      "rank": 75,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Byeong Hun An",
+      "rank": 76,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Haotong Li",
+      "rank": 77,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Johnny Keefer",
+      "rank": 78,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Michael Kim",
+      "rank": 79,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Nick Taylor",
+      "rank": 80,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sam Stevens",
+      "rank": 81,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Sami Valimaki",
+      "rank": 82,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Bubba Watson",
+      "rank": 83,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Charl Schwartzel",
+      "rank": 84,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Christiaan Bezuidenhout",
+      "rank": 85,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Kristoffer Reitan",
+      "rank": 86,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Matt McCarty",
+      "rank": 87,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Michael Brennan",
+      "rank": 88,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Stephan Jaeger",
+      "rank": 89,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Tom Hoge",
+      "rank": 90,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Chris Kirk",
+      "rank": 91,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Davis Riley",
+      "rank": 92,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "J.T. Poston",
+      "rank": 93,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Kevin Yu",
+      "rank": 94,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Laurie Canter",
+      "rank": 95,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Zach Johnson",
+      "rank": 96,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Adam Schenk",
+      "rank": 97,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Brian Campbell",
+      "rank": 98,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Cam Davis",
+      "rank": 99,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Danny Willett",
+      "rank": 100,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jhonattan Vegas",
+      "rank": 101,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Joe Highsmith",
+      "rank": 102,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Lucas Glover",
+      "rank": 103,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Matthieu Pavon",
+      "rank": 104,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Naoyuki Kataoka",
+      "rank": 105,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Nick Dunlap",
+      "rank": 106,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Patton Kizzire",
+      "rank": 107,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Thriston Lawrence",
+      "rank": 108,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Brandon Holtz",
+      "rank": 109,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Ethan Fang",
+      "rank": 110,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Fifa Laopakdee",
+      "rank": 111,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jackson Herrington",
+      "rank": 112,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Mason Howell",
+      "rank": 113,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Michael La Sasso",
+      "rank": 114,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Rafael Campos",
+      "rank": 115,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Angel Cabrera",
+      "rank": 116,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Fred Couples",
+      "rank": 117,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Mateo Pucini",
+      "rank": 118,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Vijay Singh",
+      "rank": 119,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Jose Maria Olazabal",
+      "rank": 120,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    },
+    {
+      "name": "Mike Weir",
+      "rank": 121,
+      "dgRating": null,
+      "sgTotal": null,
+      "sgOTT": null,
+      "sgAPP": null,
+      "sgARG": null,
+      "sgPUTT": null,
+      "sgT2G": null
+    }
+  ],
+  "predictions": [
+    {
+      "name": "Scottie Scheffler",
+      "winProb": 0.1818,
+      "top5Prob": 0.264,
+      "top10Prob": 0.528,
+      "top20Prob": 0.98,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Rory McIlroy",
+      "winProb": 0.0909,
+      "top5Prob": 0.1742,
+      "top10Prob": 0.3484,
+      "top20Prob": 0.6968,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Bryson DeChambeau",
+      "winProb": 0.0769,
+      "top5Prob": 0.1576,
+      "top10Prob": 0.3152,
+      "top20Prob": 0.6303,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Jon Rahm",
+      "winProb": 0.0769,
+      "top5Prob": 0.1576,
+      "top10Prob": 0.3152,
+      "top20Prob": 0.6303,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Ludvig Aberg",
+      "winProb": 0.0588,
+      "top5Prob": 0.1341,
+      "top10Prob": 0.2683,
+      "top20Prob": 0.5366,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Xander Schauffele",
+      "winProb": 0.0526,
+      "top5Prob": 0.1255,
+      "top10Prob": 0.251,
+      "top20Prob": 0.502,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Cameron Young",
+      "winProb": 0.0435,
+      "top5Prob": 0.1119,
+      "top10Prob": 0.2238,
+      "top20Prob": 0.4476,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Tommy Fleetwood",
+      "winProb": 0.0435,
+      "top5Prob": 0.1119,
+      "top10Prob": 0.2238,
+      "top20Prob": 0.4476,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Matt Fitzpatrick",
+      "winProb": 0.0385,
+      "top5Prob": 0.104,
+      "top10Prob": 0.2079,
+      "top20Prob": 0.4158,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Collin Morikawa",
+      "winProb": 0.0345,
+      "top5Prob": 0.0974,
+      "top10Prob": 0.1947,
+      "top20Prob": 0.3895,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Brooks Koepka",
+      "winProb": 0.0323,
+      "top5Prob": 0.0935,
+      "top10Prob": 0.1871,
+      "top20Prob": 0.3742,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Justin Rose",
+      "winProb": 0.0323,
+      "top5Prob": 0.0935,
+      "top10Prob": 0.1871,
+      "top20Prob": 0.3742,
+      "makeCutProb": 0.9
+    },
+    {
+      "name": "Patrick Reed",
+      "winProb": 0.0278,
+      "top5Prob": 0.0855,
+      "top10Prob": 0.171,
+      "top20Prob": 0.3421,
+      "makeCutProb": 0.8552
+    },
+    {
+      "name": "Hideki Matsuyama",
+      "winProb": 0.0244,
+      "top5Prob": 0.0791,
+      "top10Prob": 0.1582,
+      "top20Prob": 0.3164,
+      "makeCutProb": 0.791
+    },
+    {
+      "name": "Jordan Spieth",
+      "winProb": 0.0244,
+      "top5Prob": 0.0791,
+      "top10Prob": 0.1582,
+      "top20Prob": 0.3164,
+      "makeCutProb": 0.791
+    },
+    {
+      "name": "Viktor Hovland",
+      "winProb": 0.0244,
+      "top5Prob": 0.0791,
+      "top10Prob": 0.1582,
+      "top20Prob": 0.3164,
+      "makeCutProb": 0.791
+    },
+    {
+      "name": "Robert MacIntyre",
+      "winProb": 0.0217,
+      "top5Prob": 0.0738,
+      "top10Prob": 0.1476,
+      "top20Prob": 0.2953,
+      "makeCutProb": 0.7382
+    },
+    {
+      "name": "Akshay Bhatia",
+      "winProb": 0.0196,
+      "top5Prob": 0.0694,
+      "top10Prob": 0.1388,
+      "top20Prob": 0.2776,
+      "makeCutProb": 0.6939
+    },
+    {
+      "name": "Justin Thomas",
+      "winProb": 0.0196,
+      "top5Prob": 0.0694,
+      "top10Prob": 0.1388,
+      "top20Prob": 0.2776,
+      "makeCutProb": 0.6939
+    },
+    {
+      "name": "Chris Gotterup",
+      "winProb": 0.0164,
+      "top5Prob": 0.0623,
+      "top10Prob": 0.1246,
+      "top20Prob": 0.2493,
+      "makeCutProb": 0.6232
+    },
+    {
+      "name": "Shane Lowry",
+      "winProb": 0.0164,
+      "top5Prob": 0.0623,
+      "top10Prob": 0.1246,
+      "top20Prob": 0.2493,
+      "makeCutProb": 0.6232
+    },
+    {
+      "name": "Min Woo Lee",
+      "winProb": 0.0152,
+      "top5Prob": 0.0594,
+      "top10Prob": 0.1189,
+      "top20Prob": 0.2378,
+      "makeCutProb": 0.5945
+    },
+    {
+      "name": "Sepp Straka",
+      "winProb": 0.0152,
+      "top5Prob": 0.0594,
+      "top10Prob": 0.1189,
+      "top20Prob": 0.2378,
+      "makeCutProb": 0.5945
+    },
+    {
+      "name": "Tyrrell Hatton",
+      "winProb": 0.0152,
+      "top5Prob": 0.0594,
+      "top10Prob": 0.1189,
+      "top20Prob": 0.2378,
+      "makeCutProb": 0.5945
+    },
+    {
+      "name": "Patrick Cantlay",
+      "winProb": 0.0152,
+      "top5Prob": 0.0594,
+      "top10Prob": 0.1189,
+      "top20Prob": 0.2378,
+      "makeCutProb": 0.5945
+    },
+    {
+      "name": "Joaquin Niemann",
+      "winProb": 0.0141,
+      "top5Prob": 0.0569,
+      "top10Prob": 0.1138,
+      "top20Prob": 0.2276,
+      "makeCutProb": 0.569
+    },
+    {
+      "name": "Russell Henley",
+      "winProb": 0.0141,
+      "top5Prob": 0.0569,
+      "top10Prob": 0.1138,
+      "top20Prob": 0.2276,
+      "makeCutProb": 0.569
+    },
+    {
+      "name": "Si Woo Kim",
+      "winProb": 0.0132,
+      "top5Prob": 0.0546,
+      "top10Prob": 0.1092,
+      "top20Prob": 0.2185,
+      "makeCutProb": 0.5462
+    },
+    {
+      "name": "Sungjae Im",
+      "winProb": 0.0132,
+      "top5Prob": 0.0546,
+      "top10Prob": 0.1092,
+      "top20Prob": 0.2185,
+      "makeCutProb": 0.5462
+    },
+    {
+      "name": "Adam Scott",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Cameron Smith",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Corey Conners",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Jacob Bridgeman",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Jason Day",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Sam Burns",
+      "winProb": 0.0123,
+      "top5Prob": 0.0526,
+      "top10Prob": 0.1051,
+      "top20Prob": 0.2103,
+      "makeCutProb": 0.5257
+    },
+    {
+      "name": "Ben Griffin",
+      "winProb": 0.011,
+      "top5Prob": 0.049,
+      "top10Prob": 0.0981,
+      "top20Prob": 0.1961,
+      "makeCutProb": 0.4903
+    },
+    {
+      "name": "Marco Penge",
+      "winProb": 0.011,
+      "top5Prob": 0.049,
+      "top10Prob": 0.0981,
+      "top20Prob": 0.1961,
+      "makeCutProb": 0.4903
+    },
+    {
+      "name": "Daniel Berger",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "Harris English",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "J.J. Spaun",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "Sahith Theegala",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "Tony Finau",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "Will Zalatoris",
+      "winProb": 0.0099,
+      "top5Prob": 0.0461,
+      "top10Prob": 0.0921,
+      "top20Prob": 0.1842,
+      "makeCutProb": 0.4605
+    },
+    {
+      "name": "Maverick McNealy",
+      "winProb": 0.0079,
+      "top5Prob": 0.0403,
+      "top10Prob": 0.0807,
+      "top20Prob": 0.1613,
+      "makeCutProb": 0.4033
+    },
+    {
+      "name": "Max Homa",
+      "winProb": 0.0079,
+      "top5Prob": 0.0403,
+      "top10Prob": 0.0807,
+      "top20Prob": 0.1613,
+      "makeCutProb": 0.4033
+    },
+    {
+      "name": "Nicolai Hojgaard",
+      "winProb": 0.0079,
+      "top5Prob": 0.0403,
+      "top10Prob": 0.0807,
+      "top20Prob": 0.1613,
+      "makeCutProb": 0.4033
+    },
+    {
+      "name": "Wyndham Clark",
+      "winProb": 0.0079,
+      "top5Prob": 0.0403,
+      "top10Prob": 0.0807,
+      "top20Prob": 0.1613,
+      "makeCutProb": 0.4033
+    },
+    {
+      "name": "Aaron Rai",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Alex Noren",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Dustin Johnson",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Keegan Bradley",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Kurt Kitayama",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Sergio Garcia",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Tiger Woods",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Tom Kim",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Tom McKibbin",
+      "winProb": 0.0066,
+      "top5Prob": 0.0362,
+      "top10Prob": 0.0724,
+      "top20Prob": 0.1447,
+      "makeCutProb": 0.3618
+    },
+    {
+      "name": "Billy Horschel",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Brian Harman",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Casey Jarvis",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Davis Thompson",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Harry Hall",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Rasmus Hojgaard",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Rasmus Neergaard-Petersen",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Ryan Fox",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Ryan Gerard",
+      "winProb": 0.0057,
+      "top5Prob": 0.033,
+      "top10Prob": 0.066,
+      "top20Prob": 0.132,
+      "makeCutProb": 0.33
+    },
+    {
+      "name": "Andrew Novak",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Carlos Ortiz",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Denny McCarthy",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Nico Echavarria",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Phil Mickelson",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Taylor Pendrith",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Thomas Detry",
+      "winProb": 0.005,
+      "top5Prob": 0.0305,
+      "top10Prob": 0.0609,
+      "top20Prob": 0.1219,
+      "makeCutProb": 0.3047
+    },
+    {
+      "name": "Max Greyserman",
+      "winProb": 0.0044,
+      "top5Prob": 0.0284,
+      "top10Prob": 0.0568,
+      "top20Prob": 0.1136,
+      "makeCutProb": 0.284
+    },
+    {
+      "name": "Aldrich Potgieter",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Austin Eckroat",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Byeong Hun An",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Haotong Li",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Johnny Keefer",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Michael Kim",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Nick Taylor",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Sam Stevens",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Sami Valimaki",
+      "winProb": 0.004,
+      "top5Prob": 0.0267,
+      "top10Prob": 0.0533,
+      "top20Prob": 0.1067,
+      "makeCutProb": 0.2667
+    },
+    {
+      "name": "Bubba Watson",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Charl Schwartzel",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Christiaan Bezuidenhout",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Kristoffer Reitan",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Matt McCarty",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Michael Brennan",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Stephan Jaeger",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Tom Hoge",
+      "winProb": 0.0033,
+      "top5Prob": 0.0239,
+      "top10Prob": 0.0478,
+      "top20Prob": 0.0957,
+      "makeCutProb": 0.2392
+    },
+    {
+      "name": "Chris Kirk",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "Davis Riley",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "J.T. Poston",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "Kevin Yu",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "Laurie Canter",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "Zach Johnson",
+      "winProb": 0.0025,
+      "top5Prob": 0.0201,
+      "top10Prob": 0.0403,
+      "top20Prob": 0.0805,
+      "makeCutProb": 0.2014
+    },
+    {
+      "name": "Adam Schenk",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Brian Campbell",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Cam Davis",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Danny Willett",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Jhonattan Vegas",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Joe Highsmith",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Lucas Glover",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Matthieu Pavon",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Naoyuki Kataoka",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Nick Dunlap",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Patton Kizzire",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Thriston Lawrence",
+      "winProb": 0.002,
+      "top5Prob": 0.0176,
+      "top10Prob": 0.0352,
+      "top20Prob": 0.0705,
+      "makeCutProb": 0.1762
+    },
+    {
+      "name": "Brandon Holtz",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Ethan Fang",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Fifa Laopakdee",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Jackson Herrington",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Mason Howell",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Michael La Sasso",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Rafael Campos",
+      "winProb": 0.001,
+      "top5Prob": 0.0116,
+      "top10Prob": 0.0233,
+      "top20Prob": 0.0465,
+      "makeCutProb": 0.1163
+    },
+    {
+      "name": "Angel Cabrera",
+      "winProb": 0.0007,
+      "top5Prob": 0.0091,
+      "top10Prob": 0.0182,
+      "top20Prob": 0.0365,
+      "makeCutProb": 0.0912
+    },
+    {
+      "name": "Fred Couples",
+      "winProb": 0.0005,
+      "top5Prob": 0.0077,
+      "top10Prob": 0.0154,
+      "top20Prob": 0.0307,
+      "makeCutProb": 0.0768
+    },
+    {
+      "name": "Mateo Pucini",
+      "winProb": 0.0005,
+      "top5Prob": 0.0077,
+      "top10Prob": 0.0154,
+      "top20Prob": 0.0307,
+      "makeCutProb": 0.0768
+    },
+    {
+      "name": "Vijay Singh",
+      "winProb": 0.0005,
+      "top5Prob": 0.0077,
+      "top10Prob": 0.0154,
+      "top20Prob": 0.0307,
+      "makeCutProb": 0.0768
+    },
+    {
+      "name": "Jose Maria Olazabal",
+      "winProb": 0.0004,
+      "top5Prob": 0.0067,
+      "top10Prob": 0.0134,
+      "top20Prob": 0.0269,
+      "makeCutProb": 0.0671
+    },
+    {
+      "name": "Mike Weir",
+      "winProb": 0.0004,
+      "top5Prob": 0.0067,
+      "top10Prob": 0.0134,
+      "top20Prob": 0.0269,
+      "makeCutProb": 0.0671
+    }
+  ],
+  "courseFit": [],
+  "field": [
+    {
+      "name": "Scottie Scheffler",
+      "country": "",
+      "worldRank": 1
+    },
+    {
+      "name": "Rory McIlroy",
+      "country": "",
+      "worldRank": 2
+    },
+    {
+      "name": "Bryson DeChambeau",
+      "country": "",
+      "worldRank": 3
+    },
+    {
+      "name": "Jon Rahm",
+      "country": "",
+      "worldRank": 4
+    },
+    {
+      "name": "Ludvig Aberg",
+      "country": "",
+      "worldRank": 5
+    },
+    {
+      "name": "Xander Schauffele",
+      "country": "",
+      "worldRank": 6
+    },
+    {
+      "name": "Cameron Young",
+      "country": "",
+      "worldRank": 7
+    },
+    {
+      "name": "Tommy Fleetwood",
+      "country": "",
+      "worldRank": 8
+    },
+    {
+      "name": "Matt Fitzpatrick",
+      "country": "",
+      "worldRank": 9
+    },
+    {
+      "name": "Collin Morikawa",
+      "country": "",
+      "worldRank": 10
+    },
+    {
+      "name": "Brooks Koepka",
+      "country": "",
+      "worldRank": 11
+    },
+    {
+      "name": "Justin Rose",
+      "country": "",
+      "worldRank": 12
+    },
+    {
+      "name": "Patrick Reed",
+      "country": "",
+      "worldRank": 13
+    },
+    {
+      "name": "Hideki Matsuyama",
+      "country": "",
+      "worldRank": 14
+    },
+    {
+      "name": "Jordan Spieth",
+      "country": "",
+      "worldRank": 15
+    },
+    {
+      "name": "Viktor Hovland",
+      "country": "",
+      "worldRank": 16
+    },
+    {
+      "name": "Robert MacIntyre",
+      "country": "",
+      "worldRank": 17
+    },
+    {
+      "name": "Akshay Bhatia",
+      "country": "",
+      "worldRank": 18
+    },
+    {
+      "name": "Justin Thomas",
+      "country": "",
+      "worldRank": 19
+    },
+    {
+      "name": "Chris Gotterup",
+      "country": "",
+      "worldRank": 20
+    },
+    {
+      "name": "Shane Lowry",
+      "country": "",
+      "worldRank": 21
+    },
+    {
+      "name": "Min Woo Lee",
+      "country": "",
+      "worldRank": 22
+    },
+    {
+      "name": "Sepp Straka",
+      "country": "",
+      "worldRank": 23
+    },
+    {
+      "name": "Tyrrell Hatton",
+      "country": "",
+      "worldRank": 24
+    },
+    {
+      "name": "Patrick Cantlay",
+      "country": "",
+      "worldRank": 25
+    },
+    {
+      "name": "Joaquin Niemann",
+      "country": "",
+      "worldRank": 26
+    },
+    {
+      "name": "Russell Henley",
+      "country": "",
+      "worldRank": 27
+    },
+    {
+      "name": "Si Woo Kim",
+      "country": "",
+      "worldRank": 28
+    },
+    {
+      "name": "Sungjae Im",
+      "country": "",
+      "worldRank": 29
+    },
+    {
+      "name": "Adam Scott",
+      "country": "",
+      "worldRank": 30
+    },
+    {
+      "name": "Cameron Smith",
+      "country": "",
+      "worldRank": 31
+    },
+    {
+      "name": "Corey Conners",
+      "country": "",
+      "worldRank": 32
+    },
+    {
+      "name": "Jacob Bridgeman",
+      "country": "",
+      "worldRank": 33
+    },
+    {
+      "name": "Jason Day",
+      "country": "",
+      "worldRank": 34
+    },
+    {
+      "name": "Sam Burns",
+      "country": "",
+      "worldRank": 35
+    },
+    {
+      "name": "Ben Griffin",
+      "country": "",
+      "worldRank": 36
+    },
+    {
+      "name": "Marco Penge",
+      "country": "",
+      "worldRank": 37
+    },
+    {
+      "name": "Daniel Berger",
+      "country": "",
+      "worldRank": 38
+    },
+    {
+      "name": "Harris English",
+      "country": "",
+      "worldRank": 39
+    },
+    {
+      "name": "J.J. Spaun",
+      "country": "",
+      "worldRank": 40
+    },
+    {
+      "name": "Sahith Theegala",
+      "country": "",
+      "worldRank": 41
+    },
+    {
+      "name": "Tony Finau",
+      "country": "",
+      "worldRank": 42
+    },
+    {
+      "name": "Will Zalatoris",
+      "country": "",
+      "worldRank": 43
+    },
+    {
+      "name": "Maverick McNealy",
+      "country": "",
+      "worldRank": 44
+    },
+    {
+      "name": "Max Homa",
+      "country": "",
+      "worldRank": 45
+    },
+    {
+      "name": "Nicolai Hojgaard",
+      "country": "",
+      "worldRank": 46
+    },
+    {
+      "name": "Wyndham Clark",
+      "country": "",
+      "worldRank": 47
+    },
+    {
+      "name": "Aaron Rai",
+      "country": "",
+      "worldRank": 48
+    },
+    {
+      "name": "Alex Noren",
+      "country": "",
+      "worldRank": 49
+    },
+    {
+      "name": "Dustin Johnson",
+      "country": "",
+      "worldRank": 50
+    },
+    {
+      "name": "Keegan Bradley",
+      "country": "",
+      "worldRank": 51
+    },
+    {
+      "name": "Kurt Kitayama",
+      "country": "",
+      "worldRank": 52
+    },
+    {
+      "name": "Sergio Garcia",
+      "country": "",
+      "worldRank": 53
+    },
+    {
+      "name": "Tiger Woods",
+      "country": "",
+      "worldRank": 54
+    },
+    {
+      "name": "Tom Kim",
+      "country": "",
+      "worldRank": 55
+    },
+    {
+      "name": "Tom McKibbin",
+      "country": "",
+      "worldRank": 56
+    },
+    {
+      "name": "Billy Horschel",
+      "country": "",
+      "worldRank": 57
+    },
+    {
+      "name": "Brian Harman",
+      "country": "",
+      "worldRank": 58
+    },
+    {
+      "name": "Casey Jarvis",
+      "country": "",
+      "worldRank": 59
+    },
+    {
+      "name": "Davis Thompson",
+      "country": "",
+      "worldRank": 60
+    },
+    {
+      "name": "Harry Hall",
+      "country": "",
+      "worldRank": 61
+    },
+    {
+      "name": "Rasmus Hojgaard",
+      "country": "",
+      "worldRank": 62
+    },
+    {
+      "name": "Rasmus Neergaard-Petersen",
+      "country": "",
+      "worldRank": 63
+    },
+    {
+      "name": "Ryan Fox",
+      "country": "",
+      "worldRank": 64
+    },
+    {
+      "name": "Ryan Gerard",
+      "country": "",
+      "worldRank": 65
+    },
+    {
+      "name": "Andrew Novak",
+      "country": "",
+      "worldRank": 66
+    },
+    {
+      "name": "Carlos Ortiz",
+      "country": "",
+      "worldRank": 67
+    },
+    {
+      "name": "Denny McCarthy",
+      "country": "",
+      "worldRank": 68
+    },
+    {
+      "name": "Nico Echavarria",
+      "country": "",
+      "worldRank": 69
+    },
+    {
+      "name": "Phil Mickelson",
+      "country": "",
+      "worldRank": 70
+    },
+    {
+      "name": "Taylor Pendrith",
+      "country": "",
+      "worldRank": 71
+    },
+    {
+      "name": "Thomas Detry",
+      "country": "",
+      "worldRank": 72
+    },
+    {
+      "name": "Max Greyserman",
+      "country": "",
+      "worldRank": 73
+    },
+    {
+      "name": "Aldrich Potgieter",
+      "country": "",
+      "worldRank": 74
+    },
+    {
+      "name": "Austin Eckroat",
+      "country": "",
+      "worldRank": 75
+    },
+    {
+      "name": "Byeong Hun An",
+      "country": "",
+      "worldRank": 76
+    },
+    {
+      "name": "Haotong Li",
+      "country": "",
+      "worldRank": 77
+    },
+    {
+      "name": "Johnny Keefer",
+      "country": "",
+      "worldRank": 78
+    },
+    {
+      "name": "Michael Kim",
+      "country": "",
+      "worldRank": 79
+    },
+    {
+      "name": "Nick Taylor",
+      "country": "",
+      "worldRank": 80
+    },
+    {
+      "name": "Sam Stevens",
+      "country": "",
+      "worldRank": 81
+    },
+    {
+      "name": "Sami Valimaki",
+      "country": "",
+      "worldRank": 82
+    },
+    {
+      "name": "Bubba Watson",
+      "country": "",
+      "worldRank": 83
+    },
+    {
+      "name": "Charl Schwartzel",
+      "country": "",
+      "worldRank": 84
+    },
+    {
+      "name": "Christiaan Bezuidenhout",
+      "country": "",
+      "worldRank": 85
+    },
+    {
+      "name": "Kristoffer Reitan",
+      "country": "",
+      "worldRank": 86
+    },
+    {
+      "name": "Matt McCarty",
+      "country": "",
+      "worldRank": 87
+    },
+    {
+      "name": "Michael Brennan",
+      "country": "",
+      "worldRank": 88
+    },
+    {
+      "name": "Stephan Jaeger",
+      "country": "",
+      "worldRank": 89
+    },
+    {
+      "name": "Tom Hoge",
+      "country": "",
+      "worldRank": 90
+    },
+    {
+      "name": "Chris Kirk",
+      "country": "",
+      "worldRank": 91
+    },
+    {
+      "name": "Davis Riley",
+      "country": "",
+      "worldRank": 92
+    },
+    {
+      "name": "J.T. Poston",
+      "country": "",
+      "worldRank": 93
+    },
+    {
+      "name": "Kevin Yu",
+      "country": "",
+      "worldRank": 94
+    },
+    {
+      "name": "Laurie Canter",
+      "country": "",
+      "worldRank": 95
+    },
+    {
+      "name": "Zach Johnson",
+      "country": "",
+      "worldRank": 96
+    },
+    {
+      "name": "Adam Schenk",
+      "country": "",
+      "worldRank": 97
+    },
+    {
+      "name": "Brian Campbell",
+      "country": "",
+      "worldRank": 98
+    },
+    {
+      "name": "Cam Davis",
+      "country": "",
+      "worldRank": 99
+    },
+    {
+      "name": "Danny Willett",
+      "country": "",
+      "worldRank": 100
+    },
+    {
+      "name": "Jhonattan Vegas",
+      "country": "",
+      "worldRank": 101
+    },
+    {
+      "name": "Joe Highsmith",
+      "country": "",
+      "worldRank": 102
+    },
+    {
+      "name": "Lucas Glover",
+      "country": "",
+      "worldRank": 103
+    },
+    {
+      "name": "Matthieu Pavon",
+      "country": "",
+      "worldRank": 104
+    },
+    {
+      "name": "Naoyuki Kataoka",
+      "country": "",
+      "worldRank": 105
+    },
+    {
+      "name": "Nick Dunlap",
+      "country": "",
+      "worldRank": 106
+    },
+    {
+      "name": "Patton Kizzire",
+      "country": "",
+      "worldRank": 107
+    },
+    {
+      "name": "Thriston Lawrence",
+      "country": "",
+      "worldRank": 108
+    },
+    {
+      "name": "Brandon Holtz",
+      "country": "",
+      "worldRank": 109
+    },
+    {
+      "name": "Ethan Fang",
+      "country": "",
+      "worldRank": 110
+    },
+    {
+      "name": "Fifa Laopakdee",
+      "country": "",
+      "worldRank": 111
+    },
+    {
+      "name": "Jackson Herrington",
+      "country": "",
+      "worldRank": 112
+    },
+    {
+      "name": "Mason Howell",
+      "country": "",
+      "worldRank": 113
+    },
+    {
+      "name": "Michael La Sasso",
+      "country": "",
+      "worldRank": 114
+    },
+    {
+      "name": "Rafael Campos",
+      "country": "",
+      "worldRank": 115
+    },
+    {
+      "name": "Angel Cabrera",
+      "country": "",
+      "worldRank": 116
+    },
+    {
+      "name": "Fred Couples",
+      "country": "",
+      "worldRank": 117
+    },
+    {
+      "name": "Mateo Pucini",
+      "country": "",
+      "worldRank": 118
+    },
+    {
+      "name": "Vijay Singh",
+      "country": "",
+      "worldRank": 119
+    },
+    {
+      "name": "Jose Maria Olazabal",
+      "country": "",
+      "worldRank": 120
+    },
+    {
+      "name": "Mike Weir",
+      "country": "",
+      "worldRank": 121
+    }
+  ],
+  "errors": []
+}

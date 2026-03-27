@@ -406,6 +406,14 @@ export type GolfDGCacheSummary = {
   matchedPlayers: number;
   totalPlayers: number;
   reason: string;
+  /**
+   * Source tier that provided this cache.
+   * - "supabase": primary DB cache (fresh scrape, full DG signal quality)
+   * - "tmp": /tmp local fallback (may be stale by up to 24h)
+   * - "bundled": repo snapshot last resort (book-odds-derived; no DG skill/SG data)
+   * - "none": no cache available
+   */
+  sourceTier?: "supabase" | "tmp" | "bundled" | "none";
 };
 
 export type GolfPredictionModelSource = "pending-field" | "espn-form" | "datagolf-hybrid";
