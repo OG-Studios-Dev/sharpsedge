@@ -1,5 +1,80 @@
 # TODO
 
+## Hardening Sprint — 2026-03-27 (commit 8ae79b5)
+
+### All 7 items shipped
+
+**1. Later-in-day MLB refresh / lineup-aware regeneration** ✅ SHIPPED
+- New route: `src/app/api/admin/goose-model/mlb-lineup-refresh/route.ts`
+- Cron: `0 21 * * *` in vercel.json (5 PM ET — after lineup confirmation window)
+- experiment_tag: `lineup-refresh-v1` (separate from baseline-v1 for comparison)
+- Runs MLB generate with same thresholds after lineups are official
+- Fires lineup_bvp_edge and handedness signals that were blocked pre-lineup
+- Manual: `POST /api/admin/goose-model/mlb-lineup-refresh`
+- Live verified: 6 lineup-refresh picks generated on 2026-03-27
+
+**2. Harsher grading loop / stronger review data** ✅ SHIPPED
+- `auto-grade/route.ts` now returns `signal_outcome_evidence` per grading run
+- `SignalOutcomeTracker` class accumulates per-signal win/loss in each run
+- `grading_summary` field: shows top signal, win rate, total graded in one line
+- Signal weights still update in DB as before; evidence is additive debug output
+- Live verified: POST /api/admin/goose-model/auto-grade returns signal_outcome_evidence
+
+**3. Confidence decay for thin samples** ✅ SHIPPED
+- New functions in `mlb-features.ts`: `thinSampleDecay()`, `handednessDecayFactor()`, `bvpDecayFactor()`, `pitcherStatDecayFactor()`
+- Decay formula: 0.50 + (prior - 0.50) × decayFactor (toward coin-flip when sample thin)
+- Signals decayed: handedness_advantage, lineup_bvp_edge, pitcher_command, opponent_era_lucky, team_era_unlucky
+- Decay metadata frozen in MLBFeatureSnapshot: `signal_effective_priors`, `thin_sample_decay_applied`, `sample_quality_note`
+- Also surfaced in `pick_why.sample_warnings` and explain route
+- Live verified: thin-sample decay applied to CLE pick (handedness 0%, BvP 0 batters, < 5 IP)
+
+**4. League-by-league signal scorecards** ✅ SHIPPED
+- New route: `src/app/api/admin/goose-model/signal-scorecard`
+- Per-sport, per-signal: volume (appearances), win rate, estimated ROI, avg odds, sample confidence
+- Market type breakdown (`include_market_type=true`)
+- Thin-sample signals flagged (`thin_sample_decay_noted`)
+- Weak signals (< 48% WR) and strong signals (>= 60% WR) surfaced per sport
+- Query: `?sport=MLB&min_sample=5`
+- Live verified: returns 4-sport scorecards, empty (no graded picks yet — expected)
+
+**5. Tighter promotion gates from sandbox to production** ✅ SHIPPED
+- New route: `src/app/api/admin/goose-model/promotion-candidates`
+- 5 gates: signal_quality (>= 15 appearances, >= 62% WR), edge_floor (>= 6%), hit_rate_floor (>= 63%), sport_sample (>= 10 graded), odds_gate (>= -150)
+- Returns eligible (all 5 gates passed), borderline (1 gate failed), and gate-by-gate evidence
+- Promotion score (0-100) ranks candidates
+- Query: `?sport=MLB&days=30`
+- Live verified: 0 eligible (expected — no graded picks yet; gates will populate as data accumulates)
+
+**6. True 'why this pick exists' debug visibility** ✅ SHIPPED
+- `pick_why` field frozen in every `pick_snapshot.factors` at generation time:
+  - `primary_reason`: top signal + context + edge%
+  - `signal_chain`: [{signal, prior, decayed}] for every signal
+  - `score_blend`: formula breakdown in text
+  - `sample_warnings`: thin-sample notes
+  - `thin_sample_decay_applied`: boolean
+- New route: `src/app/api/admin/goose-model/explain?id=<pick_id>`
+  - Full decision chain: signals with context evidence, score breakdown, sport context
+  - Live pick verified: CLE Win ML — signals, priors, decay status, thin_sample_note all present
+
+**7. Source-health monitoring / degraded-state visibility** ✅ SHIPPED
+- New route: `src/app/api/admin/source-health`
+- Probes NHL/NBA/MLB/PGA debug endpoints in parallel (isolated, non-fatal)
+- Returns: overall status, per-sport checks, active degradations, model-readiness
+- Live: NHL=stale (shot aggs not pre-warmed), NBA=stale (pre-game normal), MLB=stale (lineups pre-game), PGA=degraded (no active tournament)
+- 3/4 sports model-ready, 1 critical gap (PGA off-week — expected)
+
+### Remaining gaps / next actions
+
+| Area | Status | Note |
+|---|---|---|
+| CLV / price movement context | ❌ Deferred | No odds movement feed on current rails — would need The Odds API `historical` endpoint or Pinnacle live feed. Not implemented: no safe source. |
+| BvP history population | ⏳ Self-resolves | Career data sparse on early matchups. Degrades gracefully. Will accumulate as season progresses. |
+| Thin-sample decay for NHL | ⏳ Low priority | NHL shot aggregates update daily; decay less critical than early-season MLB. Can add if xG/HDCF signals show false edges. |
+| Signal scorecard ROI tracking | ⏳ Needs data | Scorecard will populate as graded picks accumulate. Run auto-grade daily. |
+| Promotion gate auto-trigger | ⏳ Manual now | promotion-candidates route is manual. Could be added to heartbeat as a periodic check. |
+
+---
+
 ## NHL Shot Event Rail — 2026-03-27 (v2, PBP aggregate implemented)
 
 ### What was implemented in this build
