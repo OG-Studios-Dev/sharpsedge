@@ -394,6 +394,76 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 - **`generate-daily` updated**: MLB timing check wired — off-season generates skip MLB cleanly with reason logged
 - **TypeScript**: Clean — `npx tsc --noEmit` produces 0 errors
 
+---
+
+## MLB Signal Buildout — 2026-03-27 (pass 2 — pitcher_command + home_away_edge)
+
+### What was implemented
+
+**Pitcher Command Signal (K/BB)** ✅ LIVE
+- `computeKBB()` in `mlb-features.ts`: K/BB ratio from season `strikeOuts / baseOnBalls`
+- Requires >= 5 IP to trust ratio — returns null at season start (expected, non-fatal)
+- `MLBProbablePitcher` type extended: now includes `whip`, `strikeOuts`, `baseOnBalls`, `inningsPitched`
+- `buildStarterQuality()` param signature updated to accept nullable fields
+- Auto-tags `pitcher_command` in `fetchMLBContextHints()` when team K/BB >= 3.0
+- New signal in `GOOSE_SIGNALS` (types.ts) with text patterns in `signal-tagger.ts`
+- Prior: 0.60 in `MLB_SIGNAL_PRIORS`
+- New `MLBContextHints` fields: `team_starter_k_bb`, `opponent_starter_k_bb`, `team_starter_command`, `opponent_starter_weak_command`
+- New `MLBFeatureSnapshot` fields: `team_starter_k_bb`, `opponent_starter_k_bb`, `pitcher_command_active`
+
+**Home/Away Split Rates** ✅ LIVE
+- `getMLBTeamSplitRates()` in `mlb-api.ts`: parses homeRecord/awayRecord from `getMLBStandings()`
+  - 30-min cache (standings only update after completed games)
+  - Win rate = null when < 3 games in split (season-start safe, non-fatal)
+- `fetchMLBContextHints()` now fetches split rates in parallel with enrichment board (`Promise.all`)
+- Edge label logic:
+  - `strong_home_edge`: team home rate >= .560 while playing at home
+  - `weak_road_opponent`: opponent away rate <= .440 while team is home
+  - `both` / `none` / `insufficient_data` as appropriate
+- Auto-tags `home_away_edge` when label is strong_home_edge, weak_road_opponent, or both
+- New signal `home_away_edge` in `GOOSE_SIGNALS` + patterns in `signal-tagger.ts`
+- Prior: 0.57 in `MLB_SIGNAL_PRIORS`
+- New `MLBContextHints` fields: `is_home`, `team_home_win_rate`, `team_away_win_rate`, `opponent_home_win_rate`, `opponent_away_win_rate`, `home_away_edge_label`
+- New `MLBFeatureSnapshot` fields: `team_home_win_rate`, `opponent_away_win_rate`, `is_home`, `home_away_edge_label`, `home_away_edge_active`
+
+**Debug Route Updated** ✅
+- Step 3 (context_hints): now shows `pitcher_command` and `home_away_splits` sub-objects with note about season-start nulls
+- Step 5 (feature_scorer): tests both new signals; priors_applied confirms pitcher_command=0.60, home_away_edge=0.57
+
+**Build + API verified** ✅
+- `tsc --noEmit`: 0 errors
+- `npm run build`: clean
+- `GET /api/debug/mlb`: status=ok (pitcher_command null + home_away insufficient_data both expected on Opening Day)
+- feature_scorer correctly applies both priors; snapshot includes all new fields
+- **Commit:** `0937c04`
+
+### Current MLB Signal Status Matrix
+
+| Signal | Status | Source | Prior |
+|---|---|---|---|
+| park_factor | ✅ LIVE | Seeded Statcast park factors | 0.61 |
+| weather_wind | ✅ LIVE | Open-Meteo via mlb-weather.ts | 0.61 |
+| bullpen_fatigue | ✅ LIVE | MLB Stats API L3 boxscores | 0.60 |
+| probable_pitcher_weak | ✅ LIVE | ERA quality score ≤ 45 | 0.63 |
+| probable_pitcher_ace | ✅ LIVE | ERA quality score ≥ 65 | 0.62 |
+| pitcher_command | ✅ LIVE (2026-03-27) | K/BB from schedule hydrate | 0.60 |
+| home_away_edge | ✅ LIVE (2026-03-27) | Standings homeRecord/awayRecord | 0.57 |
+| home_field | 🟡 PRIORS ONLY | No auto-tag yet | 0.54 |
+| streak_form | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.60 |
+| matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
+| lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
+
+### Remaining Blockers / Next MLB Build Order
+
+| Priority | Feature | Blocker | Path |
+|---|---|---|---|
+| P1 | Batter vs Pitcher splits (BvP) | MLB Stats API splits endpoint requires per-player cross-lookup | Architecture ready; need split-fetch layer + BvP signal |
+| P2 | Umpire assignment rail | No live umpire API; historical stats need seeded JSON | gamePk available; ump stats seeded JSON like park factors |
+| P3 | K/BB signal fully live | Season-start (< 5 IP) returns null; will auto-populate | No action needed — self-resolves as season progresses |
+| P4 | Home/away splits live | Opening Day returns insufficient_data; populates after ~5 games | No action needed — self-resolves |
+| P5 | IL/injury diff rail | No structured MLB IL feed; RotoWire scraping is brittle | Best proxy: lineup_status field already in context |
+| P6 | BvP handedness splits | Pitcher hand + batter hand (L/R) available; OPS vs LHP/RHP not | Needs historical stat lookup or Statcast |
+
 ### MLB extraction shortlist (worth porting later)
 - **P1 — Batter vs Pitcher splits** (BvP):
   - MLB Stats API has a splits endpoint: `/api/v1/people/{id}/stats?stats=vsPlayer&group=pitching&opposingPlayerId={pitcherId}`
