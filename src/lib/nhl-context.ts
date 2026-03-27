@@ -154,11 +154,11 @@ type SourcedPKContext = {
  * Positive value means team's PP is stronger than opponent's PK → PP edge.
  * Negative value means opponent's PK is suppressing the team's PP unit.
  *
- * Signal tier:
- *   "strong"   → differential >= 0.04  (4pp over opp PK — actionable)
+ * Signal tier (differential = team PP% - opp allowed rate, where allowed rate = 1 - oppPK%):
+ *   "strong"   → differential >= 0.04  (team PP converts 4pp above opp's typical allowed rate)
  *   "moderate" → differential >= 0.02
  *   "neutral"  → |differential| < 0.02
- *   "adverse"  → differential < -0.02  (opponent PK dominates)
+ *   "adverse"  → differential < -0.02  (team PP converts below opp's typical allowed rate)
  *   "unavailable" → PP/PK data not loaded
  */
 type DerivedPPEfficiency = {
@@ -836,14 +836,23 @@ function buildPPEfficiency(
     };
   }
 
-  const ppDiff = teamPP.powerPlayPct - oppPK.penaltyKillPct;
+  // Correct comparison frame:
+  // PP% = rate at which team SCORES on the power play
+  // PK% = rate at which opponent KILLS the penalty (prevents goals)
+  // Opp allowed rate = 1 - oppPK% (how often they ALLOW PP goals)
+  // Edge = team PP% - opp allowed rate = team PP% - (1 - opp PK%)
+  // Positive = team converts more often than the opponent typically allows → real PP edge
+  const oppAllowedRate = 1 - oppPK.penaltyKillPct;
+  const ppDiff = teamPP.powerPlayPct - oppAllowedRate;
 
-  // Net ST = (team PP% - opp PK%) + (team PK% - opp PP%)
-  // Positive = team has special teams advantage in both directions
+  // Net ST differential (symmetric: team PP vs opp, and team PK vs opp PP)
+  // Net = (team PP% - opp allowed rate) - (opp PP% - team allowed rate)
+  // Positive = team has overall special teams advantage
   let netSTDiff: number | null = null;
   if (oppPP && teamPK) {
-    const pkDiff = teamPK.penaltyKillPct - oppPP.powerPlayPct;
-    netSTDiff = Number((ppDiff + pkDiff).toFixed(4));
+    const teamAllowedRate = 1 - teamPK.penaltyKillPct;
+    const pkDiff = oppPP.powerPlayPct - teamAllowedRate; // opp's PP edge over team PK
+    netSTDiff = Number((ppDiff - pkDiff).toFixed(4)); // net = team's PP edge minus opp's PP edge
   }
 
   let tier: DerivedPPEfficiency["tier"] = "neutral";
@@ -858,7 +867,7 @@ function buildPPEfficiency(
     ppEfficiencyDifferential: Number(ppDiff.toFixed(4)),
     netSpecialTeamsDifferential: netSTDiff,
     tier,
-    note: `Team PP ${pctFmt(teamPP.powerPlayPct)} vs opp PK ${pctFmt(oppPK.penaltyKillPct)} → diff ${pctFmt(ppDiff)}. Tier: ${tier}.`,
+    note: `Team PP ${pctFmt(teamPP.powerPlayPct)} vs opp allowed rate ${pctFmt(oppAllowedRate)} (opp PK ${pctFmt(oppPK.penaltyKillPct)}) → diff ${pctFmt(ppDiff)}. Tier: ${tier}.`,
   };
 }
 
