@@ -17,9 +17,10 @@
 
 // MLB regular season typically runs March 27–October 5 (±1 week)
 // We use month-based bounds that are safe across years.
-const MLB_SEASON_START_MONTH = 3;  // March (0-indexed)
+// JavaScript Date months are 0-indexed: Jan=0, Feb=1, Mar=2, Apr=3 ... Oct=9, Nov=10
+const MLB_SEASON_START_MONTH = 2;  // March (0-indexed: 0=Jan, 1=Feb, 2=Mar)
 const MLB_SEASON_START_DAY   = 20; // ~Opening Day window (late March)
-const MLB_SEASON_END_MONTH   = 10; // November (0-indexed) — post-WS end
+const MLB_SEASON_END_MONTH   = 10; // November (0-indexed: 10=Nov) — post-WS end
 const MLB_SEASON_END_DAY     = 1;  // After WS ends early-to-mid Oct, safe cutoff Nov 1
 
 export interface MLBSeasonTimingStatus {

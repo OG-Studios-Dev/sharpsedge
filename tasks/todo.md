@@ -366,6 +366,66 @@ To implement: add a post-grading hook that extracts NHLPickFeatureReference from
 
 ---
 
+## 2026-03-27 — MLB Live Production + Learning Activation (pass 4)
+
+### MLB Activation Status (as of this pass)
+
+**MLB Production picks: ✅ LIVE**
+- Route: `/api/mlb/picks` → `getMLBDashboardData()` → `selectMLBTopPicks()`
+- Picks generate from MLB Stats API schedule + enrichment board (park/weather/bullpen/starters/umpire/BvP)
+- 8 games active today (Opening Day 2026)
+- Production picks stored on correct rail (not sandbox)
+
+**MLB Goose Learning/Sandbox picks: ✅ LIVE (bug fixed this pass)**
+- Critical bug fixed: `MLB_SEASON_START_MONTH` was `3` (April) instead of `2` (March, 0-indexed)
+- `canGenerateMLBPicksNow()` was returning `false` on March 27 → MLB was being SKIPPED from generate-daily
+- After fix: `canGenerateMLBPicksNow()` returns `true` correctly for March 27
+- Cron: `generate-daily` runs at `0 15 * * *` UTC (11 AM ET), includes MLB in sandbox mode
+- Sandbox store: `goose_model_picks` table in Supabase, `experiment_tag: "baseline-v1"`, `sandbox: true`
+- Picks accumulate daily for signal-weight learning loop
+- Hard rules enforced: -200 odds cap ✅, sandbox separate from production ✅
+
+**BvP matchup rail: ✅ LIVE (prior session wiring confirmed complete)**
+- `mlb-bvp.ts` — MLB Stats API vsPlayer career splits per batter vs opposing starter
+- Only fires when lineup is official (9+ confirmed batters in live feed)
+- Aggregates PA-weighted OPS for top-5 batting-order batters
+- Signal `lineup_bvp_edge` fires when avg OPS ≥ .750 with ≥ 3 batters having career history
+- Prior: 0.61 (calibrated — lineup-confirmed matchup edge)
+- Degrades gracefully: `insufficient_lineup` / `no_pitcher` / `insufficient_bvp_history`
+- Cache: 24hr per (batterId, pitcherId) — career BvP won't change intra-game
+- Wired: `mlb-enrichment.ts` → `mlb-features.ts` → `fetchMLBContextHints()` → snapshot → `generate-daily`
+- `lineup_bvp_edge` in `GOOSE_SIGNALS`, `signal-tagger.ts`, `MLBFeatureSnapshot`
+- Debug route: `/api/debug/mlb` Step 3 shows `bvp_matchup` sub-object; Step 5 confirms prior
+
+**MLB signal matrix (complete):**
+
+| Signal | Status | Source | Prior |
+|---|---|---|---|
+| park_factor | ✅ LIVE | Seeded Statcast park factors | 0.61 |
+| weather_wind | ✅ LIVE | Open-Meteo via mlb-weather.ts | 0.61 |
+| bullpen_fatigue | ✅ LIVE | MLB Stats API L3 boxscores | 0.60 |
+| probable_pitcher_weak | ✅ LIVE | ERA quality score ≤ 45 | 0.63 |
+| probable_pitcher_ace | ✅ LIVE | ERA quality score ≥ 65 | 0.62 |
+| pitcher_command | ✅ LIVE | K/BB from schedule hydrate | 0.60 |
+| home_away_edge | ✅ LIVE | Standings homeRecord/awayRecord | 0.57 |
+| opponent_era_lucky | ✅ LIVE | ERA-FIP divergence (< -0.75) | 0.61 |
+| team_era_unlucky | ✅ LIVE | ERA-FIP divergence (> +0.75) | 0.60 |
+| umpire_pitcher_friendly | ✅ LIVE | MLB boxscore officials + seeded UmpScorecards | 0.58 |
+| umpire_hitter_friendly | ✅ LIVE | MLB boxscore officials + seeded UmpScorecards | 0.57 |
+| handedness_advantage | ✅ LIVE | MLB Stats API vsLeft/vsRight splits | 0.58 |
+| lineup_bvp_edge | ✅ LIVE (2026-03-27 p4) | MLB Stats API vsPlayer career splits (official lineup only) | 0.61 |
+| home_field | 🟡 PRIORS ONLY | No auto-tag yet | 0.54 |
+| streak_form | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.60 |
+| matchup_edge | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.62 |
+| lineup_change | 🟡 REASONING-TEXT ONLY | signal-tagger patterns | 0.57 |
+
+**Blockers remaining:**
+- BvP fires only post-lineup-confirmation (~1-2h pre-game); generates during daily cron at 11 AM ET — may be before lineups are published. Not a bug — degrades gracefully to `insufficient_lineup` and picks still score from other signals.
+- K/BB, handedness, home/away splits: self-resolve as the season accumulates stats (by April ~week 2).
+- Healthy scratches / DTD certainty: no public API — existing caveats still apply.
+
+---
+
 ## 2026-03-27 — NHL Cron Wire + MLB Regular Season Enablement
 
 ### NHL — Cron wired ✅
