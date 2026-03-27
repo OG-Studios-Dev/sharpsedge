@@ -35,6 +35,51 @@ export const dynamic = "force-dynamic";
 // Give cron runs plenty of time (150s max on Vercel Pro)
 export const maxDuration = 150;
 
+// ── Signal outcome evidence accumulator ──────────────────────
+
+/**
+ * Tracks per-signal win/loss outcomes for this grading run.
+ * Used to build signal-level evidence report in the response.
+ * This surfaces which specific signals correlated with wins vs losses
+ * in this batch — useful for validating prior calibration.
+ */
+class SignalOutcomeTracker {
+  private map = new Map<string, { wins: number; losses: number; pushes: number }>();
+
+  record(signals: string[], result: "win" | "loss" | "push") {
+    for (const sig of signals) {
+      const existing = this.map.get(sig) ?? { wins: 0, losses: 0, pushes: 0 };
+      if (result === "win") existing.wins++;
+      if (result === "loss") existing.losses++;
+      if (result === "push") existing.pushes++;
+      this.map.set(sig, existing);
+    }
+  }
+
+  toArray(): Array<{
+    signal: string;
+    appearances: number;
+    wins: number;
+    losses: number;
+    pushes: number;
+    win_rate: number;
+  }> {
+    return Array.from(this.map.entries())
+      .map(([signal, { wins, losses, pushes }]) => {
+        const settled = wins + losses;
+        return {
+          signal,
+          appearances: wins + losses + pushes,
+          wins,
+          losses,
+          pushes,
+          win_rate: settled > 0 ? Math.round((wins / settled) * 1000) / 10 : 0,
+        };
+      })
+      .sort((a, b) => b.appearances - a.appearances);
+  }
+}
+
 // ── adapter: GooseModelPick → AIPick ────────────────────────
 
 /**
@@ -135,6 +180,10 @@ async function runAutoGrade(targetDate?: string): Promise<{
   pending: number;
   errors: number;
   details: Array<{ id: string; status: string; result?: string; error?: string }>;
+  /** Per-signal outcome evidence for this grading run */
+  signal_outcome_evidence: ReturnType<SignalOutcomeTracker["toArray"]>;
+  /** Summary note for review */
+  grading_summary: string;
 }> {
   let picks: GooseModelPick[];
 
@@ -153,8 +202,19 @@ async function runAutoGrade(targetDate?: string): Promise<{
     return d.toISOString().slice(0, 10);
   })();
 
+  const signalTracker = new SignalOutcomeTracker();
+
   if (!picks.length) {
-    return { date, total: 0, graded: 0, pending: 0, errors: 0, details: [] };
+    return {
+      date,
+      total: 0,
+      graded: 0,
+      pending: 0,
+      errors: 0,
+      details: [],
+      signal_outcome_evidence: [],
+      grading_summary: "No pending picks found for this date.",
+    };
   }
 
   // Process sequentially to avoid overwhelming upstream APIs
@@ -162,6 +222,14 @@ async function runAutoGrade(targetDate?: string): Promise<{
   for (const pick of picks) {
     const outcome = await gradeOnePick(pick);
     details.push(outcome);
+
+    // Accumulate signal outcome evidence for picks that resolved
+    if (outcome.status === "graded" && outcome.result && outcome.result !== "push") {
+      const result = outcome.result as "win" | "loss" | "push";
+      if (pick.signals_present.length > 0) {
+        signalTracker.record(pick.signals_present, result);
+      }
+    }
   }
 
   // Mark anything from 3+ days ago that is still pending as unresolvable
@@ -172,13 +240,28 @@ async function runAutoGrade(targetDate?: string): Promise<{
     await markStalePicksUnresolvable(staleDate);
   }
 
+  const gradedCount = details.filter((d) => d.status === "graded").length;
+  const winCount = details.filter((d) => d.result === "win").length;
+  const lossCount = details.filter((d) => d.result === "loss").length;
+  const signalEvidence = signalTracker.toArray();
+
+  const gradingSummary = [
+    `Graded ${gradedCount}/${picks.length} picks (${winCount}W / ${lossCount}L).`,
+    signalEvidence.length > 0
+      ? `Top signal this run: ${signalEvidence[0]?.signal} (${signalEvidence[0]?.win_rate}% WR in ${signalEvidence[0]?.appearances} picks).`
+      : "No signal evidence accumulated (insufficient settled picks).",
+    "Signal weights updated in DB. Run /api/admin/goose-model/analytics for cumulative scorecard.",
+  ].join(" ");
+
   return {
     date,
     total: picks.length,
-    graded: details.filter((d) => d.status === "graded").length,
+    graded: gradedCount,
     pending: details.filter((d) => d.status === "pending").length,
     errors: details.filter((d) => d.status === "error").length,
     details,
+    signal_outcome_evidence: signalEvidence,
+    grading_summary: gradingSummary,
   };
 }
 

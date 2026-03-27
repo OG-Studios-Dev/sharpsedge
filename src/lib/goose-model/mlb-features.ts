@@ -347,6 +347,19 @@ export interface MLBFeatureSnapshot {
 
   /** Warnings from context fetch */
   context_warnings: string[];
+
+  // ── Thin-sample decay metadata ─────────────────────────────
+  /**
+   * Map of signal → effective prior after thin-sample decay.
+   * Signals with ample sample (>= 50 AB for handedness, >= 5 batters for BvP,
+   * >= 20 IP for pitcher stats) will have effectivePrior ≈ original prior.
+   * Early-season picks will show decay toward 0.50.
+   */
+  signal_effective_priors: Record<string, number>;
+  /** Whether any thin-sample decay was applied to reduce signal confidence */
+  thin_sample_decay_applied: boolean;
+  /** Human-readable note about sample quality (for debug/explain output) */
+  sample_quality_note: string;
 }
 
 // ── MLB Signal Priors ─────────────────────────────────────────
@@ -455,6 +468,55 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
  * Matches the threshold in store.scorePickBySignals().
  */
 const MIN_APPEARANCES = 5;
+
+// ── Thin-sample confidence decay ──────────────────────────────
+/**
+ * Apply confidence decay to a prior when the sample behind it is too thin.
+ * Thin samples in early-season MLB are a known source of false edges:
+ *   - handedness/splits: reliable only after ~30+ AB vs each hand
+ *   - BvP (career): reliable only when >= 3 batters have career PA history
+ *   - pitcher stats (K/BB, ERA, FIP): meaningful only after >= 5 IP
+ *
+ * Decay formula: decayed = 0.50 + (prior - 0.50) * decayFactor
+ *   - decayFactor = 0.0 → fully decayed to 0.50 (no edge, coin-flip)
+ *   - decayFactor = 1.0 → full prior applied (ample sample)
+ *
+ * @param prior        Signal prior (e.g. 0.58)
+ * @param decayFactor  0–1, where 1 = full confidence, 0 = no confidence
+ * @returns            Decayed prior closer to 0.50
+ */
+export function thinSampleDecay(prior: number, decayFactor: number): number {
+  const clamped = Math.min(1, Math.max(0, decayFactor));
+  return 0.50 + (prior - 0.50) * clamped;
+}
+
+/**
+ * Compute a decay factor for MLB handedness splits based on sample AB count.
+ * Returns 1.0 when >= 50 AB (fully reliable), 0.0 when 0 AB (early season).
+ * Linear interpolation between 0 and 50 AB.
+ */
+export function handednessDecayFactor(abCount: number | null | undefined): number {
+  if (!abCount || abCount <= 0) return 0.0;
+  return Math.min(1.0, abCount / 50);
+}
+
+/**
+ * Compute a decay factor for BvP based on how many batters have career history.
+ * Returns 1.0 when >= 5 batters with history, 0 when 0.
+ */
+export function bvpDecayFactor(batersWithHistory: number): number {
+  return Math.min(1.0, batersWithHistory / 5);
+}
+
+/**
+ * Compute a decay factor for pitcher stats based on innings pitched.
+ * Returns 1.0 when >= 20 IP (fully reliable mid-season), 0 when < 5 IP.
+ */
+export function pitcherStatDecayFactor(inningsPitched: number | null | undefined): number {
+  if (!inningsPitched || inningsPitched < 5) return 0.0;
+  if (inningsPitched >= 20) return 1.0;
+  return (inningsPitched - 5) / 15; // linear from 5 to 20 IP
+}
 
 // ── Cache ─────────────────────────────────────────────────────
 
@@ -882,6 +944,29 @@ export function scoreMLBFeaturesWithSnapshot(
   let total = 0;
   let count = 0;
 
+  // Compute decay factors for thin-sample signals from context hints
+  // These reduce the prior weight toward 0.50 when sample is insufficient.
+  // At season start (< 2 weeks), handedness/BvP/pitcher stats are near-zero sample.
+  const handednessDecay = handednessDecayFactor(
+    // Use lineup_batters_with_history as proxy for AB count if direct AB not available
+    // A non-null team_ops_vs_hand suggests some AB have been accumulated
+    contextHints?.team_ops_vs_hand !== null ? (contextHints?.lineup_batters_with_history ?? 0) * 10 : 0,
+  );
+  const bvpDecay = bvpDecayFactor(contextHints?.lineup_batters_with_history ?? 0);
+  const pitcherDecay = pitcherStatDecayFactor(
+    contextHints?.team_starter_k_bb !== null ? 20 : 0, // if K/BB computed, assume >= 5 IP (gate is in computeKBB)
+  );
+
+  // Signal → decay factor map for thin-sample signals
+  const signalDecayFactors: Record<string, number> = {
+    handedness_advantage: handednessDecay,
+    lineup_bvp_edge: bvpDecay,
+    pitcher_command: pitcherDecay,
+    // ERA/FIP signals also decay with pitcher sample
+    opponent_era_lucky: pitcherDecay,
+    team_era_unlucky: pitcherDecay,
+  };
+
   for (const sig of allSignals) {
     const prior = MLB_SIGNAL_PRIORS[sig];
     if (prior === undefined) continue;
@@ -890,9 +975,14 @@ export function scoreMLBFeaturesWithSnapshot(
     const hasTrustedLiveData = liveWeight && liveWeight.appearances >= MIN_APPEARANCES;
 
     if (!hasTrustedLiveData) {
-      total += prior;
+      // Apply thin-sample decay if applicable
+      const decayFactor = signalDecayFactors[sig];
+      const effectivePrior =
+        decayFactor !== undefined ? thinSampleDecay(prior, decayFactor) : prior;
+
+      total += effectivePrior;
       count++;
-      priorsApplied[sig] = prior;
+      priorsApplied[sig] = effectivePrior;
       priorSignals.push(sig);
     }
   }
@@ -943,9 +1033,37 @@ export function scoreMLBFeaturesWithSnapshot(
     lineup_batters_with_history: contextHints?.lineup_batters_with_history ?? 0,
     lineup_matchup_tier: contextHints?.lineup_matchup_tier ?? "insufficient_data",
     context_warnings: contextHints?.warnings ?? [],
+    // ── Thin-sample decay metadata ─────────────────────────
+    signal_effective_priors: priorsApplied,
+    thin_sample_decay_applied: Object.values(signalDecayFactors).some(
+      (f) => f < 1.0 && priorSignals.some((s) => s in signalDecayFactors),
+    ),
+    sample_quality_note: buildSampleQualityNote(
+      handednessDecay,
+      bvpDecay,
+      pitcherDecay,
+      contextHints,
+    ),
   };
 
   return { score, snapshot };
+}
+
+/**
+ * Build a human-readable sample quality note for debug/explain output.
+ */
+function buildSampleQualityNote(
+  handednessDecay: number,
+  bvpDecay: number,
+  pitcherDecay: number,
+  contextHints?: MLBContextHints | null,
+): string {
+  const notes: string[] = [];
+  if (handednessDecay < 0.5) notes.push(`handedness thin (${Math.round(handednessDecay * 100)}% confidence)`);
+  if (bvpDecay < 0.5) notes.push(`BvP thin (${contextHints?.lineup_batters_with_history ?? 0} batters with history)`);
+  if (pitcherDecay < 1.0) notes.push(`pitcher stats thin (${pitcherDecay < 0.3 ? "< 5 IP" : "< 20 IP"})`);
+  if (notes.length === 0) return "sample quality: adequate";
+  return `thin-sample decay applied — ${notes.join("; ")}`;
 }
 
 /**

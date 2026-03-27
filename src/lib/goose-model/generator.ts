@@ -112,6 +112,24 @@ export interface PickFactors {
   l5_hit_rate: number | null;
   /** Player's avg stat over last 5 games. Alias of nba_features.player_avg_stat_l5 for quick access. */
   l5_avg_stat: number | null;
+
+  /**
+   * Inline "why this pick exists" context — frozen at generation time.
+   * Provides a structured decision chain without needing a separate explain call.
+   * Use /api/admin/goose-model/explain?id=<id> for the full deep explanation.
+   */
+  pick_why: {
+    /** Primary reason (top signal + brief context) */
+    primary_reason: string;
+    /** Each signal and its prior weight at pick time */
+    signal_chain: Array<{ signal: string; prior: number | null; decayed: boolean }>;
+    /** Score blend breakdown */
+    score_blend: string;
+    /** Any sample quality warnings */
+    sample_warnings: string[];
+    /** Thin-sample decay applied? */
+    thin_sample_decay_applied: boolean;
+  };
 }
 
 function buildPickFactors(
@@ -173,6 +191,65 @@ function buildPickFactors(
     prop_is_combo: parsed.isCombo,
     l5_hit_rate: nbaFeatures?.player_l5_hit_rate ?? null,
     l5_avg_stat: nbaFeatures?.player_avg_stat_l5 ?? null,
+    pick_why: buildPickWhy(candidate, sigs, mlbFeatures, nhlFeatures),
+  };
+}
+
+/**
+ * Build the inline "why this pick exists" context.
+ * Captured at generation time for zero-latency debug visibility.
+ */
+function buildPickWhy(
+  candidate: ScoredGooseCandidate,
+  signals: string[],
+  mlbFeatures: MLBFeatureSnapshot | null,
+  nhlFeatures: NHLFeatureSnapshot | null,
+): PickFactors["pick_why"] {
+  // Collect prior info from sport feature snapshots
+  const priorsApplied: Record<string, number> =
+    mlbFeatures?.signal_priors_applied ??
+    nhlFeatures?.signal_priors_applied ??
+    {};
+
+  const signalChain = signals.map((sig) => {
+    const prior = priorsApplied[sig] ?? null;
+    // Detect decay: if prior is close to 0.50 but signal has a known baseline above that
+    const decayed = prior !== null && prior < 0.54; // below 0.54 implies decay was applied
+    return { signal: sig, prior, decayed };
+  });
+
+  const topSignal = signalChain.sort((a, b) => (b.prior ?? 0) - (a.prior ?? 0))[0];
+
+  const primaryParts: string[] = [];
+  if (topSignal) {
+    primaryParts.push(`Top signal: ${topSignal.signal} (prior: ${topSignal.prior?.toFixed(2) ?? "N/A"})`);
+  }
+  if (candidate.team && candidate.opponent) {
+    primaryParts.push(`${candidate.team} vs ${candidate.opponent}`);
+  }
+  if (typeof candidate.edge === "number") {
+    primaryParts.push(`edge: ${candidate.edge.toFixed(1)}%`);
+  }
+
+  const thinSampleDecay = mlbFeatures?.thin_sample_decay_applied ?? false;
+  const sampleWarnings: string[] = [];
+  if (thinSampleDecay && mlbFeatures?.sample_quality_note) {
+    sampleWarnings.push(mlbFeatures.sample_quality_note);
+  }
+  if ((mlbFeatures?.context_warnings?.length ?? 0) > 0) {
+    sampleWarnings.push(...(mlbFeatures?.context_warnings ?? []));
+  }
+
+  const edgePct = typeof candidate.edge === "number" ? candidate.edge : 0;
+  const hrPct = typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time : 50;
+  const scoreBlend = `score = 0.8×(hitRate:${hrPct.toFixed(0)}%+model) + 0.2×sport_feature → ${(candidate.model_score * 100).toFixed(1)}% → edge ${edgePct.toFixed(1)}%`;
+
+  return {
+    primary_reason: primaryParts.join(" | ") || `${candidate.sport} pick from ${signals.length} signals`,
+    signal_chain: signalChain,
+    score_blend: scoreBlend,
+    sample_warnings: sampleWarnings,
+    thin_sample_decay_applied: thinSampleDecay,
   };
 }
 
