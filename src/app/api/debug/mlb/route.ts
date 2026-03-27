@@ -202,6 +202,15 @@ export async function GET() {
         handedness_note: hints.handedness_note,
         note: "Handedness splits from MLB Stats API vsLeft/vsRight. Null at season start — expected, non-fatal.",
       },
+      bvp_matchup: {
+        bvp_status: hints.bvp_status,
+        lineup_avg_ops_vs_pitcher: hints.lineup_avg_ops_vs_pitcher,
+        lineup_batters_with_history: hints.lineup_batters_with_history,
+        lineup_matchup_tier: hints.lineup_matchup_tier,
+        lineup_bvp_edge_fires: hints.lineup_bvp_edge_fires,
+        bvp_note: hints.bvp_note,
+        note: "BvP matchup layer: requires official lineup (9+ confirmed batters) + known starter ID. Uses MLB Stats API vsPlayer career splits. Fires when top-5 order batters avg OPS >= .750 career vs this starter.",
+      },
       warnings: hints.warnings,
       ms: Date.now() - t3,
     };
@@ -238,6 +247,7 @@ export async function GET() {
       "umpire_pitcher_friendly",
       "umpire_hitter_friendly",
       "handedness_advantage",
+      "lineup_bvp_edge",
     ];
     const emptyWeightMap = buildMLBWeightMap([]);
     const { score, snapshot } = scoreMLBFeaturesWithSnapshot(testSignals, emptyWeightMap, null);
@@ -254,11 +264,16 @@ export async function GET() {
       umpire_pitcher_friendly_active: snapshot.umpire_pitcher_friendly_active,
       umpire_hitter_friendly_active: snapshot.umpire_hitter_friendly_active,
       handedness_advantage_active: snapshot.handedness_advantage_active,
+      lineup_bvp_edge_active: snapshot.lineup_bvp_edge_active,
       hp_ump_name: snapshot.hp_ump_name,
       ump_zone_tier: snapshot.ump_zone_tier,
       opponent_pitcher_hand: snapshot.opponent_pitcher_hand,
       team_ops_vs_hand: snapshot.team_ops_vs_hand,
       handedness_advantage_tier: snapshot.handedness_advantage_tier,
+      bvp_status: snapshot.bvp_status,
+      lineup_avg_ops_vs_pitcher: snapshot.lineup_avg_ops_vs_pitcher,
+      lineup_batters_with_history: snapshot.lineup_batters_with_history,
+      lineup_matchup_tier: snapshot.lineup_matchup_tier,
       priors_applied: snapshot.signal_priors_applied,
       mlb_feature_score: snapshot.mlb_feature_score.toFixed(4),
     };
@@ -285,9 +300,9 @@ export async function GET() {
     },
     bvp_splits: {
       gap: "Individual batter vs pitcher historical splits (per-player OPS matchup)",
-      impact: "Would add lineup-level edge for player props",
-      current_proxy: "Team-level handedness splits vs LHP/RHP (live, MLB Stats API vsLeft/vsRight)",
-      status: "Team handedness advantage NOW LIVE (2026-03-27). Individual BvP per-batter cross-lookup remains blocked — ~6 API calls/game, needs lineup to be official first.",
+      impact: "Highest MLB signal for player props and team ML when lineup is confirmed",
+      current_proxy: "lineup_bvp_edge signal NOW LIVE — MLB Stats API vsPlayer career splits for top-5 batting-order batters vs opposing starter",
+      status: "LIVE (2026-03-27 BvP pass). Requires: (1) official 9-batter lineup in live feed + (2) known opposing starter ID. Degrades gracefully to 'insufficient_lineup' or 'no_pitcher'. Career PA data — 24hr cache. Prior: 0.61.",
     },
     umpire_tendencies: {
       gap: "Per-umpire live zone stats",
@@ -321,7 +336,7 @@ export async function GET() {
     pipeline: {
       source: "MLB Stats API (statsapi.mlb.com) + Open-Meteo + seeded Statcast park factors",
       ingestion: "mlb-enrichment.ts → getMLBEnrichmentBoard() → [schedule, lineups, weather, bullpen, park factors, probable pitchers]",
-      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace, pitcher_command, home_away_edge, umpire_pitcher_friendly, umpire_hitter_friendly, handedness_advantage, opponent_era_lucky, team_era_unlucky]",
+      context: "mlb-features.ts → fetchMLBContextHints() → auto-signals [park_factor, weather_wind, bullpen_fatigue, probable_pitcher_weak/ace, pitcher_command, home_away_edge, umpire_pitcher_friendly, umpire_hitter_friendly, handedness_advantage, opponent_era_lucky, team_era_unlucky, lineup_bvp_edge]",
       snapshot: "mlb-features.ts → scoreMLBFeaturesWithSnapshot() → pick_snapshot.factors.mlb_features",
       goose_model: "/api/admin/goose-model/generate { sport: MLB }",
       scoring: "signal-tagger + MLB priors + context auto-signals (park/weather/bullpen/pitchers) → 20% MLB blend / 80% base",

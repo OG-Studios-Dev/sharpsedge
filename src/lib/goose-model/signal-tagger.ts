@@ -313,6 +313,18 @@ const SIGNAL_PATTERNS: Record<GooseSignal, RegExp[]> = {
     /\bfavorable\s+(?:pitcher\s+)?hand(?:edness)?\s+matchup\b/i,
     /\bteam\s+(?:advantage|edge)\s+(?:vs|against)\s+(?:lefties?|righties?|lhp|rhp)\b/i,
   ],
+  // ── MLB lineup BvP (batter vs pitcher) matchup edge ─────────
+  lineup_bvp_edge: [
+    /\bbatter[s]?\s+vs\.?\s+pitcher\b/i,
+    /\bbvp\b/i,
+    /\bcareer\s+(?:matchup|splits?|history|ops)\s+(?:vs\.?|against)\b/i,
+    /\bhistorical\s+(?:matchup|splits?|bvp)\b/i,
+    /\blineup\s+(?:bvp|matchup|edge|advantage)\b/i,
+    /\btop[\s-]?order\s+batters?\s+(?:vs\.?|against)\s+(?:starter|pitcher)\b/i,
+    /\baggregate\s+ops\s+(?:vs\.?|against)\b/i,
+    /\bconfirmed\s+lineup\s+(?:matchup|edge|advantage|bvp)\b/i,
+    /\bfavorable\s+(?:lineup\s+)?matchup\s+(?:history|data|splits?)\b/i,
+  ],
   // ── NHL per-player xG quality ──────────────────────────────
   player_shot_quality_edge: [
     /\bxg[\s-]?(?:per[\s-]?game|quality|generators?)\b/i,

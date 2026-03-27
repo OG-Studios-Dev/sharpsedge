@@ -1,5 +1,6 @@
 import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBScheduleRange } from "@/lib/mlb-api";
+import { computeLineupMatchupQuality } from "@/lib/mlb-bvp";
 import { buildMLBBullpenFatigueBoard } from "@/lib/mlb-bullpen";
 import { buildMLBF5MarketSnapshot } from "@/lib/mlb-f5";
 import { getMLBHandednessSplits } from "@/lib/mlb-handedness";
@@ -161,6 +162,25 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
       getMLBHandednessSplits(game.homeTeam.abbreviation).catch(() => null),
     ]);
 
+    // ── BvP matchup rail ──────────────────────────────────────
+    // Only fires when lineup is official (9+ players confirmed in live feed).
+    // Computes PA-weighted aggregate OPS for top-5 batting-order batters vs opposing starter.
+    // Requires opposing starter ID — available from MLB schedule hydrate when pitcher is announced.
+    // Falls back gracefully to "insufficient_lineup" / "no_pitcher" / "insufficient_bvp_history".
+    const awayBvp = await computeLineupMatchupQuality(
+      lineups.away.status === "official" ? lineups.away.players : [],
+      game.homeTeam.probablePitcher?.id ?? null,
+      game.homeTeam.probablePitcher?.name ?? null,
+      game.homeTeam.probablePitcher?.hand ?? null,
+    ).catch(() => null);
+
+    const homeBvp = await computeLineupMatchupQuality(
+      lineups.home.status === "official" ? lineups.home.players : [],
+      game.awayTeam.probablePitcher?.id ?? null,
+      game.awayTeam.probablePitcher?.name ?? null,
+      game.awayTeam.probablePitcher?.hand ?? null,
+    ).catch(() => null);
+
     const parkFactor = getMLBParkFactor(game.homeTeam.abbreviation);
     const mappedVenue = getMLBStadiumForGame(game);
     const event = findMLBOddsForGame(odds, game.homeTeam.abbreviation, game.awayTeam.abbreviation) ?? null;
@@ -289,6 +309,15 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
         away: awayHandedness ?? null,
         home: homeHandedness ?? null,
       },
+      /**
+       * BvP (batter vs pitcher) matchup rail — computed when lineup is official and starter is known.
+       * Source: MLB Stats API vsPlayer splits (career to date).
+       * Status: "computed" | "insufficient_lineup" | "no_pitcher" | "insufficient_bvp_history"
+       */
+      bvp: {
+        away: awayBvp ?? null,
+        home: homeBvp ?? null,
+      },
       sourceHealth,
       markets: {
         f5,
@@ -340,6 +369,7 @@ export async function getMLBEnrichmentBoard(date = getDateKey(new Date(), MLB_TI
       f5: "Aggregated sportsbook odds feeds when explicit first-five keys/markets are available",
       umpire: "MLB Stats API boxscore officials (pre-game assignment) + seeded zone stats from UmpScorecards 2019-2024",
       handedness: "MLB Stats API vsLeft/vsRight team batting splits (season cumulative)",
+      bvp: "MLB Stats API vsPlayer splits (career batter vs pitcher stats; requires official lineup + known starter ID)",
     },
     games,
   };

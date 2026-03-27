@@ -114,6 +114,14 @@ export const GOOSE_SIGNALS = [
    * Source: MLB Stats API vsLeft/vsRight team batting splits (season cumulative).
    */
   "handedness_advantage",
+  /**
+   * Confirmed lineup BvP (Batter vs Pitcher) matchup edge:
+   * official 9-batter lineup vs opposing starter, with >= 3 top-order batters having
+   * career BvP history. Fires when PA-weighted aggregate OPS vs this pitcher >= .750.
+   * Strongest MLB signal when lineup is confirmed and BvP history is sufficient.
+   * Source: MLB Stats API vsPlayer splits (career) — requires official lineup + known starter.
+   */
+  "lineup_bvp_edge",
 ] as const;
 
 export type GooseSignal = (typeof GOOSE_SIGNALS)[number];

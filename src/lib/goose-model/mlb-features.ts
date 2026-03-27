@@ -32,6 +32,7 @@ import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { getMLBTeamSplitRates } from "@/lib/mlb-api";
 import { computeHandednessMatchup } from "@/lib/mlb-handedness";
 import type { HandednessAdvantage } from "@/lib/mlb-handedness";
+import type { LineupMatchupQuality } from "@/lib/mlb-bvp";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -164,6 +165,24 @@ export interface MLBContextHints {
   /** Human-readable handedness matchup note */
   handedness_note: string | null;
 
+  // ── BvP (batter vs pitcher) matchup context ───────────────
+  /**
+   * Status of the BvP matchup computation for this pick's lineup.
+   * "computed" = lineup confirmed + pitcher known + >= 3 batters with history.
+   * Other values indicate why computation was skipped.
+   */
+  bvp_status: LineupMatchupQuality["status"] | "unavailable";
+  /** PA-weighted aggregate OPS of top-5 batting-order batters vs opposing starter (career) */
+  lineup_avg_ops_vs_pitcher: number | null;
+  /** Number of top-order batters with usable BvP history (>= 3 career PA vs this pitcher) */
+  lineup_batters_with_history: number;
+  /** Matchup quality classification for lineup vs opposing starter */
+  lineup_matchup_tier: LineupMatchupQuality["matchup_tier"];
+  /** Whether the lineup_bvp_edge signal fires (avg OPS >= .750, >= 3 batters with history) */
+  lineup_bvp_edge_fires: boolean;
+  /** Human-readable BvP matchup summary note */
+  bvp_note: string | null;
+
   // ── Non-fatal warnings ─────────────────────────────────────
   warnings: string[];
 }
@@ -214,6 +233,12 @@ export function emptyMLBContextHints(): MLBContextHints {
     handedness_advantage_tier: "unknown",
     handedness_advantage_fires: false,
     handedness_note: null,
+    bvp_status: "unavailable",
+    lineup_avg_ops_vs_pitcher: null,
+    lineup_batters_with_history: 0,
+    lineup_matchup_tier: "insufficient_data",
+    lineup_bvp_edge_fires: false,
+    bvp_note: null,
     warnings: [],
   };
 }
@@ -308,6 +333,18 @@ export interface MLBFeatureSnapshot {
   /** Handedness advantage tier at pick time */
   handedness_advantage_tier: string;
 
+  // ── BvP matchup snapshot ───────────────────────────────────
+  /** Whether the lineup_bvp_edge signal fired */
+  lineup_bvp_edge_active: boolean;
+  /** BvP computation status at pick time */
+  bvp_status: string;
+  /** PA-weighted avg OPS for top-order batters vs opposing starter at pick time */
+  lineup_avg_ops_vs_pitcher: number | null;
+  /** Number of top-order batters with usable BvP history at pick time */
+  lineup_batters_with_history: number;
+  /** Matchup tier classification at pick time */
+  lineup_matchup_tier: string;
+
   /** Warnings from context fetch */
   context_warnings: string[];
 }
@@ -401,6 +438,16 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
    * Source: MLB Stats API vsLeft/vsRight team batting splits, current season.
    */
   handedness_advantage: 0.58,
+  /**
+   * Confirmed lineup BvP edge: top-order batters have combined OPS >= .750 career
+   * vs today's opposing starter (based on official confirmed lineup + starter ID).
+   * Requires >= 3 of 5 top-order batters with career PA history vs this pitcher.
+   * Source: MLB Stats API vsPlayer career splits (batterId × pitcherId cross-lookup).
+   *
+   * Signal is more specific than handedness_advantage (individual-level history vs team-level).
+   * Prior: 0.61 — reflects individual matchup specificity over team-level baseline.
+   */
+  lineup_bvp_edge: 0.61,
 };
 
 /**
@@ -654,6 +701,19 @@ export async function fetchMLBContextHints(
     const handedness_advantage_fires = handednessMatchup.signal_fires;
     const handedness_note = handednessMatchup.note;
 
+    // ── BvP matchup context ──────────────────────────────────
+    // Pull the pre-computed BvP matchup from the enrichment board.
+    // The board already ran computeLineupMatchupQuality() per game side.
+    const boardBvp = (game as unknown as { bvp?: { away?: LineupMatchupQuality | null; home?: LineupMatchupQuality | null } | null }).bvp ?? null;
+    const teamBvp = (isAway ? boardBvp?.away : boardBvp?.home) ?? null;
+
+    const bvp_status: MLBContextHints["bvp_status"] = teamBvp?.status ?? "unavailable";
+    const lineup_avg_ops_vs_pitcher = teamBvp?.avg_ops_vs_pitcher ?? null;
+    const lineup_batters_with_history = teamBvp?.batters_with_history ?? 0;
+    const lineup_matchup_tier = (teamBvp?.matchup_tier ?? "insufficient_data") as MLBContextHints["lineup_matchup_tier"];
+    const lineup_bvp_edge_fires = teamBvp?.signal_fires ?? false;
+    const bvp_note = teamBvp?.note ?? null;
+
     // ── Auto-signal tagging ──────────────────────────────────
     const auto_signals: string[] = [];
 
@@ -715,6 +775,11 @@ export async function fetchMLBContextHints(
       auto_signals.push("handedness_advantage");
     }
 
+    // BvP lineup matchup edge: official lineup, >= 3 batters with career history, avg OPS >= .750
+    if (lineup_bvp_edge_fires) {
+      auto_signals.push("lineup_bvp_edge");
+    }
+
     return {
       auto_signals,
       park_environment,
@@ -760,6 +825,12 @@ export async function fetchMLBContextHints(
       handedness_advantage_tier,
       handedness_advantage_fires,
       handedness_note,
+      bvp_status,
+      lineup_avg_ops_vs_pitcher,
+      lineup_batters_with_history,
+      lineup_matchup_tier,
+      lineup_bvp_edge_fires,
+      bvp_note,
       warnings,
     };
   } catch (err) {
@@ -866,6 +937,11 @@ export function scoreMLBFeaturesWithSnapshot(
     opponent_pitcher_hand: contextHints?.opponent_pitcher_hand ?? null,
     team_ops_vs_hand: contextHints?.team_ops_vs_hand ?? null,
     handedness_advantage_tier: contextHints?.handedness_advantage_tier ?? "unknown",
+    lineup_bvp_edge_active: allSignals.includes("lineup_bvp_edge"),
+    bvp_status: contextHints?.bvp_status ?? "unavailable",
+    lineup_avg_ops_vs_pitcher: contextHints?.lineup_avg_ops_vs_pitcher ?? null,
+    lineup_batters_with_history: contextHints?.lineup_batters_with_history ?? 0,
+    lineup_matchup_tier: contextHints?.lineup_matchup_tier ?? "insufficient_data",
     context_warnings: contextHints?.warnings ?? [],
   };
 
