@@ -22,6 +22,13 @@ import {
   emptyNHLContextHints,
 } from "./nhl-features";
 import type { NHLFeatureSnapshot, NHLContextHints } from "./nhl-features";
+import {
+  scoreMLBFeaturesWithSnapshot,
+  buildMLBWeightMap,
+  fetchMLBContextHints,
+  emptyMLBContextHints,
+} from "./mlb-features";
+import type { MLBFeatureSnapshot, MLBContextHints } from "./mlb-features";
 import type { GooseSport } from "./types";
 import { parsePropLine } from "./prop-parser";
 import type { ParsedPropLine } from "./prop-parser";
@@ -82,6 +89,8 @@ export interface PickFactors {
   nba_market_type: string | null;
   /** NHL-specific feature snapshot (only populated when sport === "NHL") */
   nhl_features: NHLFeatureSnapshot | null;
+  /** MLB-specific feature snapshot (only populated when sport === "MLB") */
+  mlb_features: MLBFeatureSnapshot | null;
   /** Prop type extracted from pick label */
   prop_type: string | null;
   /** Parsed prop line: numeric line value */
@@ -117,6 +126,9 @@ function buildPickFactors(
   // Build NHL feature snapshot if applicable
   const nhlFeatures = (candidate as any)._nhl_feature_snapshot as NHLFeatureSnapshot | null ?? null;
 
+  // Build MLB feature snapshot if applicable
+  const mlbFeatures = (candidate as any)._mlb_feature_snapshot as MLBFeatureSnapshot | null ?? null;
+
   return {
     edge_pct: typeof candidate.edge === "number" ? candidate.edge : null,
     hit_rate_pct: typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time : null,
@@ -141,6 +153,7 @@ function buildPickFactors(
     nba_features: nbaFeatures,
     nba_market_type: nbaMarketType,
     nhl_features: nhlFeatures,
+    mlb_features: mlbFeatures,
     prop_type: propType,
     prop_line: parsed.line,
     prop_direction: parsed.direction,
@@ -214,6 +227,12 @@ export async function scoreGooseCandidates(
     ? buildNHLWeightMap(await listSignalWeights("NHL"))
     : new Map<string, { win_rate: number; appearances: number }>();
 
+  // Pre-fetch MLB weights once if any candidates are MLB
+  const hasMLB = candidates.some((c) => c.sport === "MLB");
+  const mlbWeightMap = hasMLB
+    ? buildMLBWeightMap(await listSignalWeights("MLB"))
+    : new Map<string, { win_rate: number; appearances: number }>();
+
   // Pre-fetch NBA context hints for all NBA candidates in parallel.
   // We batch these up front so each candidate doesn't make separate network
   // calls — the cached fetch layer in nba-api.ts deduplicates team lookups.
@@ -269,6 +288,29 @@ export async function scoreGooseCandidates(
     });
   }
 
+  // Pre-fetch MLB context hints for all MLB candidates in parallel.
+  // The enrichment board is fetched once and cached — individual game lookups are cheap.
+  const mlbContextMap = new Map<number, MLBContextHints>();
+  if (hasMLB) {
+    const mlbIndices = candidates
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => c.sport === "MLB");
+
+    const mlbContextResults = await Promise.allSettled(
+      mlbIndices.map(({ c }) =>
+        fetchMLBContextHints(c.team, c.opponent).catch(() => emptyMLBContextHints()),
+      ),
+    );
+
+    mlbIndices.forEach(({ i }, idx) => {
+      const result = mlbContextResults[idx];
+      mlbContextMap.set(
+        i,
+        result.status === "fulfilled" ? result.value : emptyMLBContextHints(),
+      );
+    });
+  }
+
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
@@ -320,6 +362,24 @@ export async function scoreGooseCandidates(
       }
     }
 
+    // ── MLB feature priors + live context enrichment ─────────
+    // For MLB picks: merge live context auto-signals (park factor, weather, bullpen,
+    // probable pitchers) with reasoning-tagged signals, then score with MLB priors.
+    // Weight: 20% MLB prior, 80% existing blend — same conservative blend as NBA/NHL.
+    let mlbFeatureSnapshot = null;
+    if (candidate.sport === "MLB" && signals.length > 0) {
+      const contextHints = mlbContextMap.get(i) ?? null;
+      const { score: mlbFeatureScore, snapshot } = scoreMLBFeaturesWithSnapshot(
+        signals,
+        mlbWeightMap,
+        contextHints,
+      );
+      mlbFeatureSnapshot = snapshot;
+      if (mlbFeatureScore > 0) {
+        blendedScore = blendedScore * 0.8 + mlbFeatureScore * 0.2;
+      }
+    }
+
     scored.push({
       ...candidate,
       signals_present: signals,
@@ -327,9 +387,11 @@ export async function scoreGooseCandidates(
       // Stash snapshots for buildPickFactors to consume (private fields, not part of interface)
       _nba_feature_snapshot: nbaFeatureSnapshot,
       _nhl_feature_snapshot: nhlFeatureSnapshot,
+      _mlb_feature_snapshot: mlbFeatureSnapshot,
     } as ScoredGooseCandidate & {
       _nba_feature_snapshot: typeof nbaFeatureSnapshot;
       _nhl_feature_snapshot: typeof nhlFeatureSnapshot;
+      _mlb_feature_snapshot: typeof mlbFeatureSnapshot;
     });
   }
 
