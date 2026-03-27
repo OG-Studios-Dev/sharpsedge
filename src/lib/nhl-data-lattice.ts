@@ -30,8 +30,8 @@
  *   (zone danger %)      | api-web.nhle.com/v1 PBP       | replaces blocked MP path
  * Shot location / danger | nhl-shot-events.ts            | LIVE ✅ (2026-03-27)
  *   zone xG              | aggregateTeamShotProfile()    | HD/MD/LD + xG model
- * Injury/availability    | nhl.com team news links       | PARTIAL ⚠️
- *   (player-level)       | URL slug tags only            | No structured feed
+ * Injury/availability    | nhl.com team news links       | IMPROVED ✅ (2026-03-27)
+ *   (player-level)       | + nhl-roster-api injuryStatus | IR/DTD structured; healthy scratches still blocked
  * Corsi/Fenwick (CF%/FF%)| nhl-shot-events.ts (PBP agg.) | LIVE ✅ (derived CF%)
  * Multiple seasons       | club-stats-season endpoint    | LIVE ✅ (any season)
  * Backtest outcomes      | Supabase goose_model_picks    | LIVE ✅ (this season+)
@@ -53,10 +53,28 @@
  *    xGF% per team computed from last 10 games PBP.
  *    New signals: shot_danger_edge (HDCF% diff ≥ 3.0), opponent_goalie_hd_weakness.
  *
- * 3. REAL-TIME INJURY FEED: ⚠️ STILL PARTIAL
- *    No structured NHL injury API. nhl.com team news links give
- *    roster-move signals but not player-level injury certainty.
- *    CURRENT STATUS: Partial approximation via team news URL tags.
+ * 3. INJURY CERTAINTY: ✅ IMPROVED 2026-03-27
+ *    Now uses NHL roster API (api-web.nhle.com/v1/roster/{abbrev}/current).
+ *    The injuryStatus field on each player returns IR, DTD, IR-NR, LTIR, etc.
+ *    IR/IR-NR/LTIR → confirmed_out (high certainty). DTD → day_to_day (uncertain).
+ *    STILL BLOCKED: healthy scratches (coach decisions), day-of-game availability.
+ *    Uncertainty is explicit in all outputs: certainty tier, likelyUnavailable flag,
+ *    and railNote surface limitations to consumers. Never treat absent status as
+ *    confirmed availability. Pre-game lineup (1hr pre) remains the only true source
+ *    for day-of-game availability.
+ *
+ * 4. SHOT AGGREGATE PERSISTENCE: ✅ NEW 2026-03-27
+ *    Team and per-player shot profiles now persist to Supabase (nhl_shot_aggregates,
+ *    nhl_player_shot_profiles tables). Architecture: L1 in-memory → L2 Supabase →
+ *    L3 fresh PBP computation. Staleness: rolling profiles 3hr, full_season 24hr.
+ *    aggregateTeamShotProfileWithStorage() is the new primary entry point.
+ *
+ * 5. PER-PLAYER xG ATTRIBUTION: ✅ NEW 2026-03-27
+ *    aggregatePlayerShotProfiles(teamAbbrev, limit) computes per-player shot profiles
+ *    from NHL PBP play-by-play. shootingPlayerId is available on all shot events.
+ *    Player names resolved from NHL roster API. Returns sorted by xG/game desc.
+ *    Fields: totalShots, SOG, goals, HD/MD/LD breakdown, xG total, xG/game, xG/shot,
+ *    HD xG, shot type distribution, 5v5/PP splits. Persisted to nhl_player_shot_profiles.
  */
 
 // ────────────────────────────────────────────────────────────────────
@@ -102,7 +120,7 @@ export type NHLDataSource =
   | "nhl-gamecenter-landing"
   | "nhl-gamecenter-boxscore"
   | "nhl-gamecenter-pbp"         // play-by-play (shot x/y coordinates, event types)
-  | "nhl-roster"
+  | "nhl-roster"                 // also provides injuryStatus for IR/DTD players
   | "nhl-player-game-log"
   | "nhl-stats-rest-pp"
   | "nhl-stats-rest-pk"
@@ -110,7 +128,9 @@ export type NHLDataSource =
   | "moneypuck-mirror"
   | "moneypuck-bundled"
   | "nhl-team-news"
-  | "nhl-pbp-aggregate";          // aggregated from multiple PBP game files
+  | "nhl-pbp-aggregate"          // aggregated from multiple PBP game files (team profiles)
+  | "nhl-pbp-player-aggregate"   // per-player xG/shot aggregates from PBP
+  | "nhl-shot-aggregate-db";     // persistent Supabase storage for shot aggregates
 
 // ────────────────────────────────────────────────────────────────────
 // Multi-season outcome storage

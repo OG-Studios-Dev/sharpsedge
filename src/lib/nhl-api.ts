@@ -534,6 +534,212 @@ export async function getNHLGoalieStrengthStats(season: string = CURRENT_SEASON)
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// NHL Injury / Availability Rail
+//
+// SOURCE: api-web.nhle.com/v1/roster/{teamAbbrev}/current
+//
+// The NHL roster API returns player objects that include an `injuryStatus`
+// field when a player is on IR, DTD, or otherwise unavailable.
+// This is an officially-structured source (not HTML scraping).
+//
+// IMPORTANT UNCERTAINTY NOTES:
+//   - The roster endpoint is updated by NHL Operations, not in real-time.
+//   - Day-of-game scratch decisions (healthy scratches) are NOT reflected here.
+//   - Injury status updates can lag by hours, especially for DTD players.
+//   - "DTD" (day-to-day) is not confirmed OUT — player may still play.
+//   - Pre-game lineups (confirmed scratches) are only available ~30-60min pregame.
+//
+// Certainty model:
+//   - injuryStatus = "IR" or "IR-NR" → HIGH certainty player is out (confirmed by NHL ops)
+//   - injuryStatus = "DTD"           → LOW certainty — may or may not play
+//   - injuryStatus absent/null       → NOT CONFIRMED AVAILABLE (healthy scratch possible)
+//   - Pre-game PBP lineup            → HIGHEST certainty (post-warmup only)
+//
+// This is the best structured injury data available without a paid API.
+// All statuses are stamped with certainty tier and source notes.
+// ──────────────────────────────────────────────────────────────────────
+
+export type PlayerInjuryStatus = {
+  playerId: number;
+  playerName: string;
+  position: string;
+  /** Raw injuryStatus value from NHL API (e.g. "IR", "DTD", "IR-NR") */
+  rawStatus: string;
+  /**
+   * Certainty tier for how confident we are this player is unavailable.
+   *
+   * "confirmed_out": Player is on IR/IR-NR per NHL Operations. Will not dress.
+   *                  Source: NHL roster API injuryStatus = "IR" | "IR-NR" | "LTIR".
+   *
+   * "day_to_day":   Player is DTD per NHL Operations. May or may not play.
+   *                  Treat as uncertain — do NOT assume unavailable.
+   *                  Source: NHL roster API injuryStatus = "DTD".
+   *
+   * "unverified":   Status came from a non-official source (e.g. news URL slug).
+   *                  Do not use for high-confidence decisions.
+   */
+  certainty: "confirmed_out" | "day_to_day" | "unverified";
+  /**
+   * Whether this player should be considered unavailable for model/pick purposes.
+   * true only for "confirmed_out" (IR/IR-NR). DTD is NOT assumed unavailable.
+   */
+  likelyUnavailable: boolean;
+  source: "nhl-roster-api";
+  /** ISO timestamp when this status was fetched */
+  fetchedAt: string;
+  /**
+   * Explicit uncertainty note for consumers.
+   * Always surface this — do not suppress uncertainty.
+   */
+  uncertaintyNote: string;
+};
+
+export type TeamInjuryReport = {
+  teamAbbrev: string;
+  /** Players with a confirmed injury status from NHL API */
+  players: PlayerInjuryStatus[];
+  /** Count of confirmed-out players */
+  confirmedOutCount: number;
+  /** Count of day-to-day players (uncertain) */
+  dayToDayCount: number;
+  /** True if any key players (any position) are confirmed out */
+  hasConfirmedInjuries: boolean;
+  source: "nhl-roster-api";
+  fetchedAt: string;
+  /**
+   * Explicit rail limitation note.
+   * Consumers MUST surface this note to avoid over-confidence.
+   */
+  railNote: string;
+};
+
+const INJURY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes — injuries change daily
+
+/**
+ * Fetch confirmed injury statuses for a team's roster from the NHL API.
+ *
+ * SOURCE: api-web.nhle.com/v1/roster/{teamAbbrev}/current
+ *
+ * Returns all players with a non-null injuryStatus field.
+ * The `injuryStatus` field is populated by NHL Operations and is the most
+ * reliable structured injury source available without a paid API.
+ *
+ * LIMITATIONS (always surface these):
+ *   - Healthy scratches (coach decisions) are NOT exposed in this endpoint
+ *   - DTD status is uncertain — player may dress regardless
+ *   - Status updates can lag up to a few hours after official announcements
+ *   - Pre-game availability is only confirmed via lineup/warmup (1hr pre-game)
+ *
+ * @param teamAbbrev NHL team abbreviation (e.g. "TOR", "EDM")
+ * @returns TeamInjuryReport (empty player list if no injuries or API unavailable)
+ */
+export async function getNHLTeamInjuries(teamAbbrev: string): Promise<TeamInjuryReport> {
+  const cacheKey = `injuries:${teamAbbrev}`;
+  const fetchedAt = new Date().toISOString();
+
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < INJURY_CACHE_TTL) {
+    return cached.data as TeamInjuryReport;
+  }
+
+  const railNote =
+    "NHL roster API (api-web.nhle.com/v1/roster) provides structured injury status (IR/DTD/IR-NR). " +
+    "Healthy scratches are NOT available. DTD status is uncertain. " +
+    "Day-of-game scratch decisions are only confirmed via lineup announcements (~1hr pre-game). " +
+    "Do not treat absent injury status as confirmed availability.";
+
+  try {
+    const data = await cachedFetch<any>(
+      `${NHL_BASE}/roster/${teamAbbrev}/current`,
+      INJURY_CACHE_TTL
+    );
+
+    const allPlayers = [
+      ...(data.forwards ?? []).map((p: any) => ({ ...p, pos: "F" })),
+      ...(data.defensemen ?? []).map((p: any) => ({ ...p, pos: "D" })),
+      ...(data.goalies ?? []).map((p: any) => ({ ...p, pos: "G" })),
+    ];
+
+    const injuredPlayers: PlayerInjuryStatus[] = [];
+    for (const p of allPlayers) {
+      // injuryStatus is absent (undefined/null) for healthy players — field only
+      // appears in the NHL API response when a player has an active injury designation.
+      const rawStatus: string | null = (typeof p.injuryStatus === "string" && p.injuryStatus.trim().length > 0)
+        ? p.injuryStatus.trim()
+        : null;
+      if (!rawStatus) continue; // No injury status = not on injury list
+
+      const statusUpper = rawStatus.toUpperCase();
+      let certainty: PlayerInjuryStatus["certainty"];
+      let likelyUnavailable: boolean;
+      let uncertaintyNote: string;
+
+      if (statusUpper === "DTD") {
+        certainty = "day_to_day";
+        likelyUnavailable = false;
+        uncertaintyNote =
+          `${p.firstName?.default ?? ""} ${p.lastName?.default ?? ""} is day-to-day per NHL Operations roster. ` +
+          "DTD status does NOT confirm unavailability — player may dress. " +
+          "Monitor lineup announcements closer to game time for confirmation.";
+      } else if (["IR", "IR-NR", "LTIR", "10-DAY", "60-DAY"].includes(statusUpper) || statusUpper.startsWith("IR")) {
+        certainty = "confirmed_out";
+        likelyUnavailable = true;
+        uncertaintyNote =
+          `${p.firstName?.default ?? ""} ${p.lastName?.default ?? ""} is on ${rawStatus} per NHL Operations. ` +
+          "High confidence unavailable for upcoming games. " +
+          "Status sourced directly from NHL roster API (structured, not scraped).";
+      } else {
+        certainty = "unverified";
+        likelyUnavailable = false;
+        uncertaintyNote =
+          `${p.firstName?.default ?? ""} ${p.lastName?.default ?? ""} has injuryStatus='${rawStatus}' — unrecognized status code. ` +
+          "Treat as uncertain. Monitor official team communications.";
+      }
+
+      injuredPlayers.push({
+        playerId: p.id ?? 0,
+        playerName: `${p.firstName?.default ?? ""} ${p.lastName?.default ?? ""}`.trim(),
+        position: p.positionCode ?? p.pos ?? "?",
+        rawStatus,
+        certainty,
+        likelyUnavailable,
+        source: "nhl-roster-api",
+        fetchedAt,
+        uncertaintyNote,
+      });
+    }
+
+    const report: TeamInjuryReport = {
+      teamAbbrev,
+      players: injuredPlayers,
+      confirmedOutCount: injuredPlayers.filter(p => p.certainty === "confirmed_out").length,
+      dayToDayCount: injuredPlayers.filter(p => p.certainty === "day_to_day").length,
+      hasConfirmedInjuries: injuredPlayers.some(p => p.certainty === "confirmed_out"),
+      source: "nhl-roster-api",
+      fetchedAt,
+      railNote,
+    };
+
+    cache.set(cacheKey, { data: report, timestamp: Date.now() });
+    return report;
+  } catch {
+    // API unavailable — return empty report with honest note
+    const empty: TeamInjuryReport = {
+      teamAbbrev,
+      players: [],
+      confirmedOutCount: 0,
+      dayToDayCount: 0,
+      hasConfirmedInjuries: false,
+      source: "nhl-roster-api",
+      fetchedAt,
+      railNote: railNote + " [UNAVAILABLE: NHL roster API did not respond — injury statuses unknown.]",
+    };
+    cache.set(cacheKey, { data: empty, timestamp: 5 * 60 * 1000 }); // short cache on failure
+    return empty;
+  }
+}
+
 // NHL team colors for rendering
 export const NHL_TEAM_COLORS: Record<string, string> = {
   ANA: "#F47A38", ARI: "#8C2633", BOS: "#FFB81C", BUF: "#002654",

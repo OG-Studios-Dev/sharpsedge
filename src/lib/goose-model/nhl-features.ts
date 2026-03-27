@@ -17,7 +17,7 @@
 
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 import type { NHLContextBoardGame } from "@/lib/nhl-context";
-import { aggregateTeamShotProfile } from "@/lib/nhl-shot-events";
+import { aggregateTeamShotProfile, aggregateTeamShotProfileWithStorage } from "@/lib/nhl-shot-events";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -146,6 +146,41 @@ export interface NHLContextHints {
    */
   shot_quality_tier: "strong_away" | "edge_away" | "neutral" | "edge_home" | "strong_home" | "unavailable";
 
+  // ── Injury context (from NHL roster API) ──────────────────────────
+  /**
+   * Number of confirmed-out (IR/IR-NR/LTIR) players for this team.
+   * Source: NHL roster API injuryStatus field.
+   * NOTE: Does NOT include healthy scratches. DTD not counted here.
+   */
+  team_confirmed_out_count: number;
+  /**
+   * Number of day-to-day (DTD) players for this team.
+   * UNCERTAINTY: DTD does NOT mean player will miss the game.
+   * Monitor lineup announcements for day-of-game confirmation.
+   */
+  team_day_to_day_count: number;
+  /** True if team has any confirmed-out (IR+) players */
+  team_has_confirmed_injuries: boolean;
+  /** Confirmed-out player names (for audit/display) */
+  team_confirmed_out_players: string[];
+  /**
+   * Number of confirmed-out players for the opponent.
+   * Same uncertainty caveat applies.
+   */
+  opponent_confirmed_out_count: number;
+  /** Number of day-to-day players for opponent */
+  opponent_day_to_day_count: number;
+  /** True if opponent has confirmed-out players */
+  opponent_has_confirmed_injuries: boolean;
+  /** Confirmed-out opponent player names */
+  opponent_confirmed_out_players: string[];
+  /**
+   * Explicit rail limitation note from injury source.
+   * ALWAYS surface this — do not suppress uncertainty.
+   * e.g. "Healthy scratches NOT included. DTD is uncertain."
+   */
+  injury_rail_note: string;
+
   /** Non-fatal warnings from context fetch */
   warnings: string[];
 }
@@ -182,6 +217,15 @@ export function emptyNHLContextHints(): NHLContextHints {
     team_hd_save_pct: null,
     opponent_hd_save_pct: null,
     shot_quality_tier: "unavailable",
+    team_confirmed_out_count: 0,
+    team_day_to_day_count: 0,
+    team_has_confirmed_injuries: false,
+    team_confirmed_out_players: [],
+    opponent_confirmed_out_count: 0,
+    opponent_day_to_day_count: 0,
+    opponent_has_confirmed_injuries: false,
+    opponent_confirmed_out_players: [],
+    injury_rail_note: "NHL roster API injury data not loaded.",
     warnings: [],
   };
 }
@@ -493,9 +537,10 @@ export async function fetchNHLContextHints(
     // ── Shot danger zone profiles (nhl-pbp-aggregate) ────────
     // Fetch profiles for both teams in parallel — cached per team for 60 min.
     // Falls back gracefully to null fields if fetch fails.
+    // Use storage-backed aggregation (L1 memory → L2 Supabase → L3 fresh PBP)
     const [teamShotProfile, oppShotProfile] = await Promise.all([
-      aggregateTeamShotProfile(tAbbrev, 10).catch(() => null),
-      aggregateTeamShotProfile(oppEntry.teamAbbrev.toUpperCase(), 10).catch(() => null),
+      aggregateTeamShotProfileWithStorage(tAbbrev, 10, "rolling").catch(() => null),
+      aggregateTeamShotProfileWithStorage(oppEntry.teamAbbrev.toUpperCase(), 10, "rolling").catch(() => null),
     ]);
 
     const teamHdcfPct = teamShotProfile?.hdcfPct ?? null;
@@ -618,6 +663,21 @@ export async function fetchNHLContextHints(
         hdEdge !== null
           ? (hdEdge > 3.0 ? "strong_away" : hdEdge > 1.5 ? "edge_away" : hdEdge < -3.0 ? "strong_home" : hdEdge < -1.5 ? "edge_home" : "neutral")
           : "unavailable",
+      // ── Injury context ──────────────────────────────────────
+      team_confirmed_out_count: (teamEntry.sourced.injuries?.confirmedOutCount ?? 0),
+      team_day_to_day_count: (teamEntry.sourced.injuries?.dayToDayCount ?? 0),
+      team_has_confirmed_injuries: (teamEntry.sourced.injuries?.hasConfirmedInjuries ?? false),
+      team_confirmed_out_players: (teamEntry.sourced.injuries?.players ?? [])
+        .filter(p => p.certainty === "confirmed_out")
+        .map(p => p.playerName),
+      opponent_confirmed_out_count: (oppEntry.sourced.injuries?.confirmedOutCount ?? 0),
+      opponent_day_to_day_count: (oppEntry.sourced.injuries?.dayToDayCount ?? 0),
+      opponent_has_confirmed_injuries: (oppEntry.sourced.injuries?.hasConfirmedInjuries ?? false),
+      opponent_confirmed_out_players: (oppEntry.sourced.injuries?.players ?? [])
+        .filter(p => p.certainty === "confirmed_out")
+        .map(p => p.playerName),
+      injury_rail_note: teamEntry.sourced.injuries?.railNote ??
+        "NHL roster API injury data not loaded.",
       warnings,
     };
   } catch (err) {

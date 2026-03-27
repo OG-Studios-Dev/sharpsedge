@@ -677,3 +677,571 @@ export async function getMatchupShotContext(
     asOf,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Supabase Persistence Layer — L2 cache for shot aggregate profiles
+//
+// Architecture: memory cache (L1, 60min TTL) → Supabase DB (L2, stale-
+// while-revalidate) → fresh PBP compute (L3, triggered when L1+L2 miss).
+//
+// DB table: nhl_shot_aggregates (see migration 20260327150000)
+// Write path: upsert after each fresh computation (MERGE ON CONFLICT)
+// Read path: hydrate memory cache from DB at startup / after L1 miss
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Maximum age (ms) before a DB-stored profile is considered stale
+ * and should be recomputed.
+ * Rolling profiles: 3 hours (teams play frequently — profiles shift daily)
+ * Full-season profiles: 24 hours (stable; only changes as games complete)
+ */
+const DB_PROFILE_STALE_MS = {
+  rolling: 3 * 60 * 60 * 1000,
+  full_season: 24 * 60 * 60 * 1000,
+};
+
+function supabaseHeaders(): Record<string, string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return {};
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation",
+  };
+}
+
+function getSupabaseUrl(): string | null {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") ?? null;
+}
+
+/**
+ * Try to load a TeamShotProfile from Supabase.
+ * Returns null if: Supabase not configured, row not found, or row is stale.
+ */
+async function loadTeamShotProfileFromDB(
+  teamAbbrev: string,
+  aggregateType: "rolling" | "full_season" = "rolling"
+): Promise<TeamShotProfile | null> {
+  try {
+    const baseUrl = getSupabaseUrl();
+    const headers = supabaseHeaders();
+    if (!baseUrl || !headers.apikey) return null;
+
+    const res = await fetch(
+      `${baseUrl}/rest/v1/nhl_shot_aggregates?select=*&team_abbrev=eq.${encodeURIComponent(teamAbbrev)}&aggregate_type=eq.${aggregateType}&limit=1`,
+      { headers, cache: "no-store" }
+    );
+    if (!res.ok) return null;
+    const rows: any[] = await res.json();
+    if (!rows.length) return null;
+
+    const row = rows[0];
+    // Staleness check
+    const asOfMs = new Date(row.as_of).getTime();
+    const maxAge = DB_PROFILE_STALE_MS[aggregateType] ?? DB_PROFILE_STALE_MS.rolling;
+    if (Date.now() - asOfMs > maxAge) return null;
+
+    // Hydrate TeamShotProfile from DB row
+    const profile: TeamShotProfile = {
+      teamAbbrev: row.team_abbrev,
+      season: row.season ?? "20252026",
+      gamesAnalyzed: row.games_analyzed ?? 0,
+      gameIdsSampled: row.game_ids_sampled ?? [],
+      cfTotal: row.cf_total ?? 0,
+      caTotal: row.ca_total ?? 0,
+      cfPct: row.cf_pct ?? null,
+      hdcf: row.hdcf ?? 0,
+      hdca: row.hdca ?? 0,
+      hdcfPct: row.hdcf_pct ?? null,
+      hdSogFor: row.hd_sog_for ?? 0,
+      hdSogAgainst: row.hd_sog_against ?? 0,
+      hdSavePct: row.hd_save_pct ?? null,
+      xgFor: row.xg_for ?? 0,
+      xgAgainst: row.xg_against ?? 0,
+      xgForPct: row.xgf_pct ?? null,
+      scoreAdjCfPct: row.score_adj_cf_pct ?? null,
+      asOf: row.as_of,
+      source: "nhl-pbp-aggregate",
+      sourceNotes: row.source_notes ?? "",
+    };
+    return profile;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Upsert a TeamShotProfile to Supabase for persistence.
+ * Silently no-ops if Supabase is not configured.
+ * Uses MERGE ON CONFLICT (unique index on team_abbrev + season + aggregate_type).
+ */
+async function saveTeamShotProfileToDB(
+  profile: TeamShotProfile,
+  aggregateType: "rolling" | "full_season" = "rolling"
+): Promise<void> {
+  try {
+    const baseUrl = getSupabaseUrl();
+    const headers = supabaseHeaders();
+    if (!baseUrl || !headers.apikey) return;
+
+    const row = {
+      team_abbrev: profile.teamAbbrev,
+      season: profile.season,
+      aggregate_type: aggregateType,
+      games_analyzed: profile.gamesAnalyzed,
+      game_ids_sampled: profile.gameIdsSampled,
+      cf_total: profile.cfTotal,
+      ca_total: profile.caTotal,
+      cf_pct: profile.cfPct,
+      score_adj_cf_pct: profile.scoreAdjCfPct,
+      hdcf: profile.hdcf,
+      hdca: profile.hdca,
+      hdcf_pct: profile.hdcfPct,
+      hd_sog_for: profile.hdSogFor,
+      hd_sog_against: profile.hdSogAgainst,
+      hd_save_pct: profile.hdSavePct,
+      xg_for: profile.xgFor,
+      xg_against: profile.xgAgainst,
+      xgf_pct: profile.xgForPct,
+      source: profile.source,
+      source_notes: profile.sourceNotes,
+      as_of: profile.asOf,
+      updated_at: new Date().toISOString(),
+    };
+
+    await fetch(
+      `${baseUrl}/rest/v1/nhl_shot_aggregates?on_conflict=team_abbrev,season,aggregate_type`,
+      {
+        method: "POST",
+        headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify(row),
+        cache: "no-store",
+      }
+    );
+  } catch {
+    // Supabase save errors are non-fatal — in-memory cache still works
+  }
+}
+
+/**
+ * Extended version of aggregateTeamShotProfile that:
+ * 1. Checks L1 (in-memory pbpCache)
+ * 2. Checks L2 (Supabase nhl_shot_aggregates) if L1 miss
+ * 3. Falls back to fresh PBP computation if L1+L2 miss
+ * 4. Writes fresh results back to both L1 and L2
+ *
+ * The aggregateType param controls whether this is a rolling (last N games)
+ * or full_season (all completed games up to gameLimit max) profile.
+ * For full_season, use a higher gameLimit (e.g. 30 or 50).
+ */
+export async function aggregateTeamShotProfileWithStorage(
+  teamAbbrev: string,
+  gameLimit: number = 10,
+  aggregateType: "rolling" | "full_season" = "rolling"
+): Promise<TeamShotProfile | null> {
+  // L1: in-memory cache
+  const cacheKey = `shot-profile:${teamAbbrev}:${gameLimit}:${aggregateType}`;
+  const hit = pbpCache.get(cacheKey);
+  if (hit && Date.now() - hit.timestamp < PROFILE_TTL) {
+    return hit.data as TeamShotProfile;
+  }
+
+  // L2: Supabase DB
+  const dbProfile = await loadTeamShotProfileFromDB(teamAbbrev, aggregateType);
+  if (dbProfile) {
+    pbpCache.set(cacheKey, { data: dbProfile, timestamp: Date.now() });
+    return dbProfile;
+  }
+
+  // L3: Fresh PBP computation
+  const freshProfile = await aggregateTeamShotProfile(teamAbbrev, gameLimit);
+  if (freshProfile) {
+    // Persist to Supabase (non-blocking, best-effort)
+    saveTeamShotProfileToDB(freshProfile, aggregateType).catch(() => {});
+    pbpCache.set(cacheKey, { data: freshProfile, timestamp: Date.now() });
+  }
+  return freshProfile;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Per-Player xG Attribution
+//
+// SOURCE: Same NHL PBP data — NHLShotEvent has shootingPlayerId per event.
+// Each shot from getShotEventsForGame() is attributed to a player via
+// their NHL player ID. We aggregate xG, shot counts, zone breakdown,
+// and situation splits per player across N games.
+//
+// Join path: playerId (from PBP details.shootingPlayerId) → player name
+// Name resolution: api-web.nhle.com/v1/roster/{teamAbbrev}/current
+// Returns player display name + position for each player ID.
+//
+// Provenance: all fields sourced from NHL PBP API. No estimates or
+// external analytics used for player attribution — just direct event
+// attribution from the NHL's own play-by-play.
+//
+// Audit fields: gameIdsSampled, gamesAnalyzed, season, asOf, source.
+// ─────────────────────────────────────────────────────────────────────
+
+export type PlayerShotProfile = {
+  /** NHL player ID (from PBP event details.shootingPlayerId) */
+  playerId: number;
+  /** Player display name (resolved from NHL roster API, or "Unknown #ID") */
+  playerName: string;
+  /** Team abbreviation */
+  teamAbbrev: string;
+  /** NHL season string */
+  season: string;
+  /** Number of completed games sampled */
+  gamesAnalyzed: number;
+  /** Game IDs included in this aggregate */
+  gameIdsSampled: number[];
+
+  // ── Shot volume ──────────────────────────────────────────────────
+  /** Total shot attempts (all event types, all zones) */
+  totalShots: number;
+  /** Shots on goal (shot-on-goal + goal events) */
+  shotsOnGoal: number;
+  /** Goals scored */
+  goals: number;
+
+  // ── Zone breakdown ───────────────────────────────────────────────
+  /** High-danger shot attempts */
+  hdShots: number;
+  /** High-danger shots on goal */
+  hdSog: number;
+  /** Medium-danger shot attempts */
+  mdShots: number;
+  /** Low-danger shot attempts */
+  ldShots: number;
+
+  // ── xG metrics ──────────────────────────────────────────────────
+  /** Total xG from all shots */
+  xgTotal: number;
+  /** xG per game (xgTotal / gamesAnalyzed) */
+  xgPerGame: number | null;
+  /** xG per shot attempt (shot quality baseline) */
+  xgPerShot: number | null;
+  /** xG from HD shots only */
+  hdXg: number;
+
+  // ── Shot type ────────────────────────────────────────────────────
+  /** Most common shot type across all shots */
+  primaryShotType: ShotType | null;
+  /** Distribution of shot types (for audit/debugging) */
+  shotTypeDistribution: Partial<Record<ShotType, number>>;
+
+  // ── Situation splits ─────────────────────────────────────────────
+  xg5v5: number;
+  xgPp: number;
+  shots5v5: number;
+  shotsPp: number;
+
+  // ── Provenance ──────────────────────────────────────────────────
+  source: "nhl-pbp-aggregate";
+  /** Verbose provenance note for audit trail */
+  sourceNotes: string;
+  asOf: string;
+};
+
+/** Accumulator used during per-player aggregation */
+type PlayerShotAccumulator = {
+  totalShots: number;
+  shotsOnGoal: number;
+  goals: number;
+  hdShots: number;
+  hdSog: number;
+  mdShots: number;
+  ldShots: number;
+  xgTotal: number;
+  hdXg: number;
+  xg5v5: number;
+  xgPp: number;
+  shots5v5: number;
+  shotsPp: number;
+  shotTypeCounts: Map<ShotType, number>;
+};
+
+function newAccumulator(): PlayerShotAccumulator {
+  return {
+    totalShots: 0, shotsOnGoal: 0, goals: 0,
+    hdShots: 0, hdSog: 0, mdShots: 0, ldShots: 0,
+    xgTotal: 0, hdXg: 0, xg5v5: 0, xgPp: 0,
+    shots5v5: 0, shotsPp: 0,
+    shotTypeCounts: new Map(),
+  };
+}
+
+/**
+ * Aggregate per-player shot profiles from a list of shot events.
+ * All events must be from the same team (filter by teamAbbrev before calling).
+ *
+ * @param shots Shot events for one team across one or more games
+ * @param teamAbbrev Team to aggregate for
+ * @returns Map<playerId, PlayerShotAccumulator>
+ */
+function accumulatePlayerShots(
+  shots: NHLShotEvent[],
+  teamAbbrev: string
+): Map<number, PlayerShotAccumulator> {
+  const byPlayer = new Map<number, PlayerShotAccumulator>();
+
+  for (const shot of shots) {
+    if (shot.shootingTeamAbbrev !== teamAbbrev) continue;
+    if (!shot.shootingPlayerId) continue;
+
+    let acc = byPlayer.get(shot.shootingPlayerId);
+    if (!acc) {
+      acc = newAccumulator();
+      byPlayer.set(shot.shootingPlayerId, acc);
+    }
+
+    acc.totalShots++;
+    acc.xgTotal += shot.xg;
+
+    if (shot.typeDescKey === "shot-on-goal" || shot.typeDescKey === "goal") {
+      acc.shotsOnGoal++;
+    }
+    if (shot.isGoal) acc.goals++;
+
+    // Zone
+    if (shot.zone === "HD") {
+      acc.hdShots++;
+      acc.hdXg += shot.xg;
+      if (shot.typeDescKey === "shot-on-goal" || shot.typeDescKey === "goal") {
+        acc.hdSog++;
+      }
+    } else if (shot.zone === "MD") {
+      acc.mdShots++;
+    } else {
+      acc.ldShots++;
+    }
+
+    // Situation
+    if (shot.situation === "5v5") {
+      acc.xg5v5 += shot.xg;
+      acc.shots5v5++;
+    } else if (shot.situation === "PP") {
+      acc.xgPp += shot.xg;
+      acc.shotsPp++;
+    }
+
+    // Shot type distribution
+    const count = acc.shotTypeCounts.get(shot.shotType) ?? 0;
+    acc.shotTypeCounts.set(shot.shotType, count + 1);
+  }
+
+  return byPlayer;
+}
+
+/**
+ * Resolve player names from the NHL roster API.
+ * Returns Map<playerId, displayName>.
+ * Silently returns empty map on failure.
+ */
+async function resolvePlayerNames(
+  teamAbbrev: string
+): Promise<Map<number, string>> {
+  try {
+    const res = await fetch(
+      `https://api-web.nhle.com/v1/roster/${teamAbbrev}/current`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return new Map();
+    const data = await res.json();
+    const allPlayers = [
+      ...(data.forwards ?? []),
+      ...(data.defensemen ?? []),
+      ...(data.goalies ?? []),
+    ];
+    const map = new Map<number, string>();
+    for (const p of allPlayers) {
+      if (!p.id) continue;
+      const first = p.firstName?.default ?? p.firstName ?? "";
+      const last = p.lastName?.default ?? p.lastName ?? "";
+      const name = `${first} ${last}`.trim();
+      if (name) map.set(p.id, name);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Aggregate per-player shot quality profiles for a team over their last N games.
+ *
+ * For each player on the team, computes:
+ *   - Shot volume (total, SOG, goals)
+ *   - Zone breakdown (HD/MD/LD shots + HD SOG)
+ *   - xG attribution (total xG, xG/game, xG/shot, HD xG)
+ *   - Situation splits (5v5, PP)
+ *   - Shot type distribution
+ *
+ * Player names are resolved from the NHL roster API.
+ * Players with < 1 shot across all sampled games are excluded.
+ * Sorted by xG/game descending (best xG generators first).
+ *
+ * SOURCE: api-web.nhle.com/v1/gamecenter/{gameId}/play-by-play
+ *         + api-web.nhle.com/v1/roster/{abbrev}/current (name resolution)
+ *
+ * @param teamAbbrev Team abbreviation
+ * @param gameLimit Number of recent games to aggregate (default: 10)
+ * @returns Array of PlayerShotProfile, sorted by xG/game desc
+ */
+export async function aggregatePlayerShotProfiles(
+  teamAbbrev: string,
+  gameLimit: number = 10
+): Promise<PlayerShotProfile[]> {
+  const cacheKey = `player-shot-profile:${teamAbbrev}:${gameLimit}`;
+  const hit = pbpCache.get(cacheKey);
+  if (hit && Date.now() - hit.timestamp < PROFILE_TTL) {
+    return hit.data as PlayerShotProfile[];
+  }
+
+  try {
+    const gameIds = await getTeamRecentGameIds(teamAbbrev, gameLimit);
+    if (gameIds.length === 0) return [];
+
+    // Fetch all game PBP in parallel (cached per game)
+    const allGameShots = await Promise.all(
+      gameIds.map(gid => getShotEventsForGame(gid))
+    );
+    const allShots = allGameShots.flat();
+
+    // Accumulate per-player
+    const accMap = accumulatePlayerShots(allShots, teamAbbrev);
+    if (accMap.size === 0) return [];
+
+    // Resolve player names from roster API
+    const nameMap = await resolvePlayerNames(teamAbbrev);
+
+    const asOf = new Date().toISOString();
+    const profiles: PlayerShotProfile[] = [];
+
+    for (const [playerId, acc] of Array.from(accMap.entries())) {
+      if (acc.totalShots === 0) continue;
+
+      // Primary shot type: most frequent
+      let primaryShotType: ShotType | null = null;
+      let maxCount = 0;
+      const shotTypeDist: Partial<Record<ShotType, number>> = {};
+      for (const [type, cnt] of Array.from(acc.shotTypeCounts.entries())) {
+        (shotTypeDist as Record<string, number>)[type] = cnt;
+        if (cnt > maxCount) { maxCount = cnt; primaryShotType = type; }
+      }
+
+      const playerName = nameMap.get(playerId) ?? `Player #${playerId}`;
+      const xgRounded = Math.round(acc.xgTotal * 1000) / 1000;
+      const xgPerGame = gameIds.length > 0
+        ? Math.round((acc.xgTotal / gameIds.length) * 1000) / 1000
+        : null;
+      const xgPerShot = acc.totalShots > 0
+        ? Math.round((acc.xgTotal / acc.totalShots) * 1000) / 1000
+        : null;
+
+      profiles.push({
+        playerId,
+        playerName,
+        teamAbbrev,
+        season: "20252026",
+        gamesAnalyzed: gameIds.length,
+        gameIdsSampled: gameIds,
+        totalShots: acc.totalShots,
+        shotsOnGoal: acc.shotsOnGoal,
+        goals: acc.goals,
+        hdShots: acc.hdShots,
+        hdSog: acc.hdSog,
+        mdShots: acc.mdShots,
+        ldShots: acc.ldShots,
+        xgTotal: xgRounded,
+        xgPerGame,
+        xgPerShot,
+        hdXg: Math.round(acc.hdXg * 1000) / 1000,
+        primaryShotType,
+        shotTypeDistribution: shotTypeDist,
+        xg5v5: Math.round(acc.xg5v5 * 1000) / 1000,
+        xgPp: Math.round(acc.xgPp * 1000) / 1000,
+        shots5v5: acc.shots5v5,
+        shotsPp: acc.shotsPp,
+        source: "nhl-pbp-aggregate",
+        sourceNotes: `Per-player shot events from last ${gameIds.length} regular season games. Player IDs from NHL PBP details.shootingPlayerId. Names resolved from NHL roster API. xG model: logistic(dist+angle+shotType+situation).`,
+        asOf,
+      });
+    }
+
+    // Sort by xG/game descending
+    profiles.sort((a, b) => (b.xgPerGame ?? 0) - (a.xgPerGame ?? 0));
+
+    pbpCache.set(cacheKey, { data: profiles, timestamp: Date.now() });
+
+    // Persist to Supabase (best-effort, non-blocking)
+    savePlayerShotProfilesToDB(profiles).catch(() => {});
+
+    return profiles;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Upsert per-player shot profiles to Supabase for persistence.
+ * Table: nhl_player_shot_profiles (migration 20260327150000)
+ * Silently no-ops if Supabase not configured.
+ */
+async function savePlayerShotProfilesToDB(
+  profiles: PlayerShotProfile[]
+): Promise<void> {
+  if (profiles.length === 0) return;
+  try {
+    const baseUrl = getSupabaseUrl();
+    const headers = supabaseHeaders();
+    if (!baseUrl || !headers.apikey) return;
+
+    const rows = profiles.map(p => ({
+      player_id: p.playerId,
+      player_name: p.playerName,
+      team_abbrev: p.teamAbbrev,
+      season: p.season,
+      games_analyzed: p.gamesAnalyzed,
+      game_ids_sampled: p.gameIdsSampled,
+      total_shots: p.totalShots,
+      shots_on_goal: p.shotsOnGoal,
+      goals: p.goals,
+      hd_shots: p.hdShots,
+      hd_sog: p.hdSog,
+      md_shots: p.mdShots,
+      ld_shots: p.ldShots,
+      xg_total: p.xgTotal,
+      xg_per_game: p.xgPerGame,
+      xg_per_shot: p.xgPerShot,
+      hd_xg: p.hdXg,
+      primary_shot_type: p.primaryShotType,
+      xg_5v5: p.xg5v5,
+      xg_pp: p.xgPp,
+      shots_5v5: p.shots5v5,
+      shots_pp: p.shotsPp,
+      source: p.source,
+      source_notes: p.sourceNotes,
+      as_of: p.asOf,
+      updated_at: new Date().toISOString(),
+    }));
+
+    // Batch upsert in chunks of 20 to avoid request size limits
+    for (let i = 0; i < rows.length; i += 20) {
+      const batch = rows.slice(i, i + 20);
+      await fetch(
+        `${baseUrl}/rest/v1/nhl_player_shot_profiles?on_conflict=player_id,season`,
+        {
+          method: "POST",
+          headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify(batch),
+          cache: "no-store",
+        }
+      );
+    }
+  } catch {
+    // Non-fatal
+  }
+}

@@ -1,8 +1,8 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { getDateKey } from "@/lib/date-utils";
-import { getUpcomingSchedule, getGameGoalies, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats } from "@/lib/nhl-api";
-import type { GoalieStarter, TeamPPStats, TeamPKStats, GoalieStrengthStats } from "@/lib/nhl-api";
+import { getUpcomingSchedule, getGameGoalies, getNHLTeamPPStats, getNHLTeamPKStats, getNHLGoalieStrengthStats, getNHLTeamInjuries } from "@/lib/nhl-api";
+import type { GoalieStarter, TeamPPStats, TeamPKStats, GoalieStrengthStats, TeamInjuryReport } from "@/lib/nhl-api";
 import type { NHLGame } from "@/lib/types";
 import { buildSourceHealthCheck, summarizeSourceHealth } from "@/lib/source-health";
 
@@ -13,6 +13,7 @@ const NHL_BASE = "https://api-web.nhle.com/v1";
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 const SCHEDULE_TTL_MS = 10 * 60 * 1000;
 const MONEYPICK_TTL_MS = 6 * 60 * 60 * 1000;
+const INJURY_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes (for source health display)
 const LIVE_MONEYPICK_MIRROR_URL = "https://raw.githubusercontent.com/jmbarton04/nhl_odds_moneypuck/main/data/moneypuck_today.csv";
 const BUNDLED_MONEYPICK_PATH = path.join(process.cwd(), "data", "nhl", "moneypuck-team-context.snapshot.json");
 const REGULAR_SEASON_GAME_TYPE = 2;
@@ -271,6 +272,14 @@ export type NHLContextTeamBoardEntry = {
     pp: SourcedPPContext;
     /** PK stats for this team — sourced from NHL stats REST API */
     pk: SourcedPKContext;
+    /**
+     * Injury report from NHL roster API.
+     * Source: api-web.nhle.com/v1/roster/{abbrev}/current
+     *
+     * UNCERTAINTY: Healthy scratches NOT included. DTD is uncertain.
+     * See TeamInjuryReport.railNote for full limitation disclosure.
+     */
+    injuries: TeamInjuryReport;
   };
   derived: {
     rest: DerivedRestContext;
@@ -1009,6 +1018,7 @@ function buildTeamBoardEntry(params: {
   ppMap: Map<string, TeamPPStats>;
   pkMap: Map<string, TeamPKStats>;
   specialTeamsFetchedAt: string;
+  injuries: TeamInjuryReport;
 }): NHLContextTeamBoardEntry {
   const {
     role,
@@ -1027,6 +1037,7 @@ function buildTeamBoardEntry(params: {
     ppMap,
     pkMap,
     specialTeamsFetchedAt,
+    injuries,
   } = params;
 
   const teamSchedule = schedulesByTeam.get(teamAbbrev) || [];
@@ -1102,6 +1113,7 @@ function buildTeamBoardEntry(params: {
         source: "nhl-stats-rest",
         fetchedAt: specialTeamsFetchedAt,
       } : null,
+      injuries,
     },
     derived: {
       rest,
@@ -1135,7 +1147,7 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
   const games = schedule.games.filter((game) => getDateKey(new Date(game.startTimeUTC)) === boardDate);
   const uniqueTeams = Array.from(new Set(games.flatMap((game) => [game.awayTeam.abbrev, game.homeTeam.abbrev])));
 
-  const [schedules, goalieEntries, teamNewsEntries] = await Promise.all([
+  const [schedules, goalieEntries, teamNewsEntries, teamInjuryEntries] = await Promise.all([
     Promise.all(uniqueTeams.map(async (teamAbbrev) => {
       const data = await getClubSchedule(teamAbbrev, inferSeason());
       return [teamAbbrev, data.games || []] as const;
@@ -1145,11 +1157,17 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
       return [game.id, goalieData] as const;
     })),
     Promise.all(uniqueTeams.map(async (teamAbbrev) => [teamAbbrev, await loadTeamNews(teamAbbrev)] as const)),
+    // Fetch injury reports for all teams in today's games
+    Promise.all(uniqueTeams.map(async (teamAbbrev) => [teamAbbrev, await getNHLTeamInjuries(teamAbbrev).catch((err: unknown) => {
+      const fetchedAt = new Date().toISOString();
+      return { teamAbbrev, players: [], confirmedOutCount: 0, dayToDayCount: 0, hasConfirmedInjuries: false, source: "nhl-roster-api" as const, fetchedAt, railNote: "Injury fetch failed: " + String(err) };
+    })] as const)),
   ]);
 
   const schedulesByTeam = new Map<string, ClubScheduleGame[]>(schedules);
   const goaliesByGame = new Map<number, { gameId: number; home: GoalieStarter | null; away: GoalieStarter | null }>(goalieEntries);
   const newsByTeam = new Map<string, SourcedNewsContext>(teamNewsEntries);
+  const injuriesByTeam = new Map<string, TeamInjuryReport>(teamInjuryEntries);
   const standingsByTeam = new Map<string, RawStanding>(
     (rawStandings.standings || []).map((standing) => [normalizeStandingTeamAbbrev(standing.teamAbbrev), standing]),
   );
@@ -1224,6 +1242,7 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           ppMap,
           pkMap,
           specialTeamsFetchedAt,
+          injuries: injuriesByTeam.get(game.awayTeam.abbrev) ?? { teamAbbrev: game.awayTeam.abbrev, players: [], confirmedOutCount: 0, dayToDayCount: 0, hasConfirmedInjuries: false, source: "nhl-roster-api" as const, fetchedAt: builtAt, railNote: "Injury data not fetched for this team." },
         }),
         home: buildTeamBoardEntry({
           role: "home",
@@ -1242,20 +1261,28 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
           ppMap,
           pkMap,
           specialTeamsFetchedAt,
+          injuries: injuriesByTeam.get(game.homeTeam.abbrev) ?? { teamAbbrev: game.homeTeam.abbrev, players: [], confirmedOutCount: 0, dayToDayCount: 0, hasConfirmedInjuries: false, source: "nhl-roster-api" as const, fetchedAt: builtAt, railNote: "Injury data not fetched for this team." },
         }),
       },
     };
   });
 
   const teams = boardGames.flatMap((game) => [game.teams.away, game.teams.home]);
+  const allInjuries = Array.from(injuriesByTeam.values());
   const availability = {
     officialAvailabilityApproximation: "team-news-link-tags" as const,
-    note: "Current sustainable NHL availability rail uses official nhl.com team-site links plus source-labeled title tags as a conservative approximation. No player-level injury certainty is inferred from headlines alone.",
+    note: "Injury data: NHL roster API (api-web.nhle.com/v1/roster) provides structured IR/DTD status per player. " +
+          "Healthy scratches are NOT included — only IR/IR-NR/LTIR (confirmed out) and DTD (uncertain). " +
+          "Day-of-game scratch decisions are only confirmed via lineup announcements ~1hr pre-game. " +
+          "Team news link tags supplement with roster-move signals from official nhl.com articles.",
     counts: {
       teamsWithOfficialNewsLinks: teams.filter((team) => team.sourced.news.items.length > 0).length,
       teamsWithRosterMoveSignals: teams.filter((team) => team.derived.news.hasRosterMovePost).length,
       teamsWithGameDaySignals: teams.filter((team) => team.derived.news.hasGameDayPost).length,
       teamsMissingOfficialSignals: teams.filter((team) => team.sourced.news.items.length === 0).length,
+      teamsWithInjuryData: allInjuries.filter((r) => r.players.length > 0).length,
+      confirmedInjuredPlayerCount: allInjuries.reduce((n, r) => n + r.confirmedOutCount, 0),
+      dayToDayPlayerCount: allInjuries.reduce((n, r) => n + r.dayToDayCount, 0),
     },
   };
 
@@ -1310,6 +1337,16 @@ export async function getTodayNHLContextBoard(): Promise<NHLContextBoardResponse
       staleAfter: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       degraded: ppMap.size < 30 || pkMap.size < 30,
       missingFields: ppMap.size < 30 ? [`Only ${ppMap.size}/32 teams have PP data`] : [],
+    }),
+    buildSourceHealthCheck({
+      key: "nhl-injuries",
+      label: "NHL roster injury status",
+      detail: "NHL roster API (api-web.nhle.com/v1/roster/{abbrev}/current) — IR/IR-NR/DTD structured injury status. " +
+              "Healthy scratches NOT included. DTD is uncertain. Updated by NHL Operations, not real-time.",
+      fetchedAt: builtAt,
+      staleAfter: new Date(Date.now() + INJURY_CACHE_TTL_MS).toISOString(),
+      degraded: false, // empty injury list is valid (no injured players)
+      missingFields: [],
     }),
   ]);
 

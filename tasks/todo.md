@@ -63,19 +63,56 @@
 | Goalie PP weakness | ✅ LIVE | NHL stats REST (savesByStrength) |
 | Shot danger edge signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDCF% diff |
 | Goalie HD weakness signal | ✅ LIVE (2026-03-27) | nhl-pbp-aggregate HDSV% |
-| Player injury certainty | ⚠️ PARTIAL | nhl.com news URL slug tags only |
-| Per-player shot quality | ❌ TODO | Would require player ID→team roster join |
-| Season-long HDCF (full 73 games) | ❌ NOT DONE | Too expensive per-request; need cron |
+| Player injury certainty | ✅ IMPROVED (2026-03-27) | nhl-roster-api injuryStatus + news tags; healthy scratches still blocked |
+| Per-player xG attribution | ✅ IMPLEMENTED (2026-03-27) | aggregatePlayerShotProfiles() via PBP shootingPlayerId + roster name join |
+| Shot aggregate Supabase storage | ✅ IMPLEMENTED (2026-03-27) | nhl_shot_aggregates + nhl_player_shot_profiles tables; L2 persistent cache |
+| Season-long HDCF (full 73 games) | ⚠️ PARTIAL | Storage infra ready; cron pre-compute route not yet built |
 
-### Remaining blockers / next steps
+### Status after 2026-03-27 pass (items 1–3)
 
-| Item | Status | Notes |
-|---|---|---|
-| Full-season HDCF% | Not implemented | 73 PBP fetches per team too slow; cron+cache recommended |
-| Per-player xG attribution | Not implemented | Needs player ID → team mapping, skip for now |
-| Mid-danger HDSV%/LDSV% | Not implemented | Could add to aggregateTeamShotProfile() when needed |
-| Player-level injury certainty | Partial | nhl.com news URL tags only |
-| Grading loop tightening | P1 | More outcomes needed before DB weights overtake priors |
+**Item 1: Full-season / rolling shot-event aggregate storage** ✅ IMPLEMENTED
+- Supabase migration: `supabase/migrations/20260327150000_nhl_shot_aggregates.sql`
+  - `nhl_shot_aggregates` table (team-level rolling + full_season profiles)
+  - `nhl_player_shot_profiles` table (per-player xG attribution)
+  - Unique indexes on (team_abbrev,season,aggregate_type) and (player_id,season)
+  - RLS: public read, authenticated write
+- `aggregateTeamShotProfileWithStorage()` — L1 (memory 60min) → L2 (Supabase 3hr/rolling, 24hr/full_season) → L3 (fresh PBP)
+- `saveTeamShotProfileToDB()` / `loadTeamShotProfileFromDB()` — upsert/read from Supabase
+- Context hints in `fetchNHLContextHints()` now use `aggregateTeamShotProfileWithStorage()` (was direct compute)
+- Full-season path: call `aggregateTeamShotProfileWithStorage(team, 30-50, "full_season")` — uses same cache/storage, just wider game window
+- Blocked: cron job to pre-compute full-season profiles for all 32 teams (73 fetches per team = too slow on-demand; would need a scheduled route)
+
+**Item 2: Injury certainty** ✅ IMPROVED (best achievable from public APIs)
+- New: `getNHLTeamInjuries(teamAbbrev)` in `nhl-api.ts`
+  - Source: `api-web.nhle.com/v1/roster/{abbrev}/current` — structured injuryStatus field
+  - `injuryStatus = "IR" | "IR-NR" | "LTIR"` → `certainty: "confirmed_out"` (high confidence)
+  - `injuryStatus = "DTD"` → `certainty: "day_to_day"` (uncertain — may still play)
+  - All other statuses → `certainty: "unverified"`
+  - `likelyUnavailable: boolean` only true for confirmed_out
+  - Explicit `uncertaintyNote` per player, `railNote` per report
+- `TeamInjuryReport` wired into `NHLContextTeamBoardEntry.sourced.injuries`
+- `NHLContextHints` extended: `team_confirmed_out_count`, `team_day_to_day_count`, `opponent_has_confirmed_injuries`, `injury_rail_note`, etc.
+- Source health: new `nhl-injuries` check in context board
+- **STILL BLOCKED**: Healthy scratches (coach day-of-game decisions) — not in any public API. Pre-game lineup (~1hr before puck drop) remains the only true confirmation. DTD is still uncertain.
+
+**Item 3: Per-player xG attribution** ✅ IMPLEMENTED
+- `aggregatePlayerShotProfiles(teamAbbrev, limit)` in `nhl-shot-events.ts`
+  - Source: NHL PBP `details.shootingPlayerId` — present on all shot events (confirmed on live data)
+  - `accumulatePlayerShots()` — groups shots by playerId, counts zones/types/situations
+  - Player names resolved from `api-web.nhle.com/v1/roster/{abbrev}/current`
+  - `PlayerShotProfile` type: totalShots, SOG, goals, HD/MD/LD breakdown, xG total, xG/game, xG/shot, HD xG, shot type distribution, 5v5/PP splits
+  - Sorted by xG/game desc (best shot quality generators first)
+  - Persisted to `nhl_player_shot_profiles` Supabase table (batch upsert, 20 rows/chunk)
+  - `savePlayerShotProfilesToDB()` — Supabase upsert, non-blocking
+  - API-verified: TOR game 2025021136 → 33 players with shots, top 5 confirmed correct
+
+| Remaining blockers | Notes |
+|---|---|
+| Full-season cron pre-compute | 73 PBP fetches × 32 teams too slow on-demand; needs `/api/admin/nhl-shot-refresh` cron route |
+| Healthy scratches | No public API exposes day-of-game coach decisions; only real fix is a paid injury feed |
+| DTD certainty | NHL API DTD status does not confirm unavailability; pre-game lineup is ground truth |
+| Mid-danger zone HDSV% | Could add to aggregateTeamShotProfile() but not yet needed |
+| Per-player xG in context hints | profiles computed on-demand; not yet surfaced in pick generation signals |
 
 ---
 
