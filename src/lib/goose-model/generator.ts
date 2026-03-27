@@ -29,6 +29,13 @@ import {
   emptyMLBContextHints,
 } from "./mlb-features";
 import type { MLBFeatureSnapshot, MLBContextHints } from "./mlb-features";
+import {
+  scorePGAFeaturesWithSnapshot,
+  buildPGAWeightMap,
+  fetchPGAContextHints,
+  emptyPGAContextHints,
+} from "./pga-features";
+import type { PGAFeatureSnapshot, PGAContextHints } from "./pga-features";
 import type { GooseSport } from "./types";
 import { parsePropLine } from "./prop-parser";
 import type { ParsedPropLine } from "./prop-parser";
@@ -91,6 +98,8 @@ export interface PickFactors {
   nhl_features: NHLFeatureSnapshot | null;
   /** MLB-specific feature snapshot (only populated when sport === "MLB") */
   mlb_features: MLBFeatureSnapshot | null;
+  /** PGA-specific feature snapshot (only populated when sport === "PGA") */
+  pga_features: PGAFeatureSnapshot | null;
   /** Prop type extracted from pick label */
   prop_type: string | null;
   /** Parsed prop line: numeric line value */
@@ -129,6 +138,9 @@ function buildPickFactors(
   // Build MLB feature snapshot if applicable
   const mlbFeatures = (candidate as any)._mlb_feature_snapshot as MLBFeatureSnapshot | null ?? null;
 
+  // Build PGA feature snapshot if applicable
+  const pgaFeatures = (candidate as any)._pga_feature_snapshot as PGAFeatureSnapshot | null ?? null;
+
   return {
     edge_pct: typeof candidate.edge === "number" ? candidate.edge : null,
     hit_rate_pct: typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time : null,
@@ -154,6 +166,7 @@ function buildPickFactors(
     nba_market_type: nbaMarketType,
     nhl_features: nhlFeatures,
     mlb_features: mlbFeatures,
+    pga_features: pgaFeatures,
     prop_type: propType,
     prop_line: parsed.line,
     prop_direction: parsed.direction,
@@ -231,6 +244,12 @@ export async function scoreGooseCandidates(
   const hasMLB = candidates.some((c) => c.sport === "MLB");
   const mlbWeightMap = hasMLB
     ? buildMLBWeightMap(await listSignalWeights("MLB"))
+    : new Map<string, { win_rate: number; appearances: number }>();
+
+  // Pre-fetch PGA weights once if any candidates are PGA
+  const hasPGA = candidates.some((c) => c.sport === "PGA");
+  const pgaWeightMap = hasPGA
+    ? buildPGAWeightMap(await listSignalWeights("PGA"))
     : new Map<string, { win_rate: number; appearances: number }>();
 
   // Pre-fetch NBA context hints for all NBA candidates in parallel.
@@ -311,6 +330,36 @@ export async function scoreGooseCandidates(
     });
   }
 
+  // Pre-fetch PGA context hints for all PGA candidates in parallel.
+  // Reads from the in-process cached DataGolf data — one board fetch, cheap per-pick lookups.
+  const pgaContextMap = new Map<number, PGAContextHints>();
+  if (hasPGA) {
+    const pgaIndices = candidates
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => c.sport === "PGA");
+
+    const pgaContextResults = await Promise.allSettled(
+      pgaIndices.map(({ c }) =>
+        fetchPGAContextHints(
+          c.player_name,
+          c.pick_label,
+          c.odds,
+          // formScore and courseHistoryScore are available on the pick snapshot when present
+          (c.pick_snapshot as any)?.formScore ?? null,
+          (c.pick_snapshot as any)?.courseHistoryScore ?? null,
+        ).catch(() => emptyPGAContextHints()),
+      ),
+    );
+
+    pgaIndices.forEach(({ i }, idx) => {
+      const result = pgaContextResults[idx];
+      pgaContextMap.set(
+        i,
+        result.status === "fulfilled" ? result.value : emptyPGAContextHints(),
+      );
+    });
+  }
+
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
@@ -380,6 +429,25 @@ export async function scoreGooseCandidates(
       }
     }
 
+    // ── PGA feature priors + DataGolf context enrichment ─────
+    // For PGA picks: merge DataGolf-derived auto-signals (DG rank, SG T2G, course
+    // fit, win prob edge, form surge, course history) with reasoning-tagged signals,
+    // then score with PGA priors.
+    // Weight: 20% PGA prior, 80% existing blend — same conservative blend as other sports.
+    let pgaFeatureSnapshot = null;
+    if (candidate.sport === "PGA") {
+      const contextHints = pgaContextMap.get(i) ?? null;
+      const { score: pgaFeatureScore, snapshot } = scorePGAFeaturesWithSnapshot(
+        signals,
+        pgaWeightMap,
+        contextHints,
+      );
+      pgaFeatureSnapshot = snapshot;
+      if (pgaFeatureScore > 0) {
+        blendedScore = blendedScore * 0.8 + pgaFeatureScore * 0.2;
+      }
+    }
+
     scored.push({
       ...candidate,
       signals_present: signals,
@@ -388,10 +456,12 @@ export async function scoreGooseCandidates(
       _nba_feature_snapshot: nbaFeatureSnapshot,
       _nhl_feature_snapshot: nhlFeatureSnapshot,
       _mlb_feature_snapshot: mlbFeatureSnapshot,
+      _pga_feature_snapshot: pgaFeatureSnapshot,
     } as ScoredGooseCandidate & {
       _nba_feature_snapshot: typeof nbaFeatureSnapshot;
       _nhl_feature_snapshot: typeof nhlFeatureSnapshot;
       _mlb_feature_snapshot: typeof mlbFeatureSnapshot;
+      _pga_feature_snapshot: typeof pgaFeatureSnapshot;
     });
   }
 
