@@ -21,13 +21,20 @@
 //   owgr_top50_field   — player ranks top 50 in world (OWGR from DG field scrape)
 //   owgr_top20_field   — player ranks top 20 in world (stronger field filter)
 //
-// Real inputs consumed (all available from existing DG cache):
+// Course weather (Open-Meteo — same free API used for MLB weather):
+//   course_windy       — wind > 15 mph at tournament venue (favors ball-strikers)
+//   course_very_windy  — wind > 25 mph (heavily favors elite ball-strikers / DG top 20)
+//   course_wet_cond    — precip probability > 40% (affects scoring patterns)
+//   course_good_cond   — calm, dry, moderate temp (scoring-friendly round)
+//
+// Real inputs consumed:
 //   ✅ DataGolf rankings: dgRank, sgT2G, sgAPP, sgPUTT
 //   ✅ DataGolf predictions: dgWinProb, dgTop5Prob, dgTop10Prob, dgTop20Prob
 //   ✅ DataGolf course-fit scores: dgCourseFit
 //   ✅ OWGR world rank (from DG field page hourly blob — already scraped)
 //   ✅ Form score (from ESPN recent tournament history via golf-stats-engine)
 //   ✅ Course history score (from ESPN player history via golf-stats-engine)
+//   ✅ Course weather (Open-Meteo → pga-course-weather.ts, 30-min TTL)
 //   ✅ Book odds (from golf-odds.ts aggregation)
 //
 // Remaining gaps documented in fetchPGAContextHints() docstring.
@@ -35,6 +42,8 @@
 
 import { getDGCache } from "@/lib/datagolf-cache";
 import type { DGCache } from "@/lib/datagolf-cache";
+import { getPGACourseWeather } from "@/lib/pga-course-weather";
+import type { PGACourseWeather } from "@/lib/pga-course-weather";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -97,6 +106,27 @@ export interface PGAContextHints {
   /** Computed edge: model prob − book implied prob (positive = book undervaluing) */
   model_edge: number | null;
 
+  // ── Course weather context (Open-Meteo via pga-course-weather.ts) ──────
+  /**
+   * Wind speed at the tournament venue (mph). From Open-Meteo hourly forecast.
+   * Null if venue not in database or fetch failed.
+   */
+  course_wind_mph: number | null;
+  /** Temperature at the tournament venue (°F). */
+  course_temp_f: number | null;
+  /** Precipitation probability (0–100%) at the tournament venue during round. */
+  course_precip_pct: number | null;
+  /** Whether windy conditions (> 15 mph) are expected at the venue. */
+  course_is_windy: boolean;
+  /** Whether very windy conditions (> 25 mph) are expected. */
+  course_is_very_windy: boolean;
+  /** Whether wet conditions (precip > 40%) are expected. */
+  course_is_wet: boolean;
+  /** Whether good scoring conditions (calm, dry, moderate temp) are expected. */
+  course_is_good_conditions: boolean;
+  /** Weather status — available, unavailable, or no_venue_match */
+  course_weather_status: string;
+
   /** Non-fatal warnings from context fetch */
   warnings: string[];
 }
@@ -121,6 +151,14 @@ export function emptyPGAContextHints(): PGAContextHints {
     is_top_finish_market: false,
     book_implied_prob: null,
     model_edge: null,
+    course_wind_mph: null,
+    course_temp_f: null,
+    course_precip_pct: null,
+    course_is_windy: false,
+    course_is_very_windy: false,
+    course_is_wet: false,
+    course_is_good_conditions: false,
+    course_weather_status: "unavailable",
     warnings: [],
   };
 }
@@ -183,6 +221,24 @@ export interface PGAFeatureSnapshot {
   owgr_top50_active: boolean;
   /** Whether OWGR top-20 signal was active for this pick */
   owgr_top20_active: boolean;
+
+  // ── Course weather snapshot ─────────────────────────────────
+  /** Wind speed at tournament venue (mph) at round time */
+  course_wind_mph: number | null;
+  /** Temperature at tournament venue (°F) at round time */
+  course_temp_f: number | null;
+  /** Precipitation probability (%) at tournament venue at round time */
+  course_precip_pct: number | null;
+  /** Whether course_windy signal was active */
+  course_windy_active: boolean;
+  /** Whether course_very_windy signal was active */
+  course_very_windy_active: boolean;
+  /** Whether course_wet_conditions signal was active */
+  course_wet_active: boolean;
+  /** Whether course_good_conditions signal was active */
+  course_good_conditions_active: boolean;
+  /** Weather fetch status */
+  course_weather_status: string;
 
   /** Warnings from context fetch */
   context_warnings: string[];
@@ -277,6 +333,32 @@ export const PGA_SIGNAL_PRIORS: Record<string, number> = {
   odds_movement: 0.59,
   /** Reuse: streak_form for tournament momentum */
   streak_form: 0.59,
+
+  // ── Course weather priors (Open-Meteo via pga-course-weather.ts) ──────
+  /**
+   * Wind > 15 mph at the tournament course during the round.
+   * Windy conditions favor elite ball-strikers (high SG T2G / DG top 30).
+   * Modestly increases the hit rate for DG-backed skill picks specifically;
+   * as a standalone signal it's context, not edge — conservative prior.
+   */
+  course_windy: 0.58,
+  /**
+   * Wind > 25 mph — strong wind strongly favors elite ball-strikers.
+   * Best combined with dg_skill_edge or sg_tg_advantage.
+   */
+  course_very_windy: 0.60,
+  /**
+   * Precip probability > 40% — wet conditions affect scoring patterns.
+   * Generally reduces variance (soft greens hold better, scoring tightens).
+   * Mild signal; primary value is as a context tag for explainability.
+   */
+  course_wet_conditions: 0.57,
+  /**
+   * Calm, dry, moderate temp (not windy, not wet, not cold).
+   * Good scoring conditions → field plays closer to DG model predictions.
+   * Mild confirmatory boost for DG-model-backed picks.
+   */
+  course_good_conditions: 0.58,
 };
 
 /**
@@ -297,6 +379,24 @@ async function getCachedDGData(): Promise<DGCache | null> {
     const cache = await getDGCache();
     _dgCacheLocal = { value: cache, expiresAt: Date.now() + DG_CACHE_TTL_MS };
     return cache;
+  } catch {
+    return null;
+  }
+}
+
+// Module-level weather cache: shared across all picks in a request to avoid
+// redundant Open-Meteo fetches when generating multiple picks per tournament.
+let _courseWeatherCache: { value: PGACourseWeather | null; tournamentKey: string; expiresAt: number } | null = null;
+
+async function getCachedCourseWeather(tournamentName: string | null | undefined): Promise<PGACourseWeather | null> {
+  const key = tournamentName ?? "";
+  if (_courseWeatherCache && _courseWeatherCache.tournamentKey === key && _courseWeatherCache.expiresAt > Date.now()) {
+    return _courseWeatherCache.value;
+  }
+  try {
+    const weather = await getPGACourseWeather(tournamentName);
+    _courseWeatherCache = { value: weather, tournamentKey: key, expiresAt: Date.now() + 30 * 60 * 1000 };
+    return weather;
   } catch {
     return null;
   }
@@ -357,25 +457,45 @@ export async function fetchPGAContextHints(
   odds?: number | null,
   formScore?: number | null,
   courseHistoryScore?: number | null,
+  /** Optional: current tournament name (from DG cache) for course weather lookup */
+  tournamentName?: string | null,
 ): Promise<PGAContextHints> {
   const warnings: string[] = [];
   const marketType = detectPGAMarketType(pickLabel);
   const bookImpliedProb = americanToImpliedProb(odds);
 
+  // Fetch course weather in parallel (shared cache — only one Open-Meteo call per 30 min)
+  const courseWeatherPromise = getCachedCourseWeather(tournamentName ?? null);
+
   if (!playerName) {
+    const cw = await courseWeatherPromise;
+    const cwFields = cw ? buildWeatherFields(cw) : {};
     return {
       ...emptyPGAContextHints(),
       market_type: marketType,
       is_top_finish_market: ["top_5", "top_10", "top_20"].includes(marketType),
       book_implied_prob: bookImpliedProb,
+      course_wind_mph: cwFields.course_wind_mph ?? null,
+      course_temp_f: cwFields.course_temp_f ?? null,
+      course_precip_pct: cwFields.course_precip_pct ?? null,
+      course_is_windy: cwFields.course_is_windy ?? false,
+      course_is_very_windy: cwFields.course_is_very_windy ?? false,
+      course_is_wet: cwFields.course_is_wet ?? false,
+      course_is_good_conditions: cwFields.course_is_good_conditions ?? false,
+      course_weather_status: cwFields.course_weather_status ?? "unavailable",
       warnings: ["No player name provided for PGA context lookup"],
     };
   }
 
   try {
-    const dgCache = await getCachedDGData();
+    const [dgCache, courseWeather] = await Promise.all([
+      getCachedDGData(),
+      courseWeatherPromise,
+    ]);
+
     if (!dgCache?.data) {
       warnings.push("DataGolf cache unavailable — PGA context hints degraded to empty");
+      const cwFallbackFields = courseWeather ? buildWeatherFields(courseWeather) : {};
       return {
         ...emptyPGAContextHints(),
         market_type: marketType,
@@ -383,6 +503,14 @@ export async function fetchPGAContextHints(
         book_implied_prob: bookImpliedProb,
         form_score: formScore ?? null,
         course_history_score: courseHistoryScore ?? null,
+        course_wind_mph: cwFallbackFields.course_wind_mph ?? null,
+        course_temp_f: cwFallbackFields.course_temp_f ?? null,
+        course_precip_pct: cwFallbackFields.course_precip_pct ?? null,
+        course_is_windy: cwFallbackFields.course_is_windy ?? false,
+        course_is_very_windy: cwFallbackFields.course_is_very_windy ?? false,
+        course_is_wet: cwFallbackFields.course_is_wet ?? false,
+        course_is_good_conditions: cwFallbackFields.course_is_good_conditions ?? false,
+        course_weather_status: cwFallbackFields.course_weather_status ?? "unavailable",
         warnings,
       };
     }
@@ -494,6 +622,19 @@ export async function fetchPGAContextHints(
       auto_signals.push("owgr_top20_field");
     }
 
+    // ── Course weather signals ──────────────────────────────
+    // Course weather is shared per tournament (not per player) — same conditions for all picks.
+    // Weather signals are additive context, not primary signals. They combine best with
+    // dg_skill_edge / sg_tg_advantage to identify players who benefit from the conditions.
+    const weatherFields = courseWeather ? buildWeatherFields(courseWeather) : {};
+    if (courseWeather?.conditions?.isVeryWindy) {
+      auto_signals.push("course_very_windy");
+    } else if (courseWeather?.conditions?.isWindy) {
+      auto_signals.push("course_windy");
+    }
+    if (courseWeather?.conditions?.isWet) auto_signals.push("course_wet_conditions");
+    if (courseWeather?.conditions?.isGoodConditions) auto_signals.push("course_good_conditions");
+
     return {
       auto_signals,
       dg_rank,
@@ -513,6 +654,14 @@ export async function fetchPGAContextHints(
       is_top_finish_market: ["top_5", "top_10", "top_20"].includes(marketType),
       book_implied_prob: bookImpliedProb,
       model_edge,
+      course_wind_mph: weatherFields.course_wind_mph ?? null,
+      course_temp_f: weatherFields.course_temp_f ?? null,
+      course_precip_pct: weatherFields.course_precip_pct ?? null,
+      course_is_windy: weatherFields.course_is_windy ?? false,
+      course_is_very_windy: weatherFields.course_is_very_windy ?? false,
+      course_is_wet: weatherFields.course_is_wet ?? false,
+      course_is_good_conditions: weatherFields.course_is_good_conditions ?? false,
+      course_weather_status: weatherFields.course_weather_status ?? "unavailable",
       warnings,
     };
   } catch (err) {
@@ -529,6 +678,25 @@ export async function fetchPGAContextHints(
       warnings,
     };
   }
+}
+
+// ── Weather fields builder ──────────────────────────────────────
+
+/**
+ * Extract weather-related fields from a PGACourseWeather object
+ * for merging into PGAContextHints returns.
+ */
+function buildWeatherFields(cw: PGACourseWeather): Partial<PGAContextHints> {
+  return {
+    course_wind_mph: cw.roundForecast?.windSpeedMph ?? null,
+    course_temp_f: cw.roundForecast?.temperatureF ?? null,
+    course_precip_pct: cw.roundForecast?.precipitationProbability ?? null,
+    course_is_windy: cw.conditions?.isWindy ?? false,
+    course_is_very_windy: cw.conditions?.isVeryWindy ?? false,
+    course_is_wet: cw.conditions?.isWet ?? false,
+    course_is_good_conditions: cw.conditions?.isGoodConditions ?? false,
+    course_weather_status: cw.status,
+  };
 }
 
 // ── Feature scoring ───────────────────────────────────────────
@@ -597,6 +765,15 @@ export function scorePGAFeaturesWithSnapshot(
     owgr_rank: contextHints?.owgr_rank ?? null,
     owgr_top50_active: allSignals.includes("owgr_top50_field"),
     owgr_top20_active: allSignals.includes("owgr_top20_field"),
+    // Course weather snapshot
+    course_wind_mph: contextHints?.course_wind_mph ?? null,
+    course_temp_f: contextHints?.course_temp_f ?? null,
+    course_precip_pct: contextHints?.course_precip_pct ?? null,
+    course_windy_active: allSignals.includes("course_windy"),
+    course_very_windy_active: allSignals.includes("course_very_windy"),
+    course_wet_active: allSignals.includes("course_wet_conditions"),
+    course_good_conditions_active: allSignals.includes("course_good_conditions"),
+    course_weather_status: contextHints?.course_weather_status ?? "unavailable",
     context_warnings: contextHints?.warnings ?? [],
   };
 

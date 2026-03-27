@@ -111,8 +111,9 @@ export async function GET() {
   // ── Step 2: PGA context hints for sample player ────────────
   try {
     const t2 = Date.now();
+    const tournamentName = dgCacheSummary?.tournament ?? null;
     const hints = samplePlayerName
-      ? await fetchPGAContextHints(samplePlayerName, "Tournament Winner", 2000, 70, 65)
+      ? await fetchPGAContextHints(samplePlayerName, "Tournament Winner", 2000, 70, 65, tournamentName)
       : emptyPGAContextHints();
 
     steps.context_hints = {
@@ -138,6 +139,18 @@ export async function GET() {
       is_top_finish_market: hints.is_top_finish_market,
       book_implied_prob: hints.book_implied_prob,
       model_edge: hints.model_edge,
+      // Course weather context
+      course_weather: {
+        status: hints.course_weather_status,
+        tournament: tournamentName,
+        wind_mph: hints.course_wind_mph,
+        temp_f: hints.course_temp_f,
+        precip_pct: hints.course_precip_pct,
+        is_windy: hints.course_is_windy,
+        is_very_windy: hints.course_is_very_windy,
+        is_wet: hints.course_is_wet,
+        is_good_conditions: hints.course_is_good_conditions,
+      },
       warnings: hints.warnings,
       ms: Date.now() - t2,
     };
@@ -219,8 +232,8 @@ export async function GET() {
     live_weather_at_course: {
       gap: "Wind speed, rain, and temperature at the actual tournament course during rounds",
       impact: "Course condition affects scoring significantly (Pebble Beach wind, Augusta rain, etc.)",
-      current_proxy: "None — MLB weather via Open-Meteo uses stadium geocoordinates; PGA needs course-specific geocodes",
-      status: "missing — requires adding course geocoordinates to the PGA data layer and calling Open-Meteo",
+      status: "✅ RESOLVED: pga-course-weather.ts uses Open-Meteo (same free API as MLB). 16 PGA venues mapped with lat/lon. Weather signals (course_windy, course_very_windy, course_wet_conditions, course_good_conditions) wired into PGAContextHints + PGAFeatureSnapshot + PGA_SIGNAL_PRIORS. Shared 30-min in-process cache — one Open-Meteo call per tournament per 30 min.",
+      venue_database: "TPC Houston, Augusta, TPC Sawgrass, Pebble Beach, Bay Hill, Riviera, Torrey Pines, Valhalla, Pinehurst, Muirfield Village, Colonial, Detroit, TPC Scottsdale, TPC Twin Cities, Quail Hollow, East Lake",
     },
     live_leaderboard_context: {
       gap: "Live leaderboard position for in-progress rounds (for make/miss cut bets)",

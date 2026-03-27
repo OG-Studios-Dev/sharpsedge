@@ -145,13 +145,21 @@ export async function getMLBWeatherForGame(game: MLBGame): Promise<MLBWeatherSna
       };
     };
 
-    const timeIndex = payload.hourly?.time?.findIndex((time) => time === gameTimeLocal) ?? -1;
+    // Open-Meteo returns hourly slots (e.g. "2026-03-27T16:00"). Game times are rarely
+    // on the exact hour (e.g. "2026-03-27T16:35"), so an exact match never succeeds.
+    // Use floor-to-hour: find the last slot at or before first pitch.
+    const times = payload.hourly?.time ?? [];
+    let timeIndex = -1;
+    for (let i = 0; i < times.length; i++) {
+      if (times[i] <= gameTimeLocal) timeIndex = i;
+      else break;
+    }
     if (timeIndex < 0) {
       const snapshot = buildSnapshot({
         status: "unavailable",
         venue,
         gameTimeLocal,
-        note: "Open-Meteo returned a forecast window, but no exact hourly slot matched first pitch.",
+        note: "Open-Meteo returned a forecast window, but no hourly slot at or before first pitch was found.",
         source: { provider: "Open-Meteo", url, fetchedAt: nowIso, staleAfter },
       });
       weatherCache.set(cacheKey, { timestamp: Date.now(), data: snapshot });

@@ -1,157 +1,112 @@
 # TODO
 
-- [x] Inspect current goose model vs sandbox responsibilities and answer whether they are the same system.
-- [x] Implement an NBA feature registry / weighted signal scaffold aligned to Marco's ranked data priorities.
-- [x] Expand the goose learning layer into a fuller NBA-first system: market-aware priors, structured feature snapshots, and sandbox-first learning flow.
-- [x] Clean repo noise from the latest learning-system work if needed.
-- [x] Add sandbox auto-grading loop.
-- [x] Wire richer NBA injury / lineup / minutes context into goose feature snapshots.
-- [x] Wire actual NBA numeric/context features into goose snapshots where current project data allows.
-- [x] Improve explicit prop-line parsing and combo-prop mapping.
-- [x] Push NBA to done-enough threshold with provenance/debug path.
-- [x] Audit/test NHL mode against the same source -> ingestion -> snapshot standard.
-- [x] Finish MLB parity: explicit goose feature module, snapshot provenance, and debug proof route.
-- [x] Build source/fallback hardening matrix (sport-by-sport ingestion audit).
-- [x] Implement PGA feature module (pga-features.ts) — highest-leverage hardening: brings PGA to feature parity with NBA/NHL/MLB in the goose generator.
-- [x] Wire PGA features into generator.ts (context pre-fetch + blended scoring + pga_features in PickFactors).
-- [x] Add PGA debug route (/api/debug/pga) for pipeline health visibility.
-- [x] Add bundled DG snapshot fallback (similar to NHL moneypuck-team-context.snapshot.json pattern).
-- [x] NBA backup/provenance hardening: BDL fallback in roster fetch, explicit degraded-state metadata, observability in debug route.
-- [x] Add OWGR supplement layer for PGA (signal infrastructure + debug visibility implemented; DG field blob lacks owgr key for current tournament — signals dormant but degrade gracefully).
-- [ ] Add Open-Meteo weather at course for PGA (requires course geocoordinates table).
-- [ ] Wire live leaderboard position into PGA context hints for in-progress picks.
-- [ ] Add formScore/courseHistoryScore passthrough from AIPick snapshot → PGA context hints.
-- [x] Commit and push changes.
-- [ ] Add review notes / outcome summary.
+## Current push — fortress data + systems firing
 
----
+- [x] NBA explicit feature/snapshot/debug parity
+- [x] NHL explicit feature/snapshot/debug parity
+- [x] MLB explicit feature/snapshot/debug parity
+- [x] PGA explicit feature/snapshot/debug parity
+- [x] PGA bundled fallback snapshot + 3-tier cache fallback
+- [x] NBA degraded-state provenance + fallback visibility
+- [x] PGA OWGR supplement rail (honest/dormant when unavailable)
+- [x] PGA bundled snapshot refresh tooling (POST /api/admin/pga-snapshot-refresh — regenerates bundled snapshot from live Supabase DG cache, guarded, safe overwrite, commit-reminder output)
+- [x] PGA course/weather rail (pga-course-weather.ts — Open-Meteo, 16 venues mapped, 30-min cache, weather signals wired into PGAContextHints + PGAFeatureSnapshot + PGA_SIGNAL_PRIORS)
+- [x] MLB weather bug fixed (floor-to-hour matching — was 0/8 games with weather, now 8/8)
+- [ ] Tighten grading/weight-learning loop across all sports now that feature snapshots exist.
+- [ ] Audit every sport for stronger primary + fallback sources without adding brittle junk feeds.
+- [ ] Wire ESPN leaderboard live position into PGA context hints (for make/cut bets mid-tournament).
+- [ ] Add more PGA Tour venues to pga-course-weather.ts as new events come up.
 
-## Source/Fallback Hardening Matrix
+## Systems Firing Audit — 2026-03-27
 
-### NBA
-| Dimension | Detail |
-|---|---|
-| **Key inputs** | Schedule, odds/props, injuries/lineup, DVP (defense-vs-position), pace, player L5 game log, back-to-back, rest days |
-| **Primary source** | ESPN hidden API (site.api.espn.com) — scoreboard, game summary, boxscores, roster+injuries |
-| **Fallback** | BallDontLie v1 API (BALLDONTLIE_API_KEY) — basic schedule/players only (no injury status) |
-| **Validation/provenance** | Full `data_source_chain` in `NBAFeatureSnapshot`; `context_warnings[]`; per-fetch TTL cache; **explicit `source_degraded`/`fallback_source`/`degraded_reason` on every `NBAContextHints` + `NBAFeatureSnapshot`**; debug route now shows roster provenance (ESPN vs BDL) |
-| **Degraded-state handling** | `getNBATeamRosterEntriesWithSource()` returns `{ source: "espn" \| "bdl" \| "none", degraded: boolean, degradedReason }`. When ESPN fails + BDL key configured, falls back to BDL roster (no injury status). Context enricher propagates `source_degraded=true` — injury-dependent signals (usage_surge, minutes_floor, injury_news) are marked unreliable when degraded. |
-| **Fragility** | Medium — ESPN is unofficial (ToS prohibits commercial use); BDL fallback is data-limited (no injury status) |
-| **Feature module** | ✅ `nba-features.ts` + `nba-context.ts` |
-| **Debug route** | ✅ `/api/debug/nba` (step: `rosterProvenance` shows ESPN vs BDL source per team, injury status availability, BDL key presence) |
-| **Highest-value missing** | Licensed source (MySportsFeeds ~$30/mo) for commercial path; official injury report diff feed |
+### NBA ✅ FIRING
+- Source: ESPN (primary) + BDL fallback
+- Schedule: 25 games active
+- Rosters: ESPN with injury status (18 players/team, injuryStatus populated)
+- Boxscores: ✅ Live, qualified players pulled
+- Feature pipeline: nba-features + nba-context → pick_snapshot.factors.nba_features
+- Goose model: generating picks today (e.g. Dyson Daniels 3.5 Assists)
+- Debug: /api/debug/nba → all steps green
 
-### NHL
-| Dimension | Detail |
-|---|---|
-| **Key inputs** | Schedule, goalie status (starter/backup), rest/B2B, travel fatigue (timezone hops), playoff pressure, xGoals% |
-| **Primary source** | NHL official API (api-web.nhle.com/v1) — free, stable, officially supported |
-| **Secondary source** | MoneyPuck xGoals data via GitHub mirror (raw CSV) |
-| **Fallback** | Bundled snapshot: `data/nhl/moneypuck-team-context.snapshot.json` (survives deploys) |
-| **Validation/provenance** | `source-health.ts` SourceHealthCheck per sub-source; `context_warnings[]` in NHLContextHints |
-| **Fragility** | Low-Medium — NHL API is stable; MoneyPuck has bundled fallback |
-| **Feature module** | ✅ `nhl-features.ts` (includes `fetchNHLContextHints`) |
-| **Debug route** | ✅ `/api/debug/nhl` |
-| **Highest-value missing** | Player-level scratch/injury status; goalie confirmation comes late (1–2h pre-game) |
+### NHL ✅ FIRING (partial degradation expected)
+- Source: NHL API (api-web.nhle.com/v1) + MoneyPuck GitHub mirror
+- Schedule: 13 games yesterday, 2 today
+- Goalie starters: "unavailable" pre-game (normal — goalies announced closer to game time)
+- Rest/travel context: ✅ (back-to-back, rest days, travel km all populated)
+- MoneyPuck xGoals: ✅ 32 teams, sourced from GitHub mirror
+- Feature pipeline: nhl-features + nhl-context → pick_snapshot.factors.nhl_features
+- Debug: /api/debug/nhl → ok (goalie unavailable is expected pre-game)
 
-### MLB
-| Dimension | Detail |
-|---|---|
-| **Key inputs** | Schedule, probable pitchers (ERA/quality), park factors, weather/wind, bullpen fatigue (L3 games), lineup confirmation |
-| **Primary source** | MLB Stats API (statsapi.mlb.com/api/v1) — free, official, stable |
-| **Secondary sources** | Open-Meteo (weather per stadium geocoords); seeded Statcast park factors (in-repo JSON) |
-| **Fallback** | Park factors: bulletproof (in-repo JSON). Weather: `status=indoor` for domes. Probable pitchers can be null (handled). |
-| **Validation/provenance** | `sourceHealth` field in enrichment board (SourceHealthSummary); `context_warnings[]` in MLBContextHints |
-| **Fragility** | Low — MLB Stats API is free and officially licensed; good fallback chain |
-| **Feature module** | ✅ `mlb-features.ts` (includes `fetchMLBContextHints`) |
-| **Debug route** | ✅ `/api/debug/mlb` |
-| **Highest-value missing** | Statcast FIP/xFIP/K% (ERA-only proxy used); batter-vs-pitcher splits; umpire tendencies; structured IL/DL diff |
+### MLB ✅ FIRING
+- Source: MLB Stats API + Open-Meteo + Statcast park factors (seeded)
+- Schedule: 8 games today
+- Weather: FIXED — was 0/8, now 8/8 (floor-to-hour match for Open-Meteo hourly slots)
+- Park factors: 8/8 available
+- Bullpen data: 8/8 available
+- Probable pitchers: 8/8 (ERA null for season start — expected, qualityScore null)
+- Lineups: 0/8 official (unconfirmed pre-game — expected timing)
+- Feature pipeline: mlb-features → pick_snapshot.factors.mlb_features
+- Debug: /api/debug/mlb → ok
 
-### PGA
-| Dimension | Detail |
-|---|---|
-| **Key inputs** | DG rankings (SG T2G/APP/PUTT), DG predictions (win/top5/top10/top20 prob), DG course-fit score, OWGR world rank, form (recent tournaments), course history, book odds |
-| **Primary source** | DataGolf HTML scraper (datagolf.com via cheerio) — parses inline JS blobs |
-| **Cache layer** | Supabase DB (24h TTL) + /tmp local fallback |
-| **Secondary source** | ESPN Golf API — leaderboard, schedule, player tournament history |
-| **OWGR supplement** | OWGR layer implemented: `owgr_rank` field in `PGAContextHints`/`PGAFeatureSnapshot`, `owgr_top50_field` (prior 0.59) + `owgr_top20_field` (prior 0.61) signals, OWGR coverage in debug route. **Data status: DG field blob lacks owgr key for this tournament (0% coverage confirmed). Signals dormant but degrade gracefully.** DG metrics remain primary. |
-| **Fallback** | Supabase (24h TTL) → /tmp local file → **bundled repo snapshot** (`data/pga/datagolf-field.snapshot.json`). Bundled snapshot is book-odds-derived (Masters 2026 Bovada field + implied win probs). No DG skill/SG data in bundled tier. |
-| **Validation/provenance** | `dgStatus.ready` gate in picks route; `DGCacheSummary` with reason string; `context_warnings[]` in PGAContextHints; OWGR coverage metrics in `/api/debug/pga` |
-| **Fragility** | **Medium** — HTML scraping is brittle (DG changed URLs March 2026); bundled fallback now added (was High before this pass) |
-| **Feature module** | ✅ `pga-features.ts` — `fetchPGAContextHints` + `scorePGAFeaturesWithSnapshot` + OWGR supplement signals |
-| **Debug route** | ✅ `/api/debug/pga` — `owgrCoverage` object shows OWGR coverage %, sample OWGR players; `context_hints.owgr_rank` + `owgr_supplement` status |
-| **Highest-value missing** | Open-Meteo weather at course; live leaderboard position context; bundled DG snapshot refresh script |
+### PGA ✅ FIRING
+- Source: DataGolf scraper → Supabase primary → /tmp → bundled snapshot
+- DG cache: ✅ Supabase primary, tournament = "Texas Children's Houston Open"
+- Rankings: 500 players
+- Predictions: 6 only (DG may not publish full field pre-tournament — known gap)
+- CourseFit: 135 players
+- Field: 135 players
+- OWGR: 0% from DG field (worldRank not present in current scrape — documented gap)
+- Course weather: ✅ LIVE — Open-Meteo, TPC Houston mapped (29.7656, -95.4307)
+  - Today: 5.8 mph wind, 71.8°F, 0% precip → course_good_conditions signal auto-tagged
+- Feature pipeline: pga-features + pga-course-weather → pick_snapshot.factors.pga_features
+- Snapshot refresh: ✅ POST /api/admin/pga-snapshot-refresh updates bundled snapshot from live cache
+- Bundled snapshot: refreshed from live Houston Open DG data (500 rankings, 135 courseFit)
+- Debug: /api/debug/pga → ok, course_weather.status = "available"
 
----
+### Soccer ✅ FIRING (no games — EPL/Serie A on international break)
+- EPL: 0 games today, next matchday April 12 (international break Mar 27–Apr 10)
+- Serie A: same break
+- Standing data: ✅ 20 EPL teams loaded
+- Rail: schedule correctly returns 0 during break — not a bug
 
-## Hardening Implemented (this pass)
+## Source Strategy Rules
+- Data quality > source quantity.
+- Do not add brittle junk scrapers just to claim more coverage.
+- Prefer reliable official/structured sources with explicit fallbacks.
+- Every important signal should have provenance, degraded-state handling, and debug visibility.
+- If a source is partial or weak, surface that honestly instead of silently blending it in.
 
-**`pga-features.ts`** — PGA goose feature module (structural parity with NBA/NHL/MLB):
-- 10 PGA signal priors: `dg_skill_edge`, `dg_course_fit_edge`, `dg_win_prob_edge`, `sg_tg_advantage`, `form_surge`, `course_history_edge`, `value_play`, `top_finish_market`, `matchup_edge`, `odds_movement`
-- `fetchPGAContextHints(playerName, pickLabel, odds, formScore, courseHistoryScore)` — reads DG cache, auto-tags signals
-- `scorePGAFeaturesWithSnapshot()` — same pattern as NBA/NHL/MLB (priors + DB weight blending)
-- `detectPGAMarketType()` — market-aware routing (outright/top5/top10/top20/matchup/round-score)
+## Remaining Blockers / Next Build Order
 
-**`generator.ts`** changes:
-- PGA weight pre-fetch (`buildPGAWeightMap`)
-- PGA context pre-fetch for all PGA candidates (reads from in-process DG cache)
-- PGA feature scoring block (20% PGA prior / 80% base blend)
-- `pga_features: PGAFeatureSnapshot | null` added to `PickFactors`
+### P1 - Grading loop tightening
+- The signal weight DB update path exists and is wired
+- Need more outcomes to accumulate before signal priors naturally yield to DB weights
+- Action: run /api/admin/goose-model/auto-grade daily; review which signals are accumulating
 
-**`/api/debug/pga/route.ts`** — end-to-end PGA pipeline health check (DG cache status → context hints → signal tagger → feature scorer → parity verification → gaps inventory)
+### P2 - PGA prediction coverage
+- Only 6 DG predictions for Houston Open (vs 135 in field/courseFit)
+- DG may not publish tournament-specific win probs until closer to round start
+- Action: re-check /api/golf/scrape on Thursday after pairings are set
 
----
+### P3 - OWGR from DG field
+- 0% OWGR coverage despite field scrape
+- worldRank key may have changed in DG field page HTML
+- Action: add debug logging to fetchDGField() to see actual row keys
 
-## PGA Source Strategy
+### P4 - PGA venue database expansion
+- 16 PGA venues mapped in pga-course-weather.ts
+- New venues should be added as they come up in the schedule
 
-**Current backbone:** DataGolf (datagolf.com) — HTML scraper → Supabase (24h TTL) → /tmp → bundled snapshot.
-
-**Fallback chain (3 tiers):**
-1. Supabase `datagolf_cache` table (primary — full DG signal quality: rankings, predictions, course-fit, field)
-2. `/tmp/datagolf-cache.json` (local fallback — survives Supabase outages; may be stale up to 24h)
-3. `data/pga/datagolf-field.snapshot.json` (bundled last resort — book-odds-derived only; no DG skill/SG; 121 Masters 2026 players)
-
-**PGA Tour pages policy:** Manual validation only. No automated scraping (ToS). Use only for spot-checks.
-
-**Future prod path:** Licensed feeds (Sportradar / SportsDataIO) — planned when commercial volume justifies cost.
-
-**Source tier visibility:** `getDGCacheSummary().sourceTier` = "supabase" | "tmp" | "bundled" | "none". Exposed in `/api/debug/pga` response.
-
----
-
-## Remaining Weak Rails (priority order)
-
-1. ~~**PGA: No bundled DG snapshot**~~ ✅ RESOLVED — bundled snapshot added (`data/pga/datagolf-field.snapshot.json`).
-2. ~~**NBA: BDL fallback silent on degradation**~~ ✅ RESOLVED — `getNBATeamRosterEntriesWithSource()` returns explicit `{ source, degraded, degradedReason }`. Context enricher propagates `source_degraded` + `fallback_source` + `degraded_reason` into `NBAContextHints` and `NBAFeatureSnapshot`. Debug route shows roster provenance per team.
-3. **PGA: OWGR supplement — data layer not available (signals dormant)** — OWGR signal layer is implemented (`owgr_rank` field, `owgr_top50_field`/`owgr_top20_field` signals, debug visibility). However, the DG field page hourly blob does NOT include OWGR/world_rank keys for this tournament (0% coverage confirmed). Direct OWGR API (owgr.com) blocks programmatic access. ESPN golf API has no world ranking. Code degrades gracefully (null rank → no signals fire). Need a reliable OWGR source to activate: candidate = bundled weekly OWGR JSON from a public dataset, or DG's owgr key appearing in a different tournament's field blob.
-4. **PGA: DG scraper fragility** — HTML scraping already broke once (March 2026). DG API access (paid) would be the right long-term fix. Current bundled fallback degrades gracefully but lacks skill/SG data.
-5. **NBA: ESPN ToS exposure** — commercial use requires MySportsFeeds or SportsDataIO migration. BDL fallback now explicit but also lacks injury data.
-6. **MLB: No Statcast advanced metrics** — ERA proxy is adequate but FIP/xFIP would sharpen pitcher signals.
-7. **NHL: Late goalie confirmation** — goalie status often only confirmed 1–2h before puck drop; pre-game generation gap.
-8. **PGA: No course weather** — wind at tournament course is meaningful (Augusta, Pebble Beach, etc.); requires adding course geocoordinates.
-9. **PGA: Bundled snapshot is Masters-only** — ideally updated each week with the current tournament's odds data. Consider a script to regenerate it from the latest golf-odds-snapshot file.
-
----
-
-## Next Build Order (post-fallback-hardening)
-
-1. **PGA weather** — add course geocoordinates table + Open-Meteo call for wind/temp at course (same pattern as MLB). Medium effort, high signal value for Augusta/coastal courses.
-2. **PGA live leaderboard context** — wire ESPN leaderboard position into `pga-features.ts` context hints for in-progress round picks (make/miss cut markets).
-3. **PGA bundled snapshot refresh script** — `scripts/refresh-pga-snapshot.ts` that reads the latest `golf-odds-snapshots/*.json` and writes `data/pga/datagolf-field.snapshot.json`. Run before each tournament week.
-4. **NBA: MySportsFeeds or SportsDataIO migration** — replace ESPN unofficial API for commercial ToS compliance.
-5. **MLB: Statcast FIP/xFIP** — replace ERA proxy with FIP for sharper pitcher quality signal.
-
----
+### P5 - SG category splits (sgT2G, sgAPP, sgPUTT)
+- Currently null from DG rankings page (only dg_skill/sgTotal available)
+- DG doesn't expose per-category SG on the rankings page
+- Action: check if DG player profile pages expose these (would require per-player fetch)
 
 ## Review
-- TBD: NBA provenance hardening (BDL fallback explicit + degraded-state metadata) + PGA OWGR supplement from DG field data.
-- 3589f31: NBA prior registry + signal tagging + generator scoring hook.
-- b938ab6: fuller NBA learning system with market priors, structured snapshots, and sandbox→goose grading bridge.
-- b11e3d8: sandbox auto-grade, NBA live context enricher, repo cleanup.
-- de5ed58: real ESPN-derived numeric DvP/pace/L5 feature capture into goose snapshots.
-- d132644: prop parser, combo fixes, admin snapshot visibility.
-- 2a0b55d: NBA provenance chain, roster parser fix, debug pipeline proof.
 - 1bfe9b9: NHL feature module, context scoring, debug route.
 - 12588bf: MLB feature module, generator parity, debug route.
-- TBD: PGA feature module, generator parity, debug route — hardening matrix complete (4/4 sports).
-- TBD: PGA bundled fallback snapshot + 3-tier fallback chain + source tier visibility in debug route.
+- 187134f: PGA feature module, generator parity, debug route, multi-sport source matrix.
+- 7394196: PGA bundled fallback snapshot + 3-tier DG fallback chain.
+- c24bc22: NBA fallback/provenance hardening + PGA OWGR supplement infrastructure.
+- fca9cae: OWGR status corrected to dormant/secondary when unavailable.
+- [CURRENT]: MLB weather floor-to-hour fix (0/8→8/8), PGA course weather rail, bundled snapshot refresh tooling.

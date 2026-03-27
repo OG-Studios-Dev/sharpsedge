@@ -338,6 +338,15 @@ export async function scoreGooseCandidates(
       .map((c, i) => ({ c, i }))
       .filter(({ c }) => c.sport === "PGA");
 
+    // Resolve tournament name for course weather lookup (shared across all PGA picks)
+    // fetchPGAContextHints caches the weather internally — only one Open-Meteo call per 30 min
+    let pgaTournamentName: string | null = null;
+    try {
+      const { getDGCache } = await import("@/lib/datagolf-cache");
+      const dgCache = await getDGCache();
+      pgaTournamentName = dgCache?.tournament ?? null;
+    } catch { /* non-fatal — weather degrades gracefully */ }
+
     const pgaContextResults = await Promise.allSettled(
       pgaIndices.map(({ c }) =>
         fetchPGAContextHints(
@@ -347,6 +356,7 @@ export async function scoreGooseCandidates(
           // formScore and courseHistoryScore are available on the pick snapshot when present
           (c.pick_snapshot as any)?.formScore ?? null,
           (c.pick_snapshot as any)?.courseHistoryScore ?? null,
+          pgaTournamentName,
         ).catch(() => emptyPGAContextHints()),
       ),
     );
