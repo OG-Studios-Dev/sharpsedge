@@ -110,6 +110,14 @@ type DerivedGoalieContext = {
   isConfirmed: boolean;
   isBackup: boolean;
   experienceTier: "starter" | "limited-sample" | "unknown";
+  /**
+   * Quality tier based on season SV% + GAA.
+   * elite  = SV% ≥ 0.915
+   * average = SV% 0.895–0.914
+   * weak   = SV% < 0.895 && GAA > 3.00 (confirmed market edge signal)
+   * unknown = stats unavailable
+   */
+  qualityTier: "elite" | "average" | "weak" | "unknown";
   sampleDecisionCount: number | null;
   alertFlags: string[];
 };
@@ -639,6 +647,7 @@ function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalie
       isConfirmed: false,
       isBackup: false,
       experienceTier: "unknown",
+      qualityTier: "unknown",
       sampleDecisionCount: null,
       alertFlags: ["goalie_unavailable"],
     };
@@ -650,11 +659,27 @@ function buildGoalieDerivedContext(starter: GoalieStarter | null): DerivedGoalie
   if (starter.isBackup) alertFlags.push("backup_goalie");
   if (sampleDecisionCount < 10) alertFlags.push("limited_sample");
 
+  // Quality tier from season SV% + GAA. League average SV% ≈ 0.905.
+  // Weak = below-average and exploitable even if technically "the starter".
+  let qualityTier: DerivedGoalieContext["qualityTier"] = "unknown";
+  if (starter.savePct > 0 && starter.gaa > 0) {
+    if (starter.savePct >= 0.915) {
+      qualityTier = "elite";
+    } else if (starter.savePct >= 0.895) {
+      qualityTier = "average";
+    } else {
+      // savePct < 0.895 — only label "weak" if GAA also confirms degraded performance
+      qualityTier = starter.gaa > 3.00 ? "weak" : "average";
+    }
+    if (qualityTier === "weak") alertFlags.push("weak_starter");
+  }
+
   return {
     starterStatus: starter.status,
     isConfirmed: starter.status === "confirmed",
     isBackup: starter.isBackup,
     experienceTier: sampleDecisionCount >= 10 ? "starter" : "limited-sample",
+    qualityTier,
     sampleDecisionCount,
     alertFlags,
   };

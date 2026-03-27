@@ -10,7 +10,9 @@
 // Key NHL signals: goalie_news (backup starting = biggest edge),
 // back_to_back (compressed NHL schedule makes B2B brutal),
 // travel_fatigue (cross-country/timezone hops), rest_days (well-rested
-// teams outperform in regulation), home_away_split (home ice).
+// teams outperform in regulation), home_away_split (home ice),
+// three_in_four (3 games in 4 days — heavy fatigue penalty),
+// goalie_quality (weak confirmed starter: savePct < 0.895 && GAA > 3.00).
 // ============================================================
 
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
@@ -32,6 +34,8 @@ export interface NHLContextHints {
   team_is_back_to_back: boolean;
   /** Whether the team has a long-haul travel flag */
   team_has_long_haul_travel: boolean;
+  /** Whether the team is playing 3 games in 4 days (heavy fatigue) */
+  team_three_in_four: boolean;
   /** Rest days since last game (null if unavailable) */
   team_rest_days: number | null;
   /** Playoff urgency tier for the team */
@@ -43,6 +47,15 @@ export interface NHLContextHints {
   opponent_is_back_to_back: boolean;
   /** Playoff urgency tier for the opponent */
   opponent_playoff_pressure: "high" | "medium" | "low" | "none";
+  /**
+   * Opponent goalie quality tier derived from season SV% + GAA.
+   * "weak" fires goalie_quality signal (SV% < 0.895 && GAA > 3.00).
+   */
+  opponent_goalie_quality: "elite" | "average" | "weak" | "unknown";
+  /** Season SV% for the opponent's starting goalie (null if unavailable) */
+  opponent_goalie_sv_pct: number | null;
+  /** Season GAA for the opponent's starting goalie (null if unavailable) */
+  opponent_goalie_gaa: number | null;
 
   /** MoneyPuck xGoals% for the team (null if unavailable) */
   team_xgoals_pct: number | null;
@@ -58,12 +71,16 @@ export function emptyNHLContextHints(): NHLContextHints {
     auto_signals: [],
     team_goalie_is_backup: false,
     team_is_back_to_back: false,
+    team_three_in_four: false,
     team_has_long_haul_travel: false,
     team_rest_days: null,
     team_playoff_pressure: "none",
     opponent_goalie_is_backup: false,
     opponent_is_back_to_back: false,
     opponent_playoff_pressure: "none",
+    opponent_goalie_quality: "unknown",
+    opponent_goalie_sv_pct: null,
+    opponent_goalie_gaa: null,
     team_xgoals_pct: null,
     opponent_xgoals_pct: null,
     warnings: [],
@@ -84,14 +101,20 @@ export interface NHLFeatureSnapshot {
   context_auto_signals: string[];
   /** Whether goalie news was a factor */
   goalie_signal_active: boolean;
+  /** Whether opponent's goalie quality (weak starter) signal was active */
+  goalie_quality_signal_active: boolean;
   /** Whether back-to-back penalty was active */
   back_to_back_active: boolean;
   /** Whether travel fatigue was active */
   travel_fatigue_active: boolean;
+  /** Whether 3-in-4-days heavy fatigue was active */
+  three_in_four_active: boolean;
   /** Team rest days at pick time */
   team_rest_days: number | null;
   /** Team playoff pressure */
   team_playoff_pressure: "high" | "medium" | "low" | "none";
+  /** Opponent goalie quality tier at pick time */
+  opponent_goalie_quality: "elite" | "average" | "weak" | "unknown";
   /** MoneyPuck xGoals% differential (team - opponent) */
   xgoals_pct_differential: number | null;
   /** Warnings from context fetch */
@@ -109,6 +132,10 @@ export interface NHLFeatureSnapshot {
  *     signal in NHL betting; research shows ~65% win rate when opponent runs backup.
  *   - back_to_back: NHL compressed schedule makes B2B a real edge (-penalty) —
  *     teams on B2B have historically won at ~42% vs rest teams.
+ *   - three_in_four: 3 games in 4 days is a heavy fatigue load in the NHL;
+ *     teams in this window win at ~40% vs fresh opponents. Inspired by the
+ *     HockeyShotMap / NHL-Analytics fatigue research — fatigueFlags already
+ *     computed in buildFatigue(), now wired into the signal pipeline.
  *   - travel_fatigue: long-haul travel (>2 timezone shifts) adds ~5% edge to home.
  *   - rest_days: 2+ days rest → mild advantage over opponent on 1 rest day.
  *   - home_away_split: NHL home ice worth ~3-4% over an 82-game season.
@@ -116,12 +143,28 @@ export interface NHLFeatureSnapshot {
  *   - matchup_edge: confirmed favorable H2H or style matchup.
  *   - lineup_change: meaningful for player props (PP time, line promotions).
  *   - odds_movement: sharp line movement is a useful confirming signal.
+ *   - goalie_quality: opponent's confirmed starter is "weak" (SV% < 0.895 && GAA > 3.00).
+ *     Inspired by TradeTracker's goalie stat context — the GoalieStarter type already
+ *     carries savePct/gaa but this edge was never surfaced as a pick signal.
+ *     Win-rate ~0.58: less strong than a true backup but still a real market inefficiency.
  */
 export const NHL_SIGNAL_PRIORS: Record<string, number> = {
   /** Backup goalie starting for opponent — biggest edge in NHL props/ML */
   goalie_news: 0.65,
+  /**
+   * Opponent's confirmed starter is a weak goalie (SV% < 0.895 && GAA > 3.00).
+   * Weaker than a backup signal but still exploitable — starters below league-average
+   * quality (~0.905 SV%) represent a consistent market edge on goals-over and ML bets.
+   */
+  goalie_quality: 0.58,
   /** Team on back-to-back — real fatigue penalty, especially second-night road */
   back_to_back: 0.42,
+  /**
+   * 3 games in 4 days — heavy fatigue load in the NHL compressed schedule.
+   * Data computed in buildFatigue() (fatigueFlags: "three_in_four") but was
+   * previously not wired into the auto-signal pipeline. Now surfaced as a signal.
+   */
+  three_in_four: 0.40,
   /** Long-haul travel (cross-country / major timezone shift) */
   travel_fatigue: 0.44,
   /** Team is well-rested (2+ days off) vs opponent with less rest */
@@ -191,7 +234,8 @@ function findGameForTeam(
  *
  * Extracts:
  *   - Goalie backup signal for team + opponent
- *   - Back-to-back / travel fatigue for team
+ *   - Goalie quality tier (weak confirmed starter) for opponent
+ *   - Back-to-back / travel fatigue / three-in-four for team
  *   - Rest days for team
  *   - Playoff pressure for team
  *   - MoneyPuck xGoals% for both teams
@@ -235,6 +279,7 @@ export async function fetchNHLContextHints(
     const teamIsBackup = goalie.isBackup || goalie.starterStatus === "unavailable";
     const teamIsB2B = rest.isBackToBack;
     const teamHasLongHaul = travel.longHaul;
+    const teamThreeInFour = teamEntry.derived.fatigueFlags.includes("three_in_four");
     const teamRestDays = rest.restDays;
     const teamPressure = pressure.urgencyTier;
     const teamXGoalsPct = mp?.xGoalsPercentage ?? null;
@@ -244,11 +289,29 @@ export async function fetchNHLContextHints(
     const oppRest = oppEntry.derived.rest;
     const oppPressure = oppEntry.derived.playoffPressure;
     const oppMp = oppEntry.sourced.moneyPuck;
+    const oppGoalieSourced = oppEntry.sourced.goalie.starter;
 
     const oppIsBackup = oppGoalie.isBackup || oppGoalie.starterStatus === "unavailable";
     const oppIsB2B = oppRest.isBackToBack;
     const oppPressureTier = oppPressure.urgencyTier;
     const oppXGoalsPct = oppMp?.xGoalsPercentage ?? null;
+
+    // Goalie quality tier for opponent's confirmed starter.
+    // League-average SV% is ~0.905. A confirmed starter at < 0.895 + GAA > 3.00
+    // is "weak" — a real market edge even though they're not technically a backup.
+    // Thresholds derived from TradeTracker goalie-stat context + season average data.
+    const oppSvPct = oppGoalieSourced?.savePct ?? null;
+    const oppGaa = oppGoalieSourced?.gaa ?? null;
+    let oppGoalieQuality: NHLContextHints["opponent_goalie_quality"] = "unknown";
+    if (oppSvPct !== null && oppGaa !== null) {
+      if (oppSvPct >= 0.915) {
+        oppGoalieQuality = "elite";
+      } else if (oppSvPct >= 0.895) {
+        oppGoalieQuality = "average";
+      } else {
+        oppGoalieQuality = "weak";
+      }
+    }
 
     // ── Auto-signal tagging ───────────────────────────────────
     const auto_signals: string[] = [];
@@ -258,9 +321,21 @@ export async function fetchNHLContextHints(
       auto_signals.push("goalie_news");
     }
 
+    // Goalie quality: opponent's confirmed starter is weak (below-average SV% + high GAA)
+    // Only fires when starter is confirmed (not a backup) to avoid double-counting goalie_news.
+    if (!oppIsBackup && oppGoalieQuality === "weak") {
+      auto_signals.push("goalie_quality");
+    }
+
     // Back-to-back penalty for this team
     if (teamIsB2B) {
       auto_signals.push("back_to_back");
+    }
+
+    // Three-in-four: heavy fatigue load (3 games in 4 days).
+    // fatigueFlags is already computed in buildFatigue() — this wires it into the signal pipeline.
+    if (teamThreeInFour) {
+      auto_signals.push("three_in_four");
     }
 
     // Travel fatigue for this team
@@ -293,11 +368,15 @@ export async function fetchNHLContextHints(
       team_goalie_is_backup: teamIsBackup,
       team_is_back_to_back: teamIsB2B,
       team_has_long_haul_travel: teamHasLongHaul,
+      team_three_in_four: teamThreeInFour,
       team_rest_days: teamRestDays,
       team_playoff_pressure: teamPressure,
       opponent_goalie_is_backup: oppIsBackup,
       opponent_is_back_to_back: oppIsB2B,
       opponent_playoff_pressure: oppPressureTier,
+      opponent_goalie_quality: oppGoalieQuality,
+      opponent_goalie_sv_pct: oppSvPct,
+      opponent_goalie_gaa: oppGaa,
       team_xgoals_pct: teamXGoalsPct,
       opponent_xgoals_pct: oppXGoalsPct,
       warnings,
@@ -360,10 +439,13 @@ export function scoreNHLFeaturesWithSnapshot(
     signal_priors_applied: priorsApplied,
     context_auto_signals: contextAutoSignals,
     goalie_signal_active: allSignals.includes("goalie_news"),
+    goalie_quality_signal_active: allSignals.includes("goalie_quality"),
     back_to_back_active: allSignals.includes("back_to_back"),
     travel_fatigue_active: allSignals.includes("travel_fatigue"),
+    three_in_four_active: allSignals.includes("three_in_four"),
     team_rest_days: contextHints?.team_rest_days ?? null,
     team_playoff_pressure: contextHints?.team_playoff_pressure ?? "none",
+    opponent_goalie_quality: contextHints?.opponent_goalie_quality ?? "unknown",
     xgoals_pct_differential: xgDiff,
     context_warnings: contextHints?.warnings ?? [],
   };
