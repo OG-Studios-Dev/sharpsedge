@@ -95,6 +95,35 @@ export interface MLBContextHints {
   /** Whether opponent's starter has weak command (K/BB < 2.0, with >= 5 IP) */
   opponent_starter_weak_command: boolean;
 
+  // ── FIP (Fielding Independent Pitching) context ────────────
+  /**
+   * FIP for team's probable starter (null if < 5 IP or missing stats).
+   * FIP = ((13×HR + 3×(BB+HBP) − 2×K) / IP) + 3.10
+   * Isolates pitcher skill by removing defense/luck from ERA.
+   * Source pattern: jldbc/pybaseball FIP formula + zero-sum-seattle/python-mlb-statsapi
+   */
+  team_starter_fip: number | null;
+  /** FIP for opponent's probable starter */
+  opponent_starter_fip: number | null;
+  /**
+   * ERA minus FIP for team's starter.
+   * Positive = unlucky (ERA likely to regress down, pitcher is better than they look).
+   * Negative = lucky (ERA likely to regress up, pitcher is worse than they look).
+   */
+  team_era_fip_divergence: number | null;
+  /** ERA minus FIP for opponent's starter */
+  opponent_era_fip_divergence: number | null;
+  /**
+   * Whether opponent's starter has a "lucky ERA" (ERA − FIP < −0.75).
+   * Lucky ERA means opponent ERA is inflated-good; lines likely under-value team's chance.
+   */
+  opponent_era_is_lucky: boolean;
+  /**
+   * Whether team's starter has an "unlucky ERA" (ERA − FIP > +0.75).
+   * Unlucky ERA means team's starter is better than ERA shows; value pick opportunity.
+   */
+  team_era_is_unlucky: boolean;
+
   // ── Home/away split context ────────────────────────────────
   /** Whether the team for this pick is the home team */
   is_home: boolean | null;
@@ -135,6 +164,12 @@ export function emptyMLBContextHints(): MLBContextHints {
     opponent_lineup_status: "unknown",
     team_starter_k_bb: null,
     opponent_starter_k_bb: null,
+    team_starter_fip: null,
+    opponent_starter_fip: null,
+    team_era_fip_divergence: null,
+    opponent_era_fip_divergence: null,
+    opponent_era_is_lucky: false,
+    team_era_is_unlucky: false,
     team_starter_command: false,
     opponent_starter_weak_command: false,
     is_home: null,
@@ -190,12 +225,24 @@ export interface MLBFeatureSnapshot {
   pitcher_command_active: boolean;
   /** Whether home/away split edge fired */
   home_away_edge_active: boolean;
+  /** Whether opponent ERA lucky signal fired (opponent ERA better than FIP) */
+  opponent_era_lucky_active: boolean;
+  /** Whether team ERA unlucky signal fired (team ERA worse than FIP) */
+  team_era_unlucky_active: boolean;
 
   // ── Numeric snapshots for new signals ─────────────────────
   /** K/BB ratio for team's starter at pick time */
   team_starter_k_bb: number | null;
   /** K/BB ratio for opponent's starter at pick time */
   opponent_starter_k_bb: number | null;
+  /** FIP for team's starter at pick time */
+  team_starter_fip: number | null;
+  /** FIP for opponent's starter at pick time */
+  opponent_starter_fip: number | null;
+  /** ERA − FIP divergence for team's starter (positive = unlucky) */
+  team_era_fip_divergence: number | null;
+  /** ERA − FIP divergence for opponent's starter (positive = unlucky for them too) */
+  opponent_era_fip_divergence: number | null;
   /** Team's home win rate at pick time */
   team_home_win_rate: number | null;
   /** Opponent's away win rate at pick time */
@@ -266,6 +313,19 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
    * MLB home field advantage is well-documented; strong home teams amplify it.
    */
   home_away_edge: 0.57,
+  /**
+   * Opponent starter has a "lucky ERA" (ERA − FIP < −0.75):
+   * ERA is inflated-good because of low BABIP/HR rates not explained by true skill.
+   * Opponent is WORSE than their ERA shows → edge for team ML / over bets.
+   * Source pattern: jldbc/pybaseball FIP methodology applied to MLB Stats API data.
+   */
+  opponent_era_lucky: 0.61,
+  /**
+   * Team's starter has an "unlucky ERA" (ERA − FIP > +0.75):
+   * ERA is inflated-bad; pitcher is better than they look.
+   * Team's starter value is under-estimated by market → value edge for team ML / under bets.
+   */
+  team_era_unlucky: 0.60,
 };
 
 /**
@@ -432,6 +492,26 @@ export async function fetchMLBContextHints(
     const team_starter_command = team_starter_k_bb !== null && team_starter_k_bb >= 3.0;
     const opponent_starter_weak_command = opponent_starter_k_bb !== null && opponent_starter_k_bb < 2.0;
 
+    // ── FIP divergence (ERA vs FIP luck detection) ───────────
+    const team_starter_fip = isAway
+      ? (game.starterQuality.away?.fip ?? null)
+      : (game.starterQuality.home?.fip ?? null);
+    const opponent_starter_fip = isAway
+      ? (game.starterQuality.home?.fip ?? null)
+      : (game.starterQuality.away?.fip ?? null);
+    const team_era_fip_divergence = isAway
+      ? (game.starterQuality.away?.eraFipDivergence ?? null)
+      : (game.starterQuality.home?.eraFipDivergence ?? null);
+    const opponent_era_fip_divergence = isAway
+      ? (game.starterQuality.home?.eraFipDivergence ?? null)
+      : (game.starterQuality.away?.eraFipDivergence ?? null);
+    // Lucky ERA: opponent ERA - FIP < -0.75 → opponent looks better than they are
+    const opponent_era_is_lucky =
+      opponent_era_fip_divergence !== null && opponent_era_fip_divergence < -0.75;
+    // Unlucky ERA: team ERA - FIP > +0.75 → team pitcher looks worse than they are
+    const team_era_is_unlucky =
+      team_era_fip_divergence !== null && team_era_fip_divergence > 0.75;
+
     // ── Home/away split rates from standings ─────────────────
     const is_home = !isAway;
     const teamSplits = splitRates.get(tAbbrev) ?? splitRates.get(team.toUpperCase()) ?? null;
@@ -515,6 +595,16 @@ export async function fetchMLBContextHints(
       auto_signals.push("home_away_edge");
     }
 
+    // FIP luck signals:
+    // opponent_era_lucky: opponent's ERA looks better than FIP warrants → they're worse than they look
+    if (opponent_era_is_lucky) {
+      auto_signals.push("opponent_era_lucky");
+    }
+    // team_era_unlucky: team's starter ERA looks worse than FIP warrants → they're better than they look
+    if (team_era_is_unlucky) {
+      auto_signals.push("team_era_unlucky");
+    }
+
     return {
       auto_signals,
       park_environment,
@@ -538,6 +628,12 @@ export async function fetchMLBContextHints(
       opponent_starter_k_bb,
       team_starter_command,
       opponent_starter_weak_command,
+      team_starter_fip,
+      opponent_starter_fip,
+      team_era_fip_divergence,
+      opponent_era_fip_divergence,
+      opponent_era_is_lucky,
+      team_era_is_unlucky,
       is_home,
       team_home_win_rate,
       team_away_win_rate,
@@ -624,6 +720,8 @@ export function scoreMLBFeaturesWithSnapshot(
     ace_starter_active: allSignals.includes("probable_pitcher_ace"),
     pitcher_command_active: allSignals.includes("pitcher_command"),
     home_away_edge_active: allSignals.includes("home_away_edge"),
+    opponent_era_lucky_active: allSignals.includes("opponent_era_lucky"),
+    team_era_unlucky_active: allSignals.includes("team_era_unlucky"),
     park_runs_index: contextHints?.park_runs_index ?? null,
     wind_speed_mph: contextHints?.wind_speed_mph ?? null,
     temperature_f: contextHints?.temperature_f ?? null,
@@ -632,6 +730,10 @@ export function scoreMLBFeaturesWithSnapshot(
     opponent_starter_quality: contextHints?.opponent_starter_quality ?? null,
     team_starter_k_bb: contextHints?.team_starter_k_bb ?? null,
     opponent_starter_k_bb: contextHints?.opponent_starter_k_bb ?? null,
+    team_starter_fip: contextHints?.team_starter_fip ?? null,
+    opponent_starter_fip: contextHints?.opponent_starter_fip ?? null,
+    team_era_fip_divergence: contextHints?.team_era_fip_divergence ?? null,
+    opponent_era_fip_divergence: contextHints?.opponent_era_fip_divergence ?? null,
     team_home_win_rate: contextHints?.team_home_win_rate ?? null,
     opponent_away_win_rate: contextHints?.opponent_away_win_rate ?? null,
     is_home: contextHints?.is_home ?? null,

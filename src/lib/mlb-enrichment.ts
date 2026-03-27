@@ -43,6 +43,38 @@ function computeStarterQualityScore(era: number | null, whip: number | null): nu
   return Math.max(30, Math.min(80, Math.round(blended)));
 }
 
+/**
+ * Compute FIP (Fielding Independent Pitching) from raw season counts.
+ *
+ * FIP isolates pitcher responsibility by removing defense + luck (BABIP):
+ *   FIP = ((13 × HR + 3 × (BB + HBP) − 2 × K) / IP) + FIP_CONSTANT
+ *
+ * The FIP_CONSTANT (≈ 3.10 for modern MLB) normalizes FIP to ERA scale.
+ * We use 3.10 as a reasonable fixed season constant.
+ *
+ * Minimum IP threshold = 5 to avoid tiny-sample noise.
+ *
+ * ERA vs FIP divergence interpretation:
+ *   ERA − FIP > +0.75 → pitcher is UNLUCKY; ERA likely to regress down (pitcher better than they look)
+ *   ERA − FIP < −0.75 → pitcher is LUCKY; ERA likely to regress up (pitcher worse than they look)
+ *
+ * Source pattern: jldbc/pybaseball FIP formula + zero-sum-seattle/python-mlb-statsapi endpoint patterns
+ */
+const FIP_CONSTANT = 3.10;
+
+function computeFIP(
+  hr: number | null | undefined,
+  bb: number | null | undefined,
+  hbp: number | null | undefined,
+  k: number | null | undefined,
+  ip: number | null | undefined,
+): number | null {
+  if (hr == null || bb == null || k == null || ip == null || ip < 5) return null;
+  const bbHbp = bb + (hbp ?? 0);
+  const fip = ((13 * hr + 3 * bbHbp - 2 * k) / ip) + FIP_CONSTANT;
+  return Math.round(fip * 100) / 100;
+}
+
 function buildStarterQuality(pitcher: {
   id: string;
   name: string;
@@ -54,6 +86,8 @@ function buildStarterQuality(pitcher: {
   inningsPitched?: number | null;
   wins?: number | null;
   losses?: number | null;
+  homeRunsAllowed?: number | null;
+  hitBatsmen?: number | null;
 }) {
   const era = pitcher.era ?? null;
   const whip = pitcher.whip ?? null;
@@ -71,6 +105,17 @@ function buildStarterQuality(pitcher: {
     summary = `${pitcher.name} (${pitcher.hand || "—"}) ${eraStr}${whipStr} • ${recordStr}`;
   }
 
+  const fip = computeFIP(
+    pitcher.homeRunsAllowed,
+    pitcher.baseOnBalls,
+    pitcher.hitBatsmen,
+    pitcher.strikeOuts,
+    pitcher.inningsPitched,
+  );
+  const eraFipDivergence = era != null && fip != null
+    ? Math.round((era - fip) * 100) / 100
+    : null;
+
   return {
     pitcherId: pitcher.id ?? null,
     pitcherName: pitcher.name ?? null,
@@ -84,6 +129,15 @@ function buildStarterQuality(pitcher: {
     qualityScore,
     qualityMethod: hasEra && hasWhip ? "era+whip-blend" : hasEra ? "era-only" : "unavailable",
     summary,
+    /** FIP (Fielding Independent Pitching) computed from season HR/BB/HBP/K/IP */
+    fip,
+    /**
+     * ERA minus FIP.
+     * Positive → pitcher ERA > FIP → unlucky (ERA likely to regress DOWN, pitcher better than they look).
+     * Negative → pitcher ERA < FIP → lucky (ERA likely to regress UP, pitcher worse than they look).
+     * Null when insufficient IP (< 5) or missing stats.
+     */
+    eraFipDivergence,
   };
 }
 

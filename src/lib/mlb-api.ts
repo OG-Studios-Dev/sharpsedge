@@ -250,6 +250,9 @@ function parseProbablePitcher(pitcher: any) {
     inningsPitched: parseFloatOrNull(stat.inningsPitched),
     wins: toNumber(stat.wins),
     losses: toNumber(stat.losses),
+    // FIP inputs — HR allowed and HBP (hit batsmen) available from MLB Stats API season pitching stats
+    homeRunsAllowed: toNumber(stat.homeRuns),
+    hitBatsmen: toNumber(stat.hitBatsmen),
   };
 }
 
