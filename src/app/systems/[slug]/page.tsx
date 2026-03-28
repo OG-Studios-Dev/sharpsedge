@@ -19,6 +19,8 @@ const SYSTEM_SLUG_ALIASES: Record<string, string> = {
   "mattys-1q-chase": "nba-goose-system",
   falcons: "falcons-fight-pummeled-pitchers",
   "hot-bats": "tonys-hot-bats",
+  "tight-bats": "tonys-hot-bats",
+  "tonys-tight-bats": "tonys-hot-bats",
   swaggy: "swaggy-stretch-drive",
   // Robbie's Ripper Fast 5 — old slug alias preserved for backward compat
   "quick-rips-f5": "robbies-ripper-fast-5",

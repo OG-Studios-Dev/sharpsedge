@@ -664,13 +664,13 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "tonys-hot-bats",
       slug: "tonys-hot-bats",
-      name: "Tony's Hot Bats",
+      name: "Tony's Tight Bats",
       league: "MLB",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "MLB hot-bats watchlist using official lineup IDs, recent hitter game logs, park factors, weather, and bullpen context to flag same-day offense spots. Live trigger board - watchlist alerts, not a claims model.",
+      summary: "MLB tight-bats watchlist using official lineup IDs, recent hitter game logs, park factors, weather, and bullpen context to flag same-day offense spots. Live trigger board - watchlist alerts, not a claims model.",
       snapshot: "Live qualifier board active - MLB hitter game logs, official lineups, run-environment rails all connected.",
       definition:
         "A first-pass hitting-form watchlist designed to catch offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
@@ -694,7 +694,7 @@ function seededCatalog(): TrackedSystem[] {
           detail: "Rows are early watchlist triggers, not official picks. Missing lineups, weak hitter samples, or incomplete market context stay unresolved instead of being guessed.",
         },
       ],
-      automationStatusLabel: "Live qualifier board - daily MLB hot-bats watchlist",
+      automationStatusLabel: "Live qualifier board - daily MLB tight-bats watchlist",
       automationStatusDetail: "Refreshes daily from official MLB lineup IDs, MLB hitter game logs (last 10 games), park factors, Open-Meteo weather, and bullpen workload rails. Stores trigger alerts when top-of-order production and run-environment context align. Not a validated picks model - watchlist alerts only.",
       dataRequirements: [
         { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected. Only officially published batting orders qualify (conservative - no third-party lineup guesses)." },
@@ -711,7 +711,7 @@ function seededCatalog(): TrackedSystem[] {
         "Opponent starter quality not yet in the qualifier gate - can be added as next improvement.",
       ],
       trackingNotes: [
-        "Rows are early watchlist triggers, not bets, not backtests, and not a claim that the full Tony's Hot Bats model is complete.",
+        "Rows are early watchlist triggers, not bets, not backtests, and not a claim that the full Tony's Tight Bats model is complete.",
         "Lineup status comes only from MLB's live feed; no third-party lineup scrape is used to fake certainty.",
         "Market availability notes stay tied to posted books/markets. No synthetic F5 or total lines are created.",
       ],

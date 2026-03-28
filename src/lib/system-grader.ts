@@ -10,7 +10,7 @@
  *   - Robbie's Ripper Fast 5 (MLB F5 side/total): graded from MLB Stats API inning linescore
  *
  * Not gradeable (watchlist-only, no bet direction):
- *   - The Blowout, Hot Teams Matchup, Tony's Hot Bats
+ *   - The Blowout, Hot Teams Matchup, Tony's Tight Bats
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
