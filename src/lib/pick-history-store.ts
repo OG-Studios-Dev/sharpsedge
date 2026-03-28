@@ -94,7 +94,10 @@ function buildPickHistoryRows(
       edge: typeof pick.edge === "number" ? pick.edge : null,
       odds: typeof pick.odds === "number" ? pick.odds : null,
       book: resolvedSportsbook,
-      sportsbook: resolvedSportsbook,
+      // Note: sportsbook column is only added in modern mode below.
+      // Legacy/legacy_minimal modes omit it so they work on older schemas that
+      // only have the `book` column. This allows the legacy fallback chain to
+      // succeed when the `sportsbook` column hasn't been migrated yet.
       result: pick.result || "pending",
       game_id: pick.gameId || null,
       reasoning: pick.reasoning || null,
@@ -128,6 +131,7 @@ function buildPickHistoryRows(
         ...enriched,
         id: pick.id,
         pick_type: pick.type,
+        sportsbook: resolvedSportsbook,
       };
   });
 }
@@ -256,7 +260,8 @@ async function insertPickHistory(picks: AIPick[], provenance: PickHistoryProvena
       || isMissingColumnError(message, "provenance")
       || isMissingColumnError(message, "updated_at")
       || isMissingColumnError(message, "id")
-      || isMissingColumnError(message, "pick_type");
+      || isMissingColumnError(message, "pick_type")
+      || isMissingColumnError(message, "sportsbook");
 
     if (!needsLegacyFallback) throw error;
 
@@ -280,6 +285,7 @@ async function insertPickHistory(picks: AIPick[], provenance: PickHistoryProvena
         && !isMissingColumnError(legacyMessage, "provenance")
         && !isMissingColumnError(legacyMessage, "updated_at")
         && !isMissingColumnError(legacyMessage, "id")
+        && !isMissingColumnError(legacyMessage, "sportsbook")
       ) {
         throw legacyError;
       }
