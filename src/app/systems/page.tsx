@@ -1,5 +1,5 @@
 import SystemsOverviewBoard from "@/components/SystemsOverviewBoard";
-import { readSystemsTrackingData, refreshTrackableSystems } from "@/lib/systems-tracking-store";
+import { loadSystemPerformanceStats, readSystemsTrackingData, refreshTrackableSystems, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +11,20 @@ type Props = {
 
 export default async function SystemsPage({ searchParams }: Props) {
   await refreshTrackableSystems().catch(() => null);
-  const data = await readSystemsTrackingData();
+  const [data, dbPerformance] = await Promise.all([
+    readSystemsTrackingData(),
+    loadSystemPerformanceStats().catch(() => [] as DbSystemPerformanceSummary[]),
+  ]);
   const activeLeague = searchParams?.league || "All";
 
   return (
     <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24">
-      <SystemsOverviewBoard systems={data.systems} updatedAt={data.updatedAt} activeLeague={activeLeague} />
+      <SystemsOverviewBoard
+        systems={data.systems}
+        updatedAt={data.updatedAt}
+        activeLeague={activeLeague}
+        dbPerformance={dbPerformance}
+      />
     </main>
   );
 }

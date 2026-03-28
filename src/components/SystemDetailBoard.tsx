@@ -1,7 +1,10 @@
 import Link from "next/link";
 import type { NHLContextBoardResponse } from "@/lib/nhl-context";
-import { getSystemDerivedMetrics, type TrackedSystem } from "@/lib/systems-tracking-store";
+import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary, type DbSystemQualifier } from "@/lib/systems-tracking-store";
 import SystemNhlContextBoard from "@/components/SystemNhlContextBoard";
+
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+const WATCHLIST_ONLY_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
 function statusPill(status: TrackedSystem["status"]) {
   if (status === "tracking") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
@@ -164,7 +167,161 @@ function TrackingRecordTable({ system }: { system: TrackedSystem }) {
   );
 }
 
-export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }: { system: TrackedSystem; updatedAt: string; nhlContextBoard?: NHLContextBoardResponse | null }) {
+function DbPerformancePanel({ systemId, dbPerformance, dbHistory }: {
+  systemId: string;
+  dbPerformance: DbSystemPerformanceSummary[];
+  dbHistory: DbSystemQualifier[];
+}) {
+  const perf = dbPerformance.find((p) => p.system_id === systemId);
+  const isMLGradeable = ML_GRADEABLE_IDS.has(systemId);
+  const isWatchlistOnly = WATCHLIST_ONLY_IDS.has(systemId);
+
+  if (!perf && dbHistory.length === 0) {
+    if (isWatchlistOnly) return null; // don't show empty panel for watchlist systems
+    return (
+      <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-500">
+        No graded performance data in Supabase yet.
+        {isMLGradeable && " Run /api/admin/systems/grade after games are final to grade ML qualifiers."}
+      </div>
+    );
+  }
+
+  if (!perf) return null;
+
+  const winPct = perf.win_pct != null ? `${Number(perf.win_pct).toFixed(1)}%` : "—";
+  const netUnits = perf.flat_net_units != null
+    ? `${Number(perf.flat_net_units) > 0 ? "+" : ""}${Number(perf.flat_net_units).toFixed(2)}u`
+    : "—";
+  const netUnitsColor = perf.flat_net_units == null ? "text-gray-400"
+    : Number(perf.flat_net_units) > 0 ? "text-emerald-400"
+    : Number(perf.flat_net_units) < 0 ? "text-rose-400"
+    : "text-yellow-400";
+  const winPctColor = perf.win_pct == null ? "text-gray-400"
+    : Number(perf.win_pct) >= 55 ? "text-emerald-400"
+    : Number(perf.win_pct) >= 50 ? "text-yellow-400"
+    : "text-rose-400";
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+          <p className="meta-label">Qualifiers logged</p>
+          <p className="mt-2 text-2xl font-bold text-white">{perf.qualifiers_logged}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {perf.first_qualifier_date ? `Since ${perf.first_qualifier_date}` : "Durable Supabase count"}
+          </p>
+        </div>
+        {isMLGradeable ? (
+          <>
+            <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+              <p className="meta-label">ML Record</p>
+              <p className="mt-2 text-xl font-bold">
+                {perf.graded_qualifiers > 0 ? (
+                  <>
+                    <span className="text-emerald-400">{perf.wins}</span>
+                    <span className="text-gray-500">-</span>
+                    <span className="text-rose-400">{perf.losses}</span>
+                    {perf.pushes > 0 && <span className="text-yellow-400">-{perf.pushes}</span>}
+                  </>
+                ) : (
+                  <span className="text-gray-400">Awaiting grades</span>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                {perf.pending > 0 ? `${perf.pending} pending` : "All settled"}
+                {perf.ungradeable > 0 ? `, ${perf.ungradeable} ungradeable` : ""}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+              <p className="meta-label">Win %</p>
+              <p className={`mt-2 text-2xl font-bold ${winPctColor}`}>{winPct}</p>
+              <p className="mt-1 text-xs text-gray-500">Wins / (wins + losses)</p>
+            </div>
+            <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
+              <p className="meta-label">Net units (flat 1u)</p>
+              <p className={`mt-2 text-2xl font-bold ${netUnitsColor}`}>{netUnits}</p>
+              <p className="mt-1 text-xs text-gray-500">ML payout at odds captured at qualification</p>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4 sm:col-span-3">
+            <p className="meta-label">Grading status</p>
+            <p className="mt-2 text-base font-semibold text-gray-300">Watchlist qualifier only</p>
+            <p className="mt-1 text-xs text-gray-500">
+              No bet direction defined yet — qualifiers tracked but not graded.
+              W/L will appear here once a direction rule is proven.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Recent qualifier history from DB */}
+      {isMLGradeable && dbHistory.length > 0 && (
+        <div className="overflow-x-auto rounded-2xl border border-dark-border bg-dark-surface/70">
+          <div className="border-b border-dark-border bg-dark-bg/60 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+              Graded qualifier history (Supabase)
+            </p>
+          </div>
+          <div className="min-w-[720px]">
+            <div className="grid grid-cols-[1fr_0.7fr_0.8fr_0.6fr_0.5fr_0.6fr_1.2fr] gap-3 border-b border-dark-border bg-dark-bg/40 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+              <span>Matchup</span>
+              <span>Date</span>
+              <span>Qualified</span>
+              <span>Odds</span>
+              <span>Outcome</span>
+              <span>Net</span>
+              <span>Grading source</span>
+            </div>
+            {dbHistory.slice(0, 30).map((row) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-[1fr_0.7fr_0.8fr_0.6fr_0.5fr_0.6fr_1.2fr] gap-3 px-4 py-2.5 text-sm text-gray-300 [&:not(:last-child)]:border-b [&:not(:last-child)]:border-dark-border/50"
+              >
+                <span className="font-medium text-white">{row.matchup}</span>
+                <span>{row.game_date}</span>
+                <span>{row.qualified_team ?? "—"}</span>
+                <span>{row.qualifier_odds != null ? (row.qualifier_odds > 0 ? `+${row.qualifier_odds}` : `${row.qualifier_odds}`) : "—"}</span>
+                <span className={
+                  row.outcome === "win" ? "font-semibold text-emerald-400" :
+                  row.outcome === "loss" ? "font-semibold text-rose-400" :
+                  row.outcome === "push" ? "text-yellow-400" :
+                  row.outcome === "pending" ? "text-sky-400" :
+                  "text-gray-500"
+                }>
+                  {row.outcome}
+                </span>
+                <span className={
+                  row.net_units == null ? "text-gray-500" :
+                  Number(row.net_units) > 0 ? "text-emerald-400" :
+                  Number(row.net_units) < 0 ? "text-rose-400" :
+                  "text-yellow-400"
+                }>
+                  {row.net_units != null ? `${Number(row.net_units) > 0 ? "+" : ""}${Number(row.net_units).toFixed(2)}u` : "—"}
+                </span>
+                <span className="text-xs text-gray-500">{row.grading_source ?? row.settlement_status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function SystemDetailBoard({
+  system,
+  updatedAt,
+  nhlContextBoard,
+  dbPerformance = [],
+  dbHistory = [],
+}: {
+  system: TrackedSystem;
+  updatedAt: string;
+  nhlContextBoard?: NHLContextBoardResponse | null;
+  dbPerformance?: DbSystemPerformanceSummary[];
+  dbHistory?: DbSystemQualifier[];
+}) {
   const metrics = getSystemDerivedMetrics(system);
   const metricsAwaitingLines = !metrics.trackableGames;
   const isQualifierBoard = system.progressionLogic.length === 0;
@@ -317,6 +474,32 @@ export default function SystemDetailBoard({ system, updatedAt, nhlContextBoard }
           <TrackingRecordTable system={system} />
         </div>
       </section>
+
+      {/* Durable W/L performance from Supabase (ML-gradeable and Goose systems) */}
+      {(ML_GRADEABLE_IDS.has(system.id) || system.id === "nba-goose-system") && (
+        <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="section-heading">Durable performance (Supabase)</p>
+              <h2 className="mt-2 text-lg font-semibold text-white">
+                {ML_GRADEABLE_IDS.has(system.id) ? "ML grading history" : "Quarter ATS grading history"}
+              </h2>
+              <p className="mt-1 text-sm text-gray-400">
+                {ML_GRADEABLE_IDS.has(system.id)
+                  ? "Graded from live final scores via /api/admin/systems/grade. Persisted to system_qualifiers table."
+                  : "Persisted from NBA Goose quarter settlement. Synced to Supabase for durable tracking."}
+              </p>
+            </div>
+            <a
+              href="/admin/systems"
+              className="rounded-xl border border-dark-border bg-dark-bg/60 px-3 py-1.5 text-xs font-semibold text-gray-300 hover:text-white"
+            >
+              Admin →
+            </a>
+          </div>
+          <DbPerformancePanel systemId={system.id} dbPerformance={dbPerformance} dbHistory={dbHistory} />
+        </section>
+      )}
     </div>
   );
 }

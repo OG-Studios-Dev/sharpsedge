@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import SystemDetailBoard from "@/components/SystemDetailBoard";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
-import { getTrackedSystemBySlug, readSystemsTrackingData, refreshTrackableSystems, refreshTrackedSystem } from "@/lib/systems-tracking-store";
+import { getTrackedSystemBySlug, loadSystemPerformanceStats, loadSystemQualifierHistory, readSystemsTrackingData, refreshTrackableSystems, refreshTrackedSystem, type DbSystemPerformanceSummary, type DbSystemQualifier } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +44,10 @@ export default async function SystemDetailPage({ params }: Props) {
 
   if (!system) notFound();
 
+  // Load DB performance stats for gradeable systems (graceful fallback)
+  const dbPerformance = await loadSystemPerformanceStats(system.id).catch(() => [] as DbSystemPerformanceSummary[]);
+  const dbHistory = await loadSystemQualifierHistory(system.id, 60).catch(() => [] as DbSystemQualifier[]);
+
   return (
     <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24">
       <PageHeader
@@ -51,7 +55,13 @@ export default async function SystemDetailPage({ params }: Props) {
         subtitle={`${system.league} • ${system.category} • ${system.status.replaceAll("_", " ")}`}
       />
 
-      <SystemDetailBoard system={system} updatedAt={data.updatedAt} nhlContextBoard={nhlContextBoard} />
+      <SystemDetailBoard
+        system={system}
+        updatedAt={data.updatedAt}
+        nhlContextBoard={nhlContextBoard}
+        dbPerformance={dbPerformance}
+        dbHistory={dbHistory}
+      />
     </main>
   );
 }

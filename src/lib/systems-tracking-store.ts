@@ -8,6 +8,7 @@ import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, 
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
 import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
+import { upsertSystemQualifiers, loadSystemQualifiers, getSystemPerformanceFromDb, type DbSystemQualifier, type DbSystemPerformanceSummary } from "@/lib/system-qualifiers-db";
 
 export type SystemLeague = "NBA" | "NHL" | "MLB" | "NFL" | string;
 export type SystemCategory = "native" | "historical" | "external";
@@ -1186,8 +1187,18 @@ function normalizeQualificationLogEntry(entry: Partial<SystemQualificationLogEnt
   };
 }
 
+// Systems with real W/L grading (NBA Goose via quarter ATS; Swaggy + Falcons via ML)
+const ML_GRADEABLE_SYSTEM_IDS = new Set([
+  "swaggy-stretch-drive",
+  "falcons-fight-pummeled-pitchers",
+]);
+
 function systemHasActionableTracking(system: TrackedSystem) {
-  return system.id === NBA_GOOSE_SYSTEM_ID;
+  return system.id === NBA_GOOSE_SYSTEM_ID || ML_GRADEABLE_SYSTEM_IDS.has(system.id);
+}
+
+function systemIsMLGradeable(system: TrackedSystem) {
+  return ML_GRADEABLE_SYSTEM_IDS.has(system.id);
 }
 
 function isGooseRecordUngradeable(record: SystemTrackingRecord) {
@@ -1203,6 +1214,40 @@ function isGooseRecordUngradeable(record: SystemTrackingRecord) {
 
 function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackingRecord): SystemQualificationLogEntry {
   const actionable = systemHasActionableTracking(system);
+  const isML = systemIsMLGradeable(system);
+
+  // For ML-gradeable systems (Swaggy, Falcons): emit pending entries — grading happens via system-grader + Supabase
+  if (isML) {
+    return {
+      id: `${system.id}:${record.id}`,
+      systemId: system.id,
+      systemSlug: system.slug,
+      systemName: system.name,
+      gameDate: record.gameDate,
+      loggedAt: record.lastSyncedAt || new Date().toISOString(),
+      qualifierId: record.id,
+      recordKind: record.recordKind === "alert" || record.recordKind === "progression" ? record.recordKind : "qualifier",
+      matchup: record.matchup,
+      roadTeam: record.roadTeam,
+      homeTeam: record.homeTeam,
+      qualifiedTeam: record.qualifiedTeam || null,
+      opponentTeam: record.opponentTeam || null,
+      marketType: record.marketType || "moneyline",
+      actionLabel: `${system.name} ML qualifier`,
+      actionSide: record.qualifiedTeam || null,
+      flatStakeUnits: 1,
+      settlementStatus: "pending",
+      outcome: "pending",
+      netUnits: null,
+      source: record.source,
+      notes: record.notes,
+      recordSnapshot: normalizeRecord(record),
+      settledAt: null,
+      lastSyncedAt: record.lastSyncedAt,
+    };
+  }
+
+  // For NBA Goose (quarter ATS progression system)
   const ungradeable = actionable && isGooseRecordUngradeable(record);
   const settled = actionable && !ungradeable && record.sequenceResult != null && record.sequenceResult !== "pending";
   const outcome: SystemQualifierOutcome = actionable
@@ -1293,6 +1338,16 @@ async function writeSystemsTrackingData(data: SystemsTrackingData) {
     upsertSystemQualificationLog(data, system);
   }
   await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
+
+  // Async Supabase persistence — non-blocking, graceful fallback
+  const actionableEntries = (data.qualificationLog || []).filter(
+    (entry) => entry.settlementStatus !== "not_applicable",
+  );
+  if (actionableEntries.length > 0) {
+    upsertSystemQualifiers(actionableEntries).catch((err) => {
+      console.warn("[systems-tracking] Supabase upsert failed (graceful skip):", err instanceof Error ? err.message : err);
+    });
+  }
 }
 
 function getTrackedSystem(data: SystemsTrackingData, systemId: string, factory: () => TrackedSystem) {
@@ -3131,3 +3186,24 @@ export function getSystemDerivedMetrics(system: TrackedSystem, data?: SystemsTra
     performance: getSystemPerformanceSummary(system, data),
   };
 }
+
+// ─── Supabase-backed performance history API ─────────────────────────────────
+
+/**
+ * Load per-system W/L/net-units stats from Supabase DB view.
+ * Returns an empty array gracefully if the table is absent or Supabase is unavailable.
+ */
+export async function loadSystemPerformanceStats(systemId?: string): Promise<DbSystemPerformanceSummary[]> {
+  return getSystemPerformanceFromDb(systemId);
+}
+
+/**
+ * Load full qualifier history rows for a system (for admin/detail page display).
+ * Returns an empty array gracefully if Supabase unavailable.
+ */
+export async function loadSystemQualifierHistory(systemId: string, limitDays = 90): Promise<DbSystemQualifier[]> {
+  return loadSystemQualifiers(systemId, limitDays);
+}
+
+// Re-export DB types so callers don't need a separate import
+export type { DbSystemQualifier, DbSystemPerformanceSummary };
