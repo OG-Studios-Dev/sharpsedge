@@ -65,6 +65,19 @@ function RecordBar({ wins, losses, pushes, pending, profitUnits, label, hideWinR
   );
 }
 
+function formatAmericanOdds(odds: number): string {
+  return odds > 0 ? `+${odds}` : `${odds}`;
+}
+
+function OddsPill({ odds }: { odds?: number }) {
+  if (typeof odds !== "number" || !Number.isFinite(odds) || odds === 0) return null;
+  return (
+    <span className="text-[10px] rounded-full bg-dark-bg/70 text-gray-300 px-2 py-0.5 font-medium shrink-0">
+      {formatAmericanOdds(odds)}
+    </span>
+  );
+}
+
 function formatPickMatchup(pick: AIPick): string | null {
   if (!pick.team || !pick.opponent) return null;
   return `${pick.team} vs ${pick.opponent}`;
@@ -94,11 +107,13 @@ function PickRow({ pick }: { pick: AIPick }) {
         <p className="text-accent-blue text-xs sm:text-[11px] truncate mt-0.5">{pick.type === "player" ? formatPickDetail(pick) : pick.pickLabel}</p>
         <div className="flex items-center gap-2 mt-1.5 sm:hidden">
           <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
+          <OddsPill odds={pick.odds} />
           <ResultPill result={pick.result} />
         </div>
       </div>
       <div className="hidden sm:flex items-center gap-2 shrink-0 pl-2">
         <span className="text-[10px] text-gray-500">{displayHitRate(pick.hitRate)} hit</span>
+        <OddsPill odds={pick.odds} />
         <ResultPill result={pick.result} />
       </div>
     </Link>
@@ -196,7 +211,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h3 className="text-sm font-bold text-white tracking-tight">{league === "PGA" ? "TOURNAMENT AI PICKS" : "TODAY'S TOP PICKS"}</h3>
+          <h3 className="text-sm font-bold text-white tracking-tight">{league === "PGA" ? "TOURNAMENT AI PICKS" : "Goose's AI Picks"}</h3>
           <p className="text-[10px] text-gray-500 mt-0.5">
             {league === "PGA"
               ? "PGA · 12 tournament picks · 1 unit each"

@@ -320,6 +320,11 @@ export default function PickHistoryPage() {
                           <span className="text-[9px] text-gray-600">
                             {displayHitRate(pick.hit_rate)} hit
                           </span>
+                          {typeof pick.odds === "number" && Number.isFinite(pick.odds) && pick.odds !== 0 && (
+                            <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">
+                              {pick.odds > 0 ? `+${pick.odds}` : `${pick.odds}`}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <ResultBadge result={pick.result} />

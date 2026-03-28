@@ -948,6 +948,11 @@ export default function PicksPage() {
                               <span className="text-[9px] text-gray-600">
                                 {displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge
                               </span>
+                              {typeof pick.odds === "number" && Number.isFinite(pick.odds) && pick.odds !== 0 && (
+                                <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">
+                                  {formatAmericanOdds(pick.odds)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           {pick.result === "win" ? (
