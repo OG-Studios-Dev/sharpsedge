@@ -1,5 +1,83 @@
 # TODO
 
+## Systems Re-Audit + Tracking Hardening Pass — 2026-03-27
+
+### All items shipped ✅
+
+**1. NBA Goose System renamed → Mattys 1Q Chase NBA** ✅
+- Display name changed in `defaultGooseSystem()`: "NBA Goose System" → "Mattys 1Q Chase NBA"
+- Slug preserved: `nba-goose-system` (all links and internal IDs unchanged)
+- URL aliases added: `mattys-1q-chase-nba` and `mattys-1q-chase` both redirect to `nba-goose-system`
+- Qualification log entries use system.name — auto-propagates to "Mattys 1Q Chase NBA"
+- Sort priority maps use slug (unchanged) — no sort order change needed
+
+**2. Tony's Hot Bats reclassified: `blocked_missing_data` → `trackable_now`** ✅
+- Rationale: Refresh tracker is live in SYSTEM_TRACKERS. Official MLB lineup IDs, MLB hitter game logs,
+  park factors, Open-Meteo weather, and bullpen rails all connected. Same pattern as The Blowout and
+  Hot Teams Matchup (both `trackable_now` with partial bet-direction). The remaining "price discipline /
+  validation layer: pending" is a known limitation, not a blocking gap.
+- Updated summary, snapshot, automationStatusLabel/Detail, unlockNotes
+- dataRequirements: lineup partial, hitter logs ready, weather ready, bullpen ready, market partial, validation pending
+
+**3. BigCat Bonaza PuckLuck reclassified: `blocked_missing_data` → `parked_definition_only`** ✅
+- Rationale: xG/finishing-luck data gap resolved. MoneyPuck xGoalsPercentage live for all 32 NHL teams.
+  NHL PBP aggregate (nhl-pbp-aggregate) provides HDCF%, HDSV%, zone xG per team on 10-game rolling window.
+  The remaining gap is "public rule capture" — what thresholds and qualifier logic the external source uses.
+  Data blocked → definition blocked is a real upgrade.
+- xG dataRequirement status: "pending" → "ready" with updated detail
+- unlockNotes updated to reflect xG gap resolved as of 2026-03-27
+
+**4. Swaggy Stretch Drive stat tracking improved** ✅
+- `buildSwaggyQualifierRecord` now captures in qualifier notes:
+  - PP efficiency differential + tier (from `derived.ppEfficiency`)
+  - Net special teams differential
+  - Opponent goalie EV/PP/SH SV% (from `derived.goalie.strengthSplits`)
+  - Injury context: confirmed-out + DTD count for both sides (from `sourced.injuries`)
+- Zero new API calls — all data already loaded in the NHL context board
+
+**5. `getSystemSnapshot()` hardened for all systems** ✅
+- Mattys 1Q Chase NBA (Goose): now shows sequence WR%, net units, 1Q win rate, rescue rate
+- Swaggy Stretch Drive: xG edge count + live price count
+- Falcons Fight: avg Falcons score/100 + strong alert count
+- The Blowout: spread context count
+- Hot Teams Matchup: total line count
+- Tony's Hot Bats: early trigger count + official lineup count + weather count
+
+### Systems Status Matrix (post-audit)
+
+| System | League | Bucket | Notes |
+|---|---|---|---|
+| Mattys 1Q Chase NBA | NBA | trackable_now | Renamed from "NBA Goose System". Live progression tracker. |
+| The Blowout | NBA | trackable_now | Live watchlist. Blowout margin qualifier. |
+| Hot Teams Matchup | NBA | trackable_now | Live watchlist. Form-collision qualifier. |
+| Tony's Hot Bats | MLB | trackable_now | ✅ RECLASSIFIED. All primary rails live. Watchlist alerts, not picks. |
+| Falcons Fight Pummeled Pitchers | MLB | trackable_now | Live qualifier tracker. Falcons score + enrichment rails. |
+| Swaggy Stretch Drive | NHL | trackable_now | Live qualifier tracker. Urgency + xG + goalie + fatigue + price gates. |
+| Beefs Bounce-Back | NBA | blocked_missing_data | Still needs prior-game closing spread archive. Not wired. |
+| Fat Tonys Fade | NBA | blocked_missing_data | Still needs public betting handle splits source. Not wired. |
+| Coaches Fuming Scoring Drought | NHL | blocked_missing_data | Still needs coach-quote/news tagging system. Not wired. |
+| BigCat Bonaza PuckLuck | NHL | parked_definition_only | ✅ RECLASSIFIED. xG data live. Awaiting public rule capture. |
+| Quick Rips F5 | MLB | blocked_missing_data | No starter-mismatch rule definition. F5 availability partial but no qualifier logic. |
+| Falcons Fight Big Upset Follow-Ups | MLB | parked_definition_only | Upset threshold + follow-up action rules not defined. |
+| Veal Bangers Playoff ZigZag | NHL | parked_definition_only | Playoff-series state + overreaction rules not defined. Off-season. |
+| Warren Sharp Computer Totals Model | NFL | blocked_missing_data | External projections feed not wired. NFL off-season. |
+| Fly Low Goose | NFL | parked_definition_only | No qualifier rules written. Placeholder. |
+| Tony's Teaser Pleaser | NFL | blocked_missing_data | Teaser price ledger + key-number rules not defined. NFL off-season. |
+
+### Remaining blockers (post-audit)
+
+| System | Blocker | Path |
+|---|---|---|
+| Beefs Bounce-Back | Prior-game closing spread archive | The Odds API `historical` endpoint or similar; not on current rails |
+| Fat Tonys Fade | Public betting handle/ticket splits | No free splits feed; Covers/Action Network require scraping or paid API |
+| Coaches Fuming Scoring Drought | Coach-quote/news tagging | No structured NLP/news classifier wired |
+| BigCat Bonaza PuckLuck | Public rule capture | Define external-source qualifier thresholds; data ready to go |
+| Quick Rips F5 | Qualifier rule definition + F5 lines | F5 availability checked but no systematic F5 moneyline/total ingestion |
+| Tony's Teaser Pleaser | Teaser price ledger | Needs teaser-specific market data (not just full-game spread) |
+| NFL systems | NFL off-season | No schedule until September; revisit pre-season |
+
+---
+
 ## Hardening Sprint — 2026-03-27 (commit 8ae79b5)
 
 ### All 7 items shipped

@@ -15,6 +15,8 @@ type Props = {
 const SYSTEM_SLUG_ALIASES: Record<string, string> = {
   goose: "nba-goose-system",
   "nba-goose": "nba-goose-system",
+  "mattys-1q-chase-nba": "nba-goose-system",
+  "mattys-1q-chase": "nba-goose-system",
   falcons: "falcons-fight-pummeled-pitchers",
   "hot-bats": "tonys-hot-bats",
   swaggy: "swaggy-stretch-drive",
