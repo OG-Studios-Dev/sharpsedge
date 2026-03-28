@@ -384,7 +384,7 @@ export default function SystemDetailBoard({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="section-heading">Live context rails</p>
-              <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy can use right now</h2>
+              <h2 className="mt-2 text-lg font-semibold text-white">What Swaggy's can use right now</h2>
             </div>
             <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
               sourced + derived

@@ -528,7 +528,7 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "swaggy-stretch-drive",
       slug: "swaggy-stretch-drive",
-      name: "Swaggy Stretch Drive",
+      name: "Swaggy's Stretch Drive",
       league: "NHL",
       category: "historical",
       owner: "Goosalytics Lab",
@@ -720,7 +720,7 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
       slug: "falcons-fight-pummeled-pitchers",
-      name: "Falcons Fight Pummeled Pitchers",
+      name: "Veal Banged Up Pitchers",
       league: "MLB",
       category: "historical",
       owner: "Goosalytics Lab",

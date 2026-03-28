@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPGALeaderboard, getPGASchedule, getPGATournamentLeaderboard } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";
 import { getGolfOdds } from "@/lib/golf-odds";
+import { getPGAFallbackSummary, type PGAFallbackSummary } from "@/lib/pga-fallback-summary";
 import {
   formatGolfUpdatedAt,
   formatGolfPercent,
@@ -54,10 +55,11 @@ function heroPreviewPlayers(leaderboard: GolfLeaderboard | null) {
 }
 
 export default async function GolfPage() {
-  const [activeLeaderboard, schedule, odds] = await Promise.all([
+  const [activeLeaderboard, schedule, odds, fallbackSummary] = await Promise.all([
     getPGALeaderboard(),
     getPGASchedule(),
     getGolfOdds(),
+    getPGAFallbackSummary().catch(() => null),
   ]);
 
   const heroTournament = activeLeaderboard?.tournament
@@ -295,6 +297,89 @@ export default async function GolfPage() {
             })}
           </div>
         </details>
+
+        {/* PGA Fallback Odds Rail — honest coverage status */}
+        <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Odds Fallback Rail</p>
+              <h2 className="mt-1 text-xl font-semibold text-white">PGA backup odds capture</h2>
+              <p className="mt-1 text-sm text-gray-400">
+                Secondary odds source active when Bovada returns empty or thin winner markets.
+              </p>
+            </div>
+            {fallbackSummary?.available && fallbackSummary.lastCaptureAt ? (
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                Rail live
+              </span>
+            ) : (
+              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                No capture yet
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Live markets</p>
+              <p className="mt-1.5 text-sm font-semibold text-white">
+                {fallbackSummary?.liveMarkets.join(", ") ?? "winner"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Via The Odds API (ODDS_API_KEY_2) — major tournaments only.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Scaffolded only</p>
+              <p className="mt-1.5 text-sm font-semibold text-white">
+                {fallbackSummary?.scaffoldedMarkets.join(", ") ?? "top5, top10, top20, make_cut"}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                JS-rendered site — requires manual injection or headless scraper.
+              </p>
+            </div>
+          </div>
+
+          {fallbackSummary?.available && fallbackSummary.lastCaptureAt ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-400">
+                <span>
+                  Last capture:{" "}
+                  <span className="font-medium text-white">
+                    {new Date(fallbackSummary.lastCaptureAt).toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </span>
+                <span>
+                  Rows in sample:{" "}
+                  <span className="font-medium text-white">{fallbackSummary.rowCount}</span>
+                </span>
+              </div>
+              {fallbackSummary.tournaments.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  Tournaments: {fallbackSummary.tournaments.join(" · ")}
+                </p>
+              )}
+              {Object.keys(fallbackSummary.byMarket).length > 0 && (
+                <p className="text-xs text-gray-500">
+                  By market:{" "}
+                  {Object.entries(fallbackSummary.byMarket)
+                    .map(([market, count]) => `${market} (${count})`)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          <p className="mt-3 text-xs text-gray-500">
+            {fallbackSummary?.limitationNote ??
+              "Supabase not configured — fallback capture status unavailable."}
+          </p>
+        </section>
       </div>
     </main>
   );

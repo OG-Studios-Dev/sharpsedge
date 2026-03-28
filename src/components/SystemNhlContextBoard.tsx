@@ -106,7 +106,7 @@ export default function SystemNhlContextBoard({ board }: { board: NHLContextBoar
   if (!board || board.games.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-400">
-        NHL context board unavailable for this request. Swaggy stays definition-only instead of guessing urgency or goalie context.
+        NHL context board unavailable for this request. Swaggy's stays definition-only instead of guessing urgency or goalie context.
       </div>
     );
   }
@@ -118,7 +118,7 @@ export default function SystemNhlContextBoard({ board }: { board: NHLContextBoar
       <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-4">
         <p className="text-sm font-semibold text-white">Live NHL context board</p>
         <p className="mt-2 text-sm leading-6 text-gray-400">
-          These are supporting rails for Swaggy, not auto-bets. MoneyPuck and goalie/news inputs are sourced; rest, travel, fatigue, and playoff pressure are derived heuristics.
+          These are supporting rails for Swaggy's, not auto-bets. MoneyPuck and goalie/news inputs are sourced; rest, travel, fatigue, and playoff pressure are derived heuristics.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-400">
           <span className="rounded-full border border-dark-border bg-dark-surface px-2.5 py-1">Games: {board.games.length}</span>
