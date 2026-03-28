@@ -15,6 +15,10 @@
       "schedule": "0 14,20,2 * * *"
     },
     {
+      "path": "/api/admin/pga-fallback-capture",
+      "schedule": "0 6 * * 1"
+    },
+    {
       "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB",
       "schedule": "17 * * * *"
     },

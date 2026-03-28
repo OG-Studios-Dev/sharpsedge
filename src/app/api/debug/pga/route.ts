@@ -249,6 +249,48 @@ export async function GET() {
     },
   };
 
+  // Step: fallback odds rail status
+  try {
+    const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
+    const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+    if (supabaseUrl && supabaseKey) {
+      const fbRes = await fetch(
+        `${supabaseUrl}/rest/v1/pga_fallback_odds?select=market,source,captured_at,tournament&order=captured_at.desc&limit=50`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } },
+      );
+      if (fbRes.ok) {
+        const fbRows = await fbRes.json() as Array<{ market: string; source: string; captured_at: string; tournament: string }>;
+        const byMarket: Record<string, number> = {};
+        const bySource: Record<string, number> = {};
+        for (const r of fbRows) {
+          byMarket[r.market] = (byMarket[r.market] ?? 0) + 1;
+          bySource[r.source] = (bySource[r.source] ?? 0) + 1;
+        }
+        steps.fallback_odds_rail = {
+          status: fbRows.length > 0 ? "has_data" : "empty",
+          rowsInSample: fbRows.length,
+          lastCaptureAt: fbRows[0]?.captured_at ?? null,
+          lastTournament: fbRows[0]?.tournament ?? null,
+          byMarket,
+          bySource,
+          admin: "POST /api/admin/pga-fallback-capture to trigger capture",
+          inspect: "GET /api/admin/pga-fallback-capture for status",
+        };
+      } else if (fbRes.status === 404) {
+        steps.fallback_odds_rail = {
+          status: "table_missing",
+          note: "Run migration: supabase/migrations/20260328200000_pga_fallback_odds.sql",
+        };
+      } else {
+        steps.fallback_odds_rail = { status: "error", httpStatus: fbRes.status };
+      }
+    } else {
+      steps.fallback_odds_rail = { status: "skipped", reason: "Supabase not configured" };
+    }
+  } catch (err) {
+    steps.fallback_odds_rail = { status: "error", error: String(err) };
+  }
+
   // Summary
   const allPassed = errors.length === 0;
 
@@ -266,6 +308,7 @@ export async function GET() {
       goose_model: "/api/admin/goose-model/generate { sport: PGA }",
       scoring: "signal-tagger + PGA priors + DataGolf context auto-signals → 20% PGA blend / 80% base",
       parity_claim: "PGA feature pipeline now structurally equivalent to NBA (nba-features+nba-context), NHL (nhl-features+nhl-context), and MLB (mlb-features+mlb-enrichment)",
+      fallback_odds: "fallback-odds-scraper.ts → pga_fallback_odds (Supabase) → triggered by /api/golf/odds-snapshot when Bovada fails, or via /api/admin/pga-fallback-capture (cron: Mon 06:00 UTC)",
     },
   });
 }

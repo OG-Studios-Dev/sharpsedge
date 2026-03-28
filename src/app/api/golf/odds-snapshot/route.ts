@@ -2,6 +2,10 @@
  * /api/golf/odds-snapshot
  * Scrapes Bovada golf odds (winner, top 5/10/20, H2H matchups) for all upcoming
  * PGA Tour events and saves snapshots. Runs 3x daily via Vercel cron.
+ *
+ * FALLBACK RAIL: When Bovada returns empty or <5 winner lines, this route
+ * automatically triggers the PGA fallback capture from secondary sources
+ * (The Odds API ODDS_API_KEY_2). Results stored in pga_fallback_odds table.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,6 +22,7 @@ import {
   type H2HPick,
   type OutrightPick,
 } from "@/lib/golf/h2h-analyzer";
+import { runFallbackCapture, type FallbackOddsLine } from "@/lib/golf/fallback-odds-scraper";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -90,6 +95,40 @@ function alreadySnapshotted(tournament: string, dateStr: string): boolean {
   }
 }
 
+async function storeFallbackLines(lines: FallbackOddsLine[]): Promise<{ stored: number; error: string | null }> {
+  if (!SUPABASE_URL || !SUPABASE_KEY || lines.length === 0) {
+    return { stored: 0, error: SUPABASE_URL && SUPABASE_KEY ? null : "Supabase not configured" };
+  }
+  try {
+    const rows = lines.map((l) => ({
+      player: l.player,
+      market: l.market,
+      odds: l.odds,
+      source: l.source,
+      source_url: l.source_url,
+      captured_at: l.captured_at,
+      tournament: l.tournament,
+      book: l.book,
+      event_id: l.event_id,
+      is_fallback: true,
+    }));
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/pga_fallback_odds`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(rows),
+    });
+    if (res.status === 404) return { stored: 0, error: "pga_fallback_odds table not found — run migration" };
+    return res.ok ? { stored: rows.length, error: null } : { stored: 0, error: `Supabase ${res.status}` };
+  } catch (err) {
+    return { stored: 0, error: String(err) };
+  }
+}
+
 export async function GET(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10);
   const force = req.nextUrl.searchParams.get("force") === "true";
@@ -105,6 +144,15 @@ export async function GET(req: NextRequest) {
     h2hPicks: {} as Record<string, H2HPick[]>,
     outrightValue: {} as Record<string, OutrightPick[]>,
     errors: [] as string[],
+    fallback: null as null | {
+      triggered: boolean;
+      reason: string;
+      linesStored: number;
+      bySource: Record<string, number>;
+      byMarket: Record<string, number>;
+      limitations: string[];
+      storeError: string | null;
+    },
   };
 
   for (const snap of snapshots) {
@@ -138,6 +186,56 @@ export async function GET(req: NextRequest) {
     } else {
       results.errors.push(`${snap.tournament}: could not save to file or DB`);
     }
+  }
+
+  // ── Fallback rail: trigger when Bovada returns no winner lines ──────────────
+  // Count total winner lines across all Bovada snapshots
+  const bovadaWinnerCount = snapshots.reduce(
+    (sum, s) => sum + (s.markets.winner?.length ?? 0),
+    0,
+  );
+  const bovadaFailed = snapshots.length === 0 || bovadaWinnerCount < 5;
+
+  if (bovadaFailed) {
+    const fallbackReason =
+      snapshots.length === 0
+        ? "Bovada returned 0 tournaments"
+        : `Bovada returned only ${bovadaWinnerCount} winner lines across ${snapshots.length} tournament(s)`;
+
+    try {
+      const { allLines, summary } = await runFallbackCapture();
+      const { stored, error: storeError } = await storeFallbackLines(allLines);
+
+      results.fallback = {
+        triggered: true,
+        reason: fallbackReason,
+        linesStored: stored,
+        bySource: summary.bySource,
+        byMarket: summary.byMarket,
+        limitations: summary.limitations,
+        storeError,
+      };
+    } catch (err) {
+      results.fallback = {
+        triggered: true,
+        reason: fallbackReason,
+        linesStored: 0,
+        bySource: {},
+        byMarket: {},
+        limitations: [],
+        storeError: String(err),
+      };
+    }
+  } else {
+    results.fallback = {
+      triggered: false,
+      reason: `Bovada healthy: ${bovadaWinnerCount} winner lines across ${snapshots.length} tournament(s)`,
+      linesStored: 0,
+      bySource: {},
+      byMarket: {},
+      limitations: [],
+      storeError: null,
+    };
   }
 
   return NextResponse.json(results);
