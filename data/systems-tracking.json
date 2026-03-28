@@ -696,9 +696,9 @@
       "category": "external",
       "owner": "External source",
       "status": "source_based",
-      "trackabilityBucket": "blocked_missing_data",
-      "summary": "External-style puck-luck concept blocked until a real xG/finishing-luck source and exact public rules are attached.",
-      "snapshot": "Blocked: puck-luck data feed required.",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "External-style puck-luck concept parked pending public rule definition. xG/finishing-luck data is now live via MoneyPuck + NHL PBP aggregates - the data gap is resolved, but qualifier rules from the external source have not been captured.",
+      "snapshot": "Data gap resolved: xG feed live. Parked awaiting public rule capture to define qualifier thresholds.",
       "definition": "An externally inspired NHL concept around variance, finishing luck, and short-term puck-luck narratives. Included in the catalog so users can see the definition and sourcing without mistaking it for a verified in-house edge.",
       "qualifierRules": [
         "Do not present as a native Goosalytics model.",
@@ -713,7 +713,7 @@
           "detail": "Included as a cataloged outside-style model. No Goosalytics-owned track record is implied."
         }
       ],
-      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusLabel": "Parked / definition only - data gap resolved",
       "automationStatusDetail": "Needs public source rule capture plus a reliable xG / finishing-luck feed.",
       "dataRequirements": [
         {
