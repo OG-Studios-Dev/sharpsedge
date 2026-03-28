@@ -375,19 +375,36 @@ async function hydrateRecoverableSlate(
     };
   } catch (error) {
     const message = toErrorMessage(error, "Recoverable slate exists but pick rows were not persisted.");
-    await tryPatchPickSlate(options.date, options.league, {
-      status: "incomplete",
-      pick_count: 0,
-      status_note: message,
-    });
 
     if (isConflictError(message)) {
+      // Race condition: picks were inserted by a concurrent request before we got here.
+      // Re-read actual records and reconcile the slate rather than zeroing it out.
       const refreshed = await getStoredPickSlate(options.date, options.league);
+      if (refreshed.records.length > 0) {
+        await tryPatchPickSlate(options.date, options.league, {
+          status: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT ? "locked" : "incomplete",
+          pick_count: refreshed.records.length,
+          status_note: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT
+            ? null
+            : `Only ${refreshed.records.length} of ${EXPECTED_DAILY_PICK_COUNT} picks recorded (race condition resolved).`,
+        });
+        return {
+          source: "existing",
+          ...refreshed,
+        };
+      }
+      // No picks stored at all despite the conflict — leave as-is
       return {
         source: "existing",
         ...refreshed,
       };
     }
+
+    await tryPatchPickSlate(options.date, options.league, {
+      status: "incomplete",
+      pick_count: 0,
+      status_note: message,
+    });
 
     throw error;
   }
@@ -446,10 +463,31 @@ export async function storeDailyPickSlate(
       ...toFetchResult(slate, records),
     };
   } catch (error) {
+    const message = toErrorMessage(error, "Slate lock exists but pick rows were not persisted.");
+
+    if (isConflictError(message)) {
+      // Race condition: another request already inserted these pick rows.
+      // Re-read the actual DB state and reconcile instead of zeroing the slate.
+      const refreshed = await getStoredPickSlate(options.date, options.league);
+      if (refreshed.records.length > 0) {
+        await tryPatchPickSlate(options.date, options.league, {
+          status: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT ? "locked" : "incomplete",
+          pick_count: refreshed.records.length,
+          status_note: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT
+            ? null
+            : `Only ${refreshed.records.length} of ${EXPECTED_DAILY_PICK_COUNT} picks recorded (race condition resolved).`,
+        });
+        return {
+          source: "existing",
+          ...refreshed,
+        };
+      }
+    }
+
     await tryPatchPickSlate(options.date, options.league, {
       status: "incomplete",
       pick_count: 0,
-      status_note: toErrorMessage(error, "Slate lock exists but pick rows were not persisted."),
+      status_note: message,
     });
     throw error;
   }
