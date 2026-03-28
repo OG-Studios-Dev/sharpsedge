@@ -216,6 +216,7 @@ const HOT_TEAMS_MATCHUP_SYSTEM_ID = "hot-teams-matchup";
 const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitchers";
 const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
 const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
+const ROBBIES_RIPPER_FAST_5_SYSTEM_ID = "robbies-ripper-fast-5";
 const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
@@ -812,44 +813,60 @@ function seededCatalog(): TrackedSystem[] {
       records: [],
     },
     {
-      id: "quick-rips-f5",
-      slug: "quick-rips-f5",
-      name: "Quick Rips F5",
+      id: ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+      slug: "robbies-ripper-fast-5",
+      name: "Robbie's Ripper Fast 5",
       league: "MLB",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
-      trackabilityBucket: "blocked_missing_data",
-      summary: "First-five MLB ripper concept blocked until F5 lines, probable pitchers, and a stable entry model exist in the pipeline.",
-      snapshot: "Blocked: F5 lines + probable pitchers required.",
+      trackabilityBucket: "trackable_now",
+      summary: "MLB first-five qualifier board targeting starter mismatches when F5 markets are posted. Alerts when a meaningful quality gap and live F5 price both exist. Grading requires inning-level linescore data.",
+      snapshot: "F5 market rail live. Qualifier board active when both probable pitchers and F5 lines are posted.",
       definition:
-        "An MLB first-five system intended to attack early-game pricing before bullpen variance takes over, likely driven by starter mismatch and opening-through-F5 market shape.",
+        "Attack MLB first-five pricing before bullpen variance takes over by flagging games where one starter is meaningfully better than the other and an actual F5 market (side or total) has been posted by books. Qualifiers fire only when the starter mismatch is real and the F5 price exists. No synthetic lines are inferred.",
       qualifierRules: [
-        "Needs a declared F5 market scope: side, total, or both.",
-        "Probable pitchers and lineup confirmation have to be locked before pricing is trusted.",
-        "Starter mismatch rules need to be defined explicitly.",
+        "Both probable pitchers must be listed by MLB before the game qualifies.",
+        "An F5 market (h2h_1st_5_innings or totals_1st_5_innings) must be explicitly posted by at least one book — no full-game-to-F5 inference.",
+        "Starter mismatch requires a qualityScore gap of 12 or more points (ERA+WHIP blend scale 30–80) between the two starters.",
+        "The qualifying side is the team with the better-quality starter.",
+        "Weather: if temperature is available and below 40°F, or wind speed above 22 mph in an exposed park, a context note is added but does not automatically disqualify.",
+        "Context-board rows are stored for every game with both probable pitchers even when the F5 market or mismatch gate does not fire, so the board reflects honest data coverage.",
       ],
       progressionLogic: [],
       thesis:
-        "There is a real case for isolating first-five edges in baseball, but only if the app can capture the actual F5 prices and starter inputs instead of guessing them.",
+        "The first five innings isolate starter quality better than the full game does. When books post an actual F5 line and one starter is measurably better than the other by a quality-score gap, there may be a pricing inefficiency worth tracking. That claim stays honest only when both the mismatch and the market are real.",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Cataloged now, blocked honestly until F5-specific data exists.",
+          label: "Native qualifier tracker",
+          detail: "Robbie's Ripper Fast 5 is a Goosalytics-owned MLB system built from probable starters (ERA+WHIP quality scoring), the MLB enrichment F5 market rail, and park/weather/bullpen context.",
+        },
+        {
+          label: "Honesty policy",
+          detail: "Rows are qualifier alerts only. No F5 line is synthesized from full-game markets. Grading requires 5-inning linescore data from the MLB Stats API; rows stay pending until that data is available.",
+        },
+        {
+          label: "Formerly Quick Rips F5",
+          detail: "This system was previously cataloged as 'Quick Rips F5' (slug: quick-rips-f5). The old slug redirects to robbies-ripper-fast-5.",
         },
       ],
-      automationStatusLabel: "Blocked by missing data",
-      automationStatusDetail: "F5 lines + probable pitchers required, along with a real starter-mismatch model.",
+      automationStatusLabel: "Live qualifier board — F5 mismatch alerts when markets posted",
+      automationStatusDetail: "Refreshes from the MLB enrichment board daily. Stores alert rows when both probable pitchers are listed, an F5 market exists, and the starter quality gap meets the 12-point threshold. Grading uses MLB Stats API per-inning linescore data when available.",
       dataRequirements: [
-        { label: "F5 lines", status: "pending", detail: "F5 lines + totals feed required." },
-        { label: "Probable pitchers", status: "pending", detail: "Need reliable probable-pitcher inputs and confirmations." },
-        { label: "Starter-mismatch model", status: "pending", detail: "Need the actual rule set for what counts as a quick-rip edge." },
+        { label: "F5 market availability", status: "ready", detail: "The aggregated odds feed exposes h2h_1st_5_innings and totals_1st_5_innings keys when books post them. Completeness is checked per-game on every refresh." },
+        { label: "Probable pitchers + ERA/WHIP quality scoring", status: "ready", detail: "MLB schedule hydrate exposes probable starters with current ERA and WHIP. Quality score (30–80 scale) blends ERA+WHIP when both available." },
+        { label: "Starter-mismatch gate", status: "ready", detail: "Quality gap of 12+ points on the 30–80 scale is the trigger. No fabricated adjustments." },
+        { label: "Weather / park / bullpen context", status: "ready", detail: "Open-Meteo weather, seeded park factors, and bullpen workload context attached from the MLB enrichment board." },
+        { label: "F5 inning linescore for grading", status: "partial", detail: "MLB Stats API /game/{gamePk}/linescore provides per-inning runs. Grading fires when 5 complete innings are confirmed. Rows stay pending if linescore is unavailable or game is live." },
       ],
-      unlockNotes: [
-        "F5 lines + probable pitchers required.",
-        "Starter-mismatch model required.",
+      unlockNotes: [],
+      trackingNotes: [
+        "Alert rows are stored only when the F5 market is actually posted and the starter mismatch clears the gate.",
+        "Context-board rows capture all games with probable pitchers so the data coverage is visible even when no alert fires.",
+        "F5 side grading: qualifiedTeam leads (or ties) after 5 innings = win (or push). Home team extra-inning rules follow standard F5 settlement conventions (home team wins if leading after 5 complete away-team at-bats).",
+        "F5 total grading: combined runs through 5 innings vs the posted total line.",
+        "If inning linescore is unavailable after game completion, the row is explicitly marked ungradeable with a note explaining the blocker.",
       ],
-      trackingNotes: [],
       records: [],
     },
     {
@@ -993,6 +1010,9 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   },
   [SWAGGY_STRETCH_DRIVE_SYSTEM_ID]: {
     refresh: refreshSwaggyStretchDriveSystemData,
+  },
+  [ROBBIES_RIPPER_FAST_5_SYSTEM_ID]: {
+    refresh: refreshRobbiesRipperFast5SystemData,
   },
 };
 
@@ -1187,10 +1207,11 @@ function normalizeQualificationLogEntry(entry: Partial<SystemQualificationLogEnt
   };
 }
 
-// Systems with real W/L grading (NBA Goose via quarter ATS; Swaggy + Falcons via ML)
+// Systems with real W/L grading (NBA Goose via quarter ATS; Swaggy + Falcons via ML; Robbie's Ripper via F5 inning linescore)
 const ML_GRADEABLE_SYSTEM_IDS = new Set([
   "swaggy-stretch-drive",
   "falcons-fight-pummeled-pitchers",
+  ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
 ]);
 
 function systemHasActionableTracking(system: TrackedSystem) {
@@ -2447,6 +2468,7 @@ export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
     applySimpleWatchlistReadiness(getHotTeamsMatchupSystem(data));
     applyFalconsFightPummeledPitchersReadiness(getFalconsFightPummeledPitchersSystem(data));
     applyTonysHotBatsReadiness(getTonysHotBatsSystem(data));
+    applyRobbiesRipperFast5Readiness(getRobbiesRipperFast5System(data));
     for (const system of data.systems) {
       if (system.id === SWAGGY_STRETCH_DRIVE_SYSTEM_ID) {
         const qualifiers = system.records.length;
@@ -2964,6 +2986,236 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
   system.automationStatusDetail = qualifiers > 0
     ? `${qualifiers} NHL qualifier${qualifiers === 1 ? "" : "s"} passed the urgency + MoneyPuck + goalie + fatigue + price screen. ${withMoneyline} stored with moneyline, ${withXg} with xG context, ${withGoalies} with goalie context, and ${withTotals} with posted totals context. ${auditSummary}`
     : `Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. ${auditSummary}`;
+
+  return system;
+}
+
+function applyRobbiesRipperFast5Readiness(system: TrackedSystem) {
+  const alerts = system.records.filter((r) => r.recordKind === "alert").length;
+  const contextBoard = system.records.filter((r) => r.recordKind === "qualifier").length;
+  const gamesWithF5 = system.records.filter((r) => r.f5Summary && !r.f5Summary.includes("none") && !r.f5Summary.includes("unavailable")).length;
+  const total = system.records.length;
+
+  system.status = total > 0 ? "tracking" : "awaiting_data";
+  system.automationStatusLabel = alerts > 0
+    ? "Live F5 alert — starter mismatch + F5 market confirmed"
+    : total > 0
+      ? "Context board live — awaiting F5 market posts"
+      : "Awaiting MLB board";
+  system.automationStatusDetail = total > 0
+    ? `${total} game${total === 1 ? "" : "s"} on board — ${alerts} alert${alerts === 1 ? "" : "s"}, ${contextBoard} context-board, ${gamesWithF5} with F5 market posted.`
+    : "Refresh will build a same-day MLB board from probable pitchers, F5 market rail, and enrichment context.";
+}
+
+function getRobbiesRipperFast5System(data: SystemsTrackingData) {
+  return getTrackedSystem(
+    data,
+    ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(ROBBIES_RIPPER_FAST_5_SYSTEM_ID)!),
+  );
+}
+
+/**
+ * Robbie's Ripper Fast 5 qualifier logic.
+ *
+ * Fires an alert row when:
+ *   1. Both probable pitchers are listed by MLB
+ *   2. An F5 market (h2h_1st_5_innings or totals_1st_5_innings) is explicitly posted
+ *   3. The starter quality gap is >= 12 points on the 30–80 ERA+WHIP scale
+ *
+ * Stores a context-board row for every game that has both probable pitchers,
+ * even when the F5 market or mismatch threshold does not fire.
+ */
+async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getRobbiesRipperFast5System(data);
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const board = await getMLBEnrichmentBoard(targetDate);
+
+  const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: (board.games ?? []).length,
+    alerts: 0,
+    contextBoard: 0,
+    missingBothPitchers: 0,
+    missingF5Market: 0,
+    belowMismatchThreshold: 0,
+  };
+
+  for (const game of (board.games ?? [])) {
+    const awayPitcher = game?.matchup?.away?.probablePitcher ?? game?.probableStarters?.away ?? null;
+    const homePitcher = game?.matchup?.home?.probablePitcher ?? game?.probableStarters?.home ?? null;
+
+    const awayQuality = game?.starterQuality?.away ?? null;
+    const homeQuality = game?.starterQuality?.home ?? null;
+
+    const f5Market = game?.markets?.f5 ?? null;
+    const f5Available = f5Market?.available === true;
+    const f5Completeness = f5Market?.completeness ?? "none";
+    const f5SupportedMarkets: string[] = Array.isArray(f5Market?.supportedMarkets) ? f5Market.supportedMarkets : [];
+    const f5ML = f5Market?.moneyline ?? null;
+    const f5Total = f5Market?.total ?? null;
+
+    // Summarise market info
+    const marketAvailability = f5Available
+      ? `F5 ${f5Completeness}${f5SupportedMarkets.length ? ` (${f5SupportedMarkets.join(", ")})` : ""}${f5Total?.line != null ? ` • total ${f5Total.line}` : ""}${f5ML?.away?.odds != null ? ` • away ML ${f5ML.away.odds > 0 ? "+" : ""}${f5ML.away.odds}` : ""}${f5ML?.home?.odds != null ? ` • home ML ${f5ML.home.odds > 0 ? "+" : ""}${f5ML.home.odds}` : ""}`
+      : "F5 none";
+
+    const weatherSummary = (() => {
+      const w = game?.weather;
+      if (!w) return "Weather context unavailable.";
+      const forecast = w.forecast;
+      if (!forecast) return w.note || "Weather context unavailable.";
+      const bits: string[] = [];
+      if (typeof forecast.temperatureF === "number") bits.push(`${Math.round(forecast.temperatureF)}°F`);
+      if (typeof forecast.windSpeedMph === "number") bits.push(`${Math.round(forecast.windSpeedMph)} mph wind`);
+      return bits.length ? bits.join(" • ") : (w.note || "Weather context unavailable.");
+    })();
+
+    const parkFactorSummary = (() => {
+      const pf = game?.parkFactor;
+      if (!pf || pf.status === "missing" || !pf.metrics) return "Park factor missing from current seed.";
+      const runs = typeof pf.metrics.runs === "number" ? `Runs ${pf.metrics.runs}` : null;
+      const hr = typeof pf.metrics.homeRuns === "number" ? `HR ${pf.metrics.homeRuns}` : null;
+      const bits = [runs, hr].filter(Boolean);
+      return bits.length ? `${pf.venueName || game?.matchup?.home?.fullName || "Park"}: ${bits.join(" • ")}` : `Park factor available.`;
+    })();
+
+    const awayBullpen = game?.matchup?.away?.bullpen;
+    const homeBullpen = game?.matchup?.home?.bullpen;
+    const bullpenSummary = [
+      awayBullpen?.summary ? `${game?.matchup?.away?.abbreviation || "Away"}: ${awayBullpen.summary}` : null,
+      homeBullpen?.summary ? `${game?.matchup?.home?.abbreviation || "Home"}: ${homeBullpen.summary}` : null,
+    ].filter(Boolean).join(" • ") || "Bullpen context unavailable.";
+
+    const awayAbbrev = game?.matchup?.away?.abbreviation || "AWAY";
+    const homeAbbrev = game?.matchup?.home?.abbreviation || "HOME";
+    const matchup = `${awayAbbrev} @ ${homeAbbrev}`;
+
+    // Check qualifier gates
+    const hasBothPitchers = Boolean(awayPitcher?.name && homePitcher?.name);
+    if (!hasBothPitchers) {
+      audit.missingBothPitchers += 1;
+    }
+
+    const awayQScore = awayQuality?.qualityScore ?? null;
+    const homeQScore = homeQuality?.qualityScore ?? null;
+    const qualityGap = awayQScore != null && homeQScore != null ? Math.abs(awayQScore - homeQScore) : null;
+    const mismatchQualifies = qualityGap != null && qualityGap >= 12;
+
+    // Determine which side has the better starter (qualifiedTeam for the alert)
+    let qualifiedTeam: string | null = null;
+    let qualifiedMoneyline: number | null = null;
+    if (mismatchQualifies && awayQScore != null && homeQScore != null) {
+      if (awayQScore > homeQScore) {
+        qualifiedTeam = awayAbbrev;
+        qualifiedMoneyline = f5ML?.away?.odds ?? null;
+      } else {
+        qualifiedTeam = homeAbbrev;
+        qualifiedMoneyline = f5ML?.home?.odds ?? null;
+      }
+    }
+
+    const isAlert = hasBothPitchers && f5Available && mismatchQualifies;
+    if (!f5Available && hasBothPitchers) audit.missingF5Market += 1;
+    if (hasBothPitchers && f5Available && !mismatchQualifies) audit.belowMismatchThreshold += 1;
+
+    // Build starter summary
+    const awayStarterSummary = awayQuality?.summary ?? (awayPitcher?.name ? `${awayPitcher.name} (no ERA context)` : "No probable starter listed");
+    const homeStarterSummary = homeQuality?.summary ?? (homePitcher?.name ? `${homePitcher.name} (no ERA context)` : "No probable starter listed");
+
+    const f5Summary = f5Available
+      ? `F5 ${f5Completeness}${f5SupportedMarkets.length ? ` (${f5SupportedMarkets.join(", ")})` : ""}.`
+      : "F5 none.";
+
+    const notes = [
+      isAlert
+        ? `Ripper alert: ${qualifiedTeam} has quality edge (gap ${qualityGap} pts) • ${awayStarterSummary} vs ${homeStarterSummary}`
+        : hasBothPitchers
+          ? `Context board: ${awayStarterSummary} vs ${homeStarterSummary}${qualityGap != null ? ` • quality gap ${qualityGap} pts (threshold 12)` : ""}`
+          : "Context board: at least one probable starter still unlisted.",
+      `F5: ${marketAvailability}`,
+      `Weather: ${weatherSummary}`,
+      `Park: ${parkFactorSummary}`,
+      `Bullpen: ${bullpenSummary}`,
+      !f5Available ? "Waiting on F5 market to post." : "",
+      !mismatchQualifies && hasBothPitchers ? `Quality gap ${qualityGap ?? "—"} pts below 12-pt mismatch threshold.` : "",
+    ].filter(Boolean).join(" • ");
+
+    freshRecords.push(normalizeRecord({
+      id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}`,
+      gameId: game.gameId,
+      oddsEventId: null,
+      gameDate: game.date,
+      matchup,
+      roadTeam: awayAbbrev,
+      homeTeam: homeAbbrev,
+      recordKind: isAlert ? "alert" : "qualifier",
+      marketType: isAlert ? (f5SupportedMarkets.includes("total") ? "f5-total" : "f5-moneyline") : "context-board",
+      alertLabel: isAlert ? "Ripper F5 alert" : "Context board / no trigger",
+      currentMoneyline: qualifiedMoneyline,
+      qualifiedTeam: isAlert ? qualifiedTeam : null,
+      opponentTeam: isAlert ? (qualifiedTeam === awayAbbrev ? homeAbbrev : awayAbbrev) : null,
+      marketAvailability,
+      f5Summary,
+      weatherSummary,
+      parkFactorSummary,
+      bullpenSummary,
+      totalLine: f5Total?.line ?? null,
+      source: isAlert
+        ? "MLB enrichment board (F5 market rail + ERA/WHIP starter quality + weather + park + bullpen)"
+        : "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
+      notes,
+      sourceHealthStatus: game?.sourceHealth?.status ?? null,
+      freshnessSummary: game?.sourceHealth?.checks?.length
+        ? game.sourceHealth.checks.map((check: any) => `${check.label}: ${check.status}`).join(" • ")
+        : null,
+      lastSyncedAt: new Date().toISOString(),
+    }));
+
+    if (isAlert) audit.alerts += 1;
+    else audit.contextBoard += 1;
+  }
+
+  system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
+    return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
+  });
+
+  const alertCount = freshRecords.filter((r) => r.recordKind === "alert").length;
+  const auditSummary = `Scanned ${audit.gamesScanned} games • ${audit.alerts} alert${audit.alerts === 1 ? "" : "s"} • ${audit.contextBoard} context-board • missing pitchers ${audit.missingBothPitchers} • no F5 market ${audit.missingF5Market} • below mismatch threshold ${audit.belowMismatchThreshold}.`;
+
+  system.status = freshRecords.length > 0 ? "tracking" : "awaiting_data";
+  system.snapshot = alertCount > 0
+    ? `${alertCount} Ripper F5 alert${alertCount === 1 ? "" : "s"} today — F5 market posted with meaningful starter mismatch. ${auditSummary}`
+    : freshRecords.length > 0
+      ? `Context board loaded (${freshRecords.length} games). No F5 alert qualified today. ${auditSummary}`
+      : `No MLB games found for ${targetDate}. ${auditSummary}`;
+  system.automationStatusLabel = alertCount > 0 ? "Live F5 alert — starter mismatch + F5 market confirmed" : "Context board live — awaiting F5 market posts";
+  system.automationStatusDetail = auditSummary;
+
+  // Update data requirements based on current state
+  const f5Req = findRequirement(system, "F5 market availability");
+  if (f5Req) {
+    const gamesWithF5 = freshRecords.filter((r) => r.f5Summary && !r.f5Summary.includes("none") && !r.f5Summary.includes("unavailable")).length;
+    f5Req.status = gamesWithF5 > 0 ? "ready" : "partial";
+    f5Req.detail = gamesWithF5 > 0
+      ? `F5 markets posted for ${gamesWithF5} game${gamesWithF5 === 1 ? "" : "s"} today. Rail checks h2h_1st_5_innings and totals_1st_5_innings keys from aggregated odds.`
+      : "F5 market rail is connected but books have not posted F5 lines for today's games yet.";
+  }
+  const pitcherReq = findRequirement(system, "Probable pitchers + ERA/WHIP quality scoring");
+  if (pitcherReq) {
+    const gamesWithBoth = freshRecords.filter((r) => !r.notes?.includes("at least one probable starter still unlisted")).length;
+    pitcherReq.status = gamesWithBoth > 0 ? "ready" : "partial";
+    pitcherReq.detail = gamesWithBoth > 0
+      ? `Both probable starters listed for ${gamesWithBoth} game${gamesWithBoth === 1 ? "" : "s"}. ERA+WHIP quality scores computed.`
+      : "MLB schedule hydrate is connected but not all games have both probable pitchers listed yet.";
+  }
+  const linescoreReq = findRequirement(system, "F5 inning linescore for grading");
+  if (linescoreReq) {
+    linescoreReq.status = "partial";
+    linescoreReq.detail = "MLB Stats API /game/{gamePk}/linescore grading is wired. Rows stay pending until 5 complete innings are confirmed or the game is final with available inning data.";
+  }
 
   return system;
 }

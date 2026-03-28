@@ -20,6 +20,10 @@ const SYSTEM_SLUG_ALIASES: Record<string, string> = {
   falcons: "falcons-fight-pummeled-pitchers",
   "hot-bats": "tonys-hot-bats",
   swaggy: "swaggy-stretch-drive",
+  // Robbie's Ripper Fast 5 — old slug alias preserved for backward compat
+  "quick-rips-f5": "robbies-ripper-fast-5",
+  "robbies-ripper": "robbies-ripper-fast-5",
+  ripper: "robbies-ripper-fast-5",
 };
 
 function resolveSystemSlug(slug: string) {
@@ -33,7 +37,7 @@ export default async function SystemDetailPage({ params }: Props) {
   }
 
   await refreshTrackableSystems().catch(() => null);
-  if (resolvedSlug === "tonys-hot-bats" || resolvedSlug === "swaggy-stretch-drive") {
+  if (resolvedSlug === "tonys-hot-bats" || resolvedSlug === "swaggy-stretch-drive" || resolvedSlug === "robbies-ripper-fast-5") {
     await refreshTrackedSystem(resolvedSlug).catch(() => null);
   }
   const [data, system, nhlContextBoard] = await Promise.all([

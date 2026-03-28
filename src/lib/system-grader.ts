@@ -7,12 +7,13 @@
  *   - Swaggy Stretch Drive (NHL moneyline): qualifiedTeam wins → win, loses → loss
  *   - Falcons Fight Pummeled Pitchers (MLB moneyline): qualified team ML → grade from final
  *   - Mattys 1Q Chase NBA (Goose): graded via ESPN quarter scores (existing path)
+ *   - Robbie's Ripper Fast 5 (MLB F5 side/total): graded from MLB Stats API inning linescore
  *
  * Not gradeable (watchlist-only, no bet direction):
  *   - The Blowout, Hot Teams Matchup, Tony's Hot Bats
  */
 
-import { getRecentMLBGames } from "@/lib/mlb-api";
+import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
@@ -246,6 +247,123 @@ async function gradeFalconsQualifiers(
   return graded;
 }
 
+/**
+ * Grade Robbie's Ripper Fast 5 qualifiers using per-inning MLB linescore data.
+ *
+ * Qualifier rows carry:
+ *   - qualifiedTeam: the team with the better starter (expected to win F5)
+ *   - marketType: "f5-moneyline" or "f5-total"
+ *   - totalLine: the F5 total line when applicable
+ *   - gameId: the MLB gamePk needed to fetch the linescore
+ *
+ * Grading logic:
+ *   F5 side: qualifiedTeam leads after 5 innings = win; trails = loss; tied = push.
+ *            For home team: game must have 5 complete away at-bats (standard F5 settlement).
+ *   F5 total: combined runs through 5 innings vs the posted total line.
+ *   Ungradeable: if linescore unavailable or < 5 innings complete.
+ */
+async function gradeRobbiesRipperFast5Qualifiers(
+  pending: DbSystemQualifier[],
+): Promise<GradeQualifierInput[]> {
+  if (!pending.length) return [];
+
+  const graded: GradeQualifierInput[] = [];
+
+  for (const qualifier of pending) {
+    // gamePk is stored in qualifier_id as "robbies-ripper-fast-5:{gameId}" or extracted from provenance
+    const provenance = qualifier.provenance as Record<string, unknown> | null;
+    const gamePk = (provenance?.gameId as string | undefined)
+      || qualifier.qualifier_id.split(":").pop()
+      || "";
+    if (!gamePk) continue;
+
+    const qualifiedTeam = qualifier.qualified_team;
+    const marketType = qualifier.market_type;
+    const totalLineRaw = provenance?.totalLine;
+    const totalLine = typeof totalLineRaw === "number" ? totalLineRaw : null;
+
+    let linescore;
+    try {
+      linescore = await getMLBF5Linescore(gamePk);
+    } catch {
+      continue;
+    }
+
+    if (!linescore.isF5Complete) {
+      // Not enough innings — stay pending, do not mark ungradeable yet
+      continue;
+    }
+
+    const { awayRunsF5, homeRunsF5, totalRunsF5 } = linescore;
+    if (awayRunsF5 == null || homeRunsF5 == null) {
+      // Data present but null — ungradeable
+      graded.push({
+        id: qualifier.id,
+        outcome: "ungradeable",
+        settlementStatus: "ungradeable",
+        netUnits: null,
+        gradingSource: "mlb-api-linescore",
+        gradingNotes: "F5 linescore returned incomplete inning data after game completion.",
+      });
+      continue;
+    }
+
+    const roadTeam = qualifier.road_team;
+    const homeTeam = qualifier.home_team;
+    const isQualifiedHome = qualifiedTeam?.toUpperCase() === homeTeam?.toUpperCase();
+    const isQualifiedAway = qualifiedTeam?.toUpperCase() === roadTeam?.toUpperCase();
+
+    // F5 Total grading (when marketType is f5-total and totalLine is known)
+    if (marketType === "f5-total" && totalLine != null && totalRunsF5 != null) {
+      let outcome: SystemQualifierOutcome;
+      if (totalRunsF5 > totalLine) outcome = "win";   // assuming we back the over when a high-scoring environment qualifies
+      else if (totalRunsF5 < totalLine) outcome = "loss";
+      else outcome = "push";
+      graded.push({
+        id: qualifier.id,
+        outcome,
+        settlementStatus: "settled",
+        netUnits: outcome === "win" ? 1 : outcome === "loss" ? -1 : 0,
+        gradingSource: "mlb-api-linescore",
+        gradingNotes: `F5 combined runs: ${totalRunsF5} vs line ${totalLine}. Away ${awayRunsF5} + Home ${homeRunsF5}.`,
+      });
+      continue;
+    }
+
+    // F5 Side grading
+    if (qualifiedTeam && (isQualifiedHome || isQualifiedAway)) {
+      const qualifiedRuns = isQualifiedAway ? awayRunsF5 : homeRunsF5;
+      const opponentRuns = isQualifiedAway ? homeRunsF5 : awayRunsF5;
+      let outcome: SystemQualifierOutcome;
+      if (qualifiedRuns > opponentRuns) outcome = "win";
+      else if (qualifiedRuns < opponentRuns) outcome = "loss";
+      else outcome = "push";
+      const netUnits = mlNetUnits(outcome, qualifier.qualifier_odds);
+      graded.push({
+        id: qualifier.id,
+        outcome,
+        settlementStatus: "settled",
+        netUnits,
+        gradingSource: "mlb-api-linescore",
+        gradingNotes: `F5: ${roadTeam} ${awayRunsF5} - ${homeTeam} ${homeRunsF5} after 5 innings. ${qualifiedTeam} ${qualifiedRuns} runs.`,
+      });
+      continue;
+    }
+
+    // Context-board rows (no qualifiedTeam) — not applicable
+    graded.push({
+      id: qualifier.id,
+      outcome: "ungradeable",
+      settlementStatus: "ungradeable",
+      netUnits: null,
+      gradingSource: "mlb-api-linescore",
+      gradingNotes: "Context-board row — no qualified side defined. Cannot grade without bet direction.",
+    });
+  }
+
+  return graded;
+}
+
 // ─── Public grading entry point ───────────────────────────────────────────────
 
 export type SystemGradingReport = {
@@ -343,6 +461,35 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
     });
   }
 
+  // Grade Robbie's Ripper Fast 5 (F5 inning linescore)
+  const ripperPending = pendingBySystem.get("robbies-ripper-fast-5") ?? [];
+  totalPending += ripperPending.length;
+  if (ripperPending.length > 0) {
+    const errors: string[] = [];
+    let gradedInputs: GradeQualifierInput[] = [];
+    try {
+      gradedInputs = await gradeRobbiesRipperFast5Qualifiers(ripperPending);
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+
+    const gradedCount = gradedInputs.length > 0 ? await batchGradeSystemQualifiers(gradedInputs) : 0;
+    totalGraded += gradedCount;
+
+    const outcomeCounts = gradedInputs.reduce((acc, g) => {
+      acc.set(g.outcome, (acc.get(g.outcome) ?? 0) + 1);
+      return acc;
+    }, new Map<SystemQualifierOutcome, number>());
+
+    reports.push({
+      systemId: "robbies-ripper-fast-5",
+      pendingChecked: ripperPending.length,
+      graded: gradedCount,
+      outcomes: Array.from(outcomeCounts.entries()).map(([outcome, count]) => ({ outcome, count })),
+      errors,
+    });
+  }
+
   return {
     ok: true,
     totalPendingChecked: totalPending,
@@ -366,6 +513,8 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
       gradedInputs = await gradeSwaggyQualifiers(allPending);
     } else if (systemId === "falcons-fight-pummeled-pitchers") {
       gradedInputs = await gradeFalconsQualifiers(allPending);
+    } else if (systemId === "robbies-ripper-fast-5") {
+      gradedInputs = await gradeRobbiesRipperFast5Qualifiers(allPending);
     }
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));
@@ -431,6 +580,11 @@ export function getGradeabilityMap(): Record<string, {
       gradeable: false,
       gradingType: "watchlist_only",
       notes: "Early trigger watchlist. No explicit bet direction — not gradeable until picks model is defined.",
+    },
+    "robbies-ripper-fast-5": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "MLB F5 side/total: grades from MLB Stats API per-inning linescore. Rows stay pending until 5 complete innings confirmed. Alert rows with a qualified team are graded as F5 side; f5-total rows grade against the posted line.",
     },
   };
 }

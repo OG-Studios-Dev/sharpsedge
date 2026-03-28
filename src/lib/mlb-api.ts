@@ -642,3 +642,64 @@ export async function getMLBTeamSplitRates(
   }
   return _splitRateCache;
 }
+
+/**
+ * F5 (First-5-innings) linescore.
+ * Fetches per-inning runs from the MLB Stats API linescore endpoint.
+ * Returns home/away runs through 5 complete innings, or null when not enough innings are final.
+ *
+ * Used for grading Robbie's Ripper Fast 5 qualifiers.
+ * Endpoint: GET /api/v1/game/{gamePk}/linescore
+ */
+export type MLBF5LinescoreResult = {
+  gamePk: string;
+  /** Total runs scored by away team through first 5 innings (null if < 5 innings final) */
+  awayRunsF5: number | null;
+  /** Total runs scored by home team through first 5 innings (null if < 5 innings final) */
+  homeRunsF5: number | null;
+  /** Combined total runs through first 5 innings */
+  totalRunsF5: number | null;
+  /** Number of complete innings available in the linescore */
+  inningsComplete: number;
+  /** Whether 5+ innings are complete (required for a valid F5 grade) */
+  isF5Complete: boolean;
+};
+
+export async function getMLBF5Linescore(gamePk: string): Promise<MLBF5LinescoreResult> {
+  const base: MLBF5LinescoreResult = {
+    gamePk,
+    awayRunsF5: null,
+    homeRunsF5: null,
+    totalRunsF5: null,
+    inningsComplete: 0,
+    isF5Complete: false,
+  };
+
+  if (!gamePk) return base;
+
+  try {
+    const url = `${MLB_BASE}/game/${gamePk}/linescore`;
+    const data = await cachedFetch<any>(url, 5 * 60 * 1000); // 5-min cache for live linescore
+    const innings: any[] = Array.isArray(data?.innings) ? data.innings : [];
+
+    if (!innings.length) return base;
+
+    // Count only innings that have both home and away run values (complete innings)
+    const completeInnings = innings.filter(
+      (inning) => typeof inning?.home?.runs === "number" && typeof inning?.away?.runs === "number",
+    );
+
+    const inningsComplete = completeInnings.length;
+    const f5Innings = completeInnings.slice(0, 5);
+    const isF5Complete = inningsComplete >= 5;
+
+    const awayRunsF5 = isF5Complete ? f5Innings.reduce((sum, i) => sum + (i.away.runs ?? 0), 0) : null;
+    const homeRunsF5 = isF5Complete ? f5Innings.reduce((sum, i) => sum + (i.home.runs ?? 0), 0) : null;
+    const totalRunsF5 = awayRunsF5 != null && homeRunsF5 != null ? awayRunsF5 + homeRunsF5 : null;
+
+    return { gamePk, awayRunsF5, homeRunsF5, totalRunsF5, inningsComplete, isF5Complete };
+  } catch (err) {
+    console.warn("[mlb-api] getMLBF5Linescore failed for gamePk", gamePk, ":", err);
+    return base;
+  }
+}
