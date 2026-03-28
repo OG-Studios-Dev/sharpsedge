@@ -3,12 +3,13 @@ import { getSystemDerivedMetrics, type TrackedSystem } from "@/lib/systems-track
 
 function sortSystemsForHome(systems: TrackedSystem[]) {
   const priorityMap: Record<string, number> = {
-    "nba-goose": 0,
-    "falcons-f5": 1,
-    "swaggy-stretch-drive": 2,
+    "nba-goose-system": 0,
+    "swaggy-stretch-drive": 1,
+    "falcons-fight-pummeled-pitchers": 2,
     "tonys-hot-bats": 3,
-    "blowout-alert": 4,
-    "hot-teams": 5,
+    "robbies-ripper-fast-5": 4,
+    "the-blowout": 5,
+    "hot-teams-matchup": 6,
   };
 
   return [...systems].sort((a, b) => {

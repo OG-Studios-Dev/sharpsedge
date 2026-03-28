@@ -50,12 +50,13 @@ function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
 
 function sortSystemsForDisplay(systems: TrackedSystem[]) {
   const priorityMap: Record<string, number> = {
-    "nba-goose": 0,
-    "blowout-alert": 1,
-    "hot-teams": 2,
-    "swaggy-stretch-drive": 3,
-    "tonys-hot-bats": 4,
-    "falcons-f5": 5,
+    "nba-goose-system": 0,
+    "swaggy-stretch-drive": 1,
+    "falcons-fight-pummeled-pitchers": 2,
+    "tonys-hot-bats": 3,
+    "robbies-ripper-fast-5": 4,
+    "the-blowout": 5,
+    "hot-teams-matchup": 6,
   };
 
   return [...systems].sort((a, b) => {
