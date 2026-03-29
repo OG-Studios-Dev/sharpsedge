@@ -912,7 +912,7 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "fly-low-goose",
       slug: "fly-low-goose",
-      name: "Fly Low Goose",
+      name: "Joey on the LOW LOW",
       league: "NFL",
       category: "native",
       owner: "Goosalytics Lab",
@@ -950,7 +950,7 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "tonys-teaser-pleaser",
       slug: "tonys-teaser-pleaser",
-      name: "Tony's Teaser Pleaser",
+      name: "Goosies Teaser Pleaser",
       league: "NFL",
       category: "external",
       owner: "External source",
