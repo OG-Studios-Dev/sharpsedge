@@ -46,17 +46,19 @@ interface SnapshotWithAnalysis extends TournamentOddsSnapshot {
 async function upsertToSupabase(snapshot: SnapshotWithAnalysis): Promise<boolean> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return false;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/golf_odds_snapshots`, {
+    // onConflict=tournament,start_date → later scrapes overwrite the existing row
+    const url = `${SUPABASE_URL}/rest/v1/golf_odds_snapshots?on_conflict=tournament,start_date`;
+    const res = await fetch(url, {
       method: "POST",
       headers: {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
         "Content-Type": "application/json",
-        Prefer: "resolution=merge-duplicates",
+        Prefer: "resolution=merge-duplicates,return=minimal",
       },
       body: JSON.stringify({
         tournament: snapshot.tournament,
-        start_date: snapshot.startDate,
+        start_date: snapshot.startDate || new Date().toISOString().slice(0, 10),
         scraped_at: snapshot.scrapedAt,
         source: snapshot.source,
         event_id: snapshot.bovadaEventId,

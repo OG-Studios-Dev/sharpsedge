@@ -55,6 +55,7 @@ function heroPreviewPlayers(leaderboard: GolfLeaderboard | null) {
 }
 
 export default async function GolfPage() {
+  // Phase 1: parallel fetch of all independent data sources
   const [activeLeaderboard, schedule, odds, fallbackSummary] = await Promise.all([
     getPGALeaderboard(),
     getPGASchedule(),
@@ -67,12 +68,20 @@ export default async function GolfPage() {
     ?? schedule.find((tournament) => tournament.status === "upcoming")
     ?? schedule[0]
     ?? null;
-  const heroLeaderboard = heroTournament
-    ? activeLeaderboard?.tournament.id === heroTournament.id
-      ? activeLeaderboard
-      : await getPGATournamentLeaderboard(heroTournament.id)
-    : null;
-  const predictions = await getGolfPredictionData(activeLeaderboard ?? null, odds);
+
+  // Phase 2: parallelize heroLeaderboard, predictions, and winnerMap
+  // Previously these were 3 serial awaits; parallelizing saves ~2-4s on cold start.
+  const needsSeparateHeroFetch = heroTournament
+    && activeLeaderboard?.tournament.id !== heroTournament.id;
+
+  const [heroLeaderboard, predictions, winnerMap] = await Promise.all([
+    needsSeparateHeroFetch
+      ? getPGATournamentLeaderboard(heroTournament!.id)
+      : Promise.resolve(activeLeaderboard ?? null),
+    getGolfPredictionData(activeLeaderboard ?? null, odds),
+    loadWinnerMap(schedule),
+  ]);
+
   const heroPlayers = heroPreviewPlayers(heroLeaderboard);
   const upcoming = schedule
     .filter((tournament) => tournament.status === "upcoming" && tournament.id !== heroTournament?.id)
@@ -85,7 +94,6 @@ export default async function GolfPage() {
     : datagolf?.populated
       ? datagolf.reason
       : "No usable DataGolf cache yet";
-  const winnerMap = await loadWinnerMap(schedule);
   const fullSeasonLabel = `Full ${seasonYear(schedule)} Season`;
 
   return (

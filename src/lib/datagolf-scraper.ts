@@ -471,11 +471,25 @@ export async function fetchDGField(): Promise<DGFieldResult> {
   }>(page.html, ["hourly"]);
 
   const rows = hourlyPayload?.players;
+  // OWGR key has changed across DG versions — try multiple known keys.
+  // If all fail, worldRank stays null (tracked via MASTERS-WEEK-ROADMAP: OWGR 0% bug).
+  function extractOWGR(row: Record<string, unknown>): number | null {
+    return parseNumber(
+      row.owgr
+      ?? row.world_rank
+      ?? row.worldRank
+      ?? row.owgr_rank
+      ?? row.official_world_golf_ranking
+      ?? row.world_golf_ranking
+      ?? row.ranking,
+    );
+  }
+
   const players = Array.isArray(rows)
     ? uniqueByName(rows.map((row) => ({
         name: normalizePlayerName(row.player_name ?? row.name),
         country: typeof row.flag === "string" ? row.flag : "",
-        worldRank: parseNumber(row.owgr ?? row.world_rank),
+        worldRank: extractOWGR(row),
       }))).filter((player) => player.name)
     : [];
 

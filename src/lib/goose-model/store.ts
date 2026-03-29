@@ -514,33 +514,48 @@ export async function findPendingGoosePicks(opts: {
 }
 
 /**
- * Fetch goose picks from yesterday that are still pending and have no
- * terminal integrity_status. Used by the 2am grading cron.
+ * Fetch goose picks from the past N days that are still pending and have no
+ * terminal integrity_status. Used by the daily grading cron.
+ *
+ * CHANGED 2026-03-29: Expanded from yesterday-only to a rolling 3-day window.
+ * Picks missed by the cron on a given day (e.g. network failure, Vercel timeout)
+ * were previously stuck permanently pending until manually resolved. Now they
+ * get another attempt on subsequent cron runs.
  */
 export async function fetchUngradedYesterdayPicks(): Promise<GooseModelPick[]> {
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const dateStr = yesterday.toISOString().slice(0, 10);
-
-  const params = [
-    `date=eq.${eq(dateStr)}`,
-    "result=eq.pending",
-    // Exclude postponed (will retry) and unresolvable (permanent skip)
-    "integrity_status=is.null",
-    "select=*",
-    "limit=200",
-  ];
-
-  try {
-    const rows = await postgrest<Record<string, unknown>[]>(
-      `/rest/v1/goose_model_picks?${params.join("&")}`,
-    );
-    return (rows ?? []).map(normalizePick);
-  } catch (error) {
-    const msg = toErrorMessage(error);
-    if (isMissingTableError(msg, "goose_model_picks")) return [];
-    throw error;
+  const LOOKBACK_DAYS = 3; // grade picks up to 3 days old
+  const dates: string[] = [];
+  for (let i = 1; i <= LOOKBACK_DAYS; i++) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
   }
+
+  // Fetch all dates in parallel to avoid serial round-trips
+  const results = await Promise.allSettled(
+    dates.map(async (dateStr) => {
+      const params = [
+        `date=eq.${eq(dateStr)}`,
+        "result=eq.pending",
+        // Exclude postponed (will retry) and unresolvable (permanent skip)
+        "integrity_status=is.null",
+        "select=*",
+        "limit=200",
+      ];
+      const rows = await postgrest<Record<string, unknown>[]>(
+        `/rest/v1/goose_model_picks?${params.join("&")}`,
+      );
+      return (rows ?? []).map(normalizePick);
+    }),
+  );
+
+  const picks: GooseModelPick[] = [];
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      picks.push(...result.value);
+    }
+  }
+  return picks;
 }
 
 // ── model score helper ────────────────────────────────────────

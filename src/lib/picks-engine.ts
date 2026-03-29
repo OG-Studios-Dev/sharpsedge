@@ -216,7 +216,8 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     gameId: prop.gameId,
     oddsEventId: prop.oddsEventId,
     odds: bestBookOdds?.odds ?? prop.odds,
-    book: bestBookOdds?.book ?? prop.book,
+    // Fall back to "Model Line" so the sportsbook field is never null in UI
+    book: bestBookOdds?.book ?? prop.book ?? "Model Line",
     bookOdds: prop.bookOdds,
     league: prop.league,
   };
@@ -247,7 +248,8 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     units: 1,
     gameId: trend.gameId,
     odds: bestBookOdds?.odds ?? trend.odds,
-    book: bestBookOdds?.book ?? trend.book,
+    // Fall back to "Model Line" so the sportsbook field is never null in UI
+    book: bestBookOdds?.book ?? trend.book ?? "Model Line",
     bookOdds: trend.bookOdds,
     league: trend.league,
   };
@@ -338,41 +340,39 @@ function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): Scor
   return selected;
 }
 
+// ── Production quality floors (V1 user-facing picks) ─────────────────────────
+// hitRate floor: 65% hard minimum (no streak exception — 60% picks were slipping through daily)
+// edge floor: 10% minimum model edge over implied odds
+// These gates apply to NHL, NBA, and MLB picks equally.
+const V1_HIT_RATE_FLOOR = 65;
+const V1_EDGE_FLOOR = 10;
+
 export function selectTopPicks(
   props: PlayerProp[],
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
   // Pick quality filter:
-  // - 65%+ hit rate: always pickable
-  // - 60-64% hit rate: only if on a streak (2+ consecutive hits from recentGames)
-  // - Below 60%: never pick
-  function meetsQualityThreshold(hitRate: number, recentGames?: number[], line?: number): boolean {
+  // - 65%+ hit rate AND 10%+ edge: pickable
+  // - Anything below either floor: never pick
+  // NOTE: The 60-64% streak exception was removed 2026-03-29 because 60% picks
+  // were qualifying daily via the streak path, failing QA gate consistently.
+  function meetsQualityThreshold(hitRate: number, edge?: number): boolean {
     const hr = normalizePercentValue(hitRate);
-    if (hr >= 65) return true;
-    if (hr < 60) return false;
-    // 60-64%: check for consecutive streak
-    if (recentGames && line !== undefined && recentGames.length >= 2) {
-      let streak = 0;
-      for (const val of recentGames) {
-        if (val > line) streak++;
-        else break;
-      }
-      if (streak >= 2) return true; // on a run = valid pick at 60%+
-    }
-    return false;
+    const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
+    return hr >= V1_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
   }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.recentGames, p.line))
+    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
     .filter((t) => isVerifiedTeamTrend(t))
-    .filter((t) => normalizePercentValue(t.hitRate) >= 60)
+    .filter((t) => meetsQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -438,31 +438,23 @@ export function selectNBATopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  function meetsQualityThreshold(hitRate: number, recentGames?: number[], line?: number): boolean {
+  // Apply same V1 quality floors as NHL: 65% hitRate + 10% edge minimum
+  function meetsQualityThreshold(hitRate: number, edge?: number): boolean {
     const hr = normalizePercentValue(hitRate);
-    if (hr >= 65) return true;
-    if (hr < 60) return false;
-    if (recentGames && line !== undefined && recentGames.length >= 2) {
-      let streak = 0;
-      for (const val of recentGames) {
-        if (val > line) streak++;
-        else break;
-      }
-      if (streak >= 2) return true;
-    }
-    return false;
+    const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
+    return hr >= V1_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
   }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.recentGames, p.line))
+    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
     .filter((t) => isVerifiedTeamTrend(t))
-    .filter((t) => normalizePercentValue(t.hitRate) >= 60)
+    .filter((t) => meetsQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -536,13 +528,29 @@ export function selectMLBTopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
+  // MLB uses the same V1 quality floors as NHL/NBA.
+  // MLB season is short and early-season samples are thin, so we use a slightly
+  // lower edge floor (8%) compared to NHL/NBA (10%) to avoid 0-pick slates in
+  // the first weeks. hitRate floor remains the same 65%.
+  const MLB_EDGE_FLOOR = 8;
+
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
+    .filter((p) => {
+      const hr = normalizePercentValue(p.hitRate);
+      const e = typeof p.edge === "number" ? normalizePercentValue(p.edge) : 0;
+      return hr >= V1_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
+    })
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
+    .filter((t) => {
+      const hr = normalizePercentValue(t.hitRate);
+      const e = typeof t.edge === "number" ? normalizePercentValue(t.edge) : 0;
+      return hr >= V1_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
+    })
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
