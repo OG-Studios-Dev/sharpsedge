@@ -10,12 +10,13 @@ const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
 const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
 const GOLF_STORAGE_KEY = "goosalytics_golf_picks_v11";
 
-// Nuclear clear: wipe ALL old pick keys from localStorage
+// Nuclear clear: wipe ALL old pick keys from localStorage (preserve active versioned keys)
+const ACTIVE_PICK_KEYS = new Set([NHL_STORAGE_KEY, NBA_STORAGE_KEY, MLB_STORAGE_KEY, GOLF_STORAGE_KEY]);
 if (typeof window !== "undefined") {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.startsWith("goosalytics_") && key.includes("picks") && !key.endsWith("_v10")) {
+    if (key && key.startsWith("goosalytics_") && key.includes("picks") && !ACTIVE_PICK_KEYS.has(key)) {
       keysToRemove.push(key);
     }
   }

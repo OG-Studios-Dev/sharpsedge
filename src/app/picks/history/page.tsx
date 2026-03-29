@@ -85,14 +85,17 @@ export default function PickHistoryPage() {
   }, [historyPicks, monthFilter, sportFilter]);
 
   const headlineRecords = useMemo(() => {
+    // For "all" view: use filtered (respects monthFilter) but exclude PGA from headline stats.
+    // For specific sport: use filtered directly (already scoped by sport + month).
+    // For PGA: use full pgaHistoryPicks (tournament-level view, not month-filtered).
     const base = sportFilter === "PGA"
       ? pgaHistoryPicks
       : sportFilter === "all"
-        ? standardHistoryPicks
+        ? filtered.filter((pick) => pick.league !== "PGA")
         : filtered;
 
     return base.filter((pick) => pick.provenance === "original");
-  }, [filtered, pgaHistoryPicks, sportFilter, standardHistoryPicks]);
+  }, [filtered, pgaHistoryPicks, sportFilter]);
 
   // Compute stats
   const record = computePickHistorySummary(headlineRecords);

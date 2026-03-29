@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBDashboardData } from "@/lib/mlb-live-data";
 import { selectMLBTopPicks } from "@/lib/picks-engine";
+import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
+import { shouldRecoverStoredSlate } from "@/lib/pick-history-integrity";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,10 +29,45 @@ function getTodayActiveGameIds(schedule: any[]) {
   return ids;
 }
 
+function buildEphemeralIntegrity(
+  date: string,
+  pickCount: number,
+  message: string,
+  priorIntegrity?: Record<string, unknown> | null,
+) {
+  const previous = (priorIntegrity ?? {}) as Record<string, unknown>;
+  const expectedPickCount = typeof previous.expected_pick_count === "number" ? previous.expected_pick_count : pickCount;
+
+  return {
+    ...previous,
+    date,
+    league: "MLB",
+    status: pickCount >= expectedPickCount ? "locked" : "incomplete",
+    provenance: "original",
+    expected_pick_count: expectedPickCount,
+    pick_count: pickCount,
+    integrity_status: pickCount >= expectedPickCount ? "ok" : "incomplete",
+    status_note: message,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), MLB_TIME_ZONE);
 
   try {
+    const lockedSlate = await getStoredPickSlate(date, "MLB");
+    if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
+      return NextResponse.json(
+        {
+          picks: lockedSlate.picks,
+          date,
+          source: "history_locked",
+          integrity: lockedSlate.slate,
+        },
+        { status: lockedSlate.slate.integrity_status === "incomplete" ? 409 : 200 },
+      );
+    }
+
     const data = await getMLBDashboardData();
     const todayIds = getTodayActiveGameIds(data.schedule || []);
     const props = todayIds.size > 0
@@ -41,20 +78,71 @@ export async function GET(req: NextRequest) {
       : (data.teamTrends || []);
 
     const picks = selectMLBTopPicks(props, teamTrends, date);
-    return NextResponse.json({
-      picks,
-      date,
-      meta: {
-        propsConsidered: props.length,
-        trendsConsidered: teamTrends.length,
-        gamesActive: todayIds.size,
-      },
-    });
+
+    if (picks.length === 0) {
+      return NextResponse.json({
+        picks: [],
+        date,
+        source: "no-qualifying",
+        meta: {
+          propsConsidered: props.length,
+          trendsConsidered: teamTrends.length,
+          gamesActive: todayIds.size,
+        },
+      });
+    }
+
+    const normalizedPicks = picks.map((pick: any) => ({ ...pick, league: pick.league ?? "MLB" }));
+
+    try {
+      const stored = await storeDailyPickSlate(normalizedPicks, {
+        date,
+        league: "MLB",
+      });
+
+      return NextResponse.json(
+        {
+          picks: stored.picks,
+          date,
+          source: stored.source === "existing" ? "history_locked" : stored.source === "repaired" ? "generated_repaired" : "generated_locked",
+          integrity: stored.slate,
+          meta: {
+            propsConsidered: props.length,
+            trendsConsidered: teamTrends.length,
+            gamesActive: todayIds.size,
+          },
+        },
+        { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to persist authoritative picks";
+      console.error("[api/mlb/picks] persistence degraded, serving generated picks:", error);
+      return NextResponse.json(
+        {
+          picks: normalizedPicks,
+          date,
+          source: "generated_unlocked",
+          integrity: buildEphemeralIntegrity(date, normalizedPicks.length, `Serving generated picks without persistence: ${message}`, lockedSlate.slate),
+          warning: message,
+          meta: {
+            propsConsidered: props.length,
+            trendsConsidered: teamTrends.length,
+            gamesActive: todayIds.size,
+          },
+        },
+        { status: 200 },
+      );
+    }
   } catch (err) {
-    return NextResponse.json({
-      picks: [],
-      date,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    console.error("[api/mlb/picks] error:", err);
+    return NextResponse.json(
+      {
+        picks: [],
+        date,
+        source: "integrity_error",
+        error: err instanceof Error ? err.message : "Failed to load authoritative picks",
+      },
+      { status: 503 },
+    );
   }
 }
