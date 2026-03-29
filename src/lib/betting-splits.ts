@@ -481,12 +481,17 @@ export function mergeCoversData(
   let matchCount = 0;
 
   const updatedGames = board.games.map((game) => {
-    // Find matching Covers entry
-    const coversEntry = covers.entries.find(
-      (ce) =>
+    // Find matching Covers entry — try both orientations because Covers occasionally
+    // has home/away assignment swapped relative to Action Network.
+    const coversEntry = covers.entries.find((ce) => {
+      const normalOrientation =
         coversTeamMatchesAn(ce.awayTeamCovers, game.awayTeamFull) &&
-        coversTeamMatchesAn(ce.homeTeamCovers, game.homeTeamFull),
-    );
+        coversTeamMatchesAn(ce.homeTeamCovers, game.homeTeamFull);
+      const swappedOrientation =
+        coversTeamMatchesAn(ce.awayTeamCovers, game.homeTeamFull) &&
+        coversTeamMatchesAn(ce.homeTeamCovers, game.awayTeamFull);
+      return normalOrientation || swappedOrientation;
+    });
 
     if (!coversEntry) return game;
 

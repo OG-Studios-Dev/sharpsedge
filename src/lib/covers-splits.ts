@@ -432,12 +432,14 @@ export async function getCoversSplitsCrossSport(): Promise<
 
 /**
  * Check if a Covers team name (common/city name) matches a given AN full team name.
- * Both are lowercased and compared as substrings.
+ * Both are lowercased and compared as substrings and word-by-word.
  *
  * Examples:
- *   coversName="Milwaukee"      anFull="Milwaukee Bucks"      → true
- *   coversName="L.A. Clippers"  anFull="LA Clippers"          → true
- *   coversName="Golden State"   anFull="Golden State Warriors" → true
+ *   coversName="Milwaukee"      anFull="Milwaukee Bucks"       → true (substring)
+ *   coversName="L.A. Clippers"  anFull="Los Angeles Clippers"  → true (word match: "clippers")
+ *   coversName="Golden State"   anFull="Golden State Warriors"  → true (word match: "golden")
+ *   coversName="Miami"          anFull="Miami Heat"             → true (substring)
+ *   coversName="Oklahoma City"  anFull="Oklahoma City Thunder"  → true (word match: "oklahoma")
  */
 export function coversTeamMatchesAn(coversName: string, anFull: string): boolean {
   const norm = (s: string) =>
@@ -452,5 +454,17 @@ export function coversTeamMatchesAn(coversName: string, anFull: string): boolean
   const an = norm(anFull);
 
   if (!cn || !an) return false;
-  return an.includes(cn) || cn.includes(an);
+
+  // Direct substring check
+  if (an.includes(cn) || cn.includes(an)) return true;
+
+  // Word-level match: any significant word (>=5 chars) from coversName found in anFull
+  // This handles "L.A. Clippers" → ["clippers"] matching "los angeles clippers"
+  // and "Golden State" → ["golden", "state"] matching "golden state warriors"
+  const cnWords = cn.split(" ").filter((w) => w.length >= 5);
+  for (const word of cnWords) {
+    if (an.includes(word)) return true;
+  }
+
+  return false;
 }
