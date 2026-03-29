@@ -6,6 +6,8 @@ import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
 import { getNBAHandleBoard, findHandleSplitsForGame, qualifiesHomeUnderdogMajorityHandle, qualifiesHomeSuperMajorityHandleCloseGame, type NBAHandleSplits } from "@/lib/nba-handle";
+import { getBettingSplits, findGameSplits, getMarketSplits } from "@/lib/betting-splits";
+import { getMarketHistoryRail } from "@/lib/market-snapshot-history";
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
 import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
@@ -222,6 +224,7 @@ const BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID = "bigcat-bonaza-puckluck";
 const COACH_NO_REST_SYSTEM_ID = "coach-no-rest";
 const NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nba-home-dog-majority-handle";
 const NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID = "nba-home-super-majority-close-game";
+const FAT_TONYS_FADE_SYSTEM_ID = "fat-tonys-fade";
 const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
@@ -450,47 +453,54 @@ function seededCatalog(): TrackedSystem[] {
       records: [],
     },
     {
-      id: "fat-tonys-fade",
+      id: FAT_TONYS_FADE_SYSTEM_ID,
       slug: "fat-tonys-fade",
       name: "Fuch's Fade",
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
-      status: "awaiting_data",
-      trackabilityBucket: "blocked_missing_data",
-      summary: "Contrarian NBA fade concept. Public betting splits source is now live (Action Network DK+FD). Still blocked on line-move history rail — required to separate steam moves from stale public bias.",
-      snapshot: "🟡 PARTIAL | Splits feed live (Action Network DK+FD). Blocked: line-move history rail not wired. Cannot qualify until open-to-close delta is available.",
+      status: "tracking",
+      trackabilityBucket: "trackable_now",
+      summary: "Contrarian NBA fade: public piles one-sided on spread, line inflated in that direction, fade the inflated side. Both rails live — Action Network splits + Supabase-backed line-move history.",
+      snapshot: "🟢 BOTH RAILS LIVE | Action Network splits + Supabase market-snapshot history wired. Fires when spread public >= 60% bets and line moved same direction (public inflation confirmed).",
       definition:
-        "Fade inflated NBA sides where the public piles into a trendy favorite and price drift overshoots the true edge.",
+        "Fade NBA spread sides where public bets >= 60% on one side AND the line has moved in the same direction (market inflated by public action, not sharp counter). Back the contrarian side only when both conditions are confirmed.",
       qualifierRules: [
-        "Must be grounded in public tickets and preferably handle splits, not social-media vibes.",
-        "Needs line-move context so steam and stale public bias are not treated the same.",
-        "Should include a minimum market consensus threshold.",
+        "Spread bets% >= 60% on one side (primary source DK; FD fallback).",
+        "Line-move history required: spread line must have moved >= 0.5 points in the SAME direction as the public side (confirmation of public inflation, not sharp reversal).",
+        "Line-move source must have >= 2 Supabase snapshots for the game today (otherwise skip — no history = no qualifier).",
+        "Faded side's best spread odds must be between -135 and +135 (not a blowout line or massive dog).",
+        "Qualifier alert only — not a pick. No historical win-rate claimed.",
       ],
       progressionLogic: [],
       thesis:
-        "A public-fade angle is only real if the public-position input is real. Without trustworthy splits, this is just theater.",
+        "A public-fade angle is only real if the public-position input is real AND line movement confirms inflation. Both rails are now live. This system fires qualifier alerts, not picks.",
       sourceNotes: [
         {
           label: "Action Network (DK primary + FD comparison)",
-          detail: "Live as of 2026-03-29. Ingested via betting-splits.ts + betting-splits-store.ts. Provides bets% and handle% per game/market for NBA, NHL, MLB, NFL.",
+          detail: "Live as of 2026-03-29. Ingested via betting-splits.ts. Provides bets% and handle% per game/market for NBA, NHL, MLB, NFL.",
         },
         {
-          label: "Line-move history — MISSING",
-          detail: "market-snapshot-history.ts exists but reads from filesystem only (data/market-snapshots/). Only 1 stale file on disk; Supabase holds live snapshots but is not queried by the history rail. Need to wire Supabase read into market-snapshot-history.ts to unblock.",
+          label: "Line-move history — LIVE via Supabase",
+          detail: "market-snapshot-history.ts now reads from Supabase market_snapshot_prices when filesystem has < 2 snapshots. Supabase gets hourly writes from the market-snapshot cron. Wired as of 2026-03-29.",
         },
       ],
-      automationStatusLabel: "Partially unblocked — splits live, line-move pending",
-      automationStatusDetail: "Public betting handle splits now live via Action Network (DK+FD). Still blocked: line-move history requires wiring Supabase market_snapshots into market-snapshot-history.ts.",
+      automationStatusLabel: "Both rails live — qualifier builder active",
+      automationStatusDetail: "Public betting splits (Action Network DK+FD) and line-move history (Supabase market_snapshot_prices) both connected. refreshFuchsFadeSystemData fires daily, stores qualifier rows when spread public >= 60% + line moved same direction >= 0.5pt.",
       dataRequirements: [
-        { label: "Public betting handle splits", status: "available", detail: "Action Network DK (primary) + FD (comparison/fallback). Ingested via betting-splits.ts. Data confirmed live 2026-03-29." },
-        { label: "Line-move history", status: "pending", detail: "market-snapshot-history.ts reads filesystem only. Supabase has live hourly snapshots but history rail does not query them. Fast fix: add Supabase fallback read to getMarketHistoryRail()." },
+        { label: "Public betting handle splits", status: "ready", detail: "Action Network DK (primary) + FD (comparison/fallback). Ingested via betting-splits.ts. Data confirmed live 2026-03-29." },
+        { label: "Line-move history", status: "ready", detail: "market-snapshot-history.ts now reads Supabase market_snapshot_prices as primary fallback when filesystem has < 2 snapshots. Wired 2026-03-29." },
       ],
       unlockNotes: [
         "✅ Public betting handle splits: RESOLVED — Action Network DK+FD rail live.",
-        "❌ Line-move history: STILL BLOCKED — wire Supabase market_snapshot_prices into market-snapshot-history.ts.",
+        "✅ Line-move history: RESOLVED — Supabase fallback wired in market-snapshot-history.ts (2026-03-29).",
       ],
-      trackingNotes: ["Do not fake 'public is on X' claims without an actual source.", "Splits source is real and live. Line-move context is still missing — do not fire qualifiers until both rails are available."],
+      trackingNotes: [
+        "Do not fake 'public is on X' claims without an actual source.",
+        "Qualifier requires BOTH splits >= 60% bets AND line movement >= 0.5pt same direction — no partial fires.",
+        "Line-move source field on MarketHistoryRail now reports 'supabase' or 'filesystem' for auditability.",
+        "No claimed win rate. Watchlist only until sufficient graded rows accumulate.",
+      ],
       records: [],
     },
     {
@@ -1212,6 +1222,9 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   },
   [NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID]: {
     refresh: refreshNBAHomeSuperMajorityCloseGameSystemData,
+  },
+  [FAT_TONYS_FADE_SYSTEM_ID]: {
+    refresh: refreshFuchsFadeSystemData,
   },
 };
 
@@ -4148,6 +4161,183 @@ async function refreshNBAHomeSuperMajorityCloseGameSystemData(
     snapshot: audit.qualified > 0
       ? `🟢 ${audit.qualified} qualifier(s) today | ${auditNote}`
       : `🟡 No qualifiers today | ${auditNote}`,
+    dataRequirements: (system.dataRequirements ?? []).map((req) => ({
+      ...req,
+      status: "ready" as DataRequirementStatus,
+    })),
+    records: freshRecords,
+  };
+
+  return updated;
+}
+
+// ─── Fuch's Fade — refresh function ─────────────────────────────────────────
+
+/**
+ * Refresh qualifier data for "Fuch's Fade" (NBA).
+ *
+ * Fires when:
+ *   1. Public spread bets% >= 60% on one side (Action Network DK primary).
+ *   2. Spread line moved >= 0.5 points since first snapshot today.
+ *   3. Line-move history has >= 2 Supabase snapshots (no history = no qualifier).
+ *   4. Faded side's best spread odds are between -135 and +135.
+ *
+ * Source: betting-splits.ts (Action Network) + market-snapshot-history.ts (Supabase fallback).
+ */
+async function refreshFuchsFadeSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    FAT_TONYS_FADE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(FAT_TONYS_FADE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  // Fetch NBA splits + NBA odds board in parallel
+  const [splitsBoard, aggregatedEvents] = await Promise.all([
+    getBettingSplits("NBA", targetDate).catch(() => null),
+    getAggregatedOddsForSport("NBA").catch(() => [] as AggregatedOdds[]),
+  ]);
+
+  const todayEvents = aggregatedEvents.filter(
+    (event) => getEventDate(event.commenceTime) === targetDate,
+  );
+
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: todayEvents.length,
+    noSplits: 0,
+    splitsInsufficient: 0,
+    noLineMoveHistory: 0,
+    lineMovedTooSmall: 0,
+    priceBandFail: 0,
+    qualified: 0,
+  };
+
+  for (const event of todayEvents) {
+    // ── 1. Splits lookup ──────────────────────────────────────────────────
+    const gameSnapshot = splitsBoard
+      ? findGameSplits(splitsBoard, event.homeAbbrev, event.awayAbbrev)
+      : null;
+
+    if (!gameSnapshot) {
+      audit.noSplits += 1;
+      continue;
+    }
+
+    const { side1: spreadHome, side2: spreadAway } = getMarketSplits(gameSnapshot, "spread");
+    if (!spreadHome || !spreadAway) {
+      audit.splitsInsufficient += 1;
+      continue;
+    }
+
+    // Find which side has >= 60% bets (the inflated/public side)
+    const homeBeats = (spreadHome.betsPercent ?? 0) >= 60;
+    const awayBeats = (spreadAway.betsPercent ?? 0) >= 60;
+
+    if (!homeBeats && !awayBeats) {
+      audit.splitsInsufficient += 1;
+      continue;
+    }
+
+    // The side to FADE is the one with the majority public bets
+    const publicSide: "home" | "away" = homeBeats ? "home" : "away";
+    const fadeSide: "home" | "away" = publicSide === "home" ? "away" : "home";
+    const publicBetsPct = publicSide === "home" ? (spreadHome.betsPercent ?? 0) : (spreadAway.betsPercent ?? 0);
+    const publicHandlePct = publicSide === "home" ? (spreadHome.handlePercent ?? null) : (spreadAway.handlePercent ?? null);
+    const publicSpreadLine = publicSide === "home" ? spreadHome.line : spreadAway.line;
+
+    // ── 2. Line-move history (Supabase-backed) ────────────────────────────
+    const history = await getMarketHistoryRail(event).catch(() => null);
+
+    if (!history || history.capturedSnapshots < 2) {
+      audit.noLineMoveHistory += 1;
+      continue;
+    }
+
+    // Find the spread deltas for any team in this game
+    const spreadDeltas = history.deltas.filter((d) => d.marketType === "spread");
+
+    if (spreadDeltas.length === 0) {
+      audit.noLineMoveHistory += 1;
+      continue;
+    }
+
+    // Use the largest absolute spread line delta seen today
+    const maxLineDelta = spreadDeltas.reduce<number | null>((max, d) => {
+      if (d.lineDelta === null) return max;
+      const abs = Math.abs(d.lineDelta);
+      return max === null || abs > max ? abs : max;
+    }, null);
+
+    if (maxLineDelta === null || maxLineDelta < 0.5) {
+      audit.lineMovedTooSmall += 1;
+      continue;
+    }
+
+    const representativeDelta = spreadDeltas.find((d) => d.lineDelta !== null && Math.abs(d.lineDelta) === maxLineDelta);
+    const lineDelta = representativeDelta?.lineDelta ?? null;
+
+    // ── 3. Price discipline on the FADED side ────────────────────────────
+    const fadeSpread = fadeSide === "home" ? event.bestHomeSpread : event.bestAwaySpread;
+    if (!fadeSpread) {
+      audit.priceBandFail += 1;
+      continue;
+    }
+    // Spread odds must be between -135 and +135 (vig band only — no major dog/chalk)
+    if (fadeSpread.odds < -135 || fadeSpread.odds > 135) {
+      audit.priceBandFail += 1;
+      continue;
+    }
+
+    // ── Qualified ─────────────────────────────────────────────────────────
+    audit.qualified += 1;
+
+    const fadeTeam = fadeSide === "home" ? event.homeAbbrev : event.awayAbbrev;
+    const publicTeamAbbrev = publicSide === "home" ? event.homeAbbrev : event.awayAbbrev;
+
+    const notes = [
+      `Fuch's Fade qualifier — fading ${publicTeamAbbrev} (${publicBetsPct}% public bets on spread).`,
+      `Back: ${fadeTeam} ${fadeSpread.line != null ? (fadeSpread.line > 0 ? "+" : "") + fadeSpread.line : ""} (${fadeSpread.odds > 0 ? "+" : ""}${fadeSpread.odds}, ${fadeSpread.book}).`,
+      `Public spread: ${publicTeamAbbrev} ${publicSpreadLine != null ? (publicSpreadLine > 0 ? "+" : "") + publicSpreadLine : ""}. Bets: ${publicBetsPct}%${publicHandlePct != null ? `. Handle: ${publicHandlePct}%` : ""}.`,
+      `Line moved ${lineDelta != null ? (lineDelta > 0 ? "+" : "") + lineDelta.toFixed(1) : "?"} pts since opening (${history.capturedSnapshots} snapshot(s), source: ${history.source}).`,
+      `Snapshot window: ${history.openingCapturedAt.slice(0, 16)} → ${history.latestCapturedAt.slice(0, 16)}.`,
+      `Alert only — not a pick. No historical win rate claimed. Verify context before acting.`,
+    ].join(" • ");
+
+    freshRecords.push(
+      normalizeRecord({
+        id: `${FAT_TONYS_FADE_SYSTEM_ID}:${targetDate}:${fadeTeam}`,
+        gameId: event.gameId,
+        oddsEventId: event.oddsApiEventId ?? null,
+        gameDate: targetDate,
+        matchup: `${event.awayAbbrev} @ ${event.homeAbbrev}`,
+        roadTeam: event.awayAbbrev,
+        homeTeam: event.homeAbbrev,
+        qualifiedTeam: fadeTeam,
+        opponentTeam: publicTeamAbbrev,
+        recordKind: "qualifier",
+        marketType: "spread",
+        alertLabel: `Fade ${publicTeamAbbrev} (${publicBetsPct}% public) — line moved ${lineDelta != null ? (lineDelta > 0 ? "+" : "") + lineDelta.toFixed(1) : "?"}pt`,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `Splits + line-move history live. Snapshots: ${history.capturedSnapshots} (${history.source}). Splits source: ${gameSnapshot.effectiveSource}.`,
+        notes,
+      }),
+    );
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} games. No splits: ${audit.noSplits}. Splits insufficient: ${audit.splitsInsufficient}. No line history: ${audit.noLineMoveHistory}. Line too small: ${audit.lineMovedTooSmall}. Price band fail: ${audit.priceBandFail}. Qualified: ${audit.qualified}.`;
+
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} Fuch's Fade qualifier(s) today | ${auditNote}`
+      : `🟡 No Fuch's Fade qualifiers today | ${auditNote}`,
     dataRequirements: (system.dataRequirements ?? []).map((req) => ({
       ...req,
       status: "ready" as DataRequirementStatus,

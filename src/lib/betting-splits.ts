@@ -2,41 +2,49 @@
  * betting-splits.ts
  * Cross-sport public betting splits ingestion rail.
  *
- * Primary source:   Action Network / DraftKings splits (bookId=15, source="action-network-dk").
- * Comparison source: Action Network / FanDuel splits (bookId=30, source="action-network-fd").
+ * Source hierarchy (as of 2026-03-29 investigation):
  *
- * Endpoint pattern:
+ *   1. Action Network Consensus (bookId=15, source="action-network-dk")
+ *      Primary. AN's aggregate "Consensus" data. Both tickets% and handle%.
+ *      Historically labelled "DK" because AN uses DraftKings handle-weighting in its
+ *      consensus model; bookId=15 display_name="Consensus" in AN's book registry.
+ *      NOTE: bookId=15 is NOT the DraftKings sportsbook directly (that is bookId=68/1534+);
+ *      those state-specific DK books do NOT expose public splits data on AN's API.
+ *
+ *   2. Action Network Open (bookId=30, source="action-network-fd")
+ *      Comparison. AN's "Open" line data. Both tickets% and handle%.
+ *      Historically labelled "FD" as a secondary comparison source.
+ *      NOTE: bookId=30 display_name="Open" in AN book registry.
+ *
+ *   3. Covers.com consensus (source="covers") — NEW in this pass
+ *      Supplemental comparison. HTML-scraped from contests.covers.com.
+ *      Provides: ATS tickets% + O/U tickets% only.
+ *      NOT available: handle%, moneyline splits.
+ *      Coverage: NBA ✅, NHL ✅, MLB ✅, NFL ❌ (off-season).
+ *
+ * Source blockers (confirmed 2026-03-29):
+ *   - VSIN: Piano paywall (135+ paywall elements on page). No public free splits.
+ *     URL: data.vsin.com/betting-splits/?source=DK&sport=NBA
+ *   - DraftKings sportsbook direct: bookId=68 returns NO public splits via AN API.
+ *     No public JSON endpoint for splits found on sportsbook.draftkings.com.
+ *   - SBR (SportsbookReview): ms.sportsbookreview.com — TCP connection failure (unreachable).
+ *   - Covers JSON API: No JSON endpoint found. Only HTML at contests.covers.com.
+ *     HTML scraping IS feasible and implemented (see covers-splits.ts).
+ *
+ * Endpoint pattern (Action Network):
  *   https://api.actionnetwork.com/web/v1/scoreboard/{sport}?bookIds={id}&date=YYYYMMDD
  *   No API key required. Server-side only.
  *
  * Covered sports: NBA, NHL, MLB, NFL.
  * PGA: excluded — no meaningful public splits source.
- *
- * Source strategy (double-fallback / comparison):
- *   1. Fetch DK splits (primary).
- *   2. Fetch FD splits in the same call (comparison).
- *   3. If DK data is missing for a game, FD becomes the fallback.
- *   4. Both snapshots are retained with attribution so consumers can:
- *       - use primary when available
- *       - fall back when primary is missing
- *       - compare source agreement/disagreement
- *
- * VSIN and Covers.com status:
- *   - VSIN: No public free splits API available; paywalled. Cannot ingest without credentials.
- *   - Covers.com: Only returns HTML pages, no public JSON API for splits. Cannot ingest.
- *   These are documented blockers. DK vs FD comparison is the best available dual-source split.
- *
- * Normalized fields per split entry (minimum required):
- *   sport, source, sourceRole, marketType, matchup, teams, side/label,
- *   betsPercent, handlePercent, line (if available), gameDate, snapshotAt,
- *   isPrimary (whether this row is primary vs comparison/fallback)
  */
 
 export type BettingSplitsSport = "NBA" | "NHL" | "MLB" | "NFL";
 export type BettingSplitsMarketType = "moneyline" | "spread" | "total";
 export type BettingSplitsSide = "home" | "away" | "over" | "under";
-export type BettingSplitsSource = "action-network-dk" | "action-network-fd";
-export type BettingSplitsSourceRole = "primary" | "comparison" | "fallback";
+/** action-network-dk = AN Consensus (bookId=15); action-network-fd = AN Open (bookId=30); covers = Covers.com HTML scrape */
+export type BettingSplitsSource = "action-network-dk" | "action-network-fd" | "covers";
+export type BettingSplitsSourceRole = "primary" | "comparison" | "fallback" | "supplement";
 
 export type BettingSplitsEntry = {
   /** Sport identifier */
@@ -99,12 +107,50 @@ export type BettingSplitsSnapshot = {
   spreadSplitsAvailable: boolean;
   /** Was total splits data available from the primary source? */
   totalSplitsAvailable: boolean;
-  /** Did the comparison source have splits for this game? */
+  /** Did the comparison source (AN Open / bookId=30) have splits for this game? */
   comparisonAvailable: boolean;
   /** Which source is actually authoritative for this game (primary if available, else fallback) */
   effectiveSource: BettingSplitsSource;
   /** Whether primary source data was used (vs falling back to comparison) */
   usingPrimary: boolean;
+  // ── Covers.com supplement (added 2026-03-29) ──────────────────────────────
+  /** Covers.com consensus spread/total picks% for this game (bets% only; no handle; no ML) */
+  coversSupplement: CoversSupplement | null;
+};
+
+/**
+ * Covers.com supplement data attached to a BettingSplitsSnapshot.
+ * Covers provides tickets/picks% only for ATS and O/U markets.
+ * No handle%, no moneyline splits, no opening/closing line (approximate consensus line only).
+ */
+export type CoversSupplement = {
+  source: "covers";
+  coversGameId: string;
+  awayTeamCovers: string;
+  homeTeamCovers: string;
+  /** ATS: away team picks% from Covers (tickets/picks %, not handle) */
+  spreadAwayPct: number | null;
+  /** ATS: home team picks% from Covers */
+  spreadHomePct: number | null;
+  /** O/U: Over picks% from Covers */
+  totalOverPct: number | null;
+  /** O/U: Under picks% from Covers */
+  totalUnderPct: number | null;
+  /** Approximate consensus spread line from Covers (most-wagered line) */
+  consensusSpreadLine: number | null;
+  /** Approximate consensus total line from Covers */
+  consensusTotalLine: number | null;
+  scrapedAt: string;
+  /**
+   * Source agreement vs AN Consensus:
+   * - spreadDelta: |AN spread away% - Covers spread away%|  (null if either missing)
+   * - totalDelta:  |AN total over% - Covers total over%|
+   * Sources "agree" when delta <= 10pp.
+   */
+  spreadDelta: number | null;
+  totalDelta: number | null;
+  sourcesAgreeSpreads: boolean | null;
+  sourcesAgreeTotal: boolean | null;
 };
 
 export type BettingSplitsBoardResult = {
@@ -120,6 +166,8 @@ export type BettingSplitsBoardResult = {
   gamesOnFallback: number;
   primarySource: BettingSplitsSource;
   comparisonSource: BettingSplitsSource;
+  /** Number of games with Covers.com supplement data */
+  gamesWithCoversSupplement: number;
   available: boolean;
   error: string | null;
 };
@@ -289,6 +337,7 @@ function normalizeSnapshotFromGame(
     comparisonAvailable: hasComparison,
     effectiveSource: hasPrimary ? "action-network-dk" : (hasComparison ? "action-network-fd" : "action-network-dk"),
     usingPrimary: hasPrimary,
+    coversSupplement: null, // populated later by mergeCoversData() if Covers data is available
   };
 }
 
@@ -329,6 +378,7 @@ export async function getBettingSplits(
         gamesWithSplits: 0,
         gamesWithPrimarySource: 0,
         gamesOnFallback: 0,
+        gamesWithCoversSupplement: 0,
         primarySource: "action-network-dk",
         comparisonSource: "action-network-fd",
         available: false,
@@ -357,6 +407,7 @@ export async function getBettingSplits(
       gamesWithSplits,
       gamesWithPrimarySource,
       gamesOnFallback,
+      gamesWithCoversSupplement: 0, // populated by mergeCoversData() after Covers fetch
       primarySource: "action-network-dk",
       comparisonSource: "action-network-fd",
       available: true,
@@ -371,6 +422,7 @@ export async function getBettingSplits(
       gamesWithSplits: 0,
       gamesWithPrimarySource: 0,
       gamesOnFallback: 0,
+      gamesWithCoversSupplement: 0,
       primarySource: "action-network-dk",
       comparisonSource: "action-network-fd",
       available: false,
@@ -395,6 +447,97 @@ export async function getBettingSplitsCrossSport(
     BettingSplitsSport,
     BettingSplitsBoardResult
   >;
+}
+
+// ── Covers integration ────────────────────────────────────────────────────────
+
+import type { CoversBoardResult, CoversSplitsEntry } from "@/lib/covers-splits";
+import { coversTeamMatchesAn } from "@/lib/covers-splits";
+
+/**
+ * Merge Covers consensus data into an existing AN board result.
+ *
+ * Matching strategy:
+ *   For each AN game, find the Covers entry whose awayTeamCovers matches
+ *   awayTeamFull and homeTeamCovers matches homeTeamFull (fuzzy substring match).
+ *
+ * Agreement computation:
+ *   - spreadDelta = |AN effective spread away% - Covers spread away%|
+ *   - totalDelta  = |AN effective total over%  - Covers total over%|
+ *   - sourcesAgree when delta ≤ 10pp
+ *
+ * @param board   - existing AN board result (mutated in place — coversSupplement added)
+ * @param covers  - Covers board result for the same sport
+ * @returns updated board with coversSupplement populated and gamesWithCoversSupplement set
+ */
+export function mergeCoversData(
+  board: BettingSplitsBoardResult,
+  covers: CoversBoardResult,
+): BettingSplitsBoardResult {
+  if (!covers.available || covers.entries.length === 0) {
+    return board;
+  }
+
+  let matchCount = 0;
+
+  const updatedGames = board.games.map((game) => {
+    // Find matching Covers entry
+    const coversEntry = covers.entries.find(
+      (ce) =>
+        coversTeamMatchesAn(ce.awayTeamCovers, game.awayTeamFull) &&
+        coversTeamMatchesAn(ce.homeTeamCovers, game.homeTeamFull),
+    );
+
+    if (!coversEntry) return game;
+
+    // Get AN effective spread/total %
+    const anSpreadAway = game.splits.find(
+      (s) => s.source === game.effectiveSource && s.marketType === "spread" && s.side === "away",
+    )?.betsPercent ?? null;
+
+    const anTotalOver = game.splits.find(
+      (s) => s.source === game.effectiveSource && s.marketType === "total" && s.side === "over",
+    )?.betsPercent ?? null;
+
+    const spreadDelta =
+      anSpreadAway !== null && coversEntry.spreadAwayPct !== null
+        ? Math.abs(anSpreadAway - coversEntry.spreadAwayPct)
+        : null;
+
+    const totalDelta =
+      anTotalOver !== null && coversEntry.totalOverPct !== null
+        ? Math.abs(anTotalOver - coversEntry.totalOverPct)
+        : null;
+
+    matchCount++;
+
+    return {
+      ...game,
+      coversSupplement: {
+        source: "covers" as const,
+        coversGameId: coversEntry.coversGameId,
+        awayTeamCovers: coversEntry.awayTeamCovers,
+        homeTeamCovers: coversEntry.homeTeamCovers,
+        spreadAwayPct: coversEntry.spreadAwayPct,
+        spreadHomePct: coversEntry.spreadHomePct,
+        totalOverPct: coversEntry.totalOverPct,
+        totalUnderPct: coversEntry.totalUnderPct,
+        consensusSpreadLine: coversEntry.consensusSpreadLine,
+        consensusTotalLine: coversEntry.consensusTotalLine,
+        scrapedAt: coversEntry.scrapedAt,
+        spreadDelta,
+        totalDelta,
+        sourcesAgreeSpreads: spreadDelta !== null ? spreadDelta <= 10 : null,
+        sourcesAgreeTotal: totalDelta !== null ? totalDelta <= 10 : null,
+      },
+    };
+  });
+
+  return {
+    ...board,
+    games: updatedGames,
+    gamesWithCoversSupplement: matchCount,
+  };
 }
 
 // ── Lookup helpers ────────────────────────────────────────────────────────────

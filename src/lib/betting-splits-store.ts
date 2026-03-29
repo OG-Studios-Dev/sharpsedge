@@ -48,6 +48,7 @@ export type BettingSplitsCaptureStatus = {
   gamesWithSplits: number;
   gamesWithPrimarySource: number;
   gamesOnFallback: number;
+  gamesWithCoversSupplement: number;
   error: string | null;
 };
 
@@ -107,6 +108,7 @@ export async function saveBettingSplitsSnapshot(
       gamesWithSplits: board.gamesWithSplits,
       gamesWithPrimarySource: board.gamesWithPrimarySource,
       gamesOnFallback: board.gamesOnFallback,
+      gamesWithCoversSupplement: board.gamesWithCoversSupplement ?? 0,
       error: null,
     };
   } catch (err) {
@@ -120,6 +122,7 @@ export async function saveBettingSplitsSnapshot(
       gamesWithSplits: board.gamesWithSplits,
       gamesWithPrimarySource: board.gamesWithPrimarySource,
       gamesOnFallback: board.gamesOnFallback,
+      gamesWithCoversSupplement: board.gamesWithCoversSupplement ?? 0,
       error: msg,
     };
   }

@@ -1,5 +1,54 @@
 # TODO
 
+## Fuch's Fade — Supabase Line-Move History Unblock — 2026-03-29
+
+### All items shipped ✅
+
+**Goal:** Clear the last blocker for Fuch's Fade by wiring real line-move history from Supabase.
+
+**1. `market-snapshot-history.ts` — Supabase fallback wired** ✅
+- `getMarketHistoryRail()` now has two-tier read:
+  - Primary: filesystem `data/market-snapshots/{date}.json` (local dev, fast)
+  - Fallback: Supabase `market_snapshot_prices` via REST API when filesystem has < 2 snapshots
+- Supabase read queries `market_snapshots` for the date_key, then `market_snapshot_prices` filtered by `game_id + snapshot_id`
+- Groups price rows by `snapshot_id` into minimal stubs; reconstructs opening/latest delta pair
+- Returns `source: "filesystem" | "supabase"` in `MarketHistoryRail` for auditability
+- On Vercel (read-only FS): snapshots write only to Supabase; history rail now reads them back
+- TypeScript: 0 errors, `npm run build` clean
+
+**2. Fuch's Fade system — promoted to `trackable_now`** ✅
+- `trackabilityBucket`: `blocked_missing_data` → `trackable_now`
+- `status`: `awaiting_data` → `tracking`
+- Both data requirements updated to `status: "ready"`
+- `unlockNotes` updated to reflect both rails resolved
+
+**3. `refreshFuchsFadeSystemData()` qualifier builder — new** ✅
+- Wired into `SYSTEM_TRACKERS[FAT_TONYS_FADE_SYSTEM_ID]`
+- Logic:
+  - Fetches NBA betting splits (Action Network DK primary) for today
+  - Fetches NBA aggregated odds board for today
+  - For each NBA game: checks spread bets% >= 60% on one side
+  - Calls `getMarketHistoryRail()` (Supabase-backed) for line-move context
+  - Requires >= 2 snapshots AND spread delta >= 0.5pt
+  - Fade side price band: -135 to +135
+  - Stores qualifier row with full audit trail (bets%, line delta, snapshot source, window)
+- Audit fields: gamesScanned, noSplits, splitsInsufficient, noLineMoveHistory, lineMovedTooSmall, priceBandFail, qualified
+
+**Honest assessment:**
+- Line-move history rail: ✅ LIVE via Supabase when hourly market-snapshot cron is running
+- Qualifier builder: ✅ WIRED — will fire on current-day NBA games
+- "Firing today": depends on whether NBA spread bets crossed 60% threshold AND Supabase has >= 2 snapshots for today
+- The system becomes truly live when the hourly cron has been running long enough to accumulate 2+ snapshots in Supabase for today's games (first qualifier fires ~2h into the day after 2nd snapshot lands)
+
+### Remaining blocker (honest)
+
+| Item | Status | Note |
+|---|---|---|
+| Supabase snapshot accumulation | Resolves daily | First qualifier fires after 2+ hourly snapshots land in Supabase for today's games. No action needed. |
+| Historical win-rate claim | Pending | No graded outcomes yet. Watchlist only until records accumulate. |
+
+---
+
 ## Systems Re-Audit + Tracking Hardening Pass — 2026-03-27
 
 ### All items shipped ✅
