@@ -11,5 +11,14 @@ export default async function HomePage() {
     loadSystemPerformanceStats().catch(() => [] as DbSystemPerformanceSummary[]),
   ]);
 
-  return <HomeContent systemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} />} />;
+  // Promote systems above 100% Club once ≥3 systems have qualifier records
+  const systemsWithData = data.systems.filter((s) => s.records.length > 0).length;
+  const systemsFirst = systemsWithData >= 3;
+
+  return (
+    <HomeContent
+      systemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} />}
+      systemsFirst={systemsFirst}
+    />
+  );
 }

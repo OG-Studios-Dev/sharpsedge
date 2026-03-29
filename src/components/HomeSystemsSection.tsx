@@ -1,6 +1,42 @@
 import Link from "next/link";
 import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+const MIN_SAMPLE_FOR_TIER = 8; // minimum graded qualifiers before we display a tier
+
+type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
+
+function getWinPctTier(winPct: number | null, gradedQualifiers: number): WinPctTier {
+  if (gradedQualifiers < MIN_SAMPLE_FOR_TIER || winPct === null) return "small_sample";
+  if (winPct > 0.6) return "gold";
+  if (winPct < 0.5) return "weak";
+  return "neutral";
+}
+
+function WinPctBadge({ tier, winPct }: { tier: WinPctTier; winPct: number | null }) {
+  if (tier === "small_sample" || winPct === null) {
+    return <span className="shrink-0 text-[9px] text-gray-600 tabular-nums">—%</span>;
+  }
+  const pct = `${Math.round(winPct * 100)}%`;
+  if (tier === "gold") {
+    return (
+      <span className="shrink-0 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-0.5 text-[9px] font-bold text-amber-300 tabular-nums">
+        🏆 {pct}
+      </span>
+    );
+  }
+  if (tier === "weak") {
+    return (
+      <span className="shrink-0 rounded border border-rose-500/20 bg-rose-500/5 px-1 py-0.5 text-[9px] font-semibold text-rose-500/70 tabular-nums">
+        {pct}
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 text-[9px] text-gray-400 tabular-nums">{pct}</span>
+  );
+}
+
 function sortSystemsForHome(systems: TrackedSystem[]) {
   const priorityMap: Record<string, number> = {
     "nba-goose-system": 0,
@@ -34,10 +70,9 @@ type Props = {
   dbPerformance?: DbSystemPerformanceSummary[];
 };
 
-const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
-
 export default function HomeSystemsSection({ systems, dbPerformance = [] }: Props) {
-  const featuredSystems = sortSystemsForHome(systems).slice(0, 6);
+  // Show top 3 only — compact homepage real estate
+  const featuredSystems = sortSystemsForHome(systems).slice(0, 3);
   const dbPerfMap = new Map(dbPerformance.map((p) => [p.system_id, p]));
 
   return (
@@ -60,10 +95,12 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
           const isMLGradeable = ML_GRADEABLE_IDS.has(system.id);
           const hasDbRecord = dbPerf && (dbPerf.graded_qualifiers > 0 || dbPerf.qualifiers_logged > 0);
 
-          // Prefer DB truth for ML-gradeable systems
+          // Resolve record display — DB truth first for ML-gradeable systems
           let recordCopy: string;
           let unitsCopy: string;
           let unitsClass: string;
+          let winPctForTier: number | null;
+          let gradedForTier: number;
 
           if (isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0) {
             recordCopy = `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`;
@@ -72,6 +109,9 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
             unitsClass = netU != null
               ? netU > 0 ? "text-emerald-400" : netU < 0 ? "text-rose-400" : "text-gray-400"
               : "text-gray-500";
+            const total = dbPerf.wins + dbPerf.losses;
+            winPctForTier = total > 0 ? dbPerf.wins / total : null;
+            gradedForTier = dbPerf.graded_qualifiers;
           } else if (perf.actionable) {
             recordCopy = perf.record;
             unitsCopy = perf.flatNetUnits != null
@@ -80,17 +120,28 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
             unitsClass = perf.flatNetUnits != null
               ? perf.flatNetUnits > 0 ? "text-emerald-400" : perf.flatNetUnits < 0 ? "text-rose-400" : "text-gray-400"
               : "text-gray-500";
+            winPctForTier = perf.winPct;
+            gradedForTier = perf.gradedQualifiers;
           } else if (metrics.qualifiedGames > 0) {
             recordCopy = `${metrics.qualifiedGames}q`;
             unitsCopy = "—";
             unitsClass = "text-gray-500";
+            winPctForTier = null;
+            gradedForTier = 0;
           } else {
             recordCopy = "—";
             unitsCopy = "—";
             unitsClass = "text-gray-500";
+            winPctForTier = null;
+            gradedForTier = 0;
           }
 
-          // Compact status badge
+          const tier = getWinPctTier(winPctForTier, gradedForTier);
+
+          // Row opacity/muting based on tier
+          const rowOpacity = tier === "weak" ? "opacity-60" : "";
+
+          // Compact status dot
           const statusDot =
             system.trackabilityBucket === "trackable_now"
               ? "🟢"
@@ -102,16 +153,22 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
             <Link
               key={system.id}
               href={`/systems/${system.slug}`}
-              className="flex items-center gap-2 rounded-lg border border-dark-border/60 bg-dark-bg/40 px-2.5 py-2 transition hover:border-white/15 hover:bg-dark-surface/60"
+              className={`flex items-center gap-2 rounded-lg border border-dark-border/60 bg-dark-bg/40 px-2.5 py-2 transition hover:border-white/15 hover:bg-dark-surface/60 ${rowOpacity}`}
             >
               <span className="text-[10px] leading-none">{statusDot}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium text-white leading-tight">{system.name}</span>
+              <WinPctBadge tier={tier} winPct={winPctForTier} />
               <span className="shrink-0 text-[11px] font-semibold text-white tabular-nums">{recordCopy}</span>
               <span className={`shrink-0 text-[11px] font-semibold tabular-nums ${unitsClass}`}>{unitsCopy}</span>
             </Link>
           );
         })}
       </div>
+
+      {/* Honest footnote about sample sizes */}
+      <p className="mt-2 text-[10px] text-gray-600 leading-relaxed">
+        Win% shown only when ≥{MIN_SAMPLE_FOR_TIER} graded qualifiers. 🏆 = &gt;60% win rate. Muted = below 50%.
+      </p>
     </section>
   );
 }

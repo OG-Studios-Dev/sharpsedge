@@ -244,7 +244,7 @@ function GolfMatchupBoard({ matchups }: { matchups: GolfHeadToHeadPrediction[] }
   );
 }
 
-export default function HomeContent({ systemsSection }: { systemsSection?: ReactNode }) {
+export default function HomeContent({ systemsSection, systemsFirst }: { systemsSection?: ReactNode; systemsFirst?: boolean }) {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
@@ -456,6 +456,8 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
           <div className="space-y-5">
             <HomePicksSection league={sportLeague} />
 
+            {systemsFirst && systemsSection ? systemsSection : null}
+
             <LockedFeature feature="club_100">
               <HomeSection
                 title="100% Club"
@@ -581,7 +583,7 @@ export default function HomeContent({ systemsSection }: { systemsSection?: React
           </div>
         </div>
 
-        {systemsSection ? <div className="px-4 lg:px-0">{systemsSection}</div> : null}
+        {!systemsFirst && systemsSection ? <div className="px-4 lg:px-0">{systemsSection}</div> : null}
       </div>
     </main>
   );

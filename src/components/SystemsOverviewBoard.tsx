@@ -2,6 +2,42 @@ import Link from "next/link";
 import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
 const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+const MIN_SAMPLE_FOR_TIER = 8;
+
+type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
+
+function getWinPctTier(winPct: number | null, gradedQualifiers: number): WinPctTier {
+  if (gradedQualifiers < MIN_SAMPLE_FOR_TIER || winPct === null) return "small_sample";
+  if (winPct > 0.6) return "gold";
+  if (winPct < 0.5) return "weak";
+  return "neutral";
+}
+
+function WinPctBadge({ tier, winPct }: { tier: WinPctTier; winPct: number | null }) {
+  if (tier === "small_sample" || winPct === null) {
+    return <span className="rounded border border-dark-border/50 bg-dark-bg/40 px-1.5 py-0.5 text-[9px] text-gray-600">—%</span>;
+  }
+  const pct = `${Math.round(winPct * 100)}%`;
+  if (tier === "gold") {
+    return (
+      <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+        🏆 {pct}
+      </span>
+    );
+  }
+  if (tier === "weak") {
+    return (
+      <span className="rounded border border-rose-500/20 bg-rose-500/5 px-1.5 py-0.5 text-[9px] font-semibold text-rose-500/60">
+        {pct} ↓
+      </span>
+    );
+  }
+  return (
+    <span className="rounded border border-dark-border/50 bg-dark-bg/40 px-1.5 py-0.5 text-[9px] text-gray-400">
+      {pct}
+    </span>
+  );
+}
 
 type Props = {
   systems: TrackedSystem[];
@@ -134,26 +170,40 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             let recordLabel: string;
             let unitsLabel: string;
             let unitsColor: string;
+            let winPctForTier: number | null;
+            let gradedForTier: number;
 
             if (isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0) {
               recordLabel = `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`;
               const nu = dbPerf.flat_net_units != null ? Number(dbPerf.flat_net_units) : null;
               unitsLabel = nu != null ? `${nu > 0 ? "+" : ""}${nu.toFixed(1)}u` : "—";
               unitsColor = nu != null ? (nu > 0 ? "text-emerald-400" : nu < 0 ? "text-rose-400" : "text-gray-400") : "text-gray-500";
+              const total = dbPerf.wins + dbPerf.losses;
+              winPctForTier = total > 0 ? dbPerf.wins / total : null;
+              gradedForTier = dbPerf.graded_qualifiers;
             } else if (metrics.performance.actionable) {
               recordLabel = metrics.performance.record;
               const nu = metrics.performance.flatNetUnits;
               unitsLabel = nu != null ? `${nu > 0 ? "+" : ""}${nu.toFixed(1)}u` : "—";
               unitsColor = nu != null ? (nu > 0 ? "text-emerald-400" : nu < 0 ? "text-rose-400" : "text-gray-400") : "text-gray-500";
+              winPctForTier = metrics.performance.winPct;
+              gradedForTier = metrics.performance.gradedQualifiers;
             } else if (metrics.qualifiedGames > 0) {
               recordLabel = `${metrics.qualifiedGames}q`;
               unitsLabel = "—";
               unitsColor = "text-gray-500";
+              winPctForTier = null;
+              gradedForTier = 0;
             } else {
               recordLabel = "—";
               unitsLabel = "—";
               unitsColor = "text-gray-500";
+              winPctForTier = null;
+              gradedForTier = 0;
             }
+
+            const tier = getWinPctTier(winPctForTier, gradedForTier);
+            const rowOpacity = tier === "weak" ? "opacity-70" : "";
 
             const trackDot =
               system.trackabilityBucket === "trackable_now" ? "🟢"
@@ -164,7 +214,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
               <Link
                 key={system.id}
                 href={`/systems/${system.slug}`}
-                className="block rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] transition hover:border-white/15 hover:bg-dark-surface/90"
+                className={`block rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] transition hover:border-white/15 hover:bg-dark-surface/90 ${rowOpacity}`}
               >
                 {/* Compact scan row — always visible, tappable */}
                 <div className="flex items-center gap-2 px-3 py-2.5">
@@ -175,6 +225,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${trackabilityPill(system.trackabilityBucket)}`}>
                         {formatTrackability(system.trackabilityBucket)}
                       </span>
+                      <WinPctBadge tier={tier} winPct={winPctForTier} />
                     </div>
                     <h2 className="mt-0.5 text-[13px] font-semibold leading-tight text-white">{system.name}</h2>
                   </div>
@@ -231,6 +282,22 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       </p>
                     </div>
                   </div>
+                  {/* Win% honesty note */}
+                  {gradedForTier > 0 && gradedForTier < MIN_SAMPLE_FOR_TIER && (
+                    <p className="mt-2 text-[10px] text-amber-500/70">
+                      Small sample ({gradedForTier} graded) — win% not yet meaningful.
+                    </p>
+                  )}
+                  {tier === "gold" && (
+                    <p className="mt-2 text-[10px] text-amber-300/70">
+                      🏆 Gold system — {Math.round((winPctForTier ?? 0) * 100)}% win rate over {gradedForTier} graded qualifiers.
+                    </p>
+                  )}
+                  {tier === "weak" && (
+                    <p className="mt-2 text-[10px] text-rose-500/60">
+                      Below 50% win rate over {gradedForTier} graded qualifiers — not profitable at current sample.
+                    </p>
+                  )}
                 </div>
               </Link>
             );
