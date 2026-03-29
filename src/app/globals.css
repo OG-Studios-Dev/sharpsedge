@@ -78,6 +78,15 @@ body {
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* iOS PWA safe-area helpers — prevents content hiding behind
+     status bar (top) or home indicator (bottom) in standalone mode. */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @keyframes page-fade-in {

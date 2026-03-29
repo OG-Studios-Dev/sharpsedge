@@ -17,7 +17,7 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-dark-border bg-dark-bg/95 backdrop-blur-sm lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-bottom border-t border-dark-border bg-dark-bg/95 backdrop-blur-sm lg:hidden">
       <div className="mx-auto grid h-16 max-w-lg grid-cols-5">
         {BOTTOM_NAV_ITEM_IDS.map((itemId) => {
           const item = getNavItemById(itemId);

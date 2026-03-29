@@ -20,7 +20,7 @@ export default function PageHeader({
   const { openMenu } = useAppChrome();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-dark-border bg-dark-bg/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 safe-top border-b border-dark-border bg-dark-bg/95 backdrop-blur-sm">
       <div className="px-4 py-3 lg:px-0">
         <div className="flex items-center justify-between gap-2">
           {/* Left: hamburger menu */}
