@@ -5,6 +5,9 @@ const CACHE_TTL = 15 * 60 * 1000;
 const GOLF_MARKETS = "outrights,h2h";
 const DEFAULT_SPORT_KEYS = [
   "golf_pga_tour",
+  // Masters: primary key per The Odds API docs (also used by fallback-odds-scraper.ts)
+  "golf_masters_tournament_winner",
+  // Legacy variant kept as fallback in case The Odds API uses alternate naming
   "golf_the_masters_tournament_winner",
   "golf_us_open_winner",
   "golf_the_open_championship_winner",
@@ -195,4 +198,113 @@ export function findGolfOutright(odds: GolfOddsBoard | null, playerName: string)
   if (!odds) return null;
   const target = normalizeName(playerName);
   return odds.outrights.find((entry) => normalizeName(entry.playerName) === target) ?? null;
+}
+
+// ─── Bovada Top-Finish Odds (from golf_odds_snapshots Supabase table) ─────────
+// These are REAL scraped lines from Bovada — not proxy calculations.
+// Used in pick generation to replace proxy estimates when real lines exist.
+
+export interface BovadaTopFinishOddsLine {
+  top5: number | null;
+  top10: number | null;
+  top20: number | null;
+  book: "Bovada";
+  scrapedAt: string;
+  tournament: string;
+}
+
+export type BovadaTopFinishOddsMap = Map<string, BovadaTopFinishOddsLine>;
+
+interface StoredGolfOddsSnapshot {
+  tournament: string;
+  scraped_at: string;
+  markets: {
+    top5?: Array<{ player: string; odds: number }>;
+    top10?: Array<{ player: string; odds: number }>;
+    top20?: Array<{ player: string; odds: number }>;
+  };
+}
+
+/**
+ * Reads the most recent Bovada golf odds snapshot from Supabase and returns
+ * a map of normalized player name → real top-finish odds.
+ *
+ * Returns null if:
+ *   - Supabase is not configured
+ *   - No snapshot exists
+ *   - The latest snapshot is older than 7 days (stale relative to lock time)
+ *
+ * HONESTY RULE: This data is sourced from Bovada scrapes only.
+ * Never fabricate or interpolate odds — if a player isn't in the snapshot, their
+ * entry is absent from the map (caller falls back to proxy or skips the pick).
+ */
+export async function getBovadaTopFinishOdds(): Promise<BovadaTopFinishOddsMap | null> {
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/^"|"$/g, "").trim();
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").replace(/^"|"$/g, "").trim();
+
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/golf_odds_snapshots?select=tournament,scraped_at,markets&order=scraped_at.desc&limit=1`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!res.ok) return null;
+
+    const rows = await res.json() as StoredGolfOddsSnapshot[];
+    const snapshot = rows[0];
+    if (!snapshot) return null;
+
+    // Reject stale snapshots (> 7 days old relative to the pick lock window)
+    const snapshotAge = Date.now() - new Date(snapshot.scraped_at).getTime();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    if (snapshotAge > SEVEN_DAYS_MS) return null;
+
+    const markets = snapshot.markets ?? {};
+    const top5Map = new Map<string, number>((markets.top5 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+    const top10Map = new Map<string, number>((markets.top10 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+    const top20Map = new Map<string, number>((markets.top20 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+
+    // Build unified map from all players mentioned in any top-finish market
+    const allPlayerKeys = new Set<string>([
+      ...Array.from(top5Map.keys()),
+      ...Array.from(top10Map.keys()),
+      ...Array.from(top20Map.keys()),
+    ]);
+    const result: BovadaTopFinishOddsMap = new Map();
+
+    for (const key of Array.from(allPlayerKeys)) {
+      result.set(key, {
+        top5: top5Map.get(key) ?? null,
+        top10: top10Map.get(key) ?? null,
+        top20: top20Map.get(key) ?? null,
+        book: "Bovada",
+        scrapedAt: snapshot.scraped_at,
+        tournament: snapshot.tournament,
+      });
+    }
+
+    return result.size > 0 ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Look up real Bovada top-finish odds for a specific player.
+ * Returns null if the map is unavailable or the player isn't in the snapshot.
+ */
+export function findBovadaTopFinishOdds(
+  map: BovadaTopFinishOddsMap | null,
+  playerName: string,
+): BovadaTopFinishOddsLine | null {
+  if (!map) return null;
+  return map.get(normalizeName(playerName)) ?? null;
 }

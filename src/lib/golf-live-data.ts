@@ -1,4 +1,4 @@
-import { getGolfOdds } from "@/lib/golf-odds";
+import { getGolfOdds, getBovadaTopFinishOdds } from "@/lib/golf-odds";
 import { getDGCache } from "@/lib/datagolf-cache";
 import { buildGolfPredictionBoard, buildGolfTournamentPicks } from "@/lib/golf-stats-engine";
 import { getPGALeaderboard, getPGASchedule, getPlayerTournamentHistory } from "@/lib/golf-api";
@@ -48,7 +48,12 @@ export function getTournamentDateKey(tournament: GolfTournament | null | undefin
 export async function getGolfTournamentPicks(date?: string): Promise<{ picks: AIPick[]; tournamentDateKey: string }> {
   const predictions = await getGolfPredictionData();
   const tournamentDateKey = date ?? getTournamentDateKey(predictions.tournament);
-  const picks = buildGolfTournamentPicks(predictions, tournamentDateKey);
+
+  // Attempt to load real Bovada top5/10/20 odds (non-blocking — proxy fallback on null).
+  // When available, picks will use real scraped lines instead of proxy estimates.
+  const bovadaTopFinishOdds = await getBovadaTopFinishOdds().catch(() => null);
+
+  const picks = buildGolfTournamentPicks(predictions, tournamentDateKey, bovadaTopFinishOdds);
   return { picks, tournamentDateKey };
 }
 

@@ -59,7 +59,17 @@ function serviceHeaders(extra?: HeadersInit) {
 async function parseResponse<T>(response: Response): Promise<T> {
   if (response.ok) {
     if (response.status === 204) return null as T;
-    return await response.json() as T;
+    // Supabase with Prefer:return=minimal may return 200 with an empty body.
+    // Calling .json() on an empty body throws "SyntaxError: Unexpected end of JSON input".
+    // Read as text first and return null for blank responses (safe — write operations don't need a body).
+    const text = await response.text();
+    if (!text || !text.trim()) return null as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // Malformed JSON on a successful write — treat as null (same as empty body)
+      return null as T;
+    }
   }
 
   let message = `Supabase request failed (${response.status})`;

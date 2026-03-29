@@ -15,6 +15,7 @@ import {
   GolfValuePlay,
 } from "@/lib/types";
 import { getDGCache, summarizeDGCache, type DGCache } from "./datagolf-cache";
+import { type BovadaTopFinishOddsMap, findBovadaTopFinishOdds } from "./golf-odds";
 
 export const GOLF_PROP_TYPES = [
   "Tournament Winner",
@@ -725,16 +726,35 @@ function predictionToPick(
   date: string,
   tournamentName: string,
   tournamentId: string | undefined,
+  bovadaTopFinishOdds?: BovadaTopFinishOddsMap | null,
 ): AIPick {
   const modelProbability = getMarketProbability(player, market);
   const proxyBookProbability = market === "Tournament Winner" ? player.bookProb : getProxyBookProbability(player, market);
+
+  // Look up real Bovada top-finish odds for this player (when available).
+  // Real scraped lines take precedence over proxy calculations — honesty rule.
+  const realBovadaLine = market !== "Tournament Winner"
+    ? findBovadaTopFinishOdds(bovadaTopFinishOdds ?? null, player.name)
+    : null;
+  const realTopFinishOdds = (() => {
+    if (!realBovadaLine) return null;
+    if (market === "Top 5 Finish") return realBovadaLine.top5;
+    if (market === "Top 10 Finish") return realBovadaLine.top10;
+    if (market === "Top 20 Finish") return realBovadaLine.top20;
+    return null;
+  })();
+
   const bookLabel = market === "Tournament Winner"
     ? player.outrightBook ?? "Model Line"
-    : player.outrightBook ? `${player.outrightBook} outright proxy` : "Outright Proxy";
+    : realTopFinishOdds !== null
+      ? "Bovada"  // Real scraped line — no proxy involved
+      : player.outrightBook ? `${player.outrightBook} outright proxy` : "Outright Proxy (no real line)";
   const displayProbability = proxyBookProbability ?? modelProbability;
   const odds = market === "Tournament Winner" && player.bookOdds !== null
     ? player.bookOdds
-    : probabilityToAmericanOdds(displayProbability);
+    : realTopFinishOdds !== null
+      ? realTopFinishOdds  // Use real Bovada line when available
+      : probabilityToAmericanOdds(displayProbability);
   const edge = proxyBookProbability === null ? 0 : modelProbability - proxyBookProbability;
 
   // For golf, hitRate represents the confidence/composite score — NOT the raw probability.
@@ -803,7 +823,11 @@ function isQualifyingOutrightOdds(odds: number | null | undefined): boolean {
   return odds >= PGA_OUTRIGHT_MIN_ODDS;
 }
 
-export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date: string): AIPick[] {
+export function buildGolfTournamentPicks(
+  predictions: GolfPredictionBoard,
+  date: string,
+  bovadaTopFinishOdds?: BovadaTopFinishOddsMap | null,
+): AIPick[] {
   const players = predictions.players.filter((player) => player.position !== "CUT" && player.position !== "MC");
   const tournamentName = predictions.tournament?.name ?? "PGA Tournament";
   const tournamentId = predictions.tournament?.id;
@@ -845,7 +869,7 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
 
   for (const player of winnerSelections) {
     usedPlayers.add(player.id);
-    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId));
+    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId, bovadaTopFinishOdds));
   }
 
   // Back-fill with highest-edge qualifying candidates if any tier was empty
@@ -853,7 +877,7 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
     if (picks.filter((pick) => pick.propType === "Tournament Winner").length >= PGA_OUTRIGHT_WINNER_COUNT) break;
     if (usedPlayers.has(player.id)) continue;
     usedPlayers.add(player.id);
-    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId));
+    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId, bovadaTopFinishOdds));
   }
 
   const lockCandidates = [...players].sort((left, right) => (
@@ -865,7 +889,7 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
   const lockMarkets: GolfPredictionMarket[] = ["Top 5 Finish", "Top 10 Finish", "Top 20 Finish"];
 
   lockSelections.forEach((player, index) => {
-    picks.push(predictionToPick(player, lockMarkets[index], date, tournamentName, tournamentId));
+    picks.push(predictionToPick(player, lockMarkets[index], date, tournamentName, tournamentId, bovadaTopFinishOdds));
   });
 
   const valueMarkets: Array<{ market: GolfPredictionMarket; count: number }> = [
@@ -895,7 +919,7 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
       if (selectedCount >= valueMarket.count) break;
       if (usedPlayers.has(candidate.player.id)) continue;
       usedPlayers.add(candidate.player.id);
-      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId));
+      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
       selectedCount += 1;
     }
 
@@ -905,7 +929,7 @@ export function buildGolfTournamentPicks(predictions: GolfPredictionBoard, date:
       if (selectedCount >= valueMarket.count) break;
       const alreadyPicked = picks.some((pick) => pick.playerName === candidate.player.name && pick.propType === valueMarket.market);
       if (alreadyPicked) continue;
-      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId));
+      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
       selectedCount += 1;
     }
   }
