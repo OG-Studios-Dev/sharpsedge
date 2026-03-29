@@ -225,6 +225,11 @@ const COACH_NO_REST_SYSTEM_ID = "coach-no-rest";
 const NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nba-home-dog-majority-handle";
 const NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID = "nba-home-super-majority-close-game";
 const FAT_TONYS_FADE_SYSTEM_ID = "fat-tonys-fade";
+const NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nhl-home-dog-majority-handle";
+const NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID = "nhl-under-majority-handle";
+const MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID = "mlb-home-majority-handle";
+const MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID = "mlb-under-majority-handle";
+const NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nfl-home-dog-majority-handle";
 const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
@@ -1184,6 +1189,234 @@ function seededCatalog(): TrackedSystem[] {
       ],
       records: [],
     },
+    // ── NHL Handle Systems (Action Network splits rail) ──────────────────────
+    {
+      id: NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "nhl-home-dog-majority-handle",
+      name: "NHL Home Dog — Majority Handle",
+      league: "NHL",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "NHL home underdog receiving majority (≥ 55%) of ML handle dollars. Public money contradicts the road favorite — potential steam or narrative mis-pricing.",
+      snapshot: "🟡 RAIL LIVE | Action Network NHL splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+      definition:
+        "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 55% of ML handle dollars. When public money flows to a home dog, it either signals genuine sharp action or a market that has over-priced the road team. Alert only — not a directional pick without further context.",
+      qualifierRules: [
+        "Home team must be a moneyline underdog: bestHome.odds > 0 from aggregated NHL odds.",
+        "Home team must hold ≥ 55% of ML handle dollars (mlHomeHandlePct from Action Network splits).",
+        "Splits data must be available: mlSplitsAvailable = true on the BettingSplitsSnapshot.",
+        "League must be NHL with a matching aggregated odds event for game-day price.",
+      ],
+      progressionLogic: [],
+      thesis:
+        "NHL markets price road favourites sharply. When public handle flows to the home underdog instead, either sharp money is backing the home side or the away team is over-priced by narrative. The home-ice component adds a structural overlay that doesn't fully appear in the moneyline.",
+      sourceNotes: [
+        {
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "NHL ML handle splits from Action Network scoreboard API via getBettingSplits(\"NHL\"). No API key required.",
+        },
+        {
+          label: "Aggregated NHL moneylines",
+          detail: "Home ML odds sourced from getAggregatedOddsForSport(\"NHL\") for the underdog check.",
+        },
+        {
+          label: "Honesty policy",
+          detail: "If splits are unavailable or no aggregated event matches, the game is skipped. No inferred splits.",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail: "getBettingSplits(\"NHL\") + getAggregatedOddsForSport(\"NHL\") both connected. Fires when home team is dog + ≥ 55% ML handle.",
+      dataRequirements: [
+        { label: "NHL public ML handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"NHL\")." },
+        { label: "NHL home ML price", status: "ready", detail: "Live from getAggregatedOddsForSport(\"NHL\"). bestHome.odds > 0 = underdog." },
+      ],
+      unlockNotes: [
+        "Rail live. Monitor first 2 weeks of game-day firing to validate the 55% threshold for NHL.",
+      ],
+      trackingNotes: [
+        "Alert only — do not imply a bet direction without a separate value gate.",
+        "NHL handle data may be thinner than NBA early in the day; near-game snapshots are most meaningful.",
+      ],
+      records: [],
+    },
+    {
+      id: NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "nhl-under-majority-handle",
+      name: "NHL Under — Majority Handle",
+      league: "NHL",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "NHL games where the Under receives ≥ 58% of total handle. Public money contradicts the typical over-betting bias — potential sharp signal on the under.",
+      snapshot: "🟡 RAIL LIVE | Action Network NHL total splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+      definition:
+        "Flag NHL games where the Under side attracts ≥ 58% of total (O/U) handle dollars. Public bettors heavily favour Overs across major sports. When handle flows to the Under at this rate, it suggests either sharp money or a market under-pricing the low-scoring scenario. Alert only.",
+      qualifierRules: [
+        "Under side must hold ≥ 58% of total handle (underHandlePct from Action Network splits).",
+        "Total splits must be available: totalSplitsAvailable = true on the BettingSplitsSnapshot.",
+        "League must be NHL.",
+      ],
+      progressionLogic: [],
+      thesis:
+        "Public bettors are structurally biased toward Overs in hockey. When handle majority goes to the Under, it is often driven by sharp books or informed player activity rather than casual over-action. This creates a recurring watchlist signal worth tracking before any directional claim is made.",
+      sourceNotes: [
+        {
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "NHL total handle splits from Action Network via getBettingSplits(\"NHL\").",
+        },
+        {
+          label: "Honesty policy",
+          detail: "No bet direction is implied. Qualifier is an alert that a non-standard handle pattern exists.",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail: "getBettingSplits(\"NHL\") connected. Fires when Under ≥ 58% of total handle.",
+      dataRequirements: [
+        { label: "NHL public total handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"NHL\"). totalSplitsAvailable required." },
+      ],
+      unlockNotes: [
+        "Rail live. Review threshold (58%) after 3 weeks of data.",
+      ],
+      trackingNotes: [
+        "Alert only. No bet direction claimed. Track qualifier frequency and game context before adding a direction gate.",
+      ],
+      records: [],
+    },
+    // ── MLB Handle Systems (Action Network splits rail) ───────────────────────
+    {
+      id: MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "mlb-home-majority-handle",
+      name: "MLB Home — Majority Handle",
+      league: "MLB",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "MLB games where the home team receives ≥ 55% of ML handle dollars. Public home-team bias is well-documented — majority handle on the home side flags potential pricing pressure.",
+      snapshot: "🟡 RAIL LIVE | Action Network MLB splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+      definition:
+        "Flag MLB games where the home team holds ≥ 55% of ML handle dollars, regardless of whether they are a favourite or underdog. Public bettors have a structural home-team bias. When handle majority goes to the home side, the away team's price may be inflated by that bias. Alert only — watchlist until direction is validated.",
+      qualifierRules: [
+        "Home team must hold ≥ 55% of ML handle dollars (mlHomeHandlePct from Action Network splits).",
+        "Splits data must be available: mlSplitsAvailable = true.",
+        "League must be MLB.",
+      ],
+      progressionLogic: [],
+      thesis:
+        "Home-team bias in MLB betting is persistent. When home teams attract majority handle, the market may over-price them, creating value on the road side. Alternatively, genuine sharp action on a strong home team could explain the flow. This system tracks the pattern for investigation before any bet direction is claimed.",
+      sourceNotes: [
+        {
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "MLB ML handle splits from Action Network via getBettingSplits(\"MLB\").",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when home team ≥ 55% ML handle.",
+      dataRequirements: [
+        { label: "MLB public ML handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\")." },
+      ],
+      unlockNotes: [
+        "Rail live. Watchlist-only until sample accumulates. Review 55% threshold after 4 weeks.",
+      ],
+      trackingNotes: [
+        "Watchlist alert only — no bet direction implied. Do not claim value without a validated edge.",
+      ],
+      records: [],
+    },
+    {
+      id: MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "mlb-under-majority-handle",
+      name: "MLB Under — Majority Handle",
+      league: "MLB",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "MLB games where the Under receives ≥ 58% of total handle. Sharp/contrarian under signal when the public's default over-bias is reversed.",
+      snapshot: "🟡 RAIL LIVE | Action Network MLB total splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+      definition:
+        "Flag MLB games where the Under attracts ≥ 58% of total handle. Public bettors have a strong over-bias in baseball. When the Under commands majority handle, it suggests sharp or informed activity rather than casual bettors. Alert only.",
+      qualifierRules: [
+        "Under side must hold ≥ 58% of total handle (underHandlePct from Action Network splits).",
+        "Total splits must be available: totalSplitsAvailable = true.",
+        "League must be MLB.",
+      ],
+      progressionLogic: [],
+      thesis:
+        "Baseball public bettors tend to favour Overs — pitcher matchups, park factors, and scoring environments make high-scoring games more exciting to bet. When handle flips to the Under at 58%+, the move is more likely to reflect sharp positioning rather than casual bets.",
+      sourceNotes: [
+        {
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "MLB total handle splits from Action Network via getBettingSplits(\"MLB\").",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when Under ≥ 58% of total handle.",
+      dataRequirements: [
+        { label: "MLB public total handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\"). totalSplitsAvailable required." },
+      ],
+      unlockNotes: [
+        "Rail live. Track frequency across first month of season before adding directional claim.",
+      ],
+      trackingNotes: [
+        "Alert only. No bet direction claimed. Starter context and park factors are useful overlays before acting.",
+      ],
+      records: [],
+    },
+    // ── NFL Handle Systems (dormant / off-season) ─────────────────────────────
+    {
+      id: NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "nfl-home-dog-majority-handle",
+      name: "NFL Home Dog — Majority Handle",
+      league: "NFL",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "NFL home underdog receiving majority (≥ 55%) of ML handle. System logic is wired and ready; dormant during the off-season (no current NFL slate).",
+      snapshot: "🔴 OFF-SEASON | NFL regular season resumes ~Sep 2026. System logic wired — will auto-activate when slate exists.",
+      definition:
+        "Flag NFL games where the home team is a moneyline underdog AND attracts ≥ 55% of ML handle dollars. Mirrors the NBA and NHL home-dog handle systems. NFL home-field advantage is meaningful and the public's bias toward road favourites can create mis-pricing in close matchups.",
+      qualifierRules: [
+        "League must be NFL with active games on the current slate.",
+        "Home team must be a moneyline underdog: bestHome.odds > 0.",
+        "Home team must hold ≥ 55% of ML handle dollars from Action Network splits.",
+        "Total splits must be available (splitsAvailable = true).",
+        "System is dormant between end of Super Bowl and start of regular season (~Feb–Aug).",
+      ],
+      progressionLogic: [],
+      thesis:
+        "NFL home dogs are structurally undervalued in public betting. When the market makes a team a home underdog but public handle still favours them, the combination of home-field edge and potential sharp action makes it a worthwhile alert to track.",
+      sourceNotes: [
+        {
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "NFL ML handle splits from Action Network via getBettingSplits(\"NFL\"). Off-season returns empty board.",
+        },
+      ],
+      automationStatusLabel: "Wired — dormant off-season",
+      automationStatusDetail: "getBettingSplits(\"NFL\") connected. NFL slate empty Mar–Aug. Qualifier logic will fire automatically when September slate begins.",
+      dataRequirements: [
+        { label: "NFL public ML handle %", status: "ready", detail: "getBettingSplits(\"NFL\") ready. Returns empty board during off-season." },
+        { label: "NFL home ML price", status: "ready", detail: "getAggregatedOddsForSport(\"NFL\") ready. Returns empty during off-season." },
+      ],
+      unlockNotes: [
+        "System logic is fully wired. Will auto-activate at September 2026 kickoff.",
+        "Review 55% ML handle threshold against Week 1 data before the season.",
+      ],
+      trackingNotes: [
+        "Off-season status is honest — no fake qualifiers stored during dormant period.",
+        "Refresh function runs but returns zero records when no NFL slate exists.",
+      ],
+      records: [],
+    },
   ];
 }
 
@@ -1225,6 +1458,21 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   },
   [FAT_TONYS_FADE_SYSTEM_ID]: {
     refresh: refreshFuchsFadeSystemData,
+  },
+  [NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshNHLHomeDogMajorityHandleSystemData,
+  },
+  [NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshNHLUnderMajorityHandleSystemData,
+  },
+  [MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshMLBHomeMajorityHandleSystemData,
+  },
+  [MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshMLBUnderMajorityHandleSystemData,
+  },
+  [NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshNFLHomeDogMajorityHandleSystemData,
   },
 };
 
@@ -3843,6 +4091,451 @@ async function refreshCoachNoRestSystemData(data: SystemsTrackingData, options: 
   system.automationStatusDetail = `Daily rest-disparity screen: B2B team (0 rest) vs opponent with >=2 days rest, fatigue gap >=15, price -175 to +170. ${auditSummary}`;
 
   return system;
+}
+
+// ── Cross-sport splits helper ──────────────────────────────────────────────────
+
+/**
+ * Match an aggregated odds event for a game identified by home+away abbreviation.
+ * Case-insensitive comparison. Optional date filter via commenceTime.
+ */
+function findAggregatedEventForSplitsGame(
+  events: AggregatedOdds[],
+  homeAbbrev: string,
+  awayAbbrev: string,
+  targetDate?: string,
+): AggregatedOdds | null {
+  const hn = homeAbbrev.toUpperCase().trim();
+  const an = awayAbbrev.toUpperCase().trim();
+  return (
+    events.find((e) => {
+      if (targetDate && getEventDate(e.commenceTime) !== targetDate) return false;
+      return e.homeAbbrev.toUpperCase().trim() === hn && e.awayAbbrev.toUpperCase().trim() === an;
+    }) ?? null
+  );
+}
+
+// ── NHL Handle Systems — refresh functions ────────────────────────────────────
+
+/**
+ * NHL Home Dog — Majority Handle
+ * Fires when: NHL home team is ML underdog AND holds ≥ 55% of ML handle.
+ */
+async function refreshNHLHomeDogMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [splitsResult, aggregatedEvents] = await Promise.all([
+    getBettingSplits("NHL", targetDate).catch(() => null),
+    getAggregatedOddsForSport("NHL").catch(() => [] as AggregatedOdds[]),
+  ]);
+
+  const freshRecords: SystemTrackingRecord[] = [];
+  const audit = { gamesScanned: 0, noSplits: 0, notAvailable: 0, notUnderdog: 0, notMajorityHandle: 0, qualified: 0 };
+
+  if (splitsResult?.available) {
+    for (const game of splitsResult.games) {
+      if (game.gameDate !== targetDate) continue;
+      audit.gamesScanned += 1;
+      if (!game.mlSplitsAvailable) { audit.notAvailable += 1; continue; }
+
+      const { side1: homeEntry } = getMarketSplits(game, "moneyline");
+      const homeHandlePct = homeEntry?.handlePercent ?? null;
+      if (homeHandlePct === null || homeHandlePct < 55) { audit.notMajorityHandle += 1; continue; }
+
+      // Check if home team is an underdog using aggregated odds
+      const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
+      const homeML = event?.bestHome?.odds ?? null;
+      if (homeML === null || homeML <= 0) { audit.notUnderdog += 1; continue; }
+
+      audit.qualified += 1;
+      const awayHandlePct = game.splits.find((s) => s.source === game.effectiveSource && s.marketType === "moneyline" && s.side === "away")?.handlePercent ?? null;
+      const totalLine = event ? getEventTotalLine(event) : null;
+
+      freshRecords.push(normalizeRecord({
+        id: `${NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+        roadTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        qualifiedTeam: game.homeTeam,
+        opponentTeam: game.awayTeam,
+        recordKind: "qualifier",
+        marketType: "moneyline",
+        alertLabel: `NHL home dog ${game.homeTeam} +${homeML} with ${homeHandlePct}% ML handle`,
+        currentMoneyline: homeML,
+        totalLine,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `NHL handle splits live. Source: ${game.effectiveSource}.`,
+        notes: [
+          `NHL Home Dog Majority Handle qualifier — ${game.homeTeam} home dog vs ${game.awayTeam}.`,
+          `ML handle: ${homeHandlePct}% on ${game.homeTeam} (home)${awayHandlePct !== null ? ` vs ${awayHandlePct}% on ${game.awayTeam}` : ""}.`,
+          `Home ML: +${homeML}. ${totalLine !== null ? `Total: ${totalLine}.` : ""}`,
+          `Source: Action Network (${game.effectiveSource}).`,
+          `Alert only — not a pick. Verify context before acting.`,
+        ].join(" • "),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+    }
+  } else {
+    audit.noSplits = 1;
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below handle threshold: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} NHL Home Dog qualifier(s) today | ${auditNote}`
+      : `🟡 No qualifiers today | ${auditNote}`,
+    records: freshRecords,
+  };
+  return updated;
+}
+
+/**
+ * NHL Under — Majority Handle
+ * Fires when: ≥ 58% of total (O/U) handle goes to the Under in NHL games.
+ */
+async function refreshNHLUnderMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [splitsResult, aggregatedEvents] = await Promise.all([
+    getBettingSplits("NHL", targetDate).catch(() => null),
+    getAggregatedOddsForSport("NHL").catch(() => [] as AggregatedOdds[]),
+  ]);
+
+  const freshRecords: SystemTrackingRecord[] = [];
+  const audit = { gamesScanned: 0, noSplits: 0, notAvailable: 0, belowThreshold: 0, qualified: 0 };
+
+  if (splitsResult?.available) {
+    for (const game of splitsResult.games) {
+      if (game.gameDate !== targetDate) continue;
+      audit.gamesScanned += 1;
+      if (!game.totalSplitsAvailable) { audit.notAvailable += 1; continue; }
+
+      const { side1: overEntry, side2: underEntry } = getMarketSplits(game, "total");
+      const underHandlePct = underEntry?.handlePercent ?? null;
+      if (underHandlePct === null || underHandlePct < 58) { audit.belowThreshold += 1; continue; }
+
+      audit.qualified += 1;
+      const overHandlePct = overEntry?.handlePercent ?? null;
+      const totalLine = underEntry?.line ?? overEntry?.line ?? null;
+      const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
+      const homeML = event?.bestHome?.odds ?? null;
+
+      freshRecords.push(normalizeRecord({
+        id: `${NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+        roadTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        qualifiedTeam: null,
+        opponentTeam: null,
+        recordKind: "qualifier",
+        marketType: "total",
+        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in NHL`,
+        currentMoneyline: homeML,
+        totalLine,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `NHL total handle splits live. Source: ${game.effectiveSource}.`,
+        notes: [
+          `NHL Under Majority Handle qualifier — ${game.awayTeam} @ ${game.homeTeam}.`,
+          `Total handle: ${underHandlePct}% Under vs ${overHandlePct !== null ? overHandlePct + "% Over" : "—"}.`,
+          `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
+          `Source: Action Network (${game.effectiveSource}).`,
+          `Alert only — sharp under signal. Verify starter/goalie context before acting.`,
+        ].join(" • "),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+    }
+  } else {
+    audit.noSplits = 1;
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 58% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} NHL Under qualifier(s) today | ${auditNote}`
+      : `🟡 No NHL under qualifiers today | ${auditNote}`,
+    records: freshRecords,
+  };
+  return updated;
+}
+
+// ── MLB Handle Systems — refresh functions ────────────────────────────────────
+
+/**
+ * MLB Home — Majority Handle
+ * Fires when: MLB home team holds ≥ 55% of ML handle (watchlist — no bet direction implied).
+ */
+async function refreshMLBHomeMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [splitsResult, aggregatedEvents] = await Promise.all([
+    getBettingSplits("MLB", targetDate).catch(() => null),
+    getAggregatedOddsForSport("MLB").catch(() => [] as AggregatedOdds[]),
+  ]);
+
+  const freshRecords: SystemTrackingRecord[] = [];
+  const audit = { gamesScanned: 0, noSplits: 0, notAvailable: 0, belowThreshold: 0, qualified: 0 };
+
+  if (splitsResult?.available) {
+    for (const game of splitsResult.games) {
+      if (game.gameDate !== targetDate) continue;
+      audit.gamesScanned += 1;
+      if (!game.mlSplitsAvailable) { audit.notAvailable += 1; continue; }
+
+      const { side1: homeEntry } = getMarketSplits(game, "moneyline");
+      const homeHandlePct = homeEntry?.handlePercent ?? null;
+      if (homeHandlePct === null || homeHandlePct < 55) { audit.belowThreshold += 1; continue; }
+
+      audit.qualified += 1;
+      const awayHandlePct = game.splits.find((s) => s.source === game.effectiveSource && s.marketType === "moneyline" && s.side === "away")?.handlePercent ?? null;
+      const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
+      const homeML = event?.bestHome?.odds ?? null;
+      const awayML = event?.bestAway?.odds ?? null;
+      const totalLine = event ? getEventTotalLine(event) : null;
+      const homeIsUnderdog = homeML !== null && homeML > 0;
+
+      freshRecords.push(normalizeRecord({
+        id: `${MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+        roadTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        qualifiedTeam: game.homeTeam,
+        opponentTeam: game.awayTeam,
+        recordKind: "qualifier",
+        marketType: "moneyline",
+        alertLabel: `MLB home ${homeIsUnderdog ? `dog` : `fav`} ${game.homeTeam} with ${homeHandlePct}% ML handle`,
+        currentMoneyline: homeML,
+        totalLine,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `MLB ML handle splits live. Source: ${game.effectiveSource}.`,
+        notes: [
+          `MLB Home Majority Handle qualifier — ${game.homeTeam} home vs ${game.awayTeam}.`,
+          `ML handle: ${homeHandlePct}% on ${game.homeTeam}${awayHandlePct !== null ? ` vs ${awayHandlePct}% on ${game.awayTeam}` : ""}.`,
+          `Home ML: ${homeML !== null ? (homeML > 0 ? "+" : "") + homeML : "—"}. Away ML: ${awayML !== null ? (awayML > 0 ? "+" : "") + awayML : "—"}.${totalLine !== null ? ` Total: ${totalLine}.` : ""}`,
+          homeIsUnderdog ? `Home team is ML underdog — public backing a dog (notable).` : `Home team is ML favourite — public backing expected.`,
+          `Source: Action Network (${game.effectiveSource}).`,
+          `Watchlist alert only — no bet direction implied. No historical win-rate claimed.`,
+        ].join(" • "),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+    }
+  } else {
+    audit.noSplits = 1;
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. ML unavailable: ${audit.notAvailable}. Below 55% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} MLB Home Handle qualifier(s) today | ${auditNote}`
+      : `🟡 No MLB home handle qualifiers today | ${auditNote}`,
+    records: freshRecords,
+  };
+  return updated;
+}
+
+/**
+ * MLB Under — Majority Handle
+ * Fires when: ≥ 58% of total handle goes to the Under in MLB games.
+ */
+async function refreshMLBUnderMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [splitsResult, aggregatedEvents] = await Promise.all([
+    getBettingSplits("MLB", targetDate).catch(() => null),
+    getAggregatedOddsForSport("MLB").catch(() => [] as AggregatedOdds[]),
+  ]);
+
+  const freshRecords: SystemTrackingRecord[] = [];
+  const audit = { gamesScanned: 0, noSplits: 0, notAvailable: 0, belowThreshold: 0, qualified: 0 };
+
+  if (splitsResult?.available) {
+    for (const game of splitsResult.games) {
+      if (game.gameDate !== targetDate) continue;
+      audit.gamesScanned += 1;
+      if (!game.totalSplitsAvailable) { audit.notAvailable += 1; continue; }
+
+      const { side1: overEntry, side2: underEntry } = getMarketSplits(game, "total");
+      const underHandlePct = underEntry?.handlePercent ?? null;
+      if (underHandlePct === null || underHandlePct < 58) { audit.belowThreshold += 1; continue; }
+
+      audit.qualified += 1;
+      const overHandlePct = overEntry?.handlePercent ?? null;
+      const totalLine = underEntry?.line ?? overEntry?.line ?? null;
+      const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
+      const homeML = event?.bestHome?.odds ?? null;
+
+      freshRecords.push(normalizeRecord({
+        id: `${MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+        roadTeam: game.awayTeam,
+        homeTeam: game.homeTeam,
+        qualifiedTeam: null,
+        opponentTeam: null,
+        recordKind: "qualifier",
+        marketType: "total",
+        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in MLB`,
+        currentMoneyline: homeML,
+        totalLine,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `MLB total handle splits live. Source: ${game.effectiveSource}.`,
+        notes: [
+          `MLB Under Majority Handle qualifier — ${game.awayTeam} @ ${game.homeTeam}.`,
+          `Total handle: ${underHandlePct}% Under vs ${overHandlePct !== null ? overHandlePct + "% Over" : "—"}.`,
+          `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
+          `Source: Action Network (${game.effectiveSource}).`,
+          `Alert only — sharp under signal. Verify starter quality and park context before acting.`,
+        ].join(" • "),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+    }
+  } else {
+    audit.noSplits = 1;
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 58% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} MLB Under qualifier(s) today | ${auditNote}`
+      : `🟡 No MLB under qualifiers today | ${auditNote}`,
+    records: freshRecords,
+  };
+  return updated;
+}
+
+// ── NFL Handle System — refresh function (off-season dormant) ────────────────
+
+/**
+ * NFL Home Dog — Majority Handle
+ * System logic is wired. Off-season during Mar–Aug; returns zero records honestly.
+ */
+async function refreshNFLHomeDogMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  // Check for NFL splits — off-season returns empty board
+  const splitsResult = await getBettingSplits("NFL", targetDate).catch(() => null);
+  const hasGames = Boolean(splitsResult?.available && (splitsResult.games?.length ?? 0) > 0);
+
+  if (!hasGames) {
+    // Honest off-season: no records, dormant status
+    const updated: TrackedSystem = {
+      ...system,
+      status: "awaiting_data" as SystemTrackingStatus,
+      snapshot: "🔴 OFF-SEASON | NFL regular season resumes ~Sep 2026. No current slate — zero records stored (honest).",
+      automationStatusLabel: "Wired — dormant off-season",
+      automationStatusDetail: `getBettingSplits("NFL") returned ${hasGames ? "games" : "empty board"} for ${targetDate}. System will auto-activate when a live NFL slate exists.`,
+      records: [],
+    };
+    return updated;
+  }
+
+  // If somehow an NFL game exists (preseason, etc.), run the qualifier logic
+  const aggregatedEvents = await getAggregatedOddsForSport("NFL").catch(() => [] as AggregatedOdds[]);
+  const freshRecords: SystemTrackingRecord[] = [];
+  const audit = { gamesScanned: 0, notAvailable: 0, notUnderdog: 0, notMajorityHandle: 0, qualified: 0 };
+
+  for (const game of (splitsResult?.games ?? [])) {
+    if (game.gameDate !== targetDate) continue;
+    audit.gamesScanned += 1;
+    if (!game.mlSplitsAvailable) { audit.notAvailable += 1; continue; }
+
+    const { side1: homeEntry } = getMarketSplits(game, "moneyline");
+    const homeHandlePct = homeEntry?.handlePercent ?? null;
+    if (homeHandlePct === null || homeHandlePct < 55) { audit.notMajorityHandle += 1; continue; }
+
+    const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
+    const homeML = event?.bestHome?.odds ?? null;
+    if (homeML === null || homeML <= 0) { audit.notUnderdog += 1; continue; }
+
+    audit.qualified += 1;
+    const totalLine = event ? getEventTotalLine(event) : null;
+    freshRecords.push(normalizeRecord({
+      id: `${NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
+      gameDate: targetDate,
+      matchup: `${game.awayTeam} @ ${game.homeTeam}`,
+      roadTeam: game.awayTeam,
+      homeTeam: game.homeTeam,
+      qualifiedTeam: game.homeTeam,
+      opponentTeam: game.awayTeam,
+      recordKind: "qualifier",
+      marketType: "moneyline",
+      alertLabel: `NFL home dog ${game.homeTeam} +${homeML} with ${homeHandlePct}% ML handle`,
+      currentMoneyline: homeML,
+      totalLine,
+      sourceHealthStatus: "healthy",
+      freshnessSummary: `NFL handle splits live. Source: ${game.effectiveSource}.`,
+      notes: [
+        `NFL Home Dog Majority Handle qualifier — ${game.homeTeam} home dog vs ${game.awayTeam}.`,
+        `ML handle: ${homeHandlePct}% on ${game.homeTeam}. Home ML: +${homeML}.`,
+        `Source: Action Network (${game.effectiveSource}). Alert only.`,
+      ].join(" • "),
+      lastSyncedAt: new Date().toISOString(),
+    }));
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} NFL games. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below threshold: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
+  return {
+    ...system,
+    status: audit.qualified > 0 ? "tracking" as SystemTrackingStatus : "awaiting_data" as SystemTrackingStatus,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} NFL Home Dog qualifier(s) today | ${auditNote}`
+      : `🟡 No NFL qualifiers today | ${auditNote}`,
+    records: freshRecords,
+  };
 }
 
 export async function refreshTrackedSystem(systemId: string, options: SystemRefreshOptions = {}): Promise<TrackedSystem | null> {
