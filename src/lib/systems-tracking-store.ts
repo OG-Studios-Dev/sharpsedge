@@ -217,6 +217,8 @@ const FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID = "falcons-fight-pummeled-pitche
 const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
 const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
 const ROBBIES_RIPPER_FAST_5_SYSTEM_ID = "robbies-ripper-fast-5";
+const BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID = "bigcat-bonaza-puckluck";
+const COACH_NO_REST_SYSTEM_ID = "coach-no-rest";
 const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
@@ -485,44 +487,57 @@ function seededCatalog(): TrackedSystem[] {
       records: [],
     },
     {
-      id: "coaches-fuming-scoring-drought",
-      slug: "coaches-fuming-scoring-drought",
-      name: "Coaches Fuming Scoring Drought",
+      id: COACH_NO_REST_SYSTEM_ID,
+      slug: "coach-no-rest",
+      name: "Coach, No Rest?",
       league: "NHL",
-      category: "historical",
+      category: "native",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
-      trackabilityBucket: "blocked_missing_data",
-      summary: "NHL buy-low frustration spot blocked until quote/news tagging and a repeatable scoring-drought trigger exist.",
-      snapshot: "Blocked: quote/news tagging required.",
+      trackabilityBucket: "trackable_now",
+      summary: "NHL rest-disparity system. Backs the better-rested side when one team plays on zero rest (back-to-back) and the opponent has 2+ days off. Daily-trackable from NHL schedule data.",
+      snapshot: "🟢 REST DISPARITY RAIL LIVE | Fires daily when B2B vs rested matchups exist on the NHL slate.",
       definition:
-        "Target NHL teams with solid underlying creation that just endured a loud scoring drought, especially when coach or player frustration becomes part of the next-game story.",
+        "Flag NHL games where one team is playing on the second night of a back-to-back (0 rest days) while the opponent has had at least 2 days of rest. Back the rested side with price discipline — market underprices rest edges in the NHL because scheduling fatigue accumulates on rosters, depth lines, and goalies.",
       qualifierRules: [
-        "Needs a repeatable definition of a scoring drought, not just 'they didn't score much.'",
-        "Requires structured coach/player frustration tagging from trustworthy news sources.",
-        "Should include a baseline offensive-quality filter so weak attacks are excluded.",
+        "The disadvantaged side must be on a back-to-back: 0 days rest (derived.rest.isBackToBack === true).",
+        "The advantaged side must have at least 2 days of rest (derived.rest.restDays >= 2).",
+        "The advantaged (rested) side is the qualifier. Alert direction: back the rested team.",
+        "Goalie context is required for the B2B team: flag when B2B team is playing a backup or starter with compromised status.",
+        "Price discipline: do not store rows where the rested side's best moneyline is below -175 (pricing already absorbed) or above +170 (too large an underdog to flag as a pure rest angle).",
+        "Fatigue gap must exceed 15 points (derived.fatigueScore of B2B side minus rested side >= 15) to avoid noise from light-schedule games.",
       ],
       progressionLogic: [],
       thesis:
-        "The next-game rebound story can be real when the market overweights one ugly offensive night, but only if drought and frustration inputs are captured systematically.",
+        "NHL back-to-back games create measurable depth and goalie fatigue disadvantages. When the rest gap is 2+ days, the market consistently underprices the advantage — especially late in the season when depth attrition compounds. This system is a rule-based screener, not a win-rate claim.",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Cataloged honestly as blocked until the news-tagging and drought logic are measurable.",
+          label: "Native qualifier tracker",
+          detail: "Coach, No Rest? is a Goosalytics-owned NHL rest-disparity screener built from NHL schedule data, derived fatigue context, and aggregated moneylines. Rest days and B2B status are derived from NHL API schedule via nhl-context.",
+        },
+        {
+          label: "Honesty policy",
+          detail: "Rows are qualifier alerts only. No claimed win rate or historical edge implied. Missing goalie status, odd pricing, or ambiguous rest context stay unresolved rather than guessed.",
         },
       ],
-      automationStatusLabel: "Blocked by missing data",
-      automationStatusDetail: "Reliable coach-quote/news tagging required, plus a concrete scoring-drought event definition.",
+      automationStatusLabel: "Live rest-disparity qualifier board",
+      automationStatusDetail: "Daily refresh scans the NHL context board for B2B vs rested matchups. Stores qualifier rows when rest disparity >= 2 days, fatigue gap >= 15 points, goalie context is captured, and price is within discipline band.",
       dataRequirements: [
-        { label: "Scoring-drought event flag", status: "pending", detail: "Need a repeatable shot/chance drought definition." },
-        { label: "Coach/player quote tagging", status: "pending", detail: "Reliable coach-quote/news tagging required." },
-        { label: "Offensive baseline filter", status: "pending", detail: "Need an offensive-quality input so bad offenses are not mislabeled as buy-low spots." },
+        { label: "NHL schedule / rest rail", status: "ready", detail: "NHL API schedule provides game dates. derived.rest.restDays and derived.rest.isBackToBack computed per team per game via nhl-context." },
+        { label: "Fatigue score rail", status: "ready", detail: "derived.fatigueScore computed from rest, travel, and schedule density per team via nhl-context." },
+        { label: "Goalie context rail", status: "ready", detail: "Starter status (confirmed/probable/backup) sourced from NHL API via nhl-context." },
+        { label: "Aggregated NHL moneylines", status: "ready", detail: "Best-available NHL moneylines per team from aggregated odds API." },
+        { label: "Historical outcome validation", status: "pending", detail: "No settled record history yet. Need outcome data before any win-rate claim can be made." },
       ],
       unlockNotes: [
-        "Reliable coach-quote/news tagging required.",
-        "Concrete scoring-drought event definition required.",
+        "Rest rail is live — daily qualification can fire.",
+        "Historical outcome validation still required before win-rate claims.",
       ],
-      trackingNotes: [],
+      trackingNotes: [
+        "Rows represent B2B vs rested qualifier alerts, not bets or picks.",
+        "Slug 'coach-no-rest' is canonical. Old 'coaches-fuming-scoring-drought' system is retired.",
+        "Market pricing context stored with each row but price band enforced at storage time, not grading time.",
+      ],
       records: [],
     },
     {
@@ -621,44 +636,65 @@ function seededCatalog(): TrackedSystem[] {
       records: [],
     },
     {
-      id: "bigcat-bonaza-puckluck",
+      id: BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
       slug: "bigcat-bonaza-puckluck",
       name: "BigCat Bonaza PuckLuck",
       league: "NHL",
-      category: "external",
-      owner: "External source",
-      status: "source_based",
-      trackabilityBucket: "parked_definition_only",
-      summary: "External-style puck-luck concept parked pending public rule definition. xG/finishing-luck data is now live via MoneyPuck + NHL PBP aggregates - the data gap is resolved, but qualifier rules from the external source have not been captured.",
-      snapshot: "Data gap resolved: xG feed live. Parked awaiting public rule capture to define qualifier thresholds.",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary: "NHL 5v5 process-vs-results screener. Targets teams whose xG process diverges meaningfully from actual results — underfinishing teams (high xG%, low goals/xGoals ratio) are regression candidates. Daily qualification wired via MoneyPuck xGF season data. Partial PDO proxy: goalsAgainst not in current snapshot, so save-side luck requires a data upgrade.",
+      snapshot: "🟡 DEFINED | xGF-based finishing luck qualifiable daily. Full PDO (save-side) blocked: goalsAgainst missing from MoneyPuck snapshot.",
       definition:
-        "An externally inspired NHL concept around variance, finishing luck, and short-term puck-luck narratives. Included in the catalog so users can see the definition and sourcing without mistaking it for a verified in-house edge.",
+        "Screen NHL teams at 5v5 for meaningful divergence between their underlying process (xGoalsPercentage from MoneyPuck) and their actual results (goalsFor vs xGoalsFor finishing ratio). Teams generating strong expected-goal share but finishing below their xG rate are regression candidates — markets can overprice recent losing streaks without adjusting for unsustainable variance. Buy the process, not the scoreboard.",
       qualifierRules: [
-        "Do not present as a native Goosalytics model.",
-        "Would need explicit public-source rules before any automated screening.",
-        "If tracked later, results must be tagged separately from internal systems.",
+        "5v5 focus via MoneyPuck xGoalsPercentage (season-level, all-situations proxy — not pure 5v5 split; blocker: MoneyPuck mirror does not expose strength-state splits).",
+        "Process gate: team's xGoalsPercentage must be >= 0.505 (generating at least 50.5% of xG in games played). Minimum 25 games played in standings to avoid small-sample noise.",
+        "Finishing luck gate (offense side): team's goalsFor / xGoalsFor ratio must be <= 0.96, meaning they are scoring at least 4% fewer goals than their expected-goal output predicts. This is the underfinishing / regression-up signal.",
+        "Divergence framing: the team is a candidate to regress toward its xG process, not a guaranteed win. Markets may be undervaluing the team based on recent poor results that are partially variance-driven.",
+        "Partial PDO proxy — offense side only: goalsAgainst is not available in the current MoneyPuck snapshot. Full PDO (goalsFor/xGoalsFor + goalsAgainst/xGoalsAgainst) requires a data upgrade. Current qualification captures only the finishing-luck (offense) side of variance.",
+        "Daily game filter: only surface a team as a BigCat qualifier on days when they have a scheduled NHL game. No all-season static lists.",
+        "Price discipline: best moneyline for the qualifying team must be between -170 and +250 to exclude obvious chalk and long-shot noise.",
       ],
       progressionLogic: [],
       thesis:
-        "Puck-luck framing can be useful, but unless the public-source rules are specific and an xG/luck feed exists, it stays a reference model instead of a performance claim.",
+        "NHL goal-scoring is noisy over short stretches. A team generating > 50% of expected goals but finishing below their xG rate is likely experiencing short-term variance, not a structural collapse. The market often prices these teams based on recent results rather than underlying process. BigCat PuckLuck flags these divergences as daily regression opportunities — not guaranteed edges, but mathematically justified watchlist spots.",
       sourceNotes: [
         {
-          label: "External/source-based",
-          detail: "Included as a cataloged outside-style model. No Goosalytics-owned track record is implied.",
+          label: "Native qualifier tracker",
+          detail: "BigCat Bonaza PuckLuck is now a Goosalytics-native NHL screener using MoneyPuck season xG data and NHL standings. The 'externally inspired' framing is retired — this is now an independently defined system.",
+        },
+        {
+          label: "Data limitation — partial PDO only",
+          detail: "Full PDO requires goalsFor/xGoalsFor (offense finishing luck) AND goalsAgainst/xGoalsAgainst (goalie/defense luck). Current MoneyPuck snapshot provides xGoalsFor, xGoalsAgainst, and goalsFor but NOT goalsAgainst. Qualification fires on offense-side luck only until the data is upgraded.",
+        },
+        {
+          label: "5v5 note",
+          detail: "MoneyPuck xGoalsPercentage in the current mirror is all-situations season-level. Pure 5v5 split not available from the GitHub CSV mirror. This is a known limitation and is stated in every qualifier note.",
         },
       ],
-      automationStatusLabel: "Parked / definition only - data gap resolved",
-      automationStatusDetail: "xG/finishing-luck data is now live: MoneyPuck xGoalsPercentage (season-level, 32 teams) and NHL PBP aggregate HDCF%/HDSV%/zone xG (nhl-pbp-aggregate, 10-game rolling). The remaining gap is the exact public qualifier rule definition - what thresholds, matchup filters, and bet-direction logic the external source uses.",
+      automationStatusLabel: "Live — offense-side finishing luck qualification active",
+      automationStatusDetail: "Daily refresh uses MoneyPuck xGoalsPercentage and goalsFor/xGoalsFor ratio to flag underfinishing teams on that day's NHL slate. Partial PDO blocker: goalsAgainst not in snapshot, so save-side luck is not captured. Full PDO qualification requires upgrading the MoneyPuck feed to include goalsAgainst.",
       dataRequirements: [
-        { label: "Public rule capture", status: "pending", detail: "Need the exact outside-source criteria (luck thresholds, matchup filters, bet-direction) before any automated screening." },
-        { label: "xG / finishing-luck feed", status: "ready", detail: "MoneyPuck xGoalsPercentage live for all 32 teams. NHL PBP aggregate provides HDCF%, HDSV%, zone xG per team (10-game rolling). Both via nhl-context and goose-model nhl-features." },
+        { label: "xGoalsPercentage (season)", status: "ready", detail: "MoneyPuck xGoalsPercentage live for all 32 teams via bundled snapshot + live mirror fallback." },
+        { label: "xGoalsFor / goalsFor (finishing luck, offense)", status: "ready", detail: "xGoalsFor and goalsFor both in snapshot. goalsFor/xGoalsFor ratio computable to measure underfinishing." },
+        { label: "goalsAgainst / xGoalsAgainst (finishing luck, defense/goalie)", status: "pending", detail: "goalsAgainst not in current MoneyPuck snapshot. xGoalsAgainst is available but actual goalsAgainst is missing. Full PDO blocked until feed is upgraded." },
+        { label: "5v5 strength-state split", status: "pending", detail: "MoneyPuck GitHub mirror CSV does not expose 5v5-only xG. Current data is all-situations. Upgrade requires a different data source (e.g., Natural Stat Trick)." },
+        { label: "NHL standings (sample gate)", status: "ready", detail: "NHL standings provide gamesPlayed for minimum-sample enforcement (25+ games required)." },
+        { label: "Aggregated NHL moneylines", status: "ready", detail: "Best-available NHL moneylines per team from aggregated odds API for price discipline gate." },
+        { label: "Historical outcome validation", status: "pending", detail: "No settled record history yet. Need outcomes before any win-rate claim." },
       ],
       unlockNotes: [
-        "xG data gap resolved as of 2026-03-27 (MoneyPuck + NHL PBP aggregates).",
-        "Public source rule capture still required before any qualifier automation.",
-        "Once rules are defined, this could become a native puck-luck screener using existing shot-zone rails.",
+        "Offense-side finishing luck qualification live now.",
+        "Full PDO: upgrade MoneyPuck feed to include goalsAgainst column.",
+        "Pure 5v5 split: upgrade to Natural Stat Trick or direct MoneyPuck API (not GitHub mirror).",
       ],
-      trackingNotes: ["External/source-based label should remain prominent."],
+      trackingNotes: [
+        "Qualifier rows show xGoalsPercentage, goalsFor/xGoalsFor ratio, and partial PDO label.",
+        "Every row notes 'partial PDO — offense side only' until goalsAgainst data is live.",
+        "No synthetic backtest or claimed win rate. Alerts only.",
+      ],
       records: [],
     },
     {
@@ -1013,6 +1049,12 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   },
   [ROBBIES_RIPPER_FAST_5_SYSTEM_ID]: {
     refresh: refreshRobbiesRipperFast5SystemData,
+  },
+  [BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID]: {
+    refresh: refreshBigCatBonazaPuckLuckSystemData,
+  },
+  [COACH_NO_REST_SYSTEM_ID]: {
+    refresh: refreshCoachNoRestSystemData,
   },
 };
 
@@ -3365,6 +3407,271 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
     ? `${system.snapshot} ${auditSummary}`
     : `No Falcons qualifiers met the current screen for ${targetDate}. ${auditSummary}`;
   system.automationStatusDetail = `${system.automationStatusDetail} ${auditSummary}`;
+  return system;
+}
+
+// ─── BigCat Bonaza PuckLuck — 5v5 process-vs-results / finishing luck ───────
+
+async function refreshBigCatBonazaPuckLuckSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getTrackedSystem(data, BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID)!));
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [board, aggregated] = await Promise.all([
+    getTodayNHLContextBoard(),
+    getAggregatedOddsForSport("NHL"),
+  ]);
+
+  const targetGames = (board.games || []).filter((game) => game.gameDate === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: targetGames.length,
+    matchedOddsEvent: 0,
+    teamChecks: 0,
+    failedNoOddsEvent: 0,
+    failedMissingXg: 0,
+    failedProcessGate: 0,
+    failedSampleGate: 0,
+    failedFinishingLuck: 0,
+    failedNoPrice: 0,
+    failedPriceBand: 0,
+    qualified: 0,
+  };
+
+  for (const game of targetGames) {
+    const event = aggregated.find((candidate) => {
+      if (getEventDate(candidate.commenceTime) !== game.gameDate) return false;
+      return candidate.awayAbbrev === game.matchup.awayTeam.abbrev && candidate.homeAbbrev === game.matchup.homeTeam.abbrev;
+    });
+    if (!event) {
+      audit.failedNoOddsEvent += 1;
+      continue;
+    }
+    audit.matchedOddsEvent += 1;
+
+    const sides = [
+      { entry: game.teams.away, opponent: game.teams.home },
+      { entry: game.teams.home, opponent: game.teams.away },
+    ];
+
+    for (const { entry, opponent } of sides) {
+      audit.teamChecks += 1;
+
+      const xgPct = entry.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const xgFor = entry.sourced.moneyPuck?.xGoalsFor ?? null;
+      const goalsFor = entry.sourced.moneyPuck?.goalsFor ?? null;
+      const gamesPlayed = entry.sourced.standings?.gamesPlayed ?? null;
+      const priceInfo = getNHLMoneylineForTeam(event, entry.teamAbbrev);
+      const price = priceInfo?.odds ?? null;
+
+      if (xgPct === null || xgFor === null) { audit.failedMissingXg += 1; continue; }
+      if (xgPct < 0.505) { audit.failedProcessGate += 1; continue; }
+      if (gamesPlayed === null || gamesPlayed < 25) { audit.failedSampleGate += 1; continue; }
+
+      // goalsFor/xGoalsFor finishing luck — the core BigCat gate
+      if (goalsFor === null || xgFor <= 0) { audit.failedFinishingLuck += 1; continue; }
+      const finishingRatio = goalsFor / xgFor;
+      if (finishingRatio > 0.96) { audit.failedFinishingLuck += 1; continue; }
+
+      if (typeof price !== 'number' || !Number.isFinite(price)) { audit.failedNoPrice += 1; continue; }
+      if (price < -170 || price > 250) { audit.failedPriceBand += 1; continue; }
+
+      const oppXgPct = opponent.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const xgEdge = xgPct != null && oppXgPct != null ? Number((xgPct - oppXgPct).toFixed(3)) : null;
+      const totalLine = getEventTotalLine(event);
+
+      const notes = [
+        'BigCat PuckLuck qualifier — process outpacing results. Regression-up candidate. Not a pick.',
+        `${entry.teamAbbrev} xGoalsPercentage (season): ${xgPct.toFixed(3)} (process gate: >=0.505 ✓).`,
+        `Finishing luck: goalsFor ${goalsFor} / xGoalsFor ${xgFor.toFixed(2)} = ${finishingRatio.toFixed(3)} (threshold <=0.96 ✓). Team is underfinishing vs expected — variance-based regression candidate.`,
+        `xG edge vs opponent: ${xgEdge != null ? (xgEdge > 0 ? '+' : '') + xgEdge.toFixed(3) : '—'}.`,
+        `PARTIAL PDO NOTE: goalsAgainst not in current MoneyPuck snapshot. Save-side luck not captured. Full PDO requires data upgrade (goalsAgainst column).`,
+        `5v5 NOTE: MoneyPuck mirror is all-situations xG, not pure 5v5 split.`,
+        `${gamesPlayed} games played (sample gate: >=25 ✓).`,
+        `ML ${price > 0 ? '+' : ''}${price}${priceInfo?.book ? ` (${priceInfo.book})` : ''}${totalLine != null ? ` • total ${totalLine}` : ''}.`,
+        `${entry.teamAbbrev} fatigue ${entry.derived.fatigueScore ?? '—'}, rest ${entry.derived.rest.restDays ?? '—'} days.`,
+      ].filter(Boolean).join(' • ');
+
+      freshRecords.push(normalizeRecord({
+        id: `${BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID}:${game.gameId}:${entry.teamAbbrev}`,
+        gameId: String(game.gameId),
+        oddsEventId: event.oddsApiEventId ?? null,
+        gameDate: game.gameDate,
+        matchup: `${game.matchup.awayTeam.abbrev} @ ${game.matchup.homeTeam.abbrev}`,
+        roadTeam: game.matchup.awayTeam.abbrev,
+        homeTeam: game.matchup.homeTeam.abbrev,
+        recordKind: 'qualifier',
+        marketType: 'moneyline',
+        alertLabel: 'BigCat PuckLuck — underfinishing / regression candidate',
+        sourceHealthStatus: 'healthy',
+        freshnessSummary: `MoneyPuck xG% ${xgPct.toFixed(3)}, finishing ratio ${finishingRatio.toFixed(3)}. Partial PDO — offense side only.`,
+        qualifiedTeam: entry.teamAbbrev,
+        opponentTeam: opponent.teamAbbrev,
+        xGoalsPercentage: xgPct,
+        opponentXGoalsPercentage: oppXgPct,
+        fatigueScore: entry.derived.fatigueScore,
+        opponentFatigueScore: opponent.derived.fatigueScore,
+        goalieStatus: entry.sourced.goalie.starter ? `${entry.sourced.goalie.starter.name} (${entry.sourced.goalie.starter.status})` : null,
+        opponentGoalieStatus: opponent.sourced.goalie.starter ? `${opponent.sourced.goalie.starter.name} (${opponent.sourced.goalie.starter.status})` : null,
+        currentMoneyline: price,
+        marketAvailability: totalLine != null ? `Moneyline + total posted${priceInfo?.book ? ` (${priceInfo.book})` : ''}.` : `Moneyline posted${priceInfo?.book ? ` (${priceInfo.book})` : ''}.`,
+        totalLine,
+        urgencyTier: entry.derived.playoffPressure.urgencyTier,
+        source: 'MoneyPuck snapshot (xGoalsPercentage, xGoalsFor, goalsFor) + NHL standings + aggregated NHL odds',
+        notes,
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      audit.qualified += 1;
+    }
+  }
+
+  const priorRecords = system.records.filter((r) => r.gameDate !== targetDate);
+  system.records = [...priorRecords, ...freshRecords].sort((a, b) =>
+    a.gameDate.localeCompare(b.gameDate) || a.matchup.localeCompare(b.matchup),
+  );
+
+  const auditSummary = `Audit ${audit.gamesScanned} games / ${audit.teamChecks} checks • no odds ${audit.failedNoOddsEvent} • missing xG ${audit.failedMissingXg} • process gate ${audit.failedProcessGate} • sample gate ${audit.failedSampleGate} • finishing luck ${audit.failedFinishingLuck} • no price ${audit.failedNoPrice} • price band ${audit.failedPriceBand} • qualified ${audit.qualified}.`;
+
+  system.status = audit.qualified > 0 ? 'tracking' : 'awaiting_data';
+  system.snapshot = audit.qualified > 0
+    ? `${audit.qualified} BigCat qualifier${audit.qualified === 1 ? '' : 's'} for ${targetDate} — underfinishing teams vs process. Partial PDO (offense side only). ${auditSummary}`
+    : `No BigCat qualifiers for ${targetDate} — no teams passed xG process + finishing luck screen. Partial PDO blocker: goalsAgainst not in snapshot. ${auditSummary}`;
+  system.automationStatusLabel = audit.qualified > 0 ? 'Live — BigCat finishing-luck alerts' : 'Awaiting qualifiers';
+  system.automationStatusDetail = `Daily finishing-luck screen: xGoalsPercentage >= 0.505, goalsFor/xGoalsFor <= 0.96, >=25 GP, price -170 to +250. Partial PDO — goalsAgainst missing from MoneyPuck snapshot. ${auditSummary}`;
+
+  return system;
+}
+
+// ─── Coach, No Rest? — NHL rest-disparity qualifier ──────────────────────────
+
+async function refreshCoachNoRestSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
+  const system = getTrackedSystem(data, COACH_NO_REST_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(COACH_NO_REST_SYSTEM_ID)!));
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [board, aggregated] = await Promise.all([
+    getTodayNHLContextBoard(),
+    getAggregatedOddsForSport("NHL"),
+  ]);
+
+  const targetGames = (board.games || []).filter((game) => game.gameDate === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: targetGames.length,
+    matchedOddsEvent: 0,
+    failedNoOddsEvent: 0,
+    failedNoRestDisparity: 0,
+    failedFatigueGap: 0,
+    failedNoPrice: 0,
+    failedPriceBand: 0,
+    qualified: 0,
+  };
+
+  for (const game of targetGames) {
+    const event = aggregated.find((candidate) => {
+      if (getEventDate(candidate.commenceTime) !== game.gameDate) return false;
+      return candidate.awayAbbrev === game.matchup.awayTeam.abbrev && candidate.homeAbbrev === game.matchup.homeTeam.abbrev;
+    });
+    if (!event) {
+      audit.failedNoOddsEvent += 1;
+      continue;
+    }
+    audit.matchedOddsEvent += 1;
+
+    // Check both directions: which side is on B2B?
+    const sides = [
+      { fatigued: game.teams.away, rested: game.teams.home },
+      { fatigued: game.teams.home, rested: game.teams.away },
+    ];
+
+    for (const { fatigued, rested } of sides) {
+      // Fatigued side must be on B2B (0 rest days)
+      if (!fatigued.derived.rest.isBackToBack) continue;
+      // Rested side must have >= 2 rest days
+      const restedDays = rested.derived.rest.restDays;
+      if (restedDays === null || restedDays < 2) {
+        audit.failedNoRestDisparity += 1;
+        continue;
+      }
+      // Fatigue gap >= 15 points
+      const fatiguedScore = fatigued.derived.fatigueScore;
+      const restedScore = rested.derived.fatigueScore;
+      if (fatiguedScore !== null && restedScore !== null && (fatiguedScore - restedScore) < 15) {
+        audit.failedFatigueGap += 1;
+        continue;
+      }
+
+      // We back the rested side
+      const priceInfo = getNHLMoneylineForTeam(event, rested.teamAbbrev);
+      const price = priceInfo?.odds ?? null;
+      if (typeof price !== 'number' || !Number.isFinite(price)) { audit.failedNoPrice += 1; continue; }
+      if (price < -175 || price > 170) { audit.failedPriceBand += 1; continue; }
+
+      const xgRested = rested.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const xgFatigued = fatigued.sourced.moneyPuck?.xGoalsPercentage ?? null;
+      const totalLine = getEventTotalLine(event);
+      const b2bGoalie = fatigued.sourced.goalie.starter;
+      const b2bGoalieNote = b2bGoalie
+        ? `${fatigued.teamAbbrev} B2B goalie: ${b2bGoalie.name} (${b2bGoalie.status}${b2bGoalie.isBackup ? ', backup' : ''}).`
+        : `${fatigued.teamAbbrev} B2B goalie status unknown.`;
+
+      const notes = [
+        'Coach, No Rest? qualifier — rest disparity gate cleared. Back rested side. Not a pick.',
+        `${fatigued.teamAbbrev} on B2B (0 rest days). ${rested.teamAbbrev} has ${restedDays} day${restedDays === 1 ? '' : 's'} rest.`,
+        `Rest gap: ${restedDays} day${restedDays === 1 ? '' : 's'}. Fatigue scores: ${fatigued.teamAbbrev} ${fatiguedScore ?? '—'} vs ${rested.teamAbbrev} ${restedScore ?? '—'}.`,
+        b2bGoalieNote,
+        xgRested !== null && xgFatigued !== null ? `xG context: ${rested.teamAbbrev} ${xgRested.toFixed(3)} vs ${fatigued.teamAbbrev} ${xgFatigued.toFixed(3)}.` : 'xG context unavailable.',
+        `${rested.teamAbbrev} ML ${price > 0 ? '+' : ''}${price}${priceInfo?.book ? ` (${priceInfo.book})` : ''}${totalLine != null ? ` • total ${totalLine}` : ''}.`,
+      ].filter(Boolean).join(' • ');
+
+      freshRecords.push(normalizeRecord({
+        id: `${COACH_NO_REST_SYSTEM_ID}:${game.gameId}:${rested.teamAbbrev}`,
+        gameId: String(game.gameId),
+        oddsEventId: event.oddsApiEventId ?? null,
+        gameDate: game.gameDate,
+        matchup: `${game.matchup.awayTeam.abbrev} @ ${game.matchup.homeTeam.abbrev}`,
+        roadTeam: game.matchup.awayTeam.abbrev,
+        homeTeam: game.matchup.homeTeam.abbrev,
+        recordKind: 'qualifier',
+        marketType: 'moneyline',
+        alertLabel: `Rest edge — ${fatigued.teamAbbrev} B2B vs ${restedDays}d rest ${rested.teamAbbrev}`,
+        sourceHealthStatus: 'healthy',
+        freshnessSummary: `Rest disparity: ${fatigued.teamAbbrev} 0 rest (B2B) vs ${rested.teamAbbrev} ${restedDays}d rest.`,
+        qualifiedTeam: rested.teamAbbrev,
+        opponentTeam: fatigued.teamAbbrev,
+        xGoalsPercentage: xgRested,
+        opponentXGoalsPercentage: xgFatigued,
+        fatigueScore: restedScore,
+        opponentFatigueScore: fatiguedScore,
+        goalieStatus: rested.sourced.goalie.starter ? `${rested.sourced.goalie.starter.name} (${rested.sourced.goalie.starter.status})` : null,
+        opponentGoalieStatus: b2bGoalie ? `${b2bGoalie.name} (${b2bGoalie.status}${b2bGoalie.isBackup ? ', backup' : ''})` : null,
+        currentMoneyline: price,
+        marketAvailability: totalLine != null ? `Moneyline + total posted${priceInfo?.book ? ` (${priceInfo.book})` : ''}.` : `Moneyline posted${priceInfo?.book ? ` (${priceInfo.book})` : ''}.`,
+        totalLine,
+        urgencyTier: rested.derived.playoffPressure.urgencyTier,
+        source: 'NHL API schedule (rest days, B2B flag) + derived fatigue + goalie status + aggregated NHL odds',
+        notes,
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      audit.qualified += 1;
+      break; // At most one qualified side per game (the rested one)
+    }
+  }
+
+  const priorRecords = system.records.filter((r) => r.gameDate !== targetDate);
+  system.records = [...priorRecords, ...freshRecords].sort((a, b) =>
+    a.gameDate.localeCompare(b.gameDate) || a.matchup.localeCompare(b.matchup),
+  );
+
+  const auditSummary = `Audit ${audit.gamesScanned} games • no odds ${audit.failedNoOddsEvent} • no rest disparity ${audit.failedNoRestDisparity} • fatigue gap ${audit.failedFatigueGap} • no price ${audit.failedNoPrice} • price band ${audit.failedPriceBand} • qualified ${audit.qualified}.`;
+
+  system.status = audit.qualified > 0 ? 'tracking' : 'awaiting_data';
+  system.snapshot = audit.qualified > 0
+    ? `${audit.qualified} Coach, No Rest? qualifier${audit.qualified === 1 ? '' : 's'} for ${targetDate} — B2B vs rested matchup${audit.qualified === 1 ? '' : 's'} flagged. ${auditSummary}`
+    : `No Coach, No Rest? qualifiers for ${targetDate} — no B2B vs 2+ day rested matchups on today's slate. ${auditSummary}`;
+  system.automationStatusLabel = audit.qualified > 0 ? 'Live — rest-disparity alert active' : 'Awaiting B2B vs rested matchup';
+  system.automationStatusDetail = `Daily rest-disparity screen: B2B team (0 rest) vs opponent with >=2 days rest, fatigue gap >=15, price -175 to +170. ${auditSummary}`;
+
   return system;
 }
 
