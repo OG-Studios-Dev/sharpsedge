@@ -55,3 +55,21 @@
 - Push notifications for trend alerts
 - Social features (leaderboards, sharing)
 - Custom domain
+
+---
+
+## Goose V2 / Learning Model — Not Production Ready (2026-03-29)
+
+**Decision:** Goose V2 (the ML signal-weighted picks engine in `src/lib/goose-model/`) is **not production ready** and must not be exposed to users in any form until explicit readiness gates are met.
+
+**Rationale:**
+- Model launched 2026-03-27 (Opening Day). Graded sample is near-zero. Signal priors are hand-calibrated estimates, not empirically validated.
+- No user-facing toggle, surface, or marketing around the model until all 6 readiness gates in `docs/GOOSE-V2-READINESS.md` pass.
+
+**Key rules locked in:**
+1. Pick generation and grading must be fully automated via cron. No manual intervention required on a normal day.
+2. Admin UI (`/admin/goose-model`) is for monitoring, auditing, overrides, and debugging only.
+3. Goose V2 picks may eventually become a user-facing alternate mode (e.g. slider/toggle), but only after gates are cleared and an explicit Stage 1 → Stage 2 rollout decision is made.
+4. The `-200` odds hard cap is non-negotiable in all sandbox and production experiments.
+
+**Spec:** `docs/GOOSE-V2-READINESS.md`
