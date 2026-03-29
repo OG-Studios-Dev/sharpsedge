@@ -233,7 +233,7 @@ function defaultGooseSystem(): TrackedSystem {
     trackabilityBucket: "trackable_now",
     summary:
       "Road favorite quarter ATS chase: 1Q first, then 3Q only if the opener loses.",
-    snapshot: "Live Goose rows only; no backfilled performance.",
+    snapshot: "🟢 FIRING | NBA regular season active. Road favorites qualifying daily.",
     definition:
       "Track every NBA game where the road team closes as a favorite of -5.5 or more. Bet the road favorite 1Q ATS. If that leg wins, stop. If it loses, double the original stake and bet the road favorite 3Q ATS.",
     qualifierRules: [
@@ -310,14 +310,14 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "beefs-bounce-back",
       slug: "beefs-bounce-back-big-ats-loss",
-      name: "Beefs Bounce-Back / Big ATS Loss",
+      name: "The Centurion Comeback",
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_verification",
       trackabilityBucket: "blocked_missing_data",
       summary: "NBA revenge-cover angle for teams coming off a brutal ATS miss, cataloged honestly as blocked until prior-game line history is wired in.",
-      snapshot: "Blocked: prior-game ATS result feed not connected.",
+      snapshot: "🔴 BLOCKED | Prior-game ATS result feed not connected. Cannot qualify.",
       definition:
         "Flag NBA teams that were blown out relative to the market in their previous game, then test whether the next spot creates an actionable bounce-back cover setup.",
       qualifierRules: [
@@ -352,14 +352,14 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "the-blowout",
       slug: "the-blowout",
-      name: "The Blowout",
+      name: "Beefs Blowout",
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "Neutral NBA watchlist for teams coming off a massive recent result, tracked honestly as qualifiers until direction and pricing rules are proven.",
-      snapshot: "Watchlist only: qualifier rows, not picks.",
+      snapshot: "🟡 WATCHLIST | NBA regular season active. Neutral qualifier watchlist — bet direction unresolved.",
       definition:
         "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
       qualifierRules: [
@@ -407,7 +407,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "NBA form-collision watchlist for games where two legitimately hot teams meet on a playable number with a posted total.",
-      snapshot: "Watchlist only: hot-team qualifiers, not picks.",
+      snapshot: "🟡 WATCHLIST | NBA regular season active. Hot-team collision watchlist — bet direction unresolved.",
       definition:
         "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
       qualifierRules: [
@@ -447,14 +447,14 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "fat-tonys-fade",
       slug: "fat-tonys-fade",
-      name: "Fat Tonys Fade",
+      name: "Fuch's Fade",
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "blocked_missing_data",
       summary: "Contrarian NBA fade concept blocked until a credible public-betting splits source is attached.",
-      snapshot: "Blocked: betting splits source required.",
+      snapshot: "🔴 BLOCKED | Public betting splits source required. Cannot qualify.",
       definition:
         "Fade inflated NBA sides where the public piles into a trendy favorite and price drift overshoots the true edge.",
       qualifierRules: [
@@ -535,7 +535,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "Late-season NHL qualifier tracker now uses explicit urgency, goalie, fatigue, MoneyPuck, and price gates. Alerts only - not a claimed mature edge.",
-      snapshot: "Rule-gated qualifier board live with conservative pricing discipline.",
+      snapshot: "🟢 FIRING | Late NHL regular season. Playoff urgency race is live — urgency gates active.",
       definition:
         "Look for late-season NHL teams with real standings urgency, acceptable goalie/fatigue posture, and enough underlying profile support that a moderate moneyline can still be justified without blindly paying for a 'must-win' story.",
       qualifierRules: [
@@ -583,14 +583,14 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "veal-bangers-zig-playoff-zigzag",
       slug: "veal-bangers-zig-playoff-zigzag",
-      name: "Veal Bangers Playoff ZigZag",
+      name: "Yo Adrian! Playoff ZigZag",
       league: "NHL",
       category: "historical",
       owner: "Goosalytics Lab",
       status: "definition_only",
       trackabilityBucket: "parked_definition_only",
       summary: "Classic playoff zig-zag riff preserved exactly by name, but parked until the real rematch filters are defined beyond old-school folklore.",
-      snapshot: "Parked in research; no playoff-series rulebook yet.",
+      snapshot: "🟠 PLAYOFF-DORMANT | NHL playoffs begin ~April 2026. Rules not finalized — parked until series state is defined.",
       definition:
         "A playoff zig-zag style concept for NHL series where the market may overreact to the previous game's margin, puck luck, or special-teams noise before the next matchup in the same series.",
       qualifierRules: [
@@ -671,7 +671,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB tight-bats watchlist using official lineup IDs, recent hitter game logs, park factors, weather, and bullpen context to flag same-day offense spots. Live trigger board - watchlist alerts, not a claims model.",
-      snapshot: "Live qualifier board active - MLB hitter game logs, official lineups, run-environment rails all connected.",
+      snapshot: "🟢 FIRING | MLB season open. Board activates when official lineups posted; early-season samples building.",
       definition:
         "A first-pass hitting-form watchlist designed to catch offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
       qualifierRules: [
@@ -727,7 +727,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB qualifier tracker for probable starters coming off a recent shelling, filtered by listed ERA and current moneyline. Alerts first, not official picks.",
-      snapshot: "Tracking qualifiers and alert rows only; no published picks or backfilled claims.",
+      snapshot: "🟢 FIRING | MLB season underway. Qualifying when probable starters posted with pummeled prior start.",
       definition:
         "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
       qualifierRules: [
@@ -822,7 +822,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB first-five qualifier board targeting starter mismatches when F5 markets are posted. Alerts when a meaningful quality gap and live F5 price both exist. Grading requires inning-level linescore data.",
-      snapshot: "F5 market rail live. Qualifier board active when both probable pitchers and F5 lines are posted.",
+      snapshot: "🟢 FIRING | MLB season open. F5 markets sparse early in season — board activates when books post lines.",
       definition:
         "Attack MLB first-five pricing before bullpen variance takes over by flagging games where one starter is meaningfully better than the other and an actual F5 market (side or total) has been posted by books. Qualifiers fire only when the starter mismatch is real and the F5 price exists. No synthetic lines are inferred.",
       qualifierRules: [
@@ -872,7 +872,7 @@ function seededCatalog(): TrackedSystem[] {
     {
       id: "warren-sharp-computer-totals-model",
       slug: "warren-sharp-computer-totals-model",
-      name: "Warren Sharp Computer Totals Model",
+      name: "Dougy Magoo's AI Model",
       league: "NFL",
       category: "external",
       owner: "External source",

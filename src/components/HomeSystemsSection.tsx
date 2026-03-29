@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSystemDerivedMetrics, type TrackedSystem } from "@/lib/systems-tracking-store";
+import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
 function sortSystemsForHome(systems: TrackedSystem[]) {
   const priorityMap: Record<string, number> = {
@@ -29,58 +29,85 @@ function sortSystemsForHome(systems: TrackedSystem[]) {
   });
 }
 
-export default function HomeSystemsSection({ systems }: { systems: TrackedSystem[] }) {
-  const featuredSystems = sortSystemsForHome(systems).slice(0, 5);
+type Props = {
+  systems: TrackedSystem[];
+  dbPerformance?: DbSystemPerformanceSummary[];
+};
+
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+
+export default function HomeSystemsSection({ systems, dbPerformance = [] }: Props) {
+  const featuredSystems = sortSystemsForHome(systems).slice(0, 6);
+  const dbPerfMap = new Map(dbPerformance.map((p) => [p.system_id, p]));
 
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Systems</p>
-          <h2 className="mt-0.5 text-base font-semibold text-white">Live record</h2>
-        </div>
+        <h2 className="text-xl font-bold tracking-tight text-white">AI Systems Tracking</h2>
         <Link
           href="/systems"
-          className="text-xs font-medium text-accent-blue hover:text-accent-blue/80 transition"
+          className="shrink-0 text-xs font-medium text-accent-blue hover:text-accent-blue/80 transition"
         >
-          All systems →
+          All →
         </Link>
       </div>
 
-      <div className="mt-3 space-y-1.5">
+      <div className="mt-3 space-y-1">
         {featuredSystems.map((system) => {
           const metrics = getSystemDerivedMetrics(system);
           const perf = metrics.performance;
+          const dbPerf = dbPerfMap.get(system.id);
+          const isMLGradeable = ML_GRADEABLE_IDS.has(system.id);
+          const hasDbRecord = dbPerf && (dbPerf.graded_qualifiers > 0 || dbPerf.qualifiers_logged > 0);
 
-          const recordCopy = perf.actionable
-            ? perf.record
-            : metrics.qualifiedGames > 0
-              ? `${metrics.qualifiedGames} qual.`
+          // Prefer DB truth for ML-gradeable systems
+          let recordCopy: string;
+          let unitsCopy: string;
+          let unitsClass: string;
+
+          if (isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0) {
+            recordCopy = `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`;
+            const netU = dbPerf.flat_net_units != null ? Number(dbPerf.flat_net_units) : null;
+            unitsCopy = netU != null ? `${netU > 0 ? "+" : ""}${netU.toFixed(1)}u` : "—";
+            unitsClass = netU != null
+              ? netU > 0 ? "text-emerald-400" : netU < 0 ? "text-rose-400" : "text-gray-400"
+              : "text-gray-500";
+          } else if (perf.actionable) {
+            recordCopy = perf.record;
+            unitsCopy = perf.flatNetUnits != null
+              ? `${perf.flatNetUnits > 0 ? "+" : ""}${perf.flatNetUnits.toFixed(1)}u`
               : "—";
+            unitsClass = perf.flatNetUnits != null
+              ? perf.flatNetUnits > 0 ? "text-emerald-400" : perf.flatNetUnits < 0 ? "text-rose-400" : "text-gray-400"
+              : "text-gray-500";
+          } else if (metrics.qualifiedGames > 0) {
+            recordCopy = `${metrics.qualifiedGames}q`;
+            unitsCopy = "—";
+            unitsClass = "text-gray-500";
+          } else {
+            recordCopy = "—";
+            unitsCopy = "—";
+            unitsClass = "text-gray-500";
+          }
 
-          const unitsCopy = perf.actionable && perf.flatNetUnits != null
-            ? `${perf.flatNetUnits > 0 ? "+" : ""}${perf.flatNetUnits.toFixed(1)}u`
-            : "—";
-
-          const unitsClass = perf.actionable && perf.flatNetUnits != null
-            ? perf.flatNetUnits > 0
-              ? "text-emerald-400"
-              : perf.flatNetUnits < 0
-                ? "text-rose-400"
-                : "text-gray-400"
-            : "text-gray-500";
+          // Compact status badge
+          const statusDot =
+            system.trackabilityBucket === "trackable_now"
+              ? "🟢"
+              : system.trackabilityBucket === "blocked_missing_data"
+              ? "🔴"
+              : "🟡";
 
           return (
             <Link
               key={system.id}
               href={`/systems/${system.slug}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-dark-border/60 bg-dark-bg/40 px-3 py-2.5 transition hover:border-white/15 hover:bg-dark-surface/60"
+              className="flex items-center gap-2 rounded-lg border border-dark-border/60 bg-dark-bg/40 px-2.5 py-2 transition hover:border-white/15 hover:bg-dark-surface/60"
             >
-              <span className="min-w-0 truncate text-sm font-medium text-white">{system.name}</span>
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-xs font-semibold text-white">{recordCopy}</span>
-                <span className={`text-xs font-semibold ${unitsClass}`}>{unitsCopy}</span>
-              </div>
+              <span className="text-[10px] leading-none">{statusDot}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-white leading-tight">{system.name}</span>
+              <span className="shrink-0 text-[11px] font-semibold text-white tabular-nums">{recordCopy}</span>
+              <span className={`shrink-0 text-[11px] font-semibold tabular-nums ${unitsClass}`}>{unitsCopy}</span>
             </Link>
           );
         })}

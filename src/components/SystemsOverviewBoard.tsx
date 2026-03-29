@@ -89,7 +89,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-blue/80">Systems</p>
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">Systems</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">AI Systems Tracking</h1>
               <p className="text-xs text-gray-400">Updated {formatUpdatedAt(updatedAt)}</p>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
 
       </section>
 
-      <section className="space-y-2.5">
+      <section className="space-y-1.5">
         {orderedSystems.length === 0 ? (
           <div className="rounded-[24px] border border-dashed border-dark-border bg-dark-surface/40 p-5 text-sm text-gray-400">
             No systems are seeded for {activeLeague} yet.
@@ -130,92 +130,106 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             const isGoose = system.id === "nba-goose-system";
             const hasDbRecord = dbPerf && (dbPerf.graded_qualifiers > 0 || dbPerf.qualifiers_logged > 0);
 
+            // Resolved record/units — DB truth first for ML systems
+            let recordLabel: string;
+            let unitsLabel: string;
+            let unitsColor: string;
+
+            if (isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0) {
+              recordLabel = `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`;
+              const nu = dbPerf.flat_net_units != null ? Number(dbPerf.flat_net_units) : null;
+              unitsLabel = nu != null ? `${nu > 0 ? "+" : ""}${nu.toFixed(1)}u` : "—";
+              unitsColor = nu != null ? (nu > 0 ? "text-emerald-400" : nu < 0 ? "text-rose-400" : "text-gray-400") : "text-gray-500";
+            } else if (metrics.performance.actionable) {
+              recordLabel = metrics.performance.record;
+              const nu = metrics.performance.flatNetUnits;
+              unitsLabel = nu != null ? `${nu > 0 ? "+" : ""}${nu.toFixed(1)}u` : "—";
+              unitsColor = nu != null ? (nu > 0 ? "text-emerald-400" : nu < 0 ? "text-rose-400" : "text-gray-400") : "text-gray-500";
+            } else if (metrics.qualifiedGames > 0) {
+              recordLabel = `${metrics.qualifiedGames}q`;
+              unitsLabel = "—";
+              unitsColor = "text-gray-500";
+            } else {
+              recordLabel = "—";
+              unitsLabel = "—";
+              unitsColor = "text-gray-500";
+            }
+
+            const trackDot =
+              system.trackabilityBucket === "trackable_now" ? "🟢"
+              : system.trackabilityBucket === "blocked_missing_data" ? "🔴"
+              : "🟡";
+
             return (
               <Link
                 key={system.id}
                 href={`/systems/${system.slug}`}
-                className="block rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-3.5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] transition hover:border-white/15 hover:bg-dark-surface/90 lg:p-4"
+                className="block rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] transition hover:border-white/15 hover:bg-dark-surface/90"
               >
-                <div className="flex items-start justify-between gap-3">
+                {/* Compact scan row — always visible, tappable */}
+                <div className="flex items-center gap-2 px-3 py-2.5">
+                  <span className="text-[11px] leading-none shrink-0">{trackDot}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">{system.league}</span>
-                      <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">{system.category}</span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${trackabilityPill(system.trackabilityBucket)}`}>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="rounded border border-dark-border/70 bg-dark-bg/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-gray-500">{system.league}</span>
+                      <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${trackabilityPill(system.trackabilityBucket)}`}>
                         {formatTrackability(system.trackabilityBucket)}
                       </span>
-                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] ${statusPill(system.status)}`}>
-                        {formatStatus(system.status)}
-                      </span>
-                      {/* DB W/L badge for ML-gradeable systems */}
-                      {isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0 && (
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                          <span className="text-emerald-400">{dbPerf.wins}</span>
-                          <span className="text-gray-500">-</span>
-                          <span className="text-rose-400">{dbPerf.losses}</span>
-                          {dbPerf.pushes > 0 && <span className="text-yellow-400">-{dbPerf.pushes}</span>}
-                          {dbPerf.win_pct != null && (
-                            <span className="ml-1 text-gray-400">({Number(dbPerf.win_pct).toFixed(0)}%)</span>
-                          )}
-                        </span>
-                      )}
                     </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <h2 className="text-lg font-semibold text-white sm:text-xl">{system.name}</h2>
-                    </div>
-
-                    <p className="mt-2 text-sm leading-6 text-gray-300">{system.summary}</p>
+                    <h2 className="mt-0.5 text-[13px] font-semibold leading-tight text-white">{system.name}</h2>
                   </div>
-
-                  <div className="shrink-0 rounded-full border border-dark-border/80 bg-dark-bg/60 px-2.5 py-1 text-[11px] font-semibold text-gray-300">
-                    Details →
+                  <div className="shrink-0 flex flex-col items-end gap-0.5">
+                    <span className="text-xs font-bold text-white tabular-nums">{recordLabel}</span>
+                    <span className={`text-[11px] font-semibold tabular-nums ${unitsColor}`}>{unitsLabel}</span>
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked record</p>
-                    <p className="mt-1.5 text-base font-semibold text-white">
-                      {/* Prefer DB graded data for ML systems */}
-                      {isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0
-                        ? `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""} ML`
-                        : isMLGradeable && hasDbRecord
-                        ? `${dbPerf.qualifiers_logged} qualifiers (${dbPerf.pending} pending grade)`
-                        : metrics.performance.actionable
-                        ? metrics.performance.record
-                        : `${metrics.qualifiedGames} qualifiers logged`}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {isMLGradeable
-                        ? (hasDbRecord && dbPerf.graded_qualifiers > 0
-                          ? `${dbPerf.graded_qualifiers} graded ML qualifier${dbPerf.graded_qualifiers === 1 ? "" : "s"} (Supabase).`
-                          : "ML grading path live — awaiting graded outcomes.")
-                        : metrics.performance.actionable
-                        ? `${metrics.performance.gradedQualifiers} graded rows${metrics.performance.ungradeable ? ` • ${metrics.performance.ungradeable} ungradeable excluded` : ""}`
-                        : "Qualifier-only until a real action rule is mature."}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/60 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Net units</p>
-                    <p className={`mt-1.5 text-base font-semibold ${
-                      isMLGradeable && dbPerf?.flat_net_units != null
-                        ? Number(dbPerf.flat_net_units) > 0 ? "text-emerald-400" : Number(dbPerf.flat_net_units) < 0 ? "text-rose-400" : "text-yellow-400"
-                        : "text-white"
-                    }`}>
-                      {isMLGradeable && dbPerf?.flat_net_units != null
-                        ? `${Number(dbPerf.flat_net_units) > 0 ? "+" : ""}${Number(dbPerf.flat_net_units).toFixed(2)}u`
-                        : metrics.performance.actionable && metrics.performance.flatNetUnits != null
-                        ? `${metrics.performance.flatNetUnits > 0 ? "+" : ""}${metrics.performance.flatNetUnits.toFixed(2)}u`
-                        : "N/A"}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {isMLGradeable
-                        ? "Flat 1u ML payout from graded qualifiers."
-                        : metrics.performance.actionable
-                        ? "Flat 1u tracking from settled rows only."
-                        : "Hidden until the system has honest settlement rules."}
-                    </p>
+                {/* Detail row — hidden on mobile, visible on sm+ */}
+                <div className="hidden sm:block border-t border-dark-border/40 px-3 pb-3 pt-2">
+                  <p className="text-xs leading-5 text-gray-400">{system.summary}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked record</p>
+                      <p className="mt-1 text-sm font-semibold text-white">
+                        {isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0
+                          ? `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""} ML`
+                          : isMLGradeable && hasDbRecord
+                          ? `${dbPerf.qualifiers_logged} qualifiers (${dbPerf.pending} pending grade)`
+                          : metrics.performance.actionable
+                          ? metrics.performance.record
+                          : `${metrics.qualifiedGames} qualifiers logged`}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        {isMLGradeable
+                          ? (hasDbRecord && dbPerf.graded_qualifiers > 0
+                            ? `${dbPerf.graded_qualifiers} graded ML qualifiers (Supabase).`
+                            : "ML grading path live — awaiting graded outcomes.")
+                          : metrics.performance.actionable
+                          ? `${metrics.performance.gradedQualifiers} graded rows`
+                          : "Qualifier-only until action rule is mature."}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Net units</p>
+                      <p className={`mt-1 text-sm font-semibold ${
+                        isMLGradeable && dbPerf?.flat_net_units != null
+                          ? Number(dbPerf.flat_net_units) > 0 ? "text-emerald-400" : Number(dbPerf.flat_net_units) < 0 ? "text-rose-400" : "text-yellow-400"
+                          : "text-white"
+                      }`}>
+                        {isMLGradeable && dbPerf?.flat_net_units != null
+                          ? `${Number(dbPerf.flat_net_units) > 0 ? "+" : ""}${Number(dbPerf.flat_net_units).toFixed(2)}u`
+                          : metrics.performance.actionable && metrics.performance.flatNetUnits != null
+                          ? `${metrics.performance.flatNetUnits > 0 ? "+" : ""}${metrics.performance.flatNetUnits.toFixed(2)}u`
+                          : "N/A"}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        {isMLGradeable
+                          ? "Flat 1u ML payout from graded qualifiers."
+                          : metrics.performance.actionable
+                          ? "Flat 1u tracking from settled rows."
+                          : "Hidden until settlement rules are live."}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </Link>
