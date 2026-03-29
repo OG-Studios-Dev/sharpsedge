@@ -120,16 +120,20 @@ export async function scrapeBovadaGolfOdds(): Promise<TournamentOddsSnapshot[]> 
 
   for (const item of data) {
     for (const ev of item.events || []) {
-      // Only PGA Tour events (skip LIV, DP World, team events, Presidents Cup, etc.)
+      // Only PGA Tour events and majors (skip LIV, DP World, team events, Presidents Cup, etc.)
       const name: string = ev.description || "";
-      if (!name || ev.path?.some((p: any) => p.description === "PGA Tour") === false) {
-        // Check path for PGA Tour
-        const isPGA = (ev.path || []).some(
-          (p: any) =>
-            p.description === "PGA Tour" || p.link?.includes("pga-tour")
-        );
-        if (!isPGA) continue;
-      }
+      if (!name) continue;
+
+      const isPGATour = (ev.path || []).some(
+        (p: any) =>
+          p.description === "PGA Tour" ||
+          p.link?.includes("pga-tour"),
+      );
+      const isMajor = /masters|pga championship|u\.?s\.? open|the open|british open/i.test(name);
+      const isExcluded = /liv|dp world|presidents cup|ryder cup|solheim|walker cup/i.test(name);
+
+      if (isExcluded) continue;
+      if (!isPGATour && !isMajor) continue;
 
       // Skip events already in progress (live markets only = started)
       // We still want live winner markets for tracking, but flag them

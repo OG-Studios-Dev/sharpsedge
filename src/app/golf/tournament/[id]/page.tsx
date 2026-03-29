@@ -1,5 +1,6 @@
 import Link from "next/link";
 import GolfMarketEdgesSection from "@/components/GolfMarketEdgesSection";
+import GolfTopFinishOddsRail from "@/components/GolfTopFinishOddsRail";
 import GolfTournamentTabs from "@/components/GolfTournamentTabs";
 import { getPGALeaderboard, getPGATournamentById, getPGATournamentLeaderboard } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";
@@ -89,6 +90,9 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
         </section>
 
         <GolfMarketEdgesSection predictions={predictions} />
+
+        {/* Top-finish odds rail: real Bovada lines or "no odds available" — never fabricated */}
+        <GolfTopFinishOddsRail predictions={predictions} />
 
         <GolfTournamentTabs
           tournament={tournament}
