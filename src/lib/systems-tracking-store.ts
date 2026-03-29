@@ -7,7 +7,7 @@ import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
 import { getNBAHandleBoard, findHandleSplitsForGame, qualifiesHomeUnderdogMajorityHandle, qualifiesHomeSuperMajorityHandleCloseGame, type NBAHandleSplits } from "@/lib/nba-handle";
 import { getBettingSplits, findGameSplits, getMarketSplits } from "@/lib/betting-splits";
-import { getMarketHistoryRail } from "@/lib/market-snapshot-history";
+import { getMarketHistoryRail, type MarketHistoryRail } from "@/lib/market-snapshot-history";
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
 import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
@@ -1062,7 +1062,7 @@ function seededCatalog(): TrackedSystem[] {
         "Flag NBA games where the home team is a moneyline underdog (homeML > 0) AND attracts ≥ 55% of ML handle dollars. The public money contradicts the odds. Either sharp money is pushing the home dog, or the away team is overpriced by narrative. Alert only — not a pick without further context.",
       qualifierRules: [
         "Home team must be a moneyline underdog: homeML > 0 in American odds.",
-        "Home team must hold ≥ 55% of ML handle dollars (ml_home_money from Action Network).",
+        "Home team must hold ≥ 60% of ML handle dollars (ml_home_money from Action Network). Tightened 2026-03-29 from 55% to reduce noise.",
         "Splits data must be marked splitsAvailable = true (≥ 1 book returning handle data).",
         "numBets threshold: minimum 200 bets tracked for the game before firing (low-volume games filtered).",
       ],
@@ -1107,8 +1107,7 @@ function seededCatalog(): TrackedSystem[] {
         },
       ],
       unlockNotes: [
-        "Rail is live. Monitor first 2 weeks of game-day firing to validate qualifier thresholds.",
-        "Consider tightening handle threshold to 60% once sample exists.",
+        "Rail is live. Threshold tightened to 60% (2026-03-29). Monitor firing frequency at new threshold.",
       ],
       trackingNotes: [
         "Alert only — do not imply a bet direction without separate value gate.",
@@ -1200,15 +1199,16 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NHL home underdog receiving majority (≥ 55%) of ML handle dollars. Public money contradicts the road favorite — potential steam or narrative mis-pricing.",
-      snapshot: "🟡 RAIL LIVE | Action Network NHL splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+        "NHL home underdog receiving majority (≥ 60%) of ML handle dollars. Public money contradicts the road favorite — potential steam or narrative mis-pricing. Threshold tightened 2026-03-29 from 55%.",
+      snapshot: "🟡 RAIL LIVE | Action Network NHL splits ingested. Qualifier logic wired (≥ 60% ML handle). Line-move history rail wired — confirmation note added when ≥ 2 snapshots available.",
       definition:
-        "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 55% of ML handle dollars. When public money flows to a home dog, it either signals genuine sharp action or a market that has over-priced the road team. Alert only — not a directional pick without further context.",
+        "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 60% of ML handle dollars. When public money flows to a home dog at this level, it either signals genuine sharp action or a market that has over-priced the road team. Alert only — not a directional pick without further context and historical validation.",
       qualifierRules: [
         "Home team must be a moneyline underdog: bestHome.odds > 0 from aggregated NHL odds.",
-        "Home team must hold ≥ 55% of ML handle dollars (mlHomeHandlePct from Action Network splits).",
+        "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 55% to reduce noise.",
         "Splits data must be available: mlSplitsAvailable = true on the BettingSplitsSnapshot.",
         "League must be NHL with a matching aggregated odds event for game-day price.",
+        "Line-move confirmation added as context note: getMarketHistoryRail() checked when aggregated event is found. Qualifier fires regardless of line history — but 'line-confirmed' label applied when >= 2 snapshots exist and ML odds have moved.",
       ],
       progressionLogic: [],
       thesis:
@@ -1232,13 +1232,16 @@ function seededCatalog(): TrackedSystem[] {
       dataRequirements: [
         { label: "NHL public ML handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"NHL\")." },
         { label: "NHL home ML price", status: "ready", detail: "Live from getAggregatedOddsForSport(\"NHL\"). bestHome.odds > 0 = underdog." },
+        { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices (all sports captured hourly). Attached as context note on each qualifying record." },
       ],
       unlockNotes: [
-        "Rail live. Monitor first 2 weeks of game-day firing to validate the 55% threshold for NHL.",
+        "Rail live. Threshold tightened to 60% (2026-03-29). Monitor first 2 weeks of game-day firing at new threshold.",
+        "Line-move context now attached to each qualifier. Upgrade to direction-confirmed alert once win-rate history accumulates.",
       ],
       trackingNotes: [
-        "Alert only — do not imply a bet direction without a separate value gate.",
+        "Alert only — do not imply a bet direction without a separate value gate and historical validation.",
         "NHL handle data may be thinner than NBA early in the day; near-game snapshots are most meaningful.",
+        "Line-move note is informational only — qualifier fires on splits threshold, not on line-move requirement.",
       ],
       records: [],
     },
@@ -1252,14 +1255,15 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NHL games where the Under receives ≥ 58% of total handle. Public money contradicts the typical over-betting bias — potential sharp signal on the under.",
-      snapshot: "🟡 RAIL LIVE | Action Network NHL total splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+        "NHL games where the Under receives ≥ 62% of total handle. Public over-bias reversed at this level — sharper signal threshold. Tightened 2026-03-29 from 58%.",
+      snapshot: "🟡 RAIL LIVE | Action Network NHL total splits ingested. Qualifier logic wired (≥ 62% Under handle). Line-move history context attached when available.",
       definition:
-        "Flag NHL games where the Under side attracts ≥ 58% of total (O/U) handle dollars. Public bettors heavily favour Overs across major sports. When handle flows to the Under at this rate, it suggests either sharp money or a market under-pricing the low-scoring scenario. Alert only.",
+        "Flag NHL games where the Under side attracts ≥ 62% of total (O/U) handle dollars. Public bettors heavily favour Overs across major sports. When handle flows to the Under at this rate, it more reliably indicates sharp money or a structurally under-priced low-scoring scenario. Alert only.",
       qualifierRules: [
-        "Under side must hold ≥ 58% of total handle (underHandlePct from Action Network splits).",
+        "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 58% to improve signal quality.",
         "Total splits must be available: totalSplitsAvailable = true on the BettingSplitsSnapshot.",
         "League must be NHL.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist.",
       ],
       progressionLogic: [],
       thesis:
@@ -1278,12 +1282,15 @@ function seededCatalog(): TrackedSystem[] {
       automationStatusDetail: "getBettingSplits(\"NHL\") connected. Fires when Under ≥ 58% of total handle.",
       dataRequirements: [
         { label: "NHL public total handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"NHL\"). totalSplitsAvailable required." },
+        { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record." },
       ],
       unlockNotes: [
-        "Rail live. Review threshold (58%) after 3 weeks of data.",
+        "Rail live. Threshold tightened to 62% (2026-03-29). Review again after 3 weeks at new threshold.",
+        "Line-move context now wired. Upgrade to direction-confirmed alert once pattern data accumulates.",
       ],
       trackingNotes: [
         "Alert only. No bet direction claimed. Track qualifier frequency and game context before adding a direction gate.",
+        "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
     },
@@ -1298,14 +1305,15 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "MLB games where the home team receives ≥ 55% of ML handle dollars. Public home-team bias is well-documented — majority handle on the home side flags potential pricing pressure.",
-      snapshot: "🟡 RAIL LIVE | Action Network MLB splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+        "MLB games where the home team receives ≥ 60% of ML handle dollars. Threshold tightened 2026-03-29 from 55% — 55% fires too broadly given home-team bias baseline. Alert only — watchlist until direction is validated.",
+      snapshot: "🟡 RAIL LIVE | Action Network MLB splits ingested. Qualifier logic wired (≥ 60% ML handle). Line-move history context attached when available.",
       definition:
-        "Flag MLB games where the home team holds ≥ 55% of ML handle dollars, regardless of whether they are a favourite or underdog. Public bettors have a structural home-team bias. When handle majority goes to the home side, the away team's price may be inflated by that bias. Alert only — watchlist until direction is validated.",
+        "Flag MLB games where the home team holds ≥ 60% of ML handle dollars, regardless of whether they are a favourite or underdog. 60% is a meaningfully elevated signal over the typical home-team bias baseline. When handle majority reaches this level, the away team's price may be inflated by bias or the home side may carry genuine sharp interest. Alert only — watchlist until direction is validated.",
       qualifierRules: [
-        "Home team must hold ≥ 55% of ML handle dollars (mlHomeHandlePct from Action Network splits).",
+        "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Tightened from 55% (2026-03-29) — 55% fires too broadly in MLB where home-team bias is structural.",
         "Splits data must be available: mlSplitsAvailable = true.",
         "League must be MLB.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist.",
       ],
       progressionLogic: [],
       thesis:
@@ -1320,12 +1328,15 @@ function seededCatalog(): TrackedSystem[] {
       automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when home team ≥ 55% ML handle.",
       dataRequirements: [
         { label: "MLB public ML handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\")." },
+        { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record." },
       ],
       unlockNotes: [
-        "Rail live. Watchlist-only until sample accumulates. Review 55% threshold after 4 weeks.",
+        "Rail live. Threshold tightened to 60% (2026-03-29). Watchlist-only until sample accumulates. Review again after 4 weeks at new threshold.",
+        "Line-move context now wired. Direction still unresolved — do not claim value without validated edge.",
       ],
       trackingNotes: [
-        "Watchlist alert only — no bet direction implied. Do not claim value without a validated edge.",
+        "Watchlist alert only — no bet direction implied. 60% handle is the minimum for a non-trivial signal in MLB.",
+        "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
     },
@@ -1339,14 +1350,15 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "MLB games where the Under receives ≥ 58% of total handle. Sharp/contrarian under signal when the public's default over-bias is reversed.",
-      snapshot: "🟡 RAIL LIVE | Action Network MLB total splits ingested. Qualifier logic wired. Awaiting game-day firing.",
+        "MLB games where the Under receives ≥ 62% of total handle. Threshold tightened 2026-03-29 from 58% — sharper under signal, less noise from borderline splits.",
+      snapshot: "🟡 RAIL LIVE | Action Network MLB total splits ingested. Qualifier logic wired (≥ 62% Under handle). Line-move history context attached when available.",
       definition:
-        "Flag MLB games where the Under attracts ≥ 58% of total handle. Public bettors have a strong over-bias in baseball. When the Under commands majority handle, it suggests sharp or informed activity rather than casual bettors. Alert only.",
+        "Flag MLB games where the Under attracts ≥ 62% of total handle. Public bettors have a strong over-bias in baseball. At 62%+ under handle, the signal more reliably indicates sharp or informed activity rather than casual bettors or variance. Alert only.",
       qualifierRules: [
-        "Under side must hold ≥ 58% of total handle (underHandlePct from Action Network splits).",
+        "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Tightened from 58% (2026-03-29) — 58% fires too broadly in MLB; 62% is a more distinct signal.",
         "Total splits must be available: totalSplitsAvailable = true.",
         "League must be MLB.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist.",
       ],
       progressionLogic: [],
       thesis:
@@ -1361,12 +1373,14 @@ function seededCatalog(): TrackedSystem[] {
       automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when Under ≥ 58% of total handle.",
       dataRequirements: [
         { label: "MLB public total handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\"). totalSplitsAvailable required." },
+        { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record." },
       ],
       unlockNotes: [
-        "Rail live. Track frequency across first month of season before adding directional claim.",
+        "Rail live. Threshold tightened to 62% (2026-03-29). Track frequency at new threshold before adding directional claim.",
       ],
       trackingNotes: [
         "Alert only. No bet direction claimed. Starter context and park factors are useful overlays before acting.",
+        "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
     },
@@ -4093,7 +4107,52 @@ async function refreshCoachNoRestSystemData(data: SystemsTrackingData, options: 
   return system;
 }
 
-// ── Cross-sport splits helper ──────────────────────────────────────────────────
+// ── Cross-sport splits helpers ────────────────────────────────────────────────
+
+/**
+ * Build a concise line-move context note for inclusion in a qualifier record's notes field.
+ * Informational only — does NOT gate whether a qualifier fires.
+ *
+ * @param history - MarketHistoryRail from getMarketHistoryRail(), or null if unavailable.
+ * @param marketType - The market we want to surface movement for ("moneyline" | "spread" | "total").
+ */
+function buildLineMoveContextNote(
+  history: MarketHistoryRail | null,
+  marketType: "moneyline" | "spread" | "total",
+): string {
+  if (!history || history.capturedSnapshots < 2) {
+    return "Line-move history: no intraday snapshots yet — context unavailable.";
+  }
+
+  const relevant = history.deltas.filter((d) => d.marketType === marketType);
+  if (relevant.length === 0) {
+    return `Line-move history: ${history.capturedSnapshots} snapshot(s) captured — no ${marketType} deltas found.`;
+  }
+
+  const maxOddsDeltaEntry = relevant.reduce<(typeof relevant)[number] | null>((best, d) => {
+    if (d.oddsDelta === null) return best;
+    if (!best || Math.abs(d.oddsDelta) > Math.abs(best.oddsDelta ?? 0)) return d;
+    return best;
+  }, null);
+  const maxLineDeltaEntry = relevant.reduce<(typeof relevant)[number] | null>((best, d) => {
+    if (d.lineDelta === null) return best;
+    if (!best || Math.abs(d.lineDelta) > Math.abs(best.lineDelta ?? 0)) return d;
+    return best;
+  }, null);
+
+  const parts: string[] = [`Line-move history (${history.capturedSnapshots} snapshot(s), source: ${history.source}):`];
+
+  if (maxOddsDeltaEntry?.oddsDelta != null) {
+    const delta = maxOddsDeltaEntry.oddsDelta;
+    parts.push(`${maxOddsDeltaEntry.outcome} odds moved ${delta > 0 ? "+" : ""}${delta} (${maxOddsDeltaEntry.book})`);
+  }
+  if (maxLineDeltaEntry?.lineDelta != null) {
+    const delta = maxLineDeltaEntry.lineDelta;
+    parts.push(`line moved ${delta > 0 ? "+" : ""}${delta.toFixed(1)} (${maxLineDeltaEntry.book})`);
+  }
+
+  return parts.join(" • ");
+}
 
 /**
  * Match an aggregated odds event for a game identified by home+away abbreviation.
@@ -4119,7 +4178,8 @@ function findAggregatedEventForSplitsGame(
 
 /**
  * NHL Home Dog — Majority Handle
- * Fires when: NHL home team is ML underdog AND holds ≥ 55% of ML handle.
+ * Fires when: NHL home team is ML underdog AND holds ≥ 60% of ML handle (tightened from 55% 2026-03-29).
+ * Line-move history attached as context note when Supabase snapshots available.
  */
 async function refreshNHLHomeDogMajorityHandleSystemData(
   data: SystemsTrackingData,
@@ -4148,7 +4208,8 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
 
       const { side1: homeEntry } = getMarketSplits(game, "moneyline");
       const homeHandlePct = homeEntry?.handlePercent ?? null;
-      if (homeHandlePct === null || homeHandlePct < 55) { audit.notMajorityHandle += 1; continue; }
+      // Tightened threshold: 55% → 60% (2026-03-29) to reduce noise
+      if (homeHandlePct === null || homeHandlePct < 60) { audit.notMajorityHandle += 1; continue; }
 
       // Check if home team is an underdog using aggregated odds
       const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
@@ -4158,6 +4219,11 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
       audit.qualified += 1;
       const awayHandlePct = game.splits.find((s) => s.source === game.effectiveSource && s.marketType === "moneyline" && s.side === "away")?.handlePercent ?? null;
       const totalLine = event ? getEventTotalLine(event) : null;
+
+      // ── Line-move context (informational, not a qualifier gate) ──────────
+      const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
+      const lineMoveNote = buildLineMoveContextNote(history, "moneyline");
+      const lineConfirmed = history !== null && history.capturedSnapshots >= 2 && history.deltas.some((d) => d.marketType === "moneyline" && d.oddsDelta !== null && Math.abs(d.oddsDelta) >= 5);
 
       freshRecords.push(normalizeRecord({
         id: `${NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
@@ -4169,17 +4235,18 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
         opponentTeam: game.awayTeam,
         recordKind: "qualifier",
         marketType: "moneyline",
-        alertLabel: `NHL home dog ${game.homeTeam} +${homeML} with ${homeHandlePct}% ML handle`,
+        alertLabel: `NHL home dog ${game.homeTeam} +${homeML} — ${homeHandlePct}% ML handle${lineConfirmed ? " [line-confirmed]" : ""}`,
         currentMoneyline: homeML,
         totalLine,
         sourceHealthStatus: "healthy",
-        freshnessSummary: `NHL handle splits live. Source: ${game.effectiveSource}.`,
+        freshnessSummary: `NHL handle splits live. Source: ${game.effectiveSource}.${history ? ` Line history: ${history.capturedSnapshots} snapshot(s) (${history.source}).` : " No line history yet."}`,
         notes: [
           `NHL Home Dog Majority Handle qualifier — ${game.homeTeam} home dog vs ${game.awayTeam}.`,
           `ML handle: ${homeHandlePct}% on ${game.homeTeam} (home)${awayHandlePct !== null ? ` vs ${awayHandlePct}% on ${game.awayTeam}` : ""}.`,
           `Home ML: +${homeML}. ${totalLine !== null ? `Total: ${totalLine}.` : ""}`,
+          lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — not a pick. Verify context before acting.`,
+          `Alert only — not a pick. Watchlist until direction and win-rate validated.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4188,7 +4255,7 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
     audit.noSplits = 1;
   }
 
-  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below handle threshold: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
+  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below 60% handle: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
   const updated: TrackedSystem = {
     ...system,
     status: "tracking" as SystemTrackingStatus,
@@ -4203,7 +4270,8 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
 
 /**
  * NHL Under — Majority Handle
- * Fires when: ≥ 58% of total (O/U) handle goes to the Under in NHL games.
+ * Fires when: ≥ 62% of total (O/U) handle goes to the Under in NHL games (tightened from 58% 2026-03-29).
+ * Line-move history attached as context note when Supabase snapshots available.
  */
 async function refreshNHLUnderMajorityHandleSystemData(
   data: SystemsTrackingData,
@@ -4232,13 +4300,19 @@ async function refreshNHLUnderMajorityHandleSystemData(
 
       const { side1: overEntry, side2: underEntry } = getMarketSplits(game, "total");
       const underHandlePct = underEntry?.handlePercent ?? null;
-      if (underHandlePct === null || underHandlePct < 58) { audit.belowThreshold += 1; continue; }
+      // Tightened threshold: 58% → 62% (2026-03-29) to improve signal quality
+      if (underHandlePct === null || underHandlePct < 62) { audit.belowThreshold += 1; continue; }
 
       audit.qualified += 1;
       const overHandlePct = overEntry?.handlePercent ?? null;
       const totalLine = underEntry?.line ?? overEntry?.line ?? null;
       const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
       const homeML = event?.bestHome?.odds ?? null;
+
+      // ── Line-move context (informational, not a qualifier gate) ──────────
+      const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
+      const lineMoveNote = buildLineMoveContextNote(history, "total");
+      const lineConfirmed = history !== null && history.capturedSnapshots >= 2 && history.deltas.some((d) => d.marketType === "total" && d.lineDelta !== null && Math.abs(d.lineDelta) >= 0.5);
 
       freshRecords.push(normalizeRecord({
         id: `${NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
@@ -4250,17 +4324,18 @@ async function refreshNHLUnderMajorityHandleSystemData(
         opponentTeam: null,
         recordKind: "qualifier",
         marketType: "total",
-        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in NHL`,
+        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in NHL${lineConfirmed ? " [line-confirmed]" : ""}`,
         currentMoneyline: homeML,
         totalLine,
         sourceHealthStatus: "healthy",
-        freshnessSummary: `NHL total handle splits live. Source: ${game.effectiveSource}.`,
+        freshnessSummary: `NHL total handle splits live. Source: ${game.effectiveSource}.${history ? ` Line history: ${history.capturedSnapshots} snapshot(s) (${history.source}).` : " No line history yet."}`,
         notes: [
           `NHL Under Majority Handle qualifier — ${game.awayTeam} @ ${game.homeTeam}.`,
           `Total handle: ${underHandlePct}% Under vs ${overHandlePct !== null ? overHandlePct + "% Over" : "—"}.`,
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
+          lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — sharp under signal. Verify starter/goalie context before acting.`,
+          `Alert only — sharp under signal. Watchlist until direction and win-rate validated.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4269,7 +4344,7 @@ async function refreshNHLUnderMajorityHandleSystemData(
     audit.noSplits = 1;
   }
 
-  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 58% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 62% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
   const updated: TrackedSystem = {
     ...system,
     status: "tracking" as SystemTrackingStatus,
@@ -4286,7 +4361,8 @@ async function refreshNHLUnderMajorityHandleSystemData(
 
 /**
  * MLB Home — Majority Handle
- * Fires when: MLB home team holds ≥ 55% of ML handle (watchlist — no bet direction implied).
+ * Fires when: MLB home team holds ≥ 60% of ML handle (tightened from 55% 2026-03-29 — watchlist, no bet direction implied).
+ * Line-move history attached as context note when Supabase snapshots available.
  */
 async function refreshMLBHomeMajorityHandleSystemData(
   data: SystemsTrackingData,
@@ -4315,7 +4391,8 @@ async function refreshMLBHomeMajorityHandleSystemData(
 
       const { side1: homeEntry } = getMarketSplits(game, "moneyline");
       const homeHandlePct = homeEntry?.handlePercent ?? null;
-      if (homeHandlePct === null || homeHandlePct < 55) { audit.belowThreshold += 1; continue; }
+      // Tightened threshold: 55% → 60% (2026-03-29) — 55% fires too broadly given structural home-team bias
+      if (homeHandlePct === null || homeHandlePct < 60) { audit.belowThreshold += 1; continue; }
 
       audit.qualified += 1;
       const awayHandlePct = game.splits.find((s) => s.source === game.effectiveSource && s.marketType === "moneyline" && s.side === "away")?.handlePercent ?? null;
@@ -4324,6 +4401,11 @@ async function refreshMLBHomeMajorityHandleSystemData(
       const awayML = event?.bestAway?.odds ?? null;
       const totalLine = event ? getEventTotalLine(event) : null;
       const homeIsUnderdog = homeML !== null && homeML > 0;
+
+      // ── Line-move context (informational, not a qualifier gate) ──────────
+      const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
+      const lineMoveNote = buildLineMoveContextNote(history, "moneyline");
+      const lineConfirmed = history !== null && history.capturedSnapshots >= 2 && history.deltas.some((d) => d.marketType === "moneyline" && d.oddsDelta !== null && Math.abs(d.oddsDelta) >= 5);
 
       freshRecords.push(normalizeRecord({
         id: `${MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
@@ -4335,16 +4417,17 @@ async function refreshMLBHomeMajorityHandleSystemData(
         opponentTeam: game.awayTeam,
         recordKind: "qualifier",
         marketType: "moneyline",
-        alertLabel: `MLB home ${homeIsUnderdog ? `dog` : `fav`} ${game.homeTeam} with ${homeHandlePct}% ML handle`,
+        alertLabel: `MLB home ${homeIsUnderdog ? "dog" : "fav"} ${game.homeTeam} — ${homeHandlePct}% ML handle${lineConfirmed ? " [line-confirmed]" : ""}`,
         currentMoneyline: homeML,
         totalLine,
         sourceHealthStatus: "healthy",
-        freshnessSummary: `MLB ML handle splits live. Source: ${game.effectiveSource}.`,
+        freshnessSummary: `MLB ML handle splits live. Source: ${game.effectiveSource}.${history ? ` Line history: ${history.capturedSnapshots} snapshot(s) (${history.source}).` : " No line history yet."}`,
         notes: [
           `MLB Home Majority Handle qualifier — ${game.homeTeam} home vs ${game.awayTeam}.`,
           `ML handle: ${homeHandlePct}% on ${game.homeTeam}${awayHandlePct !== null ? ` vs ${awayHandlePct}% on ${game.awayTeam}` : ""}.`,
           `Home ML: ${homeML !== null ? (homeML > 0 ? "+" : "") + homeML : "—"}. Away ML: ${awayML !== null ? (awayML > 0 ? "+" : "") + awayML : "—"}.${totalLine !== null ? ` Total: ${totalLine}.` : ""}`,
-          homeIsUnderdog ? `Home team is ML underdog — public backing a dog (notable).` : `Home team is ML favourite — public backing expected.`,
+          homeIsUnderdog ? "Home team is ML underdog — public backing a dog (notable)." : "Home team is ML favourite — public backing expected.",
+          lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
           `Watchlist alert only — no bet direction implied. No historical win-rate claimed.`,
         ].join(" • "),
@@ -4355,7 +4438,7 @@ async function refreshMLBHomeMajorityHandleSystemData(
     audit.noSplits = 1;
   }
 
-  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. ML unavailable: ${audit.notAvailable}. Below 55% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. ML unavailable: ${audit.notAvailable}. Below 60% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
   const updated: TrackedSystem = {
     ...system,
     status: "tracking" as SystemTrackingStatus,
@@ -4370,7 +4453,7 @@ async function refreshMLBHomeMajorityHandleSystemData(
 
 /**
  * MLB Under — Majority Handle
- * Fires when: ≥ 58% of total handle goes to the Under in MLB games.
+ * Fires when: ≥ 62% of total handle goes to the Under in MLB games (tightened from 58% 2026-03-29).
  */
 async function refreshMLBUnderMajorityHandleSystemData(
   data: SystemsTrackingData,
@@ -4399,13 +4482,19 @@ async function refreshMLBUnderMajorityHandleSystemData(
 
       const { side1: overEntry, side2: underEntry } = getMarketSplits(game, "total");
       const underHandlePct = underEntry?.handlePercent ?? null;
-      if (underHandlePct === null || underHandlePct < 58) { audit.belowThreshold += 1; continue; }
+      // Tightened threshold: 58% → 62% (2026-03-29) — 58% fires too broadly in MLB; 62% is a more distinct sharp signal
+      if (underHandlePct === null || underHandlePct < 62) { audit.belowThreshold += 1; continue; }
 
       audit.qualified += 1;
       const overHandlePct = overEntry?.handlePercent ?? null;
       const totalLine = underEntry?.line ?? overEntry?.line ?? null;
       const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
       const homeML = event?.bestHome?.odds ?? null;
+
+      // ── Line-move context (informational, not a qualifier gate) ──────────
+      const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
+      const lineMoveNote = buildLineMoveContextNote(history, "total");
+      const lineConfirmed = history !== null && history.capturedSnapshots >= 2 && history.deltas.some((d) => d.marketType === "total" && d.lineDelta !== null && Math.abs(d.lineDelta) >= 0.5);
 
       freshRecords.push(normalizeRecord({
         id: `${MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam}`,
@@ -4417,17 +4506,18 @@ async function refreshMLBUnderMajorityHandleSystemData(
         opponentTeam: null,
         recordKind: "qualifier",
         marketType: "total",
-        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in MLB`,
+        alertLabel: `Under ${totalLine ?? "?"} — ${underHandlePct}% handle in MLB${lineConfirmed ? " [line-confirmed]" : ""}`,
         currentMoneyline: homeML,
         totalLine,
         sourceHealthStatus: "healthy",
-        freshnessSummary: `MLB total handle splits live. Source: ${game.effectiveSource}.`,
+        freshnessSummary: `MLB total handle splits live. Source: ${game.effectiveSource}.${history ? ` Line history: ${history.capturedSnapshots} snapshot(s) (${history.source}).` : " No line history yet."}`,
         notes: [
           `MLB Under Majority Handle qualifier — ${game.awayTeam} @ ${game.homeTeam}.`,
           `Total handle: ${underHandlePct}% Under vs ${overHandlePct !== null ? overHandlePct + "% Over" : "—"}.`,
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
+          lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — sharp under signal. Verify starter quality and park context before acting.`,
+          `Alert only — sharp under signal. Watchlist until win-rate validated. Starter quality and park context required before acting.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4436,7 +4526,7 @@ async function refreshMLBUnderMajorityHandleSystemData(
     audit.noSplits = 1;
   }
 
-  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 58% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
+  const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 62% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
   const updated: TrackedSystem = {
     ...system,
     status: "tracking" as SystemTrackingStatus,

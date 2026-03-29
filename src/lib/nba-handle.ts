@@ -325,14 +325,14 @@ export function isCloseSpread(splits: NBAHandleSplits, maxSpreadAbs = 4): boolea
  *
  * Fires when:
  *  - Home team is a moneyline underdog (homeML > 0)
- *  - Home team has ≥ 55% of ML handle dollars
+ *  - Home team has ≥ 60% of ML handle dollars (tightened 2026-03-29 from 55%)
  *  - Splits data is available (splitsAvailable = true)
  */
 export function qualifiesHomeUnderdogMajorityHandle(splits: NBAHandleSplits): boolean {
   return (
     splits.splitsAvailable &&
     homeIsMoneylineUnderdog(splits) &&
-    homeHasMajorityMLHandle(splits, 55)
+    homeHasMajorityMLHandle(splits, 60)
   );
 }
 
