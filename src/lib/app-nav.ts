@@ -52,8 +52,8 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   {
     id: "schedule",
     href: "/schedule",
-    label: "Schedule",
-    shortLabel: "Schedule",
+    label: "Schedule & Standings",
+    shortLabel: "Schedule & Standings",
     emoji: "📅",
     group: "research",
     shortcutEligible: true,
