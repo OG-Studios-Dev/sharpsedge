@@ -733,6 +733,11 @@ function predictionToPick(
 
   // Look up real Bovada top-finish odds for this player (when available).
   // Real scraped lines take precedence over proxy calculations — honesty rule.
+  //
+  // CONTRACT: For top-finish markets (Top 5/10/20), this function should only
+  // be called when real odds are confirmed available upstream (hasRealTopFinishLine).
+  // If realTopFinishOdds ends up null here for a top-finish market, it means
+  // the caller bypassed the integrity guard — that is a bug.
   const realBovadaLine = market !== "Tournament Winner"
     ? findBovadaTopFinishOdds(bovadaTopFinishOdds ?? null, player.name)
     : null;
@@ -744,17 +749,25 @@ function predictionToPick(
     return null;
   })();
 
+  // For top-finish markets: real Bovada line required. If somehow null here,
+  // log a warning — this should have been caught by hasRealTopFinishLine upstream.
+  if (market !== "Tournament Winner" && realTopFinishOdds === null) {
+    console.warn(
+      `[golf-stats-engine] predictionToPick called for ${market} on ${player.name} without real odds — pick should have been blocked upstream.`,
+    );
+  }
+
   const bookLabel = market === "Tournament Winner"
     ? player.outrightBook ?? "Model Line"
     : realTopFinishOdds !== null
       ? "Bovada"  // Real scraped line — no proxy involved
-      : player.outrightBook ? `${player.outrightBook} outright proxy` : "Outright Proxy (no real line)";
+      : "No odds available";  // Integrity fallback label if upstream guard missed this case
   const displayProbability = proxyBookProbability ?? modelProbability;
   const odds = market === "Tournament Winner" && player.bookOdds !== null
     ? player.bookOdds
     : realTopFinishOdds !== null
       ? realTopFinishOdds  // Use real Bovada line when available
-      : probabilityToAmericanOdds(displayProbability);
+      : probabilityToAmericanOdds(displayProbability);  // Only reached if upstream guard missed it
   const edge = proxyBookProbability === null ? 0 : modelProbability - proxyBookProbability;
 
   // For golf, hitRate represents the confidence/composite score — NOT the raw probability.
@@ -823,6 +836,28 @@ function isQualifyingOutrightOdds(odds: number | null | undefined): boolean {
   return odds >= PGA_OUTRIGHT_MIN_ODDS;
 }
 
+// ── Top-Finish Odds Integrity Rule ───────────────────────────────────────────
+// PGA top-finish picks (Top 5/10/20) MUST be backed by real scraped odds.
+// Proxy estimates derived from outright win odds are NEVER acceptable for these
+// markets — they are fabricated/estimated values, not real market lines.
+//
+// Permanent rule: if top-finish odds are not available from automated sources
+// (Bovada snapshot), the pick is skipped entirely. Never fabricate, estimate,
+// or substitute proxy odds. If truly unavailable, omit the pick.
+function hasRealTopFinishLine(
+  oddsMap: BovadaTopFinishOddsMap | null | undefined,
+  playerName: string,
+  market: GolfPredictionMarket,
+): boolean {
+  if (!oddsMap || oddsMap.size === 0) return false;
+  const line = findBovadaTopFinishOdds(oddsMap, playerName);
+  if (!line) return false;
+  if (market === "Top 5 Finish") return line.top5 !== null;
+  if (market === "Top 10 Finish") return line.top10 !== null;
+  if (market === "Top 20 Finish") return line.top20 !== null;
+  return false;
+}
+
 export function buildGolfTournamentPicks(
   predictions: GolfPredictionBoard,
   date: string,
@@ -880,6 +915,11 @@ export function buildGolfTournamentPicks(
     picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId, bovadaTopFinishOdds));
   }
 
+  // ── Top-finish lock selections ───────────────────────────────────────────
+  // Integrity rule: lock selections are ONLY generated when real scraped
+  // top-finish odds exist for the player on that specific market.
+  // If bovadaTopFinishOdds is null (no snapshot) or a player has no line for
+  // the requested market, the pick is skipped — never fabricated.
   const lockCandidates = [...players].sort((left, right) => (
     ((right.formScore + right.courseHistoryScore) - (left.formScore + left.courseHistoryScore))
   ) || (
@@ -889,9 +929,15 @@ export function buildGolfTournamentPicks(
   const lockMarkets: GolfPredictionMarket[] = ["Top 5 Finish", "Top 10 Finish", "Top 20 Finish"];
 
   lockSelections.forEach((player, index) => {
-    picks.push(predictionToPick(player, lockMarkets[index], date, tournamentName, tournamentId, bovadaTopFinishOdds));
+    const market = lockMarkets[index];
+    // Integrity gate: skip pick if no real Bovada top-finish line is available.
+    if (!hasRealTopFinishLine(bovadaTopFinishOdds, player.name, market)) return;
+    picks.push(predictionToPick(player, market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
   });
 
+  // ── Top-finish value market picks ────────────────────────────────────────
+  // Same integrity rule: candidates are filtered to players with real scraped
+  // odds for that market before edge is even calculated.
   const valueMarkets: Array<{ market: GolfPredictionMarket; count: number }> = [
     { market: "Top 5 Finish", count: 2 },
     { market: "Top 10 Finish", count: 2 },
@@ -899,7 +945,10 @@ export function buildGolfTournamentPicks(
   ];
 
   for (const valueMarket of valueMarkets) {
+    // Filter to players with real top-finish odds for this market FIRST.
+    // Players without real odds are excluded — proxy estimates are never used.
     const candidates = players
+      .filter((player) => hasRealTopFinishLine(bovadaTopFinishOdds, player.name, valueMarket.market))
       .map((player) => {
         const modelProbability = getMarketProbability(player, valueMarket.market);
         const bookProbability = getProxyBookProbability(player, valueMarket.market);
