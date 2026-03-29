@@ -75,13 +75,18 @@ function trackabilityPill(trackability: TrackedSystem["trackabilityBucket"]) {
 }
 
 function formatStatus(status: TrackedSystem["status"]) {
-  return status.replaceAll("_", " ");
+  if (status === "tracking") return "Active";
+  if (status === "paused") return "Paused";
+  if (status === "source_based") return "Source-based";
+  if (status === "awaiting_verification") return "Building sample";
+  if (status === "definition_only") return "Not live yet";
+  return "Active";
 }
 
 function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
-  if (trackability === "trackable_now") return "Trackable now";
-  if (trackability === "blocked_missing_data") return "Blocked";
-  return "Parked";
+  if (trackability === "trackable_now") return "Live";
+  if (trackability === "blocked_missing_data") return "Data gap";
+  return "Watching";
 }
 
 function sortSystemsForDisplay(systems: TrackedSystem[]) {
@@ -125,7 +130,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent-blue/80">Systems</p>
             </div>
             <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">AI Systems Tracking</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">Systems</h1>
               <p className="text-xs text-gray-400">Updated {formatUpdatedAt(updatedAt)}</p>
             </div>
           </div>
@@ -243,9 +248,9 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">Tracked record</p>
                       <p className="mt-1 text-sm font-semibold text-white">
                         {isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0
-                          ? `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""} ML`
+                          ? `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`
                           : isMLGradeable && hasDbRecord
-                          ? `${dbPerf.qualifiers_logged} qualifiers (${dbPerf.pending} pending grade)`
+                          ? `${dbPerf.qualifiers_logged} qualifiers · ${dbPerf.pending} pending`
                           : metrics.performance.actionable
                           ? metrics.performance.record
                           : `${metrics.qualifiedGames} qualifiers logged`}
@@ -253,11 +258,11 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <p className="mt-0.5 text-[10px] text-gray-500">
                         {isMLGradeable
                           ? (hasDbRecord && dbPerf.graded_qualifiers > 0
-                            ? `${dbPerf.graded_qualifiers} graded ML qualifiers (Supabase).`
-                            : "ML grading path live — awaiting graded outcomes.")
+                            ? `${dbPerf.graded_qualifiers} graded games`
+                            : "Grading outcomes as results come in.")
                           : metrics.performance.actionable
-                          ? `${metrics.performance.gradedQualifiers} graded rows`
-                          : "Qualifier-only until action rule is mature."}
+                          ? `${metrics.performance.gradedQualifiers} graded games`
+                          : "Tracking qualifiers — bet direction not locked in yet."}
                       </p>
                     </div>
                     <div className="rounded-xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2">
@@ -275,27 +280,27 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-500">
                         {isMLGradeable
-                          ? "Flat 1u ML payout from graded qualifiers."
+                          ? "Flat 1 unit per qualifying game."
                           : metrics.performance.actionable
-                          ? "Flat 1u tracking from settled rows."
-                          : "Hidden until settlement rules are live."}
+                          ? "Flat 1 unit per qualifying game."
+                          : "Tracking starts once settlement logic is ready."}
                       </p>
                     </div>
                   </div>
                   {/* Win% honesty note */}
                   {gradedForTier > 0 && gradedForTier < MIN_SAMPLE_FOR_TIER && (
                     <p className="mt-2 text-[10px] text-amber-500/70">
-                      Small sample ({gradedForTier} graded) — win% not yet meaningful.
+                      Too early to call — only {gradedForTier} games graded so far.
                     </p>
                   )}
                   {tier === "gold" && (
                     <p className="mt-2 text-[10px] text-amber-300/70">
-                      🏆 Gold system — {Math.round((winPctForTier ?? 0) * 100)}% win rate over {gradedForTier} graded qualifiers.
+                      🏆 Firing at {Math.round((winPctForTier ?? 0) * 100)}% win rate across {gradedForTier} games.
                     </p>
                   )}
                   {tier === "weak" && (
                     <p className="mt-2 text-[10px] text-rose-500/60">
-                      Below 50% win rate over {gradedForTier} graded qualifiers — not profitable at current sample.
+                      Under 50% across {gradedForTier} games — worth watching but not acting on yet.
                     </p>
                   )}
                 </div>

@@ -65,6 +65,20 @@ function sortSystemsForHome(systems: TrackedSystem[]) {
   });
 }
 
+
+function getSystemInsightLine(
+  tier: WinPctTier,
+  recordCopy: string,
+  unitsCopy: string,
+  qualifiedGames: number,
+): string {
+  if (tier === "gold") return `Firing · ${recordCopy} · ${unitsCopy}`;
+  if (tier === "neutral") return `Steady · ${recordCopy} · ${unitsCopy}`;
+  if (tier === "weak") return `Slipping · ${recordCopy}`;
+  if (qualifiedGames > 0) return `${qualifiedGames} qualifiers tracked`;
+  return "Watching for setups";
+}
+
 type Props = {
   systems: TrackedSystem[];
   dbPerformance?: DbSystemPerformanceSummary[];
@@ -78,12 +92,15 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold tracking-tight text-white">AI Systems Tracking</h2>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-white">Systems</h2>
+          <p className="text-[10px] text-gray-500 mt-0.5">What&apos;s working, what&apos;s not</p>
+        </div>
         <Link
           href="/systems"
           className="shrink-0 text-xs font-medium text-accent-blue hover:text-accent-blue/80 transition"
         >
-          All →
+          See all →
         </Link>
       </div>
 
@@ -156,7 +173,12 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
               className={`flex items-center gap-2 rounded-lg border border-dark-border/60 bg-dark-bg/40 px-2.5 py-2 transition hover:border-white/15 hover:bg-dark-surface/60 ${rowOpacity}`}
             >
               <span className="text-[10px] leading-none">{statusDot}</span>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-white leading-tight">{system.name}</span>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-white leading-tight">{system.name}</span>
+                <span className="block truncate text-[10px] text-gray-500 mt-0.5">
+                  {getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}
+                </span>
+              </div>
               <WinPctBadge tier={tier} winPct={winPctForTier} />
               <span className="shrink-0 text-[11px] font-semibold text-white tabular-nums">{recordCopy}</span>
               <span className={`shrink-0 text-[11px] font-semibold tabular-nums ${unitsClass}`}>{unitsCopy}</span>
@@ -165,9 +187,8 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
         })}
       </div>
 
-      {/* Honest footnote about sample sizes */}
       <p className="mt-2 text-[10px] text-gray-600 leading-relaxed">
-        Win% shown only when ≥{MIN_SAMPLE_FOR_TIER} graded qualifiers. 🏆 = &gt;60% win rate. Muted = below 50%.
+        🏆 = win rate above 60% · muted = below 50% · shown after {MIN_SAMPLE_FOR_TIER}+ games
       </p>
     </section>
   );

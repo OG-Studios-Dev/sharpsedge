@@ -149,7 +149,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-gray-600 text-[10px]">Tap for AI analysis ↓</p>
+        <p className="text-gray-600 text-[10px]">Tap to see reasoning ↓</p>
         {trendHref && (
           <Link
             href={trendHref}
@@ -209,7 +209,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
           {/* AI Reasoning */}
           {pick.reasoning && (
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-accent-blue">AI Analysis</p>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-accent-blue">Why this pick</p>
               <p className="text-gray-300 text-xs leading-relaxed">
                 {pick.reasoning}
               </p>
@@ -269,21 +269,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
             )}
           </div>
 
-          {/* Key Stats Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="meta-label">Hit Rate</p>
-              <p className="text-accent-green font-bold text-sm mt-0.5">{displayHitRate(pick.hitRate)}</p>
-            </div>
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="meta-label">Edge</p>
-              <p className="text-accent-blue font-bold text-sm mt-0.5">{displayEdge(pick.edge)}</p>
-            </div>
-            <div className="rounded-xl bg-dark-bg/60 border border-dark-border/40 p-2.5 text-center">
-              <p className="meta-label">Odds</p>
-              <p className="text-white font-bold text-sm mt-0.5">{formatAmericanOdds(pick.odds)}</p>
-            </div>
-          </div>
+
 
           {/* Confidence Bar */}
           <div>
@@ -302,27 +288,14 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
             </div>
           </div>
 
-          {/* Pick Details */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {pick.type === "player" && (
+          {/* Pick type tag */}
+          {(pick.type === "player" || pick.type === "team") && (
+            <div>
               <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
-                Player Prop
+                {pick.type === "player" ? "Player Prop" : "Team Trend"}
               </span>
-            )}
-            {pick.type === "team" && (
-              <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
-                Team Trend
-              </span>
-            )}
-            {(selectedBookOdds?.book ?? pick.book) && (selectedBookOdds?.book ?? pick.book) !== "Model Line" && (
-              <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
-                {selectedBookOdds?.book ?? pick.book}
-              </span>
-            )}
-            <span className="rounded-full border border-dark-border/40 bg-dark-bg/60 px-2 py-0.5 text-[9px] text-gray-400">
-              1 unit
-            </span>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
