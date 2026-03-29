@@ -458,8 +458,8 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "blocked_missing_data",
-      summary: "Contrarian NBA fade concept blocked until a credible public-betting splits source is attached.",
-      snapshot: "🔴 BLOCKED | Public betting splits source required. Cannot qualify.",
+      summary: "Contrarian NBA fade concept. Public betting splits source is now live (Action Network DK+FD). Still blocked on line-move history rail — required to separate steam moves from stale public bias.",
+      snapshot: "🟡 PARTIAL | Splits feed live (Action Network DK+FD). Blocked: line-move history rail not wired. Cannot qualify until open-to-close delta is available.",
       definition:
         "Fade inflated NBA sides where the public piles into a trendy favorite and price drift overshoots the true edge.",
       qualifierRules: [
@@ -472,21 +472,25 @@ function seededCatalog(): TrackedSystem[] {
         "A public-fade angle is only real if the public-position input is real. Without trustworthy splits, this is just theater.",
       sourceNotes: [
         {
-          label: "Internal concept",
-          detail: "Saved as a real catalog item, but blocked until a defensible splits feed is chosen.",
+          label: "Action Network (DK primary + FD comparison)",
+          detail: "Live as of 2026-03-29. Ingested via betting-splits.ts + betting-splits-store.ts. Provides bets% and handle% per game/market for NBA, NHL, MLB, NFL.",
+        },
+        {
+          label: "Line-move history — MISSING",
+          detail: "market-snapshot-history.ts exists but reads from filesystem only (data/market-snapshots/). Only 1 stale file on disk; Supabase holds live snapshots but is not queried by the history rail. Need to wire Supabase read into market-snapshot-history.ts to unblock.",
         },
       ],
-      automationStatusLabel: "Blocked by missing data",
-      automationStatusDetail: "Public betting handle splits source required, plus line-move history to separate narrative from price action.",
+      automationStatusLabel: "Partially unblocked — splits live, line-move pending",
+      automationStatusDetail: "Public betting handle splits now live via Action Network (DK+FD). Still blocked: line-move history requires wiring Supabase market_snapshots into market-snapshot-history.ts.",
       dataRequirements: [
-        { label: "Public betting handle splits", status: "pending", detail: "Need a trustworthy source for public betting percentage by game." },
-        { label: "Line-move history", status: "pending", detail: "Need open-to-close movement to identify overpriced public sides." },
+        { label: "Public betting handle splits", status: "available", detail: "Action Network DK (primary) + FD (comparison/fallback). Ingested via betting-splits.ts. Data confirmed live 2026-03-29." },
+        { label: "Line-move history", status: "pending", detail: "market-snapshot-history.ts reads filesystem only. Supabase has live hourly snapshots but history rail does not query them. Fast fix: add Supabase fallback read to getMarketHistoryRail()." },
       ],
       unlockNotes: [
-        "Public betting handle splits source required.",
-        "Line-move history feed required.",
+        "✅ Public betting handle splits: RESOLVED — Action Network DK+FD rail live.",
+        "❌ Line-move history: STILL BLOCKED — wire Supabase market_snapshot_prices into market-snapshot-history.ts.",
       ],
-      trackingNotes: ["Do not fake 'public is on X' claims without an actual source."],
+      trackingNotes: ["Do not fake 'public is on X' claims without an actual source.", "Splits source is real and live. Line-move context is still missing — do not fire qualifiers until both rails are available."],
       records: [],
     },
     {
