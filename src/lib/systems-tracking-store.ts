@@ -5,6 +5,7 @@ import { getMLBPlayerGameLog, getMLBSchedule, type MLBPlayerGameLog } from "@/li
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { findMLBOddsForGame, getMLBOdds } from "@/lib/mlb-odds";
 import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, type NBAGame, type NBATeamStanding } from "@/lib/nba-api";
+import { getNBAHandleBoard, findHandleSplitsForGame, qualifiesHomeUnderdogMajorityHandle, qualifiesHomeSuperMajorityHandleCloseGame, type NBAHandleSplits } from "@/lib/nba-handle";
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
 import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
@@ -219,6 +220,8 @@ const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
 const ROBBIES_RIPPER_FAST_5_SYSTEM_ID = "robbies-ripper-fast-5";
 const BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID = "bigcat-bonaza-puckluck";
 const COACH_NO_REST_SYSTEM_ID = "coach-no-rest";
+const NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nba-home-dog-majority-handle";
+const NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID = "nba-home-super-majority-close-game";
 const GOOSE_SETTLEMENT_BACKFILL_LOOKBACK_DAYS = 7;
 
 export const SYSTEM_LEAGUES = ["All", "NBA", "NHL", "MLB", "NFL"] as const;
@@ -1023,6 +1026,150 @@ function seededCatalog(): TrackedSystem[] {
       trackingNotes: ["Keep Warren Sharp-style framing in source notes, not as implied ownership."],
       records: [],
     },
+    // ── NBA Handle Systems (Action Network splits rail) ───────────────────────
+    {
+      id: NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+      slug: "nba-home-dog-majority-handle",
+      name: "Home Dog with Majority Handle",
+      league: "NBA",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "NBA home underdog receiving majority (≥ 55%) of ML handle dollars. Public money contradicts the spread favorite — potential steam on the dog or narrative mis-pricing.",
+      snapshot: "🟡 RAIL LIVE | Action Network handle splits ingested. Qualification logic wired. Awaiting first game-day firing.",
+      definition:
+        "Flag NBA games where the home team is a moneyline underdog (homeML > 0) AND attracts ≥ 55% of ML handle dollars. The public money contradicts the odds. Either sharp money is pushing the home dog, or the away team is overpriced by narrative. Alert only — not a pick without further context.",
+      qualifierRules: [
+        "Home team must be a moneyline underdog: homeML > 0 in American odds.",
+        "Home team must hold ≥ 55% of ML handle dollars (ml_home_money from Action Network).",
+        "Splits data must be marked splitsAvailable = true (≥ 1 book returning handle data).",
+        "numBets threshold: minimum 200 bets tracked for the game before firing (low-volume games filtered).",
+      ],
+      progressionLogic: [],
+      thesis:
+        "When the public puts majority money on a home underdog — a team the market says should lose — either the market is wrong about the price or there's meaningful sharp activity contrarian to the spread. Both scenarios are worth flagging. The home-field component adds a structural overlay (scheduling quirks, rest, desperation spots).",
+      sourceNotes: [
+        {
+          label: "Action Network public scoreboard API",
+          detail:
+            "Source: api.actionnetwork.com/web/v1/scoreboard/nba. Returns ml_home_money (handle %) and ml_home_public (ticket %) per game. No API key required. Cached 60 minutes. See src/lib/nba-handle.ts.",
+        },
+        {
+          label: "Handle % vs ticket %",
+          detail:
+            "This system uses handle % (dollars bet), not ticket % (bet count). Handle tracks sharp money more reliably than raw ticket count, which reflects mass public bets.",
+        },
+        {
+          label: "Honesty policy",
+          detail:
+            "If Action Network returns no splits for a game (splitsAvailable = false), that game is skipped. No inferred or synthetic splits are ever used.",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail:
+        "Action Network handle splits ingested via nba-handle.ts. qualifiesHomeUnderdogMajorityHandle() wired. Fires when home team is dog + ≥ 55% ML handle. Alert only.",
+      dataRequirements: [
+        {
+          label: "NBA public ML handle %",
+          status: "ready",
+          detail: "Live from Action Network scoreboard API (ml_home_money field). No key required. nba-handle.ts.",
+        },
+        {
+          label: "Home team moneyline",
+          status: "ready",
+          detail: "ml_home from Action Network odds row. Confirmed positive = underdog.",
+        },
+        {
+          label: "Bet volume filter",
+          status: "ready",
+          detail: "num_bets field from AN odds row. Filter: ≥ 200 bets.",
+        },
+      ],
+      unlockNotes: [
+        "Rail is live. Monitor first 2 weeks of game-day firing to validate qualifier thresholds.",
+        "Consider tightening handle threshold to 60% once sample exists.",
+      ],
+      trackingNotes: [
+        "Alert only — do not imply a bet direction without separate value gate.",
+        "Log qualifier rows once per game per day. Do not re-fire on refreshes unless date changes.",
+        "Handle splits may update intra-day — final snapshot near game time is most meaningful.",
+      ],
+      records: [],
+    },
+    {
+      id: NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
+      slug: "nba-home-super-majority-close-game",
+      name: "Home Super-Majority Handle (Close Game)",
+      league: "NBA",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary:
+        "NBA games where the home team attracts ≥ 65% of ML handle dollars AND the spread is within ±4 points. Super-majority public money on the home side in a genuinely competitive game.",
+      snapshot: "🟡 RAIL LIVE | Action Network handle splits ingested. Qualification logic wired. Awaiting first game-day firing.",
+      definition:
+        "Flag NBA games where: (1) the home team holds ≥ 65% of ML handle dollars (super-majority), AND (2) the game spread is ±4 points or tighter. A super-majority handle in a close game suggests either home-field public bias or legitimate sharp support on a tight matchup. Alert only.",
+      qualifierRules: [
+        "Home team must hold ≥ 65% of ML handle dollars (ml_home_money from Action Network).",
+        "Spread must be ±4 or tighter: |homeSpread| ≤ 4 (homeSpread = -spreadAway).",
+        "Splits data must be marked splitsAvailable = true.",
+        "numBets threshold: minimum 200 bets tracked before firing.",
+        "Home team underdog status is NOT required (distinguishes from Home Dog system above).",
+      ],
+      progressionLogic: [],
+      thesis:
+        "In close NBA games (≤4 point spread), when the public piles 65%+ of handle on the home team, the away price is being structurally depressed by public home-team bias. In competitive games, this creates a recurring mis-pricing pattern worth monitoring — especially when the away team has legitimate contextual advantages (rest, form, travel).",
+      sourceNotes: [
+        {
+          label: "Action Network public scoreboard API",
+          detail:
+            "Source: api.actionnetwork.com/web/v1/scoreboard/nba. Returns ml_home_money (handle %) and spread_away (line) per game. No API key required. Cached 60 minutes. See src/lib/nba-handle.ts.",
+        },
+        {
+          label: "Spread source",
+          detail:
+            "Spread line taken from Action Network consensus odds row (bookId=15/DraftKings preferred). Home spread = -spreadAway.",
+        },
+        {
+          label: "Honesty policy",
+          detail:
+            "If splitsAvailable = false or spread is null, game is skipped. No fabricated splits.",
+        },
+      ],
+      automationStatusLabel: "Rail live — qualifying",
+      automationStatusDetail:
+        "Action Network handle splits ingested via nba-handle.ts. qualifiesHomeSuperMajorityHandleCloseGame() wired. Fires when ≥ 65% ML handle + spread ≤ ±4.",
+      dataRequirements: [
+        {
+          label: "NBA public ML handle %",
+          status: "ready",
+          detail: "Live from Action Network scoreboard API (ml_home_money field). nba-handle.ts.",
+        },
+        {
+          label: "Game spread line",
+          status: "ready",
+          detail: "spread_away from Action Network odds row. Home spread = -spreadAway.",
+        },
+        {
+          label: "Bet volume filter",
+          status: "ready",
+          detail: "num_bets field. Filter: ≥ 200 bets.",
+        },
+      ],
+      unlockNotes: [
+        "Rail is live. Monitor game-day firing frequency to calibrate close-game threshold (currently ±4).",
+        "Consider combining with spread trend context once system accumulates 20+ qualified games.",
+      ],
+      trackingNotes: [
+        "Alert only — do not imply a bet direction without separate edge verification.",
+        "The spread threshold (±4) is a starting point. Review after 4 weeks of data.",
+        "Close-game definition intentionally conservative to filter out lopsided games.",
+      ],
+      records: [],
+    },
   ];
 }
 
@@ -1055,6 +1202,12 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   },
   [COACH_NO_REST_SYSTEM_ID]: {
     refresh: refreshCoachNoRestSystemData,
+  },
+  [NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshNBAHomeDogMajorityHandleSystemData,
+  },
+  [NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID]: {
+    refresh: refreshNBAHomeSuperMajorityCloseGameSystemData,
   },
 };
 
@@ -3766,3 +3919,237 @@ export async function loadSystemQualifierHistory(systemId: string, limitDays = 9
 
 // Re-export DB types so callers don't need a separate import
 export type { DbSystemQualifier, DbSystemPerformanceSummary };
+
+// ─── NBA Handle Systems — refresh functions ───────────────────────────────────
+
+/**
+ * Refresh qualifier data for "Home Dog with Majority Handle" (NBA).
+ *
+ * Fires when: home team is ML underdog AND holds ≥ 55% of ML handle dollars.
+ * Source: Action Network handle splits via nba-handle.ts.
+ */
+async function refreshNBAHomeDogMajorityHandleSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {}
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID)!)
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  // Fetch handle board and NBA schedule in parallel
+  const [handleBoard, schedule] = await Promise.all([
+    getNBAHandleBoard(),
+    getNBASchedule(1).catch(() => [] as NBAGame[]),
+  ]);
+
+  const todayGames = schedule.filter((g) => g.date === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: todayGames.length,
+    splitsFound: 0,
+    splitsUnavailable: 0,
+    lowVolume: 0,
+    notUnderdog: 0,
+    notMajorityHandle: 0,
+    qualified: 0,
+  };
+
+  for (const game of todayGames) {
+    const splits = findHandleSplitsForGame(
+      handleBoard,
+      game.homeTeam.abbreviation,
+      game.awayTeam.abbreviation
+    );
+
+    if (!splits) {
+      audit.splitsUnavailable += 1;
+      continue;
+    }
+    audit.splitsFound += 1;
+
+    if (!splits.splitsAvailable) {
+      audit.splitsUnavailable += 1;
+      continue;
+    }
+    if (splits.numBets < 200) {
+      audit.lowVolume += 1;
+      continue;
+    }
+
+    if (!qualifiesHomeUnderdogMajorityHandle(splits)) {
+      if (splits.homeML != null && splits.homeML <= 0) audit.notUnderdog += 1;
+      else audit.notMajorityHandle += 1;
+      continue;
+    }
+
+    audit.qualified += 1;
+    const homeML = splits.homeML;
+    const mlMoneyPct = splits.mlHomeMoneyPct;
+    const mlTicketPct = splits.mlHomeTicketPct;
+
+    const notes = [
+      `Home Dog Majority Handle qualifier — ${game.homeTeam.abbreviation} home dog vs ${game.awayTeam.abbreviation}.`,
+      `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation} (home). Ticket %: ${mlTicketPct ?? "—"}%.`,
+      `Home ML: +${homeML}. Spread: ${splits.spreadAway != null ? `${game.awayTeam.abbreviation} ${splits.spreadAway}` : "—"}.`,
+      `Num bets tracked: ${splits.numBets}. Source: Action Network.`,
+      `Alert only — not a pick. Verify value and context before acting.`,
+    ].join(" • ");
+
+    freshRecords.push(
+      normalizeRecord({
+        id: `${NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID}:${targetDate}:${game.homeTeam.abbreviation}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+        roadTeam: game.awayTeam.abbreviation,
+        homeTeam: game.homeTeam.abbreviation,
+        qualifiedTeam: game.homeTeam.abbreviation,
+        opponentTeam: game.awayTeam.abbreviation,
+        recordKind: "qualifier",
+        marketType: "moneyline",
+        alertLabel: `Home dog ${game.homeTeam.abbreviation} +${homeML} with ${mlMoneyPct}% ML handle`,
+        currentMoneyline: homeML,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `Handle splits live. ${splits.numBets} bets tracked. Fetched ${splits.fetchedAt}.`,
+        notes,
+      })
+    );
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} games. Splits found: ${audit.splitsFound}. No splits: ${audit.splitsUnavailable}. Low vol: ${audit.lowVolume}. Qualified: ${audit.qualified}.`;
+
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} qualifier(s) today | ${auditNote}`
+      : `🟡 No qualifiers today | ${auditNote}`,
+    dataRequirements: (system.dataRequirements ?? []).map((req) => ({
+      ...req,
+      status: "ready" as DataRequirementStatus,
+    })),
+    records: freshRecords,
+  };
+
+  return updated;
+}
+
+/**
+ * Refresh qualifier data for "Home Super-Majority Handle (Close Game)" (NBA).
+ *
+ * Fires when: home team holds ≥ 65% of ML handle dollars AND spread is ±4 or tighter.
+ * Source: Action Network handle splits via nba-handle.ts.
+ */
+async function refreshNBAHomeSuperMajorityCloseGameSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {}
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID)!)
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+
+  const [handleBoard, schedule] = await Promise.all([
+    getNBAHandleBoard(),
+    getNBASchedule(1).catch(() => [] as NBAGame[]),
+  ]);
+
+  const todayGames = schedule.filter((g) => g.date === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+
+  const audit = {
+    gamesScanned: todayGames.length,
+    splitsFound: 0,
+    splitsUnavailable: 0,
+    lowVolume: 0,
+    notCloseGame: 0,
+    notSuperMajority: 0,
+    qualified: 0,
+  };
+
+  for (const game of todayGames) {
+    const splits = findHandleSplitsForGame(
+      handleBoard,
+      game.homeTeam.abbreviation,
+      game.awayTeam.abbreviation
+    );
+
+    if (!splits) {
+      audit.splitsUnavailable += 1;
+      continue;
+    }
+    audit.splitsFound += 1;
+
+    if (!splits.splitsAvailable) {
+      audit.splitsUnavailable += 1;
+      continue;
+    }
+    if (splits.numBets < 200) {
+      audit.lowVolume += 1;
+      continue;
+    }
+
+    if (!qualifiesHomeSuperMajorityHandleCloseGame(splits)) {
+      if (splits.spreadAway != null && Math.abs(splits.spreadAway) > 4) audit.notCloseGame += 1;
+      else audit.notSuperMajority += 1;
+      continue;
+    }
+
+    audit.qualified += 1;
+    const homeML = splits.homeML;
+    const mlMoneyPct = splits.mlHomeMoneyPct;
+    const mlTicketPct = splits.mlHomeTicketPct;
+    const homeSpread = splits.spreadAway != null ? -splits.spreadAway : null;
+
+    const notes = [
+      `Home Super-Majority Handle (Close Game) qualifier — ${game.homeTeam.abbreviation} home vs ${game.awayTeam.abbreviation}.`,
+      `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation}. Ticket %: ${mlTicketPct ?? "—"}%.`,
+      `Spread: ${homeSpread != null ? `${game.homeTeam.abbreviation} ${homeSpread > 0 ? "+" : ""}${homeSpread}` : "—"}. ML: ${homeML != null ? (homeML > 0 ? "+" : "") + homeML : "—"}.`,
+      `Num bets: ${splits.numBets}. Source: Action Network.`,
+      `Alert only — not a pick. Close spread + super-majority home handle detected.`,
+    ].join(" • ");
+
+    freshRecords.push(
+      normalizeRecord({
+        id: `${NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID}:${targetDate}:${game.homeTeam.abbreviation}`,
+        gameDate: targetDate,
+        matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+        roadTeam: game.awayTeam.abbreviation,
+        homeTeam: game.homeTeam.abbreviation,
+        qualifiedTeam: game.homeTeam.abbreviation,
+        opponentTeam: game.awayTeam.abbreviation,
+        recordKind: "qualifier",
+        marketType: "moneyline",
+        alertLabel: `${game.homeTeam.abbreviation} ${mlMoneyPct}% handle in ±${Math.abs(homeSpread ?? 0)} spread game`,
+        currentMoneyline: homeML ?? null,
+        sourceHealthStatus: "healthy",
+        freshnessSummary: `Handle splits live. ${splits.numBets} bets tracked. Fetched ${splits.fetchedAt}.`,
+        notes,
+      })
+    );
+  }
+
+  const auditNote = `Scanned ${audit.gamesScanned} games. Splits found: ${audit.splitsFound}. No splits: ${audit.splitsUnavailable}. Low vol: ${audit.lowVolume}. Qualified: ${audit.qualified}.`;
+
+  const updated: TrackedSystem = {
+    ...system,
+    status: "tracking" as SystemTrackingStatus,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: audit.qualified > 0
+      ? `🟢 ${audit.qualified} qualifier(s) today | ${auditNote}`
+      : `🟡 No qualifiers today | ${auditNote}`,
+    dataRequirements: (system.dataRequirements ?? []).map((req) => ({
+      ...req,
+      status: "ready" as DataRequirementStatus,
+    })),
+    records: freshRecords,
+  };
+
+  return updated;
+}
