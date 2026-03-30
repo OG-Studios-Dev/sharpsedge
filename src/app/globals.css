@@ -134,3 +134,50 @@ body {
 .animate-slide-down {
   animation: slide-down 0.3s ease-out;
 }
+
+/* ─── Goosalytics Flying Goose Loader ───────────────────────────────────── */
+
+/* Wing beat — upper wing oscillates upward on even beat */
+.goose-wing-upper {
+  transform-box: view-box;
+  animation: goose-wing-up 1.6s ease-in-out infinite;
+}
+
+/* Wing beat — lower wing mirrors upper, opposite phase */
+.goose-wing-lower {
+  transform-box: view-box;
+  animation: goose-wing-down 1.6s ease-in-out infinite;
+}
+
+/* Whole goose gently glides vertically */
+.goose-glide {
+  animation: goose-glide 3.2s ease-in-out infinite;
+}
+
+/* Scan/progress bar for the full-screen loader */
+.goose-scan-bar {
+  width: 40%;
+  animation: goose-scan 1.8s ease-in-out infinite;
+}
+
+@keyframes goose-wing-up {
+  0%, 100% { transform: rotate(-20deg); }
+  50%       { transform: rotate(16deg); }
+}
+
+@keyframes goose-wing-down {
+  0%, 100% { transform: rotate(20deg); }
+  50%       { transform: rotate(-16deg); }
+}
+
+@keyframes goose-glide {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes goose-scan {
+  0%   { transform: translateX(-100%); opacity: 0.4; }
+  40%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translateX(250%); opacity: 0.4; }
+}
