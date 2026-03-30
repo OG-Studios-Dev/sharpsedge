@@ -545,9 +545,29 @@ export async function scoreGooseCandidates(
       }
     }
 
+    // ── Merge sport-specific auto-signals into signals_present ───
+    // Context enrichers (NBA/NHL/MLB/PGA) compute live auto-signals from
+    // real data (DVP rank, goalie news, park factor, DG skill edge, etc.)
+    // and store them in the feature snapshot's context_auto_signals field.
+    // Previously these were used for scoring but NOT written back into
+    // signals_present, so they were invisible to grading and the weight
+    // accumulation loop in goose_signal_weights.
+    // Fix: merge all sport-specific auto-signals with the generic signals,
+    // deduplicate, and store the full set in signals_present so grading
+    // and updateSignalWeightsForPick() can learn from them.
+    const autoSignals: string[] = [
+      ...(nbaFeatureSnapshot?.context_auto_signals ?? []),
+      ...(nhlFeatureSnapshot?.context_auto_signals ?? []),
+      ...(mlbFeatureSnapshot?.context_auto_signals ?? []),
+      ...(pgaFeatureSnapshot?.context_auto_signals ?? []),
+    ];
+    const mergedSignals = autoSignals.length > 0
+      ? Array.from(new Set([...signals, ...autoSignals]))
+      : signals;
+
     scored.push({
       ...candidate,
-      signals_present: signals,
+      signals_present: mergedSignals,
       model_score: blendedScore,
       // Stash snapshots for buildPickFactors to consume (private fields, not part of interface)
       _nba_feature_snapshot: nbaFeatureSnapshot,
