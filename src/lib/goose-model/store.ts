@@ -228,6 +228,18 @@ export interface GradeGoosePickOptions {
   actual_result?: string | null;
   /** Optional integrity status override (ok | unresolvable | postponed | void) */
   integrity_status?: GooseIntegrityStatus | null;
+  /**
+   * Optional PGA near-miss metadata. Stored in pick_snapshot.near_miss.
+   * LEARNING METADATA ONLY — never changes W/L/P or unit calculations.
+   * Only populated for PGA loss picks that finished just outside the threshold.
+   */
+  near_miss?: {
+    is_near_miss: boolean;
+    actual_place: number | null;
+    threshold: number | null;
+    margin: number | null;
+    label: string;
+  } | null;
 }
 
 /**
@@ -281,6 +293,24 @@ export async function gradeGoosePick(id: string, opts: GoosePickResult | GradeGo
     };
     if (actual_result !== undefined) patch.actual_result = actual_result ?? null;
     if (integrity_status !== undefined) patch.integrity_status = integrity_status ?? null;
+
+    // Merge near_miss metadata into pick_snapshot (learning metadata only — never affects W/L/P)
+    if (options.near_miss !== undefined && options.near_miss !== null) {
+      // Fetch current pick_snapshot to merge rather than overwrite
+      let existingSnapshot: Record<string, unknown> = {};
+      try {
+        const rows = await postgrest<Record<string, unknown>[]>(
+          `/rest/v1/goose_model_picks?id=eq.${eq(id)}&select=pick_snapshot&limit=1`,
+        );
+        const raw = rows?.[0]?.pick_snapshot;
+        if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+          existingSnapshot = raw as Record<string, unknown>;
+        }
+      } catch {
+        // Non-fatal — proceed with empty snapshot base
+      }
+      patch.pick_snapshot = { ...existingSnapshot, near_miss: options.near_miss };
+    }
 
     await postgrest(`/rest/v1/goose_model_picks?id=eq.${eq(id)}`, {
       method: "PATCH",

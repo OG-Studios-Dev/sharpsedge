@@ -15,6 +15,9 @@
 import { findBestFuzzyNameMatch } from "@/lib/name-match";
 import type { AIPick } from "@/lib/types";
 import { parsePropLine } from "@/lib/goose-model/prop-parser";
+import { detectPGANearMiss } from "@/lib/goose-model/pga-near-miss";
+import { detectPGAMarketType } from "@/lib/goose-model/pga-features";
+import type { PGANearMissResult } from "@/lib/goose-model/pga-near-miss";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -517,11 +520,29 @@ function parseRelativeGolfScore(score: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
+/**
+ * Enriched PGA pick resolution result — includes finish position and near-miss metadata.
+ * Official result (win/loss/pending) is unchanged; near_miss is learning metadata only.
+ */
+export interface PGAResolveResult {
+  /** Official pick result — W/L/P/pending. Never inflated by near-miss. */
+  result: AIPick["result"];
+  /** Actual finish position (1-indexed). null if tournament not complete or player not found. */
+  actual_place: number | null;
+  /** Near-miss metadata. null if pick is pending, or market type doesn't support it. */
+  near_miss: PGANearMissResult | null;
+}
+
+/**
+ * Resolve a PGA pick with full near-miss metadata.
+ * This is the preferred internal resolver — use this in grading flows.
+ * The outer `resolvePGAPick` wrapper is kept for backward compat with the main pick pipeline.
+ */
+export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveResult> {
   const threshold = parseGolfFinishThreshold(pick.pickLabel);
   if (!threshold || !pick.playerName) {
     logResolverIssue(pick, "pga_pick_unparseable", { pickLabel: pick.pickLabel, playerName: pick.playerName ?? "" });
-    return "pending";
+    return { result: "pending", actual_place: null, near_miss: null };
   }
 
   const scoreboard = await fetchJSON<any>(PGA_SCOREBOARD);
@@ -531,18 +552,33 @@ export async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
   }) ?? scoreboard?.events?.[0] : null;
   const competition = event?.competitions?.[0];
   const statusType = competition?.status?.type ?? event?.status?.type ?? {};
-  if (!event || statusType?.completed !== true) return "pending";
+  if (!event || statusType?.completed !== true) {
+    return { result: "pending", actual_place: null, near_miss: null };
+  }
 
   const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
   const player = findBestFuzzyNameMatch(competitors, pick.playerName, (entry: any) => entry?.athlete?.displayName || "");
   if (!player) {
     logResolverIssue(pick, "pga_player_not_found", { playerName: pick.playerName });
-    return "pending";
+    return { result: "pending", actual_place: null, near_miss: null };
   }
 
   const place = parseGolfPlacement(player, competitors);
-  if (!place) return "loss";
-  return place <= threshold ? "win" : "loss";
+  const result: AIPick["result"] = !place ? "loss" : place <= threshold ? "win" : "loss";
+
+  // Near-miss detection: only on losses (winners are never near misses)
+  const marketType = detectPGAMarketType(pick.pickLabel);
+  const nearMiss = result === "loss"
+    ? detectPGANearMiss(marketType, place)
+    : null;
+
+  return { result, actual_place: place, near_miss: nearMiss };
+}
+
+/** Backward-compatible wrapper for the main pick pipeline (no near-miss metadata). */
+export async function resolvePGAPick(pick: AIPick): Promise<AIPick["result"]> {
+  const { result } = await resolvePGAPickWithMeta(pick);
+  return result;
 }
 
 // ── incoming pick normalizer ─────────────────────────────────

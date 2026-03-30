@@ -26,6 +26,7 @@ import {
 } from "@/lib/goose-model/store";
 import {
   resolvePick,
+  resolvePGAPickWithMeta,
   normalizeIncomingPick,
 } from "@/lib/pick-resolver";
 import type { AIPick } from "@/lib/types";
@@ -118,16 +119,57 @@ async function gradeOnePick(gp: GooseModelPick): Promise<{
   id: string;
   status: "graded" | "pending" | "unresolvable" | "error";
   result?: string;
+  near_miss?: boolean;
+  near_miss_label?: string;
   error?: string;
 }> {
   try {
     const aiPick = goosePickToAIPick(gp);
+
+    // PGA picks use the enriched resolver to capture near-miss metadata.
+    // All other sports use the standard resolver (no near-miss concept applies).
+    if (gp.sport === "PGA") {
+      const pgaResult = await resolvePGAPickWithMeta(aiPick);
+
+      if (pgaResult.result === "pending") {
+        return { id: gp.id, status: "pending" };
+      }
+
+      const result = pgaResult.result as "win" | "loss" | "push";
+
+      // Build actual_result string: includes finish position and near-miss flag if applicable
+      let actualResultStr: string | null = null;
+      if (pgaResult.near_miss) {
+        actualResultStr = pgaResult.near_miss.label;
+      } else if (pgaResult.actual_place) {
+        actualResultStr = `Finished ${pgaResult.actual_place}${pgaResult.actual_place === 1 ? "st" : pgaResult.actual_place === 2 ? "nd" : pgaResult.actual_place === 3 ? "rd" : "th"}`;
+      }
+
+      // Grade the pick — near_miss stored in pick_snapshot.near_miss (learning metadata only)
+      await gradeGoosePick(gp.id, {
+        result,
+        integrity_status: "ok",
+        actual_result: actualResultStr,
+        near_miss: pgaResult.near_miss ?? undefined,
+      });
+
+      if (gp.signals_present.length > 0) {
+        await updateSignalWeightsForPick(gp.signals_present, gp.sport, result);
+      }
+
+      const nearMiss = pgaResult.near_miss?.is_near_miss ?? false;
+      return {
+        id: gp.id,
+        status: "graded",
+        result,
+        ...(nearMiss && { near_miss: true, near_miss_label: pgaResult.near_miss?.label }),
+      };
+    }
+
+    // Non-PGA sports: standard resolver
     const resolved = await resolvePick(aiPick);
 
     if (resolved.result === "pending") {
-      // Resolver returned pending — game not final yet. Leave as-is.
-      // After a configurable number of missed days we could mark 'unresolvable',
-      // but for now we only do that when explicitly flagged.
       return { id: gp.id, status: "pending" };
     }
 
@@ -179,7 +221,9 @@ async function runAutoGrade(targetDate?: string): Promise<{
   graded: number;
   pending: number;
   errors: number;
-  details: Array<{ id: string; status: string; result?: string; error?: string }>;
+  /** PGA near-miss count — losses that finished just outside the threshold */
+  pga_near_misses: number;
+  details: Array<{ id: string; status: string; result?: string; near_miss?: boolean; near_miss_label?: string; error?: string }>;
   /** Per-signal outcome evidence for this grading run */
   signal_outcome_evidence: ReturnType<SignalOutcomeTracker["toArray"]>;
   /** Summary note for review */
@@ -211,6 +255,7 @@ async function runAutoGrade(targetDate?: string): Promise<{
       graded: 0,
       pending: 0,
       errors: 0,
+      pga_near_misses: 0,
       details: [],
       signal_outcome_evidence: [],
       grading_summary: "No pending picks found for this date.",
@@ -218,7 +263,7 @@ async function runAutoGrade(targetDate?: string): Promise<{
   }
 
   // Process sequentially to avoid overwhelming upstream APIs
-  const details: Array<{ id: string; status: string; result?: string; error?: string }> = [];
+  const details: Array<{ id: string; status: string; result?: string; near_miss?: boolean; near_miss_label?: string; error?: string }> = [];
   for (const pick of picks) {
     const outcome = await gradeOnePick(pick);
     details.push(outcome);
@@ -243,10 +288,15 @@ async function runAutoGrade(targetDate?: string): Promise<{
   const gradedCount = details.filter((d) => d.status === "graded").length;
   const winCount = details.filter((d) => d.result === "win").length;
   const lossCount = details.filter((d) => d.result === "loss").length;
+  const nearMissCount = details.filter((d) => d.near_miss === true).length;
   const signalEvidence = signalTracker.toArray();
 
+  const nearMissSummary = nearMissCount > 0
+    ? ` ${nearMissCount} PGA near-miss(es) detected — stored in pick_snapshot.near_miss (learning metadata only, W/L unchanged).`
+    : "";
+
   const gradingSummary = [
-    `Graded ${gradedCount}/${picks.length} picks (${winCount}W / ${lossCount}L).`,
+    `Graded ${gradedCount}/${picks.length} picks (${winCount}W / ${lossCount}L).${nearMissSummary}`,
     signalEvidence.length > 0
       ? `Top signal this run: ${signalEvidence[0]?.signal} (${signalEvidence[0]?.win_rate}% WR in ${signalEvidence[0]?.appearances} picks).`
       : "No signal evidence accumulated (insufficient settled picks).",
@@ -259,6 +309,7 @@ async function runAutoGrade(targetDate?: string): Promise<{
     graded: gradedCount,
     pending: details.filter((d) => d.status === "pending").length,
     errors: details.filter((d) => d.status === "error").length,
+    pga_near_misses: nearMissCount,
     details,
     signal_outcome_evidence: signalEvidence,
     grading_summary: gradingSummary,
