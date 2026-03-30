@@ -347,6 +347,43 @@ function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): Scor
 const V1_HIT_RATE_FLOOR = 65;
 const V1_EDGE_FLOOR = 10;
 
+// ── Volume policy (Marco 2026-03-29) ─────────────────────────────────────────
+// Goal: profitable in every sport with 70%+ hit rate. Spray hurts this.
+//
+// Rules:
+//   - No forced minimum. Zero picks is a valid output when no genuine edges exist.
+//   - Soft ceiling: 5 picks/sport/day (SOFT_MAX_PLAYER player props + SOFT_MAX_TEAM team trends).
+//   - Hard max: 7 picks. Only reached when ≥ (SOFT_MAX_PLAYER + SOFT_MAX_TEAM) picks each
+//     clear the STRONG_EDGE_FLOOR (15% edge). Strong-edge qualifying picks justify extra volume.
+//   - The old fill-to-3 loop is removed. No padding from a wider pool to hit a target.
+const SOFT_MAX_PLAYER = 3;    // default player prop picks ceiling
+const SOFT_MAX_TEAM   = 2;    // default team trend picks ceiling
+const HARD_MAX_PLAYER = 4;    // hard-max player props (strong-edge exception)
+const HARD_MAX_TEAM   = 3;    // hard-max team trends (strong-edge exception)
+const STRONG_EDGE_FLOOR = 15; // edge % threshold to qualify as a "strong edge" pick
+
+/**
+ * Calculate how many player and team picks to target for this slate.
+ * Returns soft defaults unless enough strong-edge picks are present to justify
+ * pushing to the hard max.
+ */
+function pickVolumeTargets(
+  scoredProps: ScoredPlayerProp[],
+  scoredTrends: ScoredTeamTrend[],
+): { playerTarget: number; teamTarget: number } {
+  const allQualified: Array<{ edge?: number }> = [...scoredProps, ...scoredTrends];
+  const strongEdgeCount = allQualified.filter(
+    (p) => normalizePercentValue(p.edge) >= STRONG_EDGE_FLOOR,
+  ).length;
+
+  // Only expand to hard max when enough genuinely strong picks are present
+  const softTotal = SOFT_MAX_PLAYER + SOFT_MAX_TEAM;
+  if (strongEdgeCount >= softTotal) {
+    return { playerTarget: HARD_MAX_PLAYER, teamTarget: HARD_MAX_TEAM };
+  }
+  return { playerTarget: SOFT_MAX_PLAYER, teamTarget: SOFT_MAX_TEAM };
+}
+
 export function selectTopPicks(
   props: PlayerProp[],
   teamTrends: TeamTrend[],
@@ -376,61 +413,20 @@ export function selectTopPicks(
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
+  // No forced minimum — zero is valid when nothing qualifies.
+  if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
+
+  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
+  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
+
+  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+
   const picks: AIPick[] = [];
+  for (const p of playerPicks) picks.push(playerPickToAIPick(p, date));
+  for (const t of teamPicks) picks.push(teamTrendToAIPick(t, date));
 
-  // Try to pick 2 player props + 1 team trend
-  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
-  const teamPicks = selectDistinctTeamPicks(scoredTrends, 1);
-
-  for (const p of playerPicks) {
-    picks.push(playerPickToAIPick(p, date));
-  }
-  for (const t of teamPicks) {
-    picks.push(teamTrendToAIPick(t, date));
-  }
-
-  // Fill remaining slots if not enough of one type
-  if (picks.length < 3) {
-    const remaining = 3 - picks.length;
-    const usedIds = new Set(picks.map((p) => p.id));
-    const usedBuckets = new Set(playerPicks.map((pick) => propVarietyBucket(pick)));
-    const usedTrendKeys = new Set(teamPicks.map((trend) => teamTrendConflictKey(trend)));
-
-    const extraTrends = scoredTrends
-      .slice(teamPicks.length)
-      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`))
-      .filter((t) => !usedTrendKeys.has(teamTrendConflictKey(t)));
-    const extraProps = scoredProps
-      .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
-      .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
-
-    let filled = 0;
-    for (const t of extraTrends) {
-      if (filled >= remaining) break;
-      picks.push(teamTrendToAIPick(t, date));
-      usedIds.add(`pick-${t.id}-${date}`);
-      usedTrendKeys.add(teamTrendConflictKey(t));
-      filled++;
-    }
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      const bucket = propVarietyBucket(p);
-      if (usedBuckets.has(bucket)) continue;
-      picks.push(playerPickToAIPick(p, date));
-      usedIds.add(`pick-${p.id}-${date}`);
-      usedBuckets.add(bucket);
-      filled++;
-    }
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      if (usedIds.has(`pick-${p.id}-${date}`)) continue;
-      picks.push(playerPickToAIPick(p, date));
-      usedIds.add(`pick-${p.id}-${date}`);
-      filled++;
-    }
-  }
-
-  return picks.slice(0, 3);
+  return picks;
 }
 
 export function selectNBATopPicks(
@@ -458,11 +454,16 @@ export function selectNBATopPicks(
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
+  // No forced minimum — zero is valid when nothing qualifies.
+  if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
+
+  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
+  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
+
+  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+
   const picks: AIPick[] = [];
-
-  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
-  const teamPicks = selectDistinctTeamPicks(scoredTrends, 1);
-
   for (const p of playerPicks) {
     const pick = playerPickToAIPick(p, date);
     pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
@@ -474,53 +475,7 @@ export function selectNBATopPicks(
     picks.push(pick);
   }
 
-  if (picks.length < 3) {
-    const remaining = 3 - picks.length;
-    const usedIds = new Set(picks.map((p) => p.id));
-    const usedBuckets = new Set(playerPicks.map((pick) => propVarietyBucket(pick)));
-    const usedTrendKeys = new Set(teamPicks.map((trend) => teamTrendConflictKey(trend)));
-
-    const extraTrends = scoredTrends
-      .slice(teamPicks.length)
-      .filter((t) => !usedIds.has(`pick-${t.id}-${date}`))
-      .filter((t) => !usedTrendKeys.has(teamTrendConflictKey(t)));
-    const extraProps = scoredProps
-      .filter((p) => !playerPicks.some((selected) => selected.id === p.id))
-      .filter((p) => !usedIds.has(`pick-${p.id}-${date}`));
-
-    let filled = 0;
-    for (const t of extraTrends) {
-      if (filled >= remaining) break;
-      const pick = teamTrendToAIPick(t, date);
-      pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
-      picks.push(pick);
-      usedIds.add(`pick-${t.id}-${date}`);
-      usedTrendKeys.add(teamTrendConflictKey(t));
-      filled++;
-    }
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      const bucket = propVarietyBucket(p);
-      if (usedBuckets.has(bucket)) continue;
-      const pick = playerPickToAIPick(p, date);
-      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
-      picks.push(pick);
-      usedIds.add(`pick-${p.id}-${date}`);
-      usedBuckets.add(bucket);
-      filled++;
-    }
-    for (const p of extraProps) {
-      if (filled >= remaining) break;
-      if (usedIds.has(`pick-${p.id}-${date}`)) continue;
-      const pick = playerPickToAIPick(p, date);
-      pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
-      picks.push(pick);
-      usedIds.add(`pick-${p.id}-${date}`);
-      filled++;
-    }
-  }
-
-  return picks.slice(0, 3);
+  return picks;
 }
 
 export function selectMLBTopPicks(
@@ -554,50 +509,27 @@ export function selectMLBTopPicks(
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
-  const picks: AIPick[] = [];
-  const playerPicks = selectVariedPlayerPicks(scoredProps, 2);
-  const teamPicks = scoredTrends.slice(0, 1);
+  // No forced minimum — zero is valid when nothing qualifies.
+  if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
 
+  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
+  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
+
+  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
+  // MLB team picks use direct slice (no conflict-key dedup needed here — dedup is in scoring).
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+
+  const picks: AIPick[] = [];
   for (const prop of playerPicks) {
     const pick = playerPickToAIPick(prop, date);
     pick.teamColor = prop.teamColor || MLB_TEAM_COLORS[prop.team] || "#4a9eff";
     picks.push(pick);
   }
-
   for (const trend of teamPicks) {
     const pick = teamTrendToAIPick(trend, date);
     pick.teamColor = trend.teamColor || MLB_TEAM_COLORS[trend.team] || "#4a9eff";
     picks.push(pick);
   }
 
-  if (picks.length < 3) {
-    const remaining = 3 - picks.length;
-    const usedIds = new Set(picks.map((pick) => pick.id));
-
-    const extraProps = scoredProps
-      .filter((prop) => !playerPicks.some((selected) => selected.id === prop.id))
-      .filter((prop) => !usedIds.has(`pick-${prop.id}-${date}`));
-    const extraTrends = scoredTrends
-      .slice(teamPicks.length)
-      .filter((trend) => !usedIds.has(`pick-${trend.id}-${date}`));
-
-    let filled = 0;
-    for (const prop of extraProps) {
-      if (filled >= remaining) break;
-      const pick = playerPickToAIPick(prop, date);
-      pick.teamColor = prop.teamColor || MLB_TEAM_COLORS[prop.team] || "#4a9eff";
-      picks.push(pick);
-      filled++;
-    }
-
-    for (const trend of extraTrends) {
-      if (filled >= remaining) break;
-      const pick = teamTrendToAIPick(trend, date);
-      pick.teamColor = trend.teamColor || MLB_TEAM_COLORS[trend.team] || "#4a9eff";
-      picks.push(pick);
-      filled++;
-    }
-  }
-
-  return picks.slice(0, 3);
+  return picks;
 }

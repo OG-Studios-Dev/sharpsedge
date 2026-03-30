@@ -45,15 +45,25 @@ export const GOOSE_MODEL_VERSION = "goose-v1";
 // ── Production thresholds ────────────────────────────────────
 export const PROD_HIT_RATE_FLOOR = 65;
 export const PROD_EDGE_FLOOR     = 5;
-export const PROD_TOP_N          = 5;
+// Volume policy (Marco 2026-03-29):
+//   No forced minimum. Soft ceiling = 5 picks per sport per day.
+//   Hard max = 7, only when picks with edge ≥ PROD_STRONG_EDGE_FLOOR fill
+//   the band — genuinely strong edges justify extra volume.
+export const PROD_TOP_N          = 5;   // soft ceiling
+export const PROD_HARD_MAX       = 7;   // absolute max (strong-edge exception)
+export const PROD_STRONG_EDGE_FLOOR = 15; // % edge required to trigger hard max
 
 // ── Sandbox thresholds (wider net — captures borderline picks so the
 //    signal-weight engine learns what thresholds actually matter) ──────
+// SANDBOX_MIN_PICKS_TARGET is intentionally non-zero here: the sandbox is a
+// data-collection layer for ML training, not a user-facing product. Retrying
+// with a wide net when the slate is thin accelerates signal-weight learning
+// without affecting what users see. This is NOT the same as forcing user picks.
 export const SANDBOX_HIT_RATE_FLOOR  = 55;
 export const SANDBOX_EDGE_FLOOR      = 3;
 export const SANDBOX_TOP_N           = 10;
 export const SANDBOX_EXPERIMENT_TAG  = "baseline-v1";
-export const SANDBOX_MIN_PICKS_TARGET = 6; // "generate more" trigger
+export const SANDBOX_MIN_PICKS_TARGET = 6; // "generate more" trigger — sandbox only, not user-facing
 
 // ── HARD RULE: odds cap (applies to every sport, every threshold,
 //    sandbox AND production — never generate a pick at worse than -200) ─
@@ -620,7 +630,6 @@ export async function generateGoosePicks(
     experimentTag = null,
   } = opts;
 
-  const topN = opts.topN ?? (sandbox ? SANDBOX_TOP_N : PROD_TOP_N);
   const hitRateFloor = opts.hitRateFloor ?? (sandbox ? SANDBOX_HIT_RATE_FLOOR : PROD_HIT_RATE_FLOOR);
   const edgeFloor = opts.edgeFloor ?? (sandbox ? SANDBOX_EDGE_FLOOR : PROD_EDGE_FLOOR);
 
@@ -638,7 +647,23 @@ export async function generateGoosePicks(
 
   // Attach experiment tag to each scored candidate for downstream use
   const taggedScored = scored.map((c) => ({ ...c, _experimentTag: experimentTag }));
-  const selected = taggedScored.slice(0, topN);
+
+  // ── Volume policy (Marco 2026-03-29) ─────────────────────────
+  // No forced minimum — zero picks is valid when no genuine edges exist.
+  // Soft ceiling: PROD_TOP_N (5). Hard max: PROD_HARD_MAX (7), only when
+  // enough qualifying picks clear PROD_STRONG_EDGE_FLOOR (15% edge).
+  const softCap = opts.topN ?? (sandbox ? SANDBOX_TOP_N : PROD_TOP_N);
+  let effectiveCap = softCap;
+  if (!sandbox) {
+    const strongEdgeCount = taggedScored.filter(
+      (c) => typeof c.edge === "number" && c.edge >= PROD_STRONG_EDGE_FLOOR,
+    ).length;
+    if (strongEdgeCount >= softCap) {
+      effectiveCap = Math.max(softCap, PROD_HARD_MAX);
+    }
+  }
+
+  const selected = taggedScored.slice(0, effectiveCap);
 
   return {
     date,

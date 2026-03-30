@@ -58,6 +58,32 @@
 
 ---
 
+## Picks Volume Policy — No Forced Minimum (2026-03-29)
+
+**Decision:** Remove forced-fill-to-3 behavior in the picks engine. Adopt a
+no-minimum, soft-band (3–5), hard-max (7) volume policy for all sports.
+
+**Rationale:**
+- Goal is 70%+ hit rate and profitability per sport. Spraying marginal picks
+  hurts both metrics.
+- Old code always tried to produce exactly 3 picks per sport, padding with
+  weaker candidates when the qualifying pool was thin.
+- Zero picks is now a valid and correct output.
+
+**Policy (condensed):**
+- No minimum. If no genuine edges exist, publish nothing.
+- Soft ceiling: 5 picks (3 player props + 2 team trends) per sport per day.
+- Hard max: 7, only when ≥ 5 qualifying picks each clear 15% edge.
+- Quality gates unchanged: 65% hit rate + 10% edge (MLB: 8%) + odds ≤ -200.
+
+**Spec:** `docs/PICKS_POLICY.md`
+
+**Files changed:**
+- `src/lib/picks-engine.ts` — removed fill-to-3 loops; added `pickVolumeTargets()` helper
+- `src/lib/goose-model/generator.ts` — added `PROD_HARD_MAX`, `PROD_STRONG_EDGE_FLOOR`; updated `generateGoosePicks` to use dynamic cap
+
+---
+
 ## Goose V2 / Learning Model — Not Production Ready (2026-03-29)
 
 **Decision:** Goose V2 (the ML signal-weighted picks engine in `src/lib/goose-model/`) is **not production ready** and must not be exposed to users in any form until explicit readiness gates are met.
