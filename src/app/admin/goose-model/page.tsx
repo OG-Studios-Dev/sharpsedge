@@ -52,15 +52,28 @@ function StatCard({
   label,
   value,
   tone = "text-white",
+  onClick,
+  active,
 }: {
   label: string;
   value: string;
   tone?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+    <div
+      className={`rounded-2xl border bg-dark-surface p-4 transition-colors ${
+        onClick
+          ? "cursor-pointer hover:border-accent-blue/40 hover:bg-dark-surface/80"
+          : ""
+      } ${active ? "border-accent-blue/50 ring-1 ring-accent-blue/30" : "border-dark-border"}`}
+      onClick={onClick}
+      title={onClick ? `Click to filter picks by ${label.toLowerCase()}` : undefined}
+    >
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
         {label}
+        {onClick && <span className="ml-1 text-gray-700">↗</span>}
       </p>
       <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
     </div>
@@ -1183,6 +1196,8 @@ export default function GooseModelAdminPage() {
   const [generateSport, setGenerateSport] = useState("NHL");
   const [topN, setTopN] = useState(5);
   const [sandboxMode, setSandboxMode] = useState(true);
+  // Result drill-down filter — set by clicking stat cards
+  const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "push" | "pending">("all");
 
   const loadPicks = useCallback(async () => {
     setLoading(true);
@@ -1232,6 +1247,8 @@ export default function GooseModelAdminPage() {
     loadPicks();
     loadWeights();
     loadStats();
+    // Reset result filter whenever the primary query changes
+    setResultFilter("all");
   }, [loadPicks, loadWeights, loadStats]);
 
   async function handleGrade(id: string, result: "win" | "loss" | "push") {
@@ -1300,6 +1317,7 @@ export default function GooseModelAdminPage() {
 
   const filteredPicks = picks.filter((p) => {
     if (experimentTagFilter !== "ALL" && p.experiment_tag !== experimentTagFilter) return false;
+    if (resultFilter !== "all" && p.result !== resultFilter) return false;
     return true;
   });
 
@@ -1358,10 +1376,33 @@ export default function GooseModelAdminPage() {
       {/* Stats row */}
       {stats && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <StatCard label="Total picks" value={String(stats.total)} />
-          <StatCard label="Wins" value={String(stats.wins)} tone="text-emerald-400" />
-          <StatCard label="Losses" value={String(stats.losses)} tone="text-rose-400" />
-          <StatCard label="Pending" value={String(stats.pending)} tone="text-gray-400" />
+          <StatCard
+            label="Total picks"
+            value={String(stats.total)}
+            onClick={() => { setResultFilter("all"); setTab("picks"); }}
+            active={tab === "picks" && resultFilter === "all"}
+          />
+          <StatCard
+            label="Wins"
+            value={String(stats.wins)}
+            tone="text-emerald-400"
+            onClick={() => { setResultFilter("win"); setTab("picks"); }}
+            active={tab === "picks" && resultFilter === "win"}
+          />
+          <StatCard
+            label="Losses"
+            value={String(stats.losses)}
+            tone="text-rose-400"
+            onClick={() => { setResultFilter("loss"); setTab("picks"); }}
+            active={tab === "picks" && resultFilter === "loss"}
+          />
+          <StatCard
+            label="Pending"
+            value={String(stats.pending)}
+            tone="text-gray-400"
+            onClick={() => { setResultFilter("pending"); setTab("picks"); }}
+            active={tab === "picks" && resultFilter === "pending"}
+          />
           <StatCard
             label="Win rate"
             value={pct(stats.win_rate)}
@@ -1451,6 +1492,46 @@ export default function GooseModelAdminPage() {
           </button>
         ))}
       </div>
+
+      {/* Result drill-down filter (visible in picks tab) */}
+      {tab === "picks" && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-gray-500">Result filter:</span>
+          {(["all", "win", "loss", "push", "pending"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setResultFilter(r)}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                resultFilter === r
+                  ? r === "win"
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                    : r === "loss"
+                    ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
+                    : r === "push"
+                    ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-400"
+                    : r === "pending"
+                    ? "border-gray-500/40 bg-gray-500/10 text-gray-400"
+                    : "border-accent-blue/40 bg-accent-blue/10 text-accent-blue"
+                  : "border-dark-border text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {r === "all" ? `All (${picks.length})` : r}
+            </button>
+          ))}
+          {resultFilter !== "all" && (
+            <span className="text-xs text-gray-600 italic">
+              Showing {filteredPicks.length} {resultFilter} pick{filteredPicks.length !== 1 ? "s" : ""}
+              {" "}·{" "}
+              <button
+                onClick={() => setResultFilter("all")}
+                className="underline text-gray-500 hover:text-gray-300"
+              >
+                clear
+              </button>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Experiment tag filter (visible in picks tab) */}
       {tab === "picks" && experimentTags.length > 0 && (
