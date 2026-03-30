@@ -5,8 +5,8 @@ const links = [
   { href: "/admin/ops", label: "IT Review" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/picks", label: "Picks" },
-  { href: "/admin/sandbox", label: "Sandbox" },
-  { href: "/admin/goose-model", label: "🪿 Goose Model" },
+  { href: "/admin/sandbox", label: "📋 Daily Board" },
+  { href: "/admin/goose-model", label: "🔬 Signal Lab" },
   { href: "/admin/systems", label: "📊 Systems" },
   { href: "/admin/system", label: "System" },
 ];

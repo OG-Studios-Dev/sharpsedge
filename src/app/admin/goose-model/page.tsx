@@ -8,6 +8,7 @@ import type {
   GooseAnalyticsBucket,
   GooseAnalyticsResult,
 } from "@/lib/goose-model/types";
+import { LOGIC_NOTES, THRESHOLD_REFERENCE } from "@/lib/goose-model/logic-notes";
 
 // ── tiny helpers ──────────────────────────────────────────────
 
@@ -1077,9 +1078,9 @@ function PromotionsTab({
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-white">Sandbox → Production Review</h3>
+            <h3 className="text-sm font-semibold text-white">Signal Lab → Production Consideration</h3>
             <p className="mt-1 text-xs text-gray-500">
-              Picks evaluated against 5 promotion gates: signal quality, edge floor, hit rate, sport sample, and odds gate.
+              Research picks evaluated against 5 promotion gates: signal quality, edge floor, hit rate, sport sample, and odds gate. Promoted picks inform production pick selection — they are not auto-published to users.
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -1164,7 +1165,7 @@ function PromotionsTab({
 
 // ── main page ─────────────────────────────────────────────────
 
-type Tab = "picks" | "signals" | "performance" | "analytics" | "scorecard" | "promotions";
+type Tab = "picks" | "signals" | "performance" | "analytics" | "scorecard" | "promotions" | "logic";
 
 export default function GooseModelAdminPage() {
   const [tab, setTab] = useState<Tab>("picks");
@@ -1314,9 +1315,9 @@ export default function GooseModelAdminPage() {
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-white">🪿 Goose AI Picks Model</h2>
+            <h2 className="text-xl font-bold text-white">🔬 Signal Lab — Pick Learning Engine</h2>
             <p className="mt-1 text-sm text-gray-400">
-              High-volume sandbox · signal-weight learning engine
+              Run pick experiments · grade results · learn which signals actually win
             </p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
@@ -1346,7 +1347,7 @@ export default function GooseModelAdminPage() {
 
         {/* Volume badges — today's pick count per sport */}
         <div className="mt-3 flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-gray-600">Today's sandbox picks:</span>
+          <span className="text-xs text-gray-600">Today's research picks:</span>
           {(["NHL", "NBA", "MLB", "PGA"] as const).map((s) => (
             <VolumeBadge key={s} sport={s} picks={picks} />
           ))}
@@ -1370,9 +1371,13 @@ export default function GooseModelAdminPage() {
 
       {/* Generate panel */}
       <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
-        <h3 className="text-sm font-semibold text-accent-blue mb-3">
-          ⚡ Generate Sandbox Picks
+        <h3 className="text-sm font-semibold text-accent-blue mb-1">
+          ⚡ Generate Picks for Research
         </h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Picks generated here go into the learning engine only — not into production or user-facing history.
+          Grade them after games settle to build signal weights.
+        </p>
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={generateSport}
@@ -1399,7 +1404,7 @@ export default function GooseModelAdminPage() {
               onChange={(e) => setSandboxMode(e.target.checked)}
               className="rounded"
             />
-            Sandbox mode (55% HR / 3% edge)
+            Learning mode (relaxed thresholds: 55% HR / 3% edge — more picks, faster signal data)
           </label>
           <button
             onClick={handleGenerate}
@@ -1410,7 +1415,7 @@ export default function GooseModelAdminPage() {
           </button>
         </div>
         <p className="mt-2 text-xs text-gray-600">
-          Hard rules: -200 max odds cap · PGA outrights minimum +200 · picks graded and fed into signal weights
+          Hard rules: -200 max odds cap · PGA outrights minimum +200 · picks graded here feed signal weights
         </p>
       </div>
 
@@ -1419,7 +1424,7 @@ export default function GooseModelAdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
-        {(["picks", "analytics", "signals", "scorecard", "promotions", "performance"] as Tab[]).map((t) => (
+        {(["picks", "analytics", "signals", "scorecard", "promotions", "performance", "logic"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -1430,7 +1435,7 @@ export default function GooseModelAdminPage() {
             }`}
           >
             {t === "picks"
-              ? `Daily picks (${filteredPicks.length})`
+              ? `Pick history (${filteredPicks.length})`
               : t === "analytics"
               ? "Analytics"
               : t === "signals"
@@ -1438,7 +1443,9 @@ export default function GooseModelAdminPage() {
               : t === "scorecard"
               ? "📊 Scorecard"
               : t === "promotions"
-              ? "✦ Promotions"
+              ? "✦ Promote to production"
+              : t === "logic"
+              ? "📝 Logic notes"
               : "Performance"}
           </button>
         ))}
@@ -1641,6 +1648,122 @@ export default function GooseModelAdminPage() {
                   ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Logic Notes tab ── */}
+      {tab === "logic" && (
+        <div className="space-y-5">
+          {/* What is this page */}
+          <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-5">
+            <h3 className="text-base font-bold text-white mb-1">What is the Signal Lab?</h3>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              The Signal Lab is a <strong className="text-white">pick research and learning engine</strong> — separate from the production picks that users see.
+              It generates picks against today&apos;s live data, you grade them after games settle (win / loss / push),
+              and the engine builds a record of which <em>signals</em> (e.g. DvP advantage, pace matchup, rest days) actually
+              correlate with winning picks over time.
+            </p>
+            <p className="mt-2 text-sm text-gray-400 leading-relaxed">
+              Once a signal pattern clears all 5 promotion gates, you can flag those picks for production consideration.
+              Promoted picks inform how the production engine prioritises its output — they are never auto-published.
+            </p>
+            <div className="mt-3 rounded-xl border border-accent-blue/10 bg-black/20 p-3">
+              <p className="text-xs font-semibold text-accent-blue uppercase tracking-wider mb-1">Not the same as the Daily Board</p>
+              <p className="text-xs text-gray-400">
+                The <strong className="text-gray-300">📋 Daily Board</strong> (/admin/sandbox) is a separate review surface for the{" "}
+                <em>production</em> picks engine — it shows what the live engine chose today and lets you run a daily postmortem.
+                The Signal Lab uses its own pick generator and its own database tables. The two do not share data.
+              </p>
+            </div>
+          </div>
+
+          {/* Threshold reference */}
+          <div className="rounded-2xl border border-dark-border bg-dark-surface p-5 space-y-4">
+            <h3 className="text-base font-bold text-white">Threshold reference</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              {[THRESHOLD_REFERENCE.learning_mode, THRESHOLD_REFERENCE.production_mode].map((mode) => (
+                <div key={mode.label} className="rounded-xl border border-dark-border/50 bg-dark-bg/50 p-4">
+                  <p className="text-sm font-semibold text-white">{mode.label}</p>
+                  <p className="mt-1 text-xs text-gray-500">{mode.description}</p>
+                  <div className="mt-3 space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Hit rate floor</span>
+                      <span className="font-mono text-gray-300">≥ {mode.hit_rate_floor}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Edge floor</span>
+                      <span className="font-mono text-gray-300">≥ {mode.edge_floor}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Default top-N</span>
+                      <span className="font-mono text-gray-300">{mode.default_top_n} picks</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Odds cap</span>
+                      <span className="font-mono text-gray-300">{mode.odds_cap} (harder is excluded)</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Promotion gates */}
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <p className="text-sm font-semibold text-emerald-400 mb-1">{THRESHOLD_REFERENCE.promotion_gates.label}</p>
+              <p className="text-xs text-gray-500 mb-3">{THRESHOLD_REFERENCE.promotion_gates.description}</p>
+              <div className="space-y-2">
+                {THRESHOLD_REFERENCE.promotion_gates.gates.map((gate, i) => (
+                  <div key={gate.name} className="flex items-start gap-2 text-xs">
+                    <span className="text-emerald-500 font-bold shrink-0">{i + 1}.</span>
+                    <div>
+                      <span className="font-semibold text-white">{gate.name}: </span>
+                      <span className="text-gray-400">{gate.rule}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Model changelog */}
+          <div className="rounded-2xl border border-dark-border bg-dark-surface p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-white">Logic changelog</h3>
+              <span className="rounded-full border border-gray-700 px-2 py-0.5 text-xs text-gray-500">
+                Static — embedded in code
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mb-4">
+              Key model decisions and logic milestones. These are honest static notes — not dynamically stored.
+              Add entries to <code className="text-gray-500">src/lib/goose-model/logic-notes.ts</code> when the model changes.
+            </p>
+            <div className="space-y-3">
+              {[...LOGIC_NOTES].reverse().map((note) => (
+                <div key={`${note.date}-${note.version}`} className="rounded-xl border border-dark-border/50 bg-dark-bg/50 p-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="text-sm font-bold text-white">{note.title}</span>
+                    <span className="rounded-full border border-dark-border px-2 py-0.5 text-xs text-gray-500 font-mono">
+                      {note.version}
+                    </span>
+                    <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                      note.impact === "thresholds" ? "border-yellow-500/30 text-yellow-400" :
+                      note.impact === "signals" ? "border-blue-500/30 text-blue-400" :
+                      note.impact === "gates" ? "border-emerald-500/30 text-emerald-400" :
+                      note.impact === "engine" ? "border-purple-500/30 text-purple-400" :
+                      "border-dark-border text-gray-500"
+                    }`}>
+                      {note.impact}
+                    </span>
+                    {note.sports?.map((s) => (
+                      <span key={s} className="rounded-full border border-dark-border/50 px-2 py-0.5 text-xs text-gray-600">{s}</span>
+                    ))}
+                    <span className="text-xs text-gray-600 ml-auto">{note.date}</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">{note.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

@@ -76,7 +76,7 @@ function PickReviewCard({ pick }: { pick: SandboxPickRecord }) {
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill label={`review: ${pick.review_status}`} tone={reviewTone(pick.review_status)} />
           <StatusPill label={`outcome: ${snapshot.outcome}`} tone={outcomeTone(snapshot.outcome)} />
-          <StatusPill label="sandbox only" tone="gray" />
+          <StatusPill label="internal only" tone="gray" />
         </div>
       </div>
 
@@ -151,8 +151,8 @@ function LeagueReviewSection({ title, description, bundles }: { title: string; d
               <div className="mt-5 rounded-xl border border-dark-border/50 bg-black/10 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-white">Daily picks under review</p>
-                    <p className="mt-1 text-xs text-gray-500">Separate from production. Visible reasoning + review rails stay internal only.</p>
+                    <p className="text-sm font-semibold text-white">Picks for this board</p>
+                    <p className="mt-1 text-xs text-gray-500">Internal only — not in production pick history. Full reasoning and review notes visible here.</p>
                   </div>
                   <p className="text-xs text-gray-500">Expected board: 10 picks</p>
                 </div>
@@ -188,15 +188,28 @@ export default async function AdminSandboxPage() {
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Internal sandbox rail</p>
-            <h1 className="mt-2 text-2xl font-bold text-white">Sandbox Daily Review</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Internal review — admin only</p>
+            <h1 className="mt-2 text-2xl font-bold text-white">📋 Daily Board</h1>
             <p className="mt-2 max-w-3xl text-sm text-gray-400">
-              Dedicated internal review surface for daily sandbox-only NBA and NHL boards. This is where the team can inspect
-              the full 10-pick experimental slate, visible reasoning, review checklist, outcome states, and postmortem learnings
-              without polluting production picks, records, or user-facing history.
+              Daily postmortem and review surface for the <strong className="text-gray-300">production picks engine</strong>.
+              Each day the engine generates a 10-pick slate per league (NHL, NBA) — this is where you review the
+              full reasoning, run the pre-game checklist, record outcomes, and capture learning notes.
+              Nothing here is visible to users; it is isolated from production pick history.
             </p>
+            <div className="mt-3 rounded-xl border border-dark-border/50 bg-dark-bg/50 p-3 max-w-2xl">
+              <p className="text-xs font-semibold text-gray-400 mb-1">How this differs from the Signal Lab</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                The <strong className="text-gray-300">Daily Board</strong> reviews picks from the live production engine —
+                the same engine that serves users. The{" "}
+                <strong className="text-gray-300">🔬 Signal Lab</strong> (/admin/goose-model) is a separate ML experiment
+                engine that generates its own picks to learn which signals predict wins. They do not share data or tables.
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href="/admin/goose-model" className="rounded-full border border-dark-border px-4 py-2 text-sm font-semibold text-gray-300 hover:border-accent-blue/30 hover:text-white">
+              🔬 Signal Lab
+            </Link>
             <Link href="/admin" className="rounded-full border border-dark-border px-4 py-2 text-sm font-semibold text-gray-200 hover:border-accent-blue/30 hover:text-white">
               Back to admin
             </Link>
@@ -206,9 +219,9 @@ export default async function AdminSandboxPage() {
 
       <section className="grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Public exposure</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">User visibility</p>
           <p className="mt-3 text-3xl font-bold text-accent-green">0</p>
-          <p className="mt-1 text-xs text-gray-500">Sandbox review data is isolated from public picks/history and production records.</p>
+          <p className="mt-1 text-xs text-gray-500">Daily Board data is admin-only. Not visible to users, not in production history.</p>
         </div>
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">NHL daily review</p>
@@ -221,9 +234,9 @@ export default async function AdminSandboxPage() {
           <p className="mt-1 text-xs text-gray-500">Latest slate: {nba.latestDate} · {nba.count} stored day(s) · {nba.reviewed} touched review(s)</p>
         </div>
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review rails</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Daily review tools</p>
           <p className="mt-3 text-lg font-bold text-white">Reasoning + postmortem</p>
-          <p className="mt-1 text-xs text-gray-500">Each sandbox board carries checklist prompts, visible reasoning, outcomes, and learnings.</p>
+          <p className="mt-1 text-xs text-gray-500">Each daily board carries pre-game checklist, visible reasoning, outcome tracking, and postmortem notes.</p>
         </div>
       </section>
 
@@ -235,9 +248,9 @@ export default async function AdminSandboxPage() {
           </div>
         </div>
         <div className="mt-4 rounded-xl border border-dark-border/70 bg-dark-bg/50 p-4 text-sm text-gray-300">
-          <p className="font-semibold text-white">Generate today&apos;s sandbox daily review</p>
+          <p className="font-semibold text-white">Generate today&apos;s daily board</p>
           <pre className="mt-3 overflow-x-auto rounded-lg bg-black/30 p-3 text-xs text-emerald-100">{`POST /api/admin/sandbox\nContent-Type: application/json\n\n{ "mode": "generate", "league": "NBA" }\n{ "mode": "generate", "league": "NHL" }`}</pre>
-          <p className="mt-3 text-xs text-gray-500">Each request attempts to build an internal 10-pick sandbox board for the requested league/date and refresh the same sandbox key for that day.</p>
+          <p className="mt-3 text-xs text-gray-500">Builds a 10-pick internal daily board for the requested league using the production engine. Refreshes the same board key if already generated today.</p>
         </div>
       </section>
 
@@ -252,14 +265,14 @@ export default async function AdminSandboxPage() {
       ) : null}
 
       <LeagueReviewSection
-        title="NHL Sandbox Daily Review"
-        description="Daily internal NHL slate with 10 sandbox picks, visible rationale, review checklist, and postmortem rails."
+        title="NHL — Daily Board"
+        description="Today's NHL picks from the production engine. Review reasoning, run checklist, record outcome, write postmortem."
         bundles={nhlBundles}
       />
 
       <LeagueReviewSection
-        title="NBA Sandbox Daily Review"
-        description="Daily internal NBA slate with 10 sandbox picks, visible rationale, review checklist, and postmortem rails."
+        title="NBA — Daily Board"
+        description="Today's NBA picks from the production engine. Review reasoning, run checklist, record outcome, write postmortem."
         bundles={nbaBundles}
       />
     </div>
