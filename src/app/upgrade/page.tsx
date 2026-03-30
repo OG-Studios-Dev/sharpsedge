@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Check, Star } from "lucide-react";
 
 const FEATURE_ROWS = [
   { feature: "Schedule & Standings", free: true, pro: true, sharp: true },
@@ -21,8 +22,8 @@ const FEATURE_ROWS = [
   { feature: "DVP Analysis", free: false, pro: false, sharp: true },
 ];
 
-function Check() {
-  return <span className="text-emerald-400 text-sm">✓</span>;
+function CheckMark() {
+  return <Check size={14} className="text-emerald-400 mx-auto" />;
 }
 function Lock() {
   return <span className="text-gray-600 text-sm">—</span>;
@@ -76,7 +77,7 @@ export default function UpgradePage() {
           {/* Sharp */}
           <div className="rounded-2xl border border-accent-yellow/40 bg-accent-yellow/5 p-4 relative">
             <div className="absolute -top-2.5 left-4 bg-accent-yellow text-dark-bg text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
-              ⭐ Best Value
+              <span className="inline-flex items-center gap-1"><Star size={10} fill="currentColor" /> Best Value</span>
             </div>
             <div className="flex items-center justify-between mb-3">
               <div>
@@ -106,9 +107,9 @@ export default function UpgradePage() {
           {FEATURE_ROWS.map((row, i) => (
             <div key={i} className="grid grid-cols-[1fr_50px_50px_50px] gap-1 px-4 py-2 border-b border-dark-border/20 text-xs">
               <div className="text-gray-300">{row.feature}</div>
-              <div className="text-center">{row.free ? <Check /> : <Lock />}</div>
-              <div className="text-center">{row.pro ? <Check /> : <Lock />}</div>
-              <div className="text-center">{row.sharp ? <Check /> : <Lock />}</div>
+              <div className="text-center">{row.free ? <CheckMark /> : <Lock />}</div>
+              <div className="text-center">{row.pro ? <CheckMark /> : <Lock />}</div>
+              <div className="text-center">{row.sharp ? <CheckMark /> : <Lock />}</div>
             </div>
           ))}
         </div>

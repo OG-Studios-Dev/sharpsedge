@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { Clock } from "lucide-react";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import { computePickHistorySummary } from "@/lib/pick-history";
 import type { PickHistoryRecord, PickSlateRecord } from "@/lib/supabase-types";
@@ -48,7 +49,7 @@ function ResultBadge({ result }: { result: PickHistoryRecord["result"] }) {
   if (result === "win") return <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>;
   if (result === "loss") return <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✗</span>;
   if (result === "push") return <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>;
-  return <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>;
+  return <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1 inline-flex items-center gap-0.5"><Clock size={11} /></span>;
 }
 
 function slateBadgeTone(slate: PickSlateRecord) {
@@ -288,7 +289,7 @@ export default function PickHistoryPage() {
                     <span className="text-emerald-400">{dayRecord.wins}W</span>
                     <span className="text-red-400">{dayRecord.losses}L</span>
                     {dayRecord.pushes > 0 && <span className="text-yellow-400">{dayRecord.pushes}P</span>}
-                    {dayRecord.pending > 0 && <span className="text-gray-500">{dayRecord.pending}⏳</span>}
+                    {dayRecord.pending > 0 && <span className="text-gray-500 inline-flex items-center gap-0.5">{dayRecord.pending}<Clock size={10} /></span>}
                     {dayWinPct !== null && (
                       <span className={`ml-1 ${parseFloat(dayWinPct) >= 50 ? "text-emerald-400" : "text-red-400"}`}>
                         {dayWinPct}%

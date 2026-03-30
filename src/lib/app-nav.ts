@@ -34,9 +34,9 @@ export type AppNavItem = {
 };
 
 export const APP_NAV_GROUPS: Array<{ id: AppNavGroupId; label: string }> = [
-  { id: "research", label: "📊 Research" },
-  { id: "tools", label: "🛠️ Tools" },
-  { id: "account", label: "⚙️ Account" },
+  { id: "research", label: "Research" },
+  { id: "tools", label: "Tools" },
+  { id: "account", label: "Account" },
 ];
 
 export const APP_NAV_ITEMS: AppNavItem[] = [

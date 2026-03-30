@@ -1,5 +1,6 @@
 "use client";
 
+import { Flag } from "lucide-react";
 import { GolfPlayer } from "@/lib/types";
 
 function formatOdds(odds?: number | null) {
@@ -33,7 +34,7 @@ export default function GolfPlayerCard({ player }: { player: GolfPlayer }) {
         {player.image ? (
           <img src={player.image} alt={player.name} className="h-9 w-9 rounded-full border border-dark-border object-cover" />
         ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-dark-border bg-dark-bg text-sm">⛳</div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-dark-border bg-dark-bg text-gray-500"><Flag size={15} /></div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">

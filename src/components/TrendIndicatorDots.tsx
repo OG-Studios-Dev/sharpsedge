@@ -1,17 +1,18 @@
+import { Flame, DollarSign, Lock, Wind, TrendingUp, type LucideProps } from "lucide-react";
 import { TrendIndicator } from "@/lib/types";
 import { hasIndicator } from "@/lib/player-trend";
 
 const INDICATOR_CONFIG: Array<{
   type: TrendIndicator["type"];
-  icon: string;
+  Icon: React.ComponentType<LucideProps>;
   label: string;
   activeClass: string;
 }> = [
-  { type: "goose_lean", icon: "🪿", label: "Goose Lean", activeClass: "border-amber-400/40 bg-amber-400/15 text-amber-200" },
-  { type: "hot", icon: "🔥", label: "Hot", activeClass: "border-red-400/40 bg-red-400/15 text-red-200" },
-  { type: "money", icon: "🤑", label: "Money", activeClass: "border-emerald-400/40 bg-emerald-400/15 text-emerald-200" },
-  { type: "lock", icon: "🔒", label: "Lock", activeClass: "border-accent-blue/40 bg-accent-blue/15 text-blue-100" },
-  { type: "streak", icon: "💨", label: "On a Run", activeClass: "border-purple-400/40 bg-purple-400/15 text-purple-200" },
+  { type: "goose_lean", Icon: TrendingUp, label: "Goose Lean", activeClass: "border-amber-400/40 bg-amber-400/15 text-amber-200" },
+  { type: "hot", Icon: Flame, label: "Hot", activeClass: "border-red-400/40 bg-red-400/15 text-red-200" },
+  { type: "money", Icon: DollarSign, label: "Money", activeClass: "border-emerald-400/40 bg-emerald-400/15 text-emerald-200" },
+  { type: "lock", Icon: Lock, label: "Lock", activeClass: "border-accent-blue/40 bg-accent-blue/15 text-blue-100" },
+  { type: "streak", Icon: Wind, label: "On a Run", activeClass: "border-purple-400/40 bg-purple-400/15 text-purple-200" },
 ];
 
 export default function TrendIndicatorDots({
@@ -21,7 +22,8 @@ export default function TrendIndicatorDots({
   indicators?: TrendIndicator[];
   size?: "sm" | "md";
 }) {
-  const dimensions = size === "sm" ? "h-8 w-8 text-[13px]" : "h-9 w-9 text-sm";
+  const iconSize = size === "sm" ? 12 : 14;
+  const dimensions = size === "sm" ? "h-8 w-8" : "h-9 w-9";
 
   const activeIndicators = INDICATOR_CONFIG.filter((ind) => hasIndicator(indicators, ind.type));
 
@@ -35,7 +37,7 @@ export default function TrendIndicatorDots({
           title={indicator.label}
           className={`inline-flex items-center justify-center rounded-full border transition-colors ${dimensions} ${indicator.activeClass}`}
         >
-          {indicator.icon}
+          <indicator.Icon size={iconSize} />
         </div>
       ))}
     </div>

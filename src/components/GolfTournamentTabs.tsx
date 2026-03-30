@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Flag } from "lucide-react";
 import GolfLeaderboardCard from "@/components/GolfLeaderboardCard";
 import {
   formatGolfHitRate,
@@ -514,8 +515,8 @@ export default function GolfTournamentTabs({
                         className="h-12 w-12 rounded-full border border-white/10 object-cover"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-dark-bg text-base">
-                        ⛳
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-dark-bg text-gray-500">
+                        <Flag size={18} />
                       </div>
                     )}
 

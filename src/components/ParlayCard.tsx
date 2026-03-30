@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Zap } from "lucide-react";
 import { Parlay } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
 import { formatOdds, getHitRateColor } from "@/lib/edge-engine";
@@ -10,7 +11,7 @@ export default function ParlayCard({ parlay }: { parlay: Parlay }) {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-white font-semibold text-[15px]">{parlay.category}</h3>
         <div className="w-8 h-8 rounded-full bg-dark-surface border border-dark-border flex items-center justify-center">
-          <span className="text-sm">⚡</span>
+          <Zap size={14} className="text-accent-blue" />
         </div>
       </div>
 

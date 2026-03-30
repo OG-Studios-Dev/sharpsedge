@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { useLeague } from "@/hooks/useLeague";
 import { APP_NAV_GROUPS, APP_NAV_ITEMS, getNavItemById } from "@/lib/app-nav";
+import { NavIcon } from "@/components/NavIcon";
 import { TIER_LABELS, canAccessFeature } from "@/lib/tier-access";
 import { useAppChrome } from "@/components/AppChromeProvider";
 
@@ -104,7 +105,7 @@ export default function DesktopSidebar() {
                             : "border-transparent text-gray-400 hover:border-dark-border hover:bg-dark-bg/70 hover:text-white"
                         }`}
                       >
-                        <span className="text-base">{item.emoji}</span>
+                        <NavIcon id={item.id} size={16} className={active ? "text-accent-blue" : "text-gray-400"} />
                         <span className="flex-1">{item.shortLabel}</span>
                         {item.badge && (
                           <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">

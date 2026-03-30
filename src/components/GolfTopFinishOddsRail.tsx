@@ -13,6 +13,7 @@
  * Populated by: /api/golf/odds-snapshot (3× daily cron via Bovada scraper)
  */
 
+import { AlertTriangle } from "lucide-react";
 import { getBovadaTopFinishOdds, type BovadaTopFinishOddsLine } from "@/lib/golf-odds";
 import type { GolfPredictionBoard } from "@/lib/types";
 
@@ -158,8 +159,8 @@ export default async function GolfTopFinishOddsRail({
             Top 5 / Top 10 / Top 20
           </h2>
           {tournamentName && snapshotTournament && tournamentName !== snapshotTournament ? (
-            <p className="mt-1 text-xs text-amber-400">
-              ⚠ Snapshot is for &ldquo;{snapshotTournament}&rdquo; — may not match current tournament
+            <p className="mt-1 text-xs text-amber-400 flex items-center gap-1">
+              <AlertTriangle size={11} /> Snapshot is for &ldquo;{snapshotTournament}&rdquo; — may not match current tournament
             </p>
           ) : null}
         </div>
@@ -174,8 +175,8 @@ export default async function GolfTopFinishOddsRail({
       </div>
 
       {ageWarning ? (
-        <p className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300">
-          ⚠ {ageWarning}
+        <p className="mt-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-300 flex items-center gap-1.5">
+          <AlertTriangle size={12} /> {ageWarning}
         </p>
       ) : null}
 

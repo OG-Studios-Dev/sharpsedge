@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BOTTOM_NAV_ITEM_IDS, getNavItemById } from "@/lib/app-nav";
+import { NavIcon } from "@/components/NavIcon";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -30,7 +31,7 @@ export default function BottomNav() {
               href={item.href}
               className="tap-button flex flex-col items-center justify-center gap-0.5"
             >
-              <span className={`text-lg ${isActive ? "text-accent-blue" : "text-gray-500"}`}>{item.emoji}</span>
+              <NavIcon id={item.id} size={20} className={isActive ? "text-accent-blue" : "text-gray-500"} />
               <span className={`text-[10px] ${isActive ? "font-medium text-accent-blue" : "text-gray-500"}`}>{item.shortLabel}</span>
             </Link>
           );

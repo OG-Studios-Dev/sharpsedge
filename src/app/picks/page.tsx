@@ -9,6 +9,7 @@ import { AIPick, GolfDashboardData, GolfTournament } from "@/lib/types";
 import { normalizeSportsLeague } from "@/lib/insights";
 import { computePickRecord, computePickWinRateStats } from "@/lib/pick-record";
 import type { PickHistoryRecord } from "@/lib/supabase-types";
+import { Clock, ChevronDown, Flag } from "lucide-react";
 import LeagueDropdown from "@/components/LeagueDropdown";
 import TeamLogo from "@/components/TeamLogo";
 import EmptyStateCard from "@/components/EmptyStateCard";
@@ -197,7 +198,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
               className="tap-button inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300"
             >
               AI
-              <span className={`text-[10px] text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}>▼</span>
+              <ChevronDown size={12} className={`text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
             </button>
           </div>
         </div>
@@ -321,12 +322,12 @@ function todayKeyForLeague(league: string) {
   return getDateKey(new Date(), timeZone);
 }
 
-const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
-  All: { icon: "🏆", label: "All" },
-  NHL: { icon: "🏒", label: "NHL" },
-  NBA: { icon: "🏀", label: "NBA" },
-  MLB: { icon: "⚾", label: "MLB" },
-  PGA: { icon: "⛳", label: "PGA" },
+const SPORT_ICONS: Record<string, { label: string }> = {
+  All: { label: "All" },
+  NHL: { label: "NHL" },
+  NBA: { label: "NBA" },
+  MLB: { label: "MLB" },
+  PGA: { label: "PGA" },
 };
 
 type PastFilter = "all" | "win" | "loss" | "push";
@@ -545,13 +546,7 @@ export default function PicksPage() {
     ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "PGA").map(mapRecordToHistoryItem))
     : computeRecord(golfFlat);
 
-  const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
-    All: { icon: "🏆", label: "All" },
-    NHL: { icon: "🏒", label: "NHL" },
-    NBA: { icon: "🏀", label: "NBA" },
-    MLB: { icon: "⚾", label: "MLB" },
-    PGA: { icon: "⛳", label: "PGA" },
-  };
+  // SPORT_ICONS defined at module level above
   const recordMap: Record<string, typeof activeRecord> = {
     All: activeRecord,
     NHL: nhlRec,
@@ -669,19 +664,19 @@ export default function PicksPage() {
           {/* Sport icon filters (when viewing All) */}
           {sportLeague === "All" && (
             <div className="flex items-center gap-1.5 mb-3">
-              {Object.entries(SPORT_ICONS).map(([key, { icon }]) => (
+              {Object.entries(SPORT_ICONS).map(([key, { label }]) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setRecordSport(key)}
-                  className={`tap-button flex items-center justify-center w-9 h-9 rounded-xl text-base transition-all ${
+                  className={`tap-button flex items-center justify-center min-w-[40px] h-9 px-2 rounded-xl text-[11px] font-semibold transition-all ${
                     recordSport === key
-                      ? "bg-accent-blue/20 border border-accent-blue/50 scale-110 shadow-lg shadow-accent-blue/10"
-                      : "bg-dark-bg/40 border border-dark-border/40 hover:border-gray-500"
+                      ? "bg-accent-blue/20 border border-accent-blue/50 text-accent-blue shadow-lg shadow-accent-blue/10"
+                      : "bg-dark-bg/40 border border-dark-border/40 text-gray-500 hover:border-gray-500 hover:text-white"
                   }`}
                   aria-label={`Show ${key} record`}
                 >
-                  {icon}
+                  {label}
                 </button>
               ))}
             </div>
@@ -799,8 +794,9 @@ export default function PicksPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs uppercase font-semibold text-emerald-300 tracking-wide">
-                  ⛳ {golfTournament?.name ?? "PGA Tour"}
+                <p className="text-xs uppercase font-semibold text-emerald-300 tracking-wide flex items-center gap-1.5">
+                  <Flag size={12} className="shrink-0" />
+                  {golfTournament?.name ?? "PGA Tour"}
                 </p>
                 {golfTournament ? (
                   <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${getGolfBadgeTone(golfTournament)}`}>
@@ -881,7 +877,7 @@ export default function PicksPage() {
                       <span className="text-emerald-400">{dailyRecord.wins}W</span>
                       <span className="text-red-400">{dailyRecord.losses}L</span>
                       {dailyRecord.pushes > 0 && <span className="text-yellow-400">{dailyRecord.pushes}P</span>}
-                      {dailyRecord.pending > 0 && <span className="text-gray-500">{dailyRecord.pending}⏳</span>}
+                      {dailyRecord.pending > 0 && <span className="text-gray-500 inline-flex items-center gap-0.5">{dailyRecord.pending}<Clock size={10} /></span>}
                       <span className={dailyUnits >= 0 ? "text-emerald-400" : "text-red-400"}>
                         {dailyUnits >= 0 ? "+" : ""}{dailyUnits.toFixed(2)}u
                       </span>
@@ -890,7 +886,7 @@ export default function PicksPage() {
                           {dailyWinPct}%
                         </span>
                       )}
-                      <span className={`text-gray-500 transition-transform ${expandedDate === date ? "rotate-180" : ""}`}>▾</span>
+                      <ChevronDown size={12} className={`text-gray-500 transition-transform ${expandedDate === date ? "rotate-180" : ""}`} />
                     </div>
                   </button>
                   {/* Pick rows — only visible when expanded */}
@@ -935,7 +931,7 @@ export default function PicksPage() {
                           ) : pick.result === "push" ? (
                             <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
                           ) : (
-                            <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1">⏳</span>
+                            <span className="text-xs font-bold text-gray-500 bg-gray-500/10 rounded-lg px-2.5 py-1 inline-flex items-center gap-0.5"><Clock size={11} /></span>
                           )}
                         </div>
                       ))}

@@ -2,11 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { X, Star, StarOff, LogOut } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase-client";
 import { useLeague } from "@/hooks/useLeague";
 import { APP_NAV_GROUPS, APP_NAV_ITEMS, getNavItemById, type AppNavItem } from "@/lib/app-nav";
 import { TIER_LABELS, canAccessFeature } from "@/lib/tier-access";
 import { useAppChrome } from "@/components/AppChromeProvider";
+import { NavIcon } from "@/components/NavIcon";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -72,7 +74,7 @@ function NavRow({
         }}
         className="tap-button flex min-h-[44px] flex-1 items-center gap-3 text-left"
       >
-        <span className="text-lg">{item.emoji}</span>
+        <NavIcon id={item.id} size={18} className={active ? "text-accent-blue" : "text-gray-400"} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="card-title truncate">{item.label}</span>
@@ -99,7 +101,7 @@ function NavRow({
               : "border-dark-border bg-dark-bg/60 text-gray-500"
           }`}
         >
-          {pinned ? "★" : "☆"}
+          {pinned ? <Star size={14} fill="currentColor" /> : <StarOff size={14} />}
         </button>
       )}
     </div>
@@ -178,12 +180,12 @@ export default function SlideMenu() {
             className="tap-button inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-dark-border bg-dark-surface text-white"
             aria-label="Close navigation menu"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
         <div className="mt-6">
-          <p className="section-heading">⭐ Quick Shortcuts</p>
+          <p className="section-heading">Quick Shortcuts</p>
           {pinnedItems.length === 0 ? (
             <p className="mt-3 rounded-2xl border border-dashed border-dark-border bg-dark-surface/50 p-3 text-sm text-gray-500">
               Star or long-press a menu item to pin up to five shortcuts.
@@ -197,7 +199,7 @@ export default function SlideMenu() {
                   onClick={() => handleNavigate(item)}
                   className="tap-button inline-flex min-h-[40px] shrink-0 items-center gap-2 rounded-full border border-dark-border bg-dark-surface px-3 text-sm font-semibold text-white"
                 >
-                  <span>{item.emoji}</span>
+                  <NavIcon id={item.id} size={14} className="text-gray-400" />
                   <span>{item.shortLabel}</span>
                 </button>
               ))}
@@ -243,12 +245,12 @@ export default function SlideMenu() {
         </div>
 
         <div className="mt-8 rounded-3xl border border-dark-border bg-dark-surface/60 p-4">
-          <p className="section-heading">🚪 Logout</p>
           <button
             type="button"
             onClick={handleLogout}
-            className="tap-button mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl border border-dark-border bg-dark-bg px-4 text-sm font-semibold text-white"
+            className="tap-button inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dark-border bg-dark-bg px-4 text-sm font-semibold text-white"
           >
+            <LogOut size={15} className="text-gray-400" />
             Log out
           </button>
         </div>

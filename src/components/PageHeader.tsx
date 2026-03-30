@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Menu } from "lucide-react";
 import { useAppChrome } from "@/components/AppChromeProvider";
 
 type PageHeaderProps = {
@@ -27,10 +28,10 @@ export default function PageHeader({
           <button
             type="button"
             onClick={openMenu}
-            className="tap-button shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-dark-border bg-dark-surface text-xl text-white lg:hidden"
+            className="tap-button shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl border border-dark-border bg-dark-surface text-white lg:hidden"
             aria-label="Open navigation menu"
           >
-            ☰
+            <Menu size={18} />
           </button>
 
           {/* Center: logo */}

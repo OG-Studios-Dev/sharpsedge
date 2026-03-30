@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import { Zap, BarChart2, TrendingUp, AlertTriangle, HeartPulse, FlaskConical } from "lucide-react";
 import type {
   GooseModelPick,
   GooseSignalWeight,
@@ -146,7 +147,7 @@ function PickRow({
               </span>
             )}
             {pick.signals_count != null && (
-              <span title="signals count">🔬 {pick.signals_count}</span>
+              <span title="signals count" className="inline-flex items-center gap-1"><FlaskConical size={12} /> {pick.signals_count}</span>
             )}
             {/* Prop-line data from factors snapshot */}
             {(() => {
@@ -311,19 +312,19 @@ function PickRow({
                     {/* Boolean flags */}
                     <div className="flex flex-wrap gap-1.5">
                       {nba.high_pace_game && (
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">⚡ high-pace game</span>
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400 inline-flex items-center gap-1"><Zap size={9} /> high-pace game</span>
                       )}
                       {nba.dvp_advantage_present && (
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">📊 DvP advantage</span>
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400 inline-flex items-center gap-1"><BarChart2 size={9} /> DvP advantage</span>
                       )}
                       {nba.usage_surge_active && (
-                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400">📈 usage surge</span>
+                        <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-400 inline-flex items-center gap-1"><TrendingUp size={9} /> usage surge</span>
                       )}
                       {nba.recent_trend_active && (
-                        <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-400">📈 recent trend</span>
+                        <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-400 inline-flex items-center gap-1"><TrendingUp size={9} /> recent trend</span>
                       )}
                       {nba.back_to_back_penalty && (
-                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400">⚠️ B2B penalty</span>
+                        <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400 inline-flex items-center gap-1"><AlertTriangle size={9} /> B2B penalty</span>
                       )}
                       {nba.player_confirmed_active === true && (
                         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">✓ confirmed active</span>
@@ -332,8 +333,8 @@ function PickRow({
                         <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-400">✗ not confirmed</span>
                       )}
                       {nba.key_teammate_out && (
-                        <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-[10px] text-orange-400">
-                          🏥 key teammate out{Array.isArray(nba.key_teammates_out) && (nba.key_teammates_out as string[]).length > 0 ? `: ${(nba.key_teammates_out as string[]).join(", ")}` : ""}
+                        <span className="rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-[10px] text-orange-400 inline-flex items-center gap-1">
+                          <HeartPulse size={9} /> key teammate out{Array.isArray(nba.key_teammates_out) && (nba.key_teammates_out as string[]).length > 0 ? `: ${(nba.key_teammates_out as string[]).join(", ")}` : ""}
                         </span>
                       )}
                     </div>
@@ -692,7 +693,7 @@ function MLBLineupPanel({ date }: { date: string }) {
     <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-yellow-400">⚾ MLB Lineup Refresh</h3>
+          <h3 className="text-sm font-semibold text-yellow-400">MLB Lineup Refresh</h3>
           <p className="mt-1 text-xs text-gray-500">
             Re-generates MLB picks after lineups are confirmed (~5 PM ET). Tags picks{" "}
             <code className="rounded bg-black/20 px-1 text-yellow-300">lineup-refresh-v1</code> for comparison.
@@ -1315,7 +1316,7 @@ export default function GooseModelAdminPage() {
       <div className="rounded-2xl border border-dark-border bg-dark-surface p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold text-white">🔬 Signal Lab — Pick Learning Engine</h2>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2"><FlaskConical size={18} /> Signal Lab — Pick Learning Engine</h2>
             <p className="mt-1 text-sm text-gray-400">
               Run pick experiments · grade results · learn which signals actually win
             </p>
@@ -1371,8 +1372,8 @@ export default function GooseModelAdminPage() {
 
       {/* Generate panel */}
       <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
-        <h3 className="text-sm font-semibold text-accent-blue mb-1">
-          ⚡ Generate Picks for Research
+        <h3 className="text-sm font-semibold text-accent-blue mb-1 flex items-center gap-1.5">
+          <Zap size={13} /> Generate Picks for Research
         </h3>
         <p className="text-xs text-gray-500 mb-3">
           Picks generated here go into the learning engine only — not into production or user-facing history.
@@ -1441,11 +1442,11 @@ export default function GooseModelAdminPage() {
               : t === "signals"
               ? "Signal weights"
               : t === "scorecard"
-              ? "📊 Scorecard"
+              ? "Scorecard"
               : t === "promotions"
-              ? "✦ Promote to production"
+              ? "Promote to production"
               : t === "logic"
-              ? "📝 Logic notes"
+              ? "Logic notes"
               : "Performance"}
           </button>
         ))}
