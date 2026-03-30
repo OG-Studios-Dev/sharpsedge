@@ -144,6 +144,12 @@ export interface CapturePicksInput {
     odds_at_capture?: number | null;
     signals_count?: number | null;
     experiment_tag?: string | null;
+    /**
+     * Override the initial result. Defaults to "pending".
+     * Used when ingesting pre-settled records (e.g. system_qualifiers
+     * already have a known outcome at ingestion time).
+     */
+    result?: "pending" | "win" | "loss" | "push";
   }>;
 }
 
@@ -164,7 +170,7 @@ export async function captureGoosePicks(input: CapturePicksInput): Promise<Goose
     book: p.book ?? null,
     hit_rate_at_time: p.hit_rate_at_time ?? null,
     confidence: p.confidence ?? null,
-    result: "pending",
+    result: p.result ?? "pending",
     model_version: p.model_version ?? "v1",
     source: p.source ?? "captured",
     pick_snapshot: p.pick_snapshot ?? null,

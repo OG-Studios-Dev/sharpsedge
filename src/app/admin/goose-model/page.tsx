@@ -46,6 +46,59 @@ function winRateColor(rate: number): string {
 
 const SPORTS = ["ALL", "NHL", "NBA", "MLB", "PGA"] as const;
 
+// ── sport filter pills ─────────────────────────────────────
+
+function SportFilterPills({
+  value,
+  onChange,
+  picks,
+}: {
+  value: string;
+  onChange: (sport: string) => void;
+  picks: GooseModelPick[];
+}) {
+  // Show pick count per sport (all dates, not just today — gives a sense of learning data size)
+  const countBySport = Object.fromEntries(
+    (["NHL", "NBA", "MLB", "PGA"] as const).map((s) => [
+      s,
+      picks.filter((p) => p.sport === s).length,
+    ]),
+  );
+
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface px-4 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 mr-1">
+          Sport
+        </span>
+        {(["ALL", "NHL", "NBA", "MLB", "PGA"] as const).map((s) => {
+          const active = value === s;
+          const count = s !== "ALL" ? countBySport[s] : picks.length;
+          return (
+            <button
+              key={s}
+              onClick={() => onChange(s)}
+              className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
+                active
+                  ? "border-accent-blue/40 bg-accent-blue/15 text-accent-blue"
+                  : "border-dark-border text-gray-400 hover:border-gray-500 hover:text-white"
+              }`}
+            >
+              {s === "ALL" ? "All" : s}
+              {count > 0 && (
+                <span className={`ml-1.5 text-xs ${active ? "opacity-80" : "opacity-40"}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <span className="text-xs text-gray-600 ml-1">Filters all tabs</span>
+      </div>
+    </div>
+  );
+}
+
 // ── stat card ─────────────────────────────────────────────────
 
 function StatCard({
@@ -1177,6 +1230,140 @@ function PromotionsTab({
   );
 }
 
+// ── system results ingestion panel ───────────────────────────
+
+interface IngestResult {
+  ingested: number;
+  skipped: number;
+  dry_run: boolean;
+  sports_summary: Record<string, { ingested: number; skipped: number }>;
+  message: string;
+}
+
+function SystemResultsPanel({ sport }: { sport: string }) {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<IngestResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [days, setDays] = useState(30);
+  const [expanded, setExpanded] = useState(false);
+
+  async function triggerIngest(dryRun = false) {
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/goose-model/ingest-system-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          days,
+          sport: sport !== "ALL" ? sport : undefined,
+          dry_run: dryRun,
+        }),
+      });
+      const data = (await res.json()) as IngestResult & { error?: string };
+      if (data.error) throw new Error(data.error);
+      setResult(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ingestion failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-purple-400 flex items-center gap-1.5">
+            <BarChart2 size={13} /> Learn from System Results
+          </h3>
+          <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+            Pull settled outcomes from all tracked systems (wins/losses/pushes) into the learning
+            store. Expands signal weight data beyond lab-generated picks — covers every game any
+            system reviewed, not just what the lab generated itself.
+          </p>
+          <button
+            className="mt-1 text-xs text-gray-600 hover:text-gray-400 underline"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "▲ less" : "▼ what this covers"}
+          </button>
+          {expanded && (
+            <div className="mt-2 rounded-xl border border-purple-500/10 bg-black/20 p-3 text-xs text-gray-400 space-y-1">
+              <p>✓ All settled system_qualifiers (win/loss/push) within the selected date window</p>
+              <p>✓ Signal tags extracted from qualifier labels and provenance snapshots</p>
+              <p>✓ Signal weights updated immediately on ingestion</p>
+              <p>✗ Does NOT include games where no system fired a qualifier</p>
+              <p>✗ Does NOT cover production pick_history (separate table — future work)</p>
+              <p>✗ Signal tags from system results are less rich than lab-generated picks (no factor snapshots)</p>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 items-center shrink-0">
+          <select
+            value={days}
+            onChange={(e) => setDays(Number(e.target.value))}
+            disabled={running}
+            className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
+          >
+            {[7, 14, 30, 60, 90].map((d) => (
+              <option key={d} value={d}>Last {d}d</option>
+            ))}
+          </select>
+          <button
+            onClick={() => triggerIngest(true)}
+            disabled={running}
+            className="rounded-full border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-400 hover:text-white disabled:opacity-50 transition-colors"
+          >
+            {running ? "…" : "Preview"}
+          </button>
+          <button
+            onClick={() => triggerIngest(false)}
+            disabled={running}
+            className="rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-400 hover:bg-purple-500/20 disabled:opacity-50 transition-colors"
+          >
+            {running ? "Ingesting…" : "Ingest Results"}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
+          {error}
+        </div>
+      )}
+
+      {result && (
+        <div className="mt-3 rounded-xl border border-dark-border/50 bg-dark-bg/50 p-3 space-y-2">
+          <p className="text-xs text-gray-300">{result.message}</p>
+          {Object.entries(result.sports_summary).length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {Object.entries(result.sports_summary).map(([sport, counts]) => (
+                <span
+                  key={sport}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                    counts.ingested > 0
+                      ? "border-purple-500/30 text-purple-400"
+                      : "border-gray-700 text-gray-600"
+                  }`}
+                >
+                  {sport}: {counts.ingested > 0 ? `+${counts.ingested}` : "0 new"}
+                  {counts.skipped > 0 ? ` (${counts.skipped} already present)` : ""}
+                </span>
+              ))}
+            </div>
+          )}
+          {result.dry_run && (
+            <p className="text-[10px] text-gray-600">
+              Preview only — nothing was saved. Click "Ingest Results" to commit.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── main page ─────────────────────────────────────────────────
 
 type Tab = "picks" | "signals" | "performance" | "analytics" | "scorecard" | "promotions" | "logic";
@@ -1346,15 +1533,6 @@ export default function GooseModelAdminPage() {
               onChange={(e) => setDate(e.target.value)}
               className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
             />
-            <select
-              value={sportFilter}
-              onChange={(e) => setSportFilter(e.target.value)}
-              className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
-            >
-              {SPORTS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
             <button
               onClick={loadPicks}
               className="rounded-full border border-dark-border px-4 py-2 text-sm font-semibold text-gray-300 hover:text-white"
@@ -1372,6 +1550,9 @@ export default function GooseModelAdminPage() {
           ))}
         </div>
       </div>
+
+      {/* Sport filter pills — filters all tabs */}
+      <SportFilterPills value={sportFilter} onChange={setSportFilter} picks={picks} />
 
       {/* Stats row */}
       {stats && (
@@ -1463,6 +1644,9 @@ export default function GooseModelAdminPage() {
 
       {/* MLB lineup refresh panel — always visible, skips gracefully off-season */}
       <MLBLineupPanel date={date} />
+
+      {/* System results ingestion — broader learning beyond lab-generated picks */}
+      <SystemResultsPanel sport={sportFilter} />
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
