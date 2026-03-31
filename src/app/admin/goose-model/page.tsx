@@ -1935,27 +1935,13 @@ export default function GooseModelAdminPage() {
       {/* ── Logic Notes tab ── */}
       {tab === "logic" && (
         <div className="space-y-5">
-          {/* What is this page */}
-          <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-5">
-            <h3 className="text-base font-bold text-white mb-1">What is the Signal Lab?</h3>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              The Signal Lab is a <strong className="text-white">pick research and learning engine</strong> — separate from the production picks that users see.
-              It generates picks against today&apos;s live data, you grade them after games settle (win / loss / push),
-              and the engine builds a record of which <em>signals</em> (e.g. DvP advantage, pace matchup, rest days) actually
-              correlate with winning picks over time.
+          {/* Compact explainer */}
+          <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
+            <h3 className="text-sm font-bold text-white">Signal Lab reference</h3>
+            <p className="mt-1 text-xs text-gray-400 leading-relaxed">
+              Research-only picks, graded after settlement, used to learn which signals actually work.
+              Separate from the live production board.
             </p>
-            <p className="mt-2 text-sm text-gray-400 leading-relaxed">
-              Once a signal pattern clears all 5 promotion gates, you can flag those picks for production consideration.
-              Promoted picks inform how the production engine prioritises its output — they are never auto-published.
-            </p>
-            <div className="mt-3 rounded-xl border border-accent-blue/10 bg-black/20 p-3">
-              <p className="text-xs font-semibold text-accent-blue uppercase tracking-wider mb-1">Not the same as the Daily Board</p>
-              <p className="text-xs text-gray-400">
-                The <strong className="text-gray-300">📋 Daily Board</strong> (/admin/sandbox) is a separate review surface for the{" "}
-                <em>production</em> picks engine — it shows what the live engine chose today and lets you run a daily postmortem.
-                The Signal Lab uses its own pick generator and its own database tables. The two do not share data.
-              </p>
-            </div>
           </div>
 
           {/* Threshold reference */}
