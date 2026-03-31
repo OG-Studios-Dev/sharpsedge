@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Zap, BarChart2, TrendingUp, AlertTriangle, HeartPulse, FlaskConical } from "lucide-react";
 import type {
   GooseModelPick,
@@ -57,7 +57,7 @@ function SportFilterPills({
   onChange: (sport: string) => void;
   picks: GooseModelPick[];
 }) {
-  // Show pick count per sport (all dates, not just today — gives a sense of learning data size)
+  // Show pick count per sport for the currently loaded scope.
   const countBySport = Object.fromEntries(
     (["NHL", "NBA", "MLB", "PGA"] as const).map((s) => [
       s,
@@ -158,12 +158,20 @@ function PickRow({
   pick,
   onGrade,
   onPromote,
+  grading,
+  promoting,
+  actionError,
 }: {
   pick: GooseModelPick;
   onGrade: (id: string, result: "win" | "loss" | "push") => void;
-  onPromote: (id: string) => void;
+  onPromote: (id: string, notes?: string) => void;
+  grading?: boolean;
+  promoting?: boolean;
+  actionError?: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [showPromoteForm, setShowPromoteForm] = useState(false);
+  const [promotionNotes, setPromotionNotes] = useState("");
 
   return (
     <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
@@ -192,6 +200,11 @@ function PickRow({
             <span className="rounded-full border border-dark-border px-2 py-0.5 text-xs text-gray-500">
               {pick.source}
             </span>
+            {pick.integrity_status && pick.integrity_status !== "ok" && (
+              <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-xs text-yellow-400">
+                {pick.integrity_status}
+              </span>
+            )}
             {pick.experiment_tag && (
               <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-xs text-purple-400">
                 {pick.experiment_tag}
@@ -278,6 +291,12 @@ function PickRow({
             <p className="text-sm text-gray-300 leading-relaxed">{pick.reasoning}</p>
           )}
 
+          {pick.actual_result && (
+            <div className="rounded-xl border border-dark-border/50 bg-dark-bg/40 px-3 py-2 text-xs text-gray-300">
+              <span className="text-gray-500">Actual result:</span> {pick.actual_result}
+            </div>
+          )}
+
           {/* Factors snapshot */}
           {pick.pick_snapshot && (pick.pick_snapshot as any).factors && (() => {
             const factors = (pick.pick_snapshot as any).factors as Record<string, unknown>;
@@ -328,7 +347,7 @@ function PickRow({
                     </div>
 
                     {/* Numeric context */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <div className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
                       {nba.opponent_dvp_rank != null && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Opp DvP rank</span>
@@ -420,9 +439,9 @@ function PickRow({
                     {/* Context warnings */}
                     {Array.isArray(nba.context_warnings) && (nba.context_warnings as string[]).length > 0 && (
                       <div className="border-t border-purple-500/10 pt-2">
-                        <p className="text-[10px] text-gray-600 mb-1">Context warnings:</p>
+                        <p className="text-xs text-gray-600 mb-1">Context warnings:</p>
                         {(nba.context_warnings as string[]).map((w, i) => (
-                          <p key={i} className="text-[10px] text-yellow-600">{w}</p>
+                          <p key={i} className="text-xs text-yellow-600">{w}</p>
                         ))}
                       </div>
                     )}
@@ -443,7 +462,8 @@ function PickRow({
                     e.stopPropagation();
                     onGrade(pick.id, r);
                   }}
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80 ${
+                  disabled={grading}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80 disabled:opacity-50 ${
                     r === "win"
                       ? "border-emerald-500/40 text-emerald-400"
                       : r === "loss"
@@ -451,22 +471,66 @@ function PickRow({
                       : "border-yellow-500/40 text-yellow-400"
                   }`}
                 >
-                  {r}
+                  {grading ? "Grading…" : r}
                 </button>
               ))}
             </div>
           )}
 
-          {!pick.promoted_to_production && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onPromote(pick.id);
-              }}
-              className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-1 text-xs font-semibold text-accent-blue hover:bg-accent-blue/20 transition-colors"
-            >
-              ✦ Promote to production consideration
-            </button>
+          {!pick.promoted_to_production && pick.result !== "loss" && (
+            <div className="space-y-2">
+              {!showPromoteForm ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowPromoteForm(true);
+                  }}
+                  disabled={promoting}
+                  className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-1 text-xs font-semibold text-accent-blue hover:bg-accent-blue/20 transition-colors disabled:opacity-50"
+                >
+                  {promoting ? "Promoting…" : "✦ Promote to production consideration"}
+                </button>
+              ) : (
+                <div className="rounded-xl border border-accent-blue/20 bg-accent-blue/5 p-3 space-y-2">
+                  <label className="block text-xs text-gray-400">Promotion notes (optional)</label>
+                  <textarea
+                    value={promotionNotes}
+                    onChange={(e) => setPromotionNotes(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
+                    placeholder="Why this should influence production picks..."
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPromote(pick.id, promotionNotes.trim() || undefined);
+                        setShowPromoteForm(false);
+                      }}
+                      disabled={promoting}
+                      className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-3 py-1 text-xs font-semibold text-accent-blue hover:bg-accent-blue/20 disabled:opacity-50"
+                    >
+                      {promoting ? "Promoting…" : "Confirm promote"}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPromoteForm(false);
+                      }}
+                      className="rounded-full border border-dark-border px-3 py-1 text-xs font-semibold text-gray-400 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {actionError && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">
+              {actionError}
+            </div>
           )}
 
           {pick.promotion_notes && (
@@ -488,7 +552,6 @@ function SignalLeaderboard({
   sportFilter: string;
 }) {
   const filtered = weights
-    .filter((w) => sportFilter === "ALL" || w.sport === sportFilter)
     .filter((w) => w.sport === (sportFilter === "ALL" ? "ALL" : sportFilter))
     .filter((w) => w.appearances > 0)
     .sort((a, b) => b.win_rate - a.win_rate);
@@ -587,6 +650,7 @@ function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
   const [error, setError] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState("");
   const [minSample, setMinSample] = useState(10);
+  const [pgaPickType, setPgaPickType] = useState<"all" | "winner" | "placement">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -595,6 +659,7 @@ function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
       const params = new URLSearchParams({ min_sample: String(minSample) });
       if (sportFilter !== "ALL") params.set("sport", sportFilter);
       if (tagFilter) params.set("experiment_tag", tagFilter);
+      if (sportFilter === "PGA" || sportFilter === "ALL") params.set("pga_pick_type", pgaPickType);
       const res = await fetch(`/api/admin/goose-model/analytics?${params}`);
       const json = await res.json() as AnalyticsData & { error?: string };
       if (json.error) throw new Error(json.error);
@@ -604,7 +669,7 @@ function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
     } finally {
       setLoading(false);
     }
-  }, [sportFilter, tagFilter, minSample]);
+  }, [sportFilter, tagFilter, minSample, pgaPickType]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -635,6 +700,20 @@ function AnalyticsTab({ sportFilter }: { sportFilter: string }) {
               ))}
             </select>
           </div>
+          {(sportFilter === "PGA" || sportFilter === "ALL") && (
+            <div>
+              <label className="text-xs text-gray-500 block mb-1">PGA pick type</label>
+              <select
+                value={pgaPickType}
+                onChange={(e) => setPgaPickType(e.target.value as "all" | "winner" | "placement")}
+                className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
+              >
+                <option value="all">All PGA picks</option>
+                <option value="winner">Winner only</option>
+                <option value="placement">Placement only</option>
+              </select>
+            </div>
+          )}
           <button
             onClick={load}
             className="self-end rounded-full border border-dark-border px-4 py-2 text-sm text-gray-300 hover:text-white"
@@ -1038,7 +1117,7 @@ function GatePill({ gate }: { gate: PromotionGateResult }) {
         </span>
         <span className="text-xs font-semibold text-white">{gate.gate.replace(/_/g, " ")}</span>
       </div>
-      <p className="mt-0.5 text-[10px] text-gray-500">{gate.detail}</p>
+      <p className="mt-0.5 text-xs text-gray-500">{gate.detail}</p>
     </div>
   );
 }
@@ -1382,11 +1461,16 @@ export default function GooseModelAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [dbNotReady, setDbNotReady] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [autoGrading, setAutoGrading] = useState(false);
   const [generateSport, setGenerateSport] = useState("NHL");
   const [topN, setTopN] = useState(5);
   const [sandboxMode, setSandboxMode] = useState(true);
   // Result drill-down filter — set by clicking stat cards
   const [resultFilter, setResultFilter] = useState<"all" | "win" | "loss" | "push" | "pending">("all");
+  const [gradingIds, setGradingIds] = useState<string[]>([]);
+  const [promotingIds, setPromotingIds] = useState<string[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [promotionsReloadKey, setPromotionsReloadKey] = useState(0);
 
   const loadPicks = useCallback(async () => {
     setLoading(true);
@@ -1424,13 +1508,16 @@ export default function GooseModelAdminPage() {
 
   const loadStats = useCallback(async () => {
     try {
-      const res = await fetch(`/api/admin/goose-model?view=stats`);
+      const params = new URLSearchParams({ view: "stats" });
+      if (date) params.set("date", date);
+      if (sportFilter !== "ALL") params.set("sport", sportFilter);
+      const res = await fetch(`/api/admin/goose-model?${params}`);
       const data = await res.json() as { stats?: GooseModelStats };
       setStats(data.stats ?? null);
     } catch {
       // graceful
     }
-  }, []);
+  }, [date, sportFilter]);
 
   useEffect(() => {
     loadPicks();
@@ -1441,6 +1528,8 @@ export default function GooseModelAdminPage() {
   }, [loadPicks, loadWeights, loadStats]);
 
   async function handleGrade(id: string, result: "win" | "loss" | "push") {
+    setGradingIds((prev) => [...prev, id]);
+    setActionError(null);
     try {
       await fetch("/api/admin/goose-model/grade", {
         method: "POST",
@@ -1449,21 +1538,46 @@ export default function GooseModelAdminPage() {
       });
       await Promise.all([loadPicks(), loadWeights(), loadStats()]);
     } catch {
-      alert("Grade failed");
+      setActionError("Grade failed. Please try again.");
+    } finally {
+      setGradingIds((prev) => prev.filter((x) => x !== id));
     }
   }
 
-  async function handlePromote(id: string) {
-    const notes = prompt("Promotion notes (optional):");
+  async function handlePromote(id: string, notes?: string) {
+    setPromotingIds((prev) => [...prev, id]);
+    setActionError(null);
     try {
       await fetch("/api/admin/goose-model/promote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, notes }),
       });
-      await loadPicks();
+      await Promise.all([loadPicks(), loadStats()]);
+      setPromotionsReloadKey((k) => k + 1);
     } catch {
-      alert("Promote failed");
+      setActionError("Promote failed. Please try again.");
+    } finally {
+      setPromotingIds((prev) => prev.filter((x) => x !== id));
+    }
+  }
+
+  async function handleAutoGrade() {
+    setAutoGrading(true);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/admin/goose-model/auto-grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
+      const data = await res.json() as { error?: string };
+      if (data.error) throw new Error(data.error);
+      await Promise.all([loadPicks(), loadWeights(), loadStats()]);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Auto-grade failed.");
+    } finally {
+      setAutoGrading(false);
     }
   }
 
@@ -1524,6 +1638,11 @@ export default function GooseModelAdminPage() {
   };
   const scopedSettledCount = scopedStats.wins + scopedStats.losses + scopedStats.pushes;
   const scopedWinRate = scopedSettledCount > 0 ? scopedStats.wins / scopedSettledCount : 0;
+  const promotedPicks = useMemo(
+    () => picks.filter((p) => p.promoted_to_production),
+    [picks],
+  );
+  const visiblePerformanceSports = sportFilter === "ALL" ? (["NHL", "NBA", "MLB", "PGA"] as const) : ([sportFilter] as const);
 
   const settledPicks = filteredPicks.filter((p) => p.result !== "pending");
   const pendingPicks = filteredPicks.filter((p) => p.result === "pending");
@@ -1666,6 +1785,13 @@ export default function GooseModelAdminPage() {
           >
             {generating ? "Generating…" : `Generate ${generateSport} for ${date}`}
           </button>
+          <button
+            onClick={handleAutoGrade}
+            disabled={autoGrading}
+            className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+          >
+            {autoGrading ? "Auto-grading…" : `Auto-grade ${date}`}
+          </button>
         </div>
         <p className="mt-2 text-xs text-gray-600">
           Hard rules: -200 max odds cap · PGA outrights minimum +200 · picks graded here feed signal weights
@@ -1807,6 +1933,12 @@ export default function GooseModelAdminPage() {
         </div>
       )}
 
+      {actionError && (
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-400">
+          {actionError}
+        </div>
+      )}
+
       {/* ── Picks tab ── */}
       {tab === "picks" && (
         <div className="space-y-3">
@@ -1830,7 +1962,15 @@ export default function GooseModelAdminPage() {
               </p>
               <div className="space-y-2">
                 {pendingPicks.map((p) => (
-                  <PickRow key={p.id} pick={p} onGrade={handleGrade} onPromote={handlePromote} />
+                  <PickRow
+                    key={p.id}
+                    pick={p}
+                    onGrade={handleGrade}
+                    onPromote={handlePromote}
+                    grading={gradingIds.includes(p.id)}
+                    promoting={promotingIds.includes(p.id)}
+                    actionError={null}
+                  />
                 ))}
               </div>
             </div>
@@ -1843,7 +1983,15 @@ export default function GooseModelAdminPage() {
               </p>
               <div className="space-y-2">
                 {settledPicks.map((p) => (
-                  <PickRow key={p.id} pick={p} onGrade={handleGrade} onPromote={handlePromote} />
+                  <PickRow
+                    key={p.id}
+                    pick={p}
+                    onGrade={handleGrade}
+                    onPromote={handlePromote}
+                    grading={gradingIds.includes(p.id)}
+                    promoting={promotingIds.includes(p.id)}
+                    actionError={null}
+                  />
                 ))}
               </div>
             </div>
@@ -1861,15 +2009,6 @@ export default function GooseModelAdminPage() {
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">Signal weight leaderboard</h3>
-            <select
-              value={sportFilter}
-              onChange={(e) => setSportFilter(e.target.value)}
-              className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white"
-            >
-              {SPORTS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
           </div>
           <SignalLeaderboard weights={weights} sportFilter={sportFilter} />
         </div>
@@ -1882,7 +2021,7 @@ export default function GooseModelAdminPage() {
 
       {/* ── Promotions tab ── */}
       {tab === "promotions" && (
-        <PromotionsTab sportFilter={sportFilter} onPromote={handlePromote} />
+        <PromotionsTab key={promotionsReloadKey} sportFilter={sportFilter} onPromote={handlePromote} />
       )}
 
       {/* ── Performance tab ── */}
@@ -1894,12 +2033,11 @@ export default function GooseModelAdminPage() {
               Based on all loaded lab history for the selected sport filter, not just currently pending picks.
             </p>
             <div className="space-y-3">
-              {(["NHL", "NBA", "MLB", "PGA"] as const).map((sport) => {
+              {visiblePerformanceSports.map((sport) => {
                 const sp = picks.filter(
                   (p) =>
                     p.sport === sport &&
-                    p.result !== "pending" &&
-                    (sportFilter === "ALL" || p.sport === sportFilter),
+                    p.result !== "pending",
                 );
                 const wins = sp.filter((p) => p.result === "win").length;
                 const wr = sp.length > 0 ? wins / sp.length : 0;
@@ -1911,7 +2049,7 @@ export default function GooseModelAdminPage() {
                     <div>
                       <p className="text-sm font-medium text-white">{sport}</p>
                       <p className="text-xs text-gray-500">
-                        {sp.length} settled · {wins}W{sportFilter !== "ALL" && sport !== sportFilter ? " · filtered out" : ""}
+                        {sp.length} settled · {wins}W
                       </p>
                     </div>
                     <p className={`text-lg font-bold ${winRateColor(wr)}`}>
@@ -1948,15 +2086,13 @@ export default function GooseModelAdminPage() {
 
           <div className="rounded-2xl border border-dark-border bg-dark-surface p-5">
             <h3 className="text-lg font-semibold text-white mb-4">Promoted picks</h3>
-            {picks.filter((p) => p.promoted_to_production).length === 0 ? (
+            {promotedPicks.length === 0 ? (
               <p className="text-sm text-gray-500">
                 No picks promoted yet. Expand a pick and click "Promote" to flag it for production.
               </p>
             ) : (
               <div className="space-y-2">
-                {picks
-                  .filter((p) => p.promoted_to_production)
-                  .map((p) => (
+                {promotedPicks.map((p) => (
                     <div
                       key={p.id}
                       className="flex items-center justify-between rounded-xl border border-accent-blue/20 bg-accent-blue/5 px-4 py-3"

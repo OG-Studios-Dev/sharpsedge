@@ -24,7 +24,19 @@ export async function GET(req: NextRequest) {
     }
 
     if (view === "stats") {
-      const stats = await getGooseModelStats(sport);
+      const picks = await listGoosePicks({ date, sport, limit: 5000 });
+      const settled = picks.filter((p) => p.result !== "pending");
+      const wins = settled.filter((p) => p.result === "win").length;
+      const losses = settled.filter((p) => p.result === "loss").length;
+      const pushes = settled.filter((p) => p.result === "push").length;
+      const stats = {
+        total: picks.length,
+        wins,
+        losses,
+        pushes,
+        pending: picks.filter((p) => p.result === "pending").length,
+        win_rate: settled.length > 0 ? wins / settled.length : 0,
+      };
       return NextResponse.json({ stats });
     }
 
