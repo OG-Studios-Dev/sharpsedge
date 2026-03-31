@@ -136,8 +136,7 @@ function StatCard({
 // ── volume badge ───────────────────────────────────────────────
 
 function VolumeBadge({ sport, picks }: { sport: string; picks: GooseModelPick[] }) {
-  const todayStr = today();
-  const count = picks.filter((p) => p.sport === sport && p.date === todayStr).length;
+  const count = picks.filter((p) => p.sport === sport).length;
   const tone =
     count >= 8 ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" :
     count >= 4 ? "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" :
@@ -1508,6 +1507,21 @@ export default function GooseModelAdminPage() {
     return true;
   });
 
+  const baseFilteredPicks = picks.filter((p) => {
+    if (experimentTagFilter !== "ALL" && p.experiment_tag !== experimentTagFilter) return false;
+    return true;
+  });
+
+  const scopedStats = {
+    total: baseFilteredPicks.length,
+    wins: baseFilteredPicks.filter((p) => p.result === "win").length,
+    losses: baseFilteredPicks.filter((p) => p.result === "loss").length,
+    pushes: baseFilteredPicks.filter((p) => p.result === "push").length,
+    pending: baseFilteredPicks.filter((p) => p.result === "pending").length,
+  };
+  const scopedSettledCount = scopedStats.wins + scopedStats.losses + scopedStats.pushes;
+  const scopedWinRate = scopedSettledCount > 0 ? scopedStats.wins / scopedSettledCount : 0;
+
   const settledPicks = filteredPicks.filter((p) => p.result !== "pending");
   const pendingPicks = filteredPicks.filter((p) => p.result === "pending");
   const winRate =
@@ -1542,9 +1556,9 @@ export default function GooseModelAdminPage() {
           </div>
         </div>
 
-        {/* Volume badges — today's pick count per sport */}
+        {/* Volume badges — current loaded scope count per sport */}
         <div className="mt-3 flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-gray-600">Today's research picks:</span>
+          <span className="text-xs text-gray-600">Loaded picks by sport:</span>
           {(["NHL", "NBA", "MLB", "PGA"] as const).map((s) => (
             <VolumeBadge key={s} sport={s} picks={picks} />
           ))}
@@ -1559,42 +1573,42 @@ export default function GooseModelAdminPage() {
         <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
           <StatCard
             label="Total picks"
-            value={String(stats.total)}
+            value={String(scopedStats.total)}
             onClick={() => { setResultFilter("all"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "all"}
           />
           <StatCard
             label="Wins"
-            value={String(stats.wins)}
+            value={String(scopedStats.wins)}
             tone="text-emerald-400"
             onClick={() => { setResultFilter("win"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "win"}
           />
           <StatCard
             label="Losses"
-            value={String(stats.losses)}
+            value={String(scopedStats.losses)}
             tone="text-rose-400"
             onClick={() => { setResultFilter("loss"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "loss"}
           />
           <StatCard
             label="Pending"
-            value={String(stats.pending)}
+            value={String(scopedStats.pending)}
             tone="text-gray-400"
             onClick={() => { setResultFilter("pending"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "pending"}
           />
           <StatCard
             label="Pushes"
-            value={String(stats.pushes)}
+            value={String(scopedStats.pushes)}
             tone="text-yellow-400"
             onClick={() => { setResultFilter("push"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "push"}
           />
           <StatCard
             label="Win rate"
-            value={pct(stats.win_rate)}
-            tone={winRateColor(stats.win_rate)}
+            value={pct(scopedWinRate)}
+            tone={winRateColor(scopedWinRate)}
           />
         </div>
       )}
@@ -1691,8 +1705,8 @@ export default function GooseModelAdminPage() {
           {(["all", "win", "loss", "push", "pending"] as const).map((r) => {
             const resultCount =
               r === "all"
-                ? picks.length
-                : picks.filter((pick) => pick.result === r).length;
+                ? baseFilteredPicks.length
+                : baseFilteredPicks.filter((pick) => pick.result === r).length;
             return (
               <button
                 key={r}
