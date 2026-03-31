@@ -107,12 +107,14 @@ function StatCard({
   tone = "text-white",
   onClick,
   active,
+  hint,
 }: {
   label: string;
   value: string;
   tone?: string;
   onClick?: () => void;
   active?: boolean;
+  hint?: string;
 }) {
   return (
     <div
@@ -129,6 +131,7 @@ function StatCard({
         {onClick && <span className="ml-1 text-gray-700">↗</span>}
       </p>
       <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
+      {hint && <p className="mt-2 text-[11px] text-gray-600">{hint}</p>}
     </div>
   );
 }
@@ -1574,6 +1577,7 @@ export default function GooseModelAdminPage() {
           <StatCard
             label="Total picks"
             value={String(scopedStats.total)}
+            hint="Tap to view all picks"
             onClick={() => { setResultFilter("all"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "all"}
           />
@@ -1581,6 +1585,7 @@ export default function GooseModelAdminPage() {
             label="Wins"
             value={String(scopedStats.wins)}
             tone="text-emerald-400"
+            hint="Tap to view winning picks"
             onClick={() => { setResultFilter("win"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "win"}
           />
@@ -1588,6 +1593,7 @@ export default function GooseModelAdminPage() {
             label="Losses"
             value={String(scopedStats.losses)}
             tone="text-rose-400"
+            hint="Tap to view losing picks"
             onClick={() => { setResultFilter("loss"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "loss"}
           />
@@ -1595,6 +1601,7 @@ export default function GooseModelAdminPage() {
             label="Pending"
             value={String(scopedStats.pending)}
             tone="text-gray-400"
+            hint="Tap to view pending picks"
             onClick={() => { setResultFilter("pending"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "pending"}
           />
@@ -1602,6 +1609,7 @@ export default function GooseModelAdminPage() {
             label="Pushes"
             value={String(scopedStats.pushes)}
             tone="text-yellow-400"
+            hint="Tap to view push picks"
             onClick={() => { setResultFilter("push"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "push"}
           />
@@ -1614,6 +1622,7 @@ export default function GooseModelAdminPage() {
       )}
 
       {/* Generate panel */}
+      {tab === "picks" && (
       <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
         <h3 className="text-sm font-semibold text-accent-blue mb-1 flex items-center gap-1.5">
           <Zap size={13} /> Generate Picks for Research
@@ -1662,9 +1671,10 @@ export default function GooseModelAdminPage() {
           Hard rules: -200 max odds cap · PGA outrights minimum +200 · picks graded here feed signal weights
         </p>
       </div>
+      )}
 
       {/* MLB lineup refresh panel — always visible, skips gracefully off-season */}
-      <MLBLineupPanel date={date} />
+      {tab === "picks" && <MLBLineupPanel date={date} />}
 
       {/* System results ingestion — broader learning beyond lab-generated picks */}
       {tab === "picks" && <SystemResultsPanel sport={sportFilter} />}
@@ -1697,6 +1707,22 @@ export default function GooseModelAdminPage() {
           </button>
         ))}
       </div>
+
+      {tab !== "picks" && (
+        <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/30 px-4 py-3 text-xs text-gray-500">
+          {tab === "analytics"
+            ? "Analytics shows aggregated learning patterns across the active lab scope."
+            : tab === "signals"
+            ? "Signal weights ranks learned signal performance from graded lab picks."
+            : tab === "scorecard"
+            ? "Scorecard is the per-sport report card for signal quality and confidence."
+            : tab === "promotions"
+            ? "Promotions shows which lab picks are closest to production-worthy standards."
+            : tab === "performance"
+            ? "Performance summarizes historical outcomes from the currently loaded lab scope."
+            : "Logic notes is lightweight reference, not a primary workflow tab."}
+        </div>
+      )}
 
       {/* Result drill-down filter (visible in picks tab) */}
       {tab === "picks" && (
