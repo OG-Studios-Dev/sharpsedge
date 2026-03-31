@@ -1843,9 +1843,17 @@ export default function GooseModelAdminPage() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-dark-border bg-dark-surface p-5">
             <h3 className="text-lg font-semibold text-white mb-4">Win rate by sport</h3>
+            <p className="mb-4 text-xs text-gray-500">
+              Based on all loaded lab history for the selected sport filter, not just currently pending picks.
+            </p>
             <div className="space-y-3">
               {(["NHL", "NBA", "MLB", "PGA"] as const).map((sport) => {
-                const sp = picks.filter((p) => p.sport === sport && p.result !== "pending");
+                const sp = picks.filter(
+                  (p) =>
+                    p.sport === sport &&
+                    p.result !== "pending" &&
+                    (sportFilter === "ALL" || p.sport === sportFilter),
+                );
                 const wins = sp.filter((p) => p.result === "win").length;
                 const wr = sp.length > 0 ? wins / sp.length : 0;
                 return (
@@ -1856,7 +1864,7 @@ export default function GooseModelAdminPage() {
                     <div>
                       <p className="text-sm font-medium text-white">{sport}</p>
                       <p className="text-xs text-gray-500">
-                        {sp.length} settled · {wins}W
+                        {sp.length} settled · {wins}W{sportFilter !== "ALL" && sport !== sportFilter ? " · filtered out" : ""}
                       </p>
                     </div>
                     <p className={`text-lg font-bold ${winRateColor(wr)}`}>
