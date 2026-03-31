@@ -1556,7 +1556,7 @@ export default function GooseModelAdminPage() {
 
       {/* Stats row */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
           <StatCard
             label="Total picks"
             value={String(stats.total)}
@@ -1583,6 +1583,13 @@ export default function GooseModelAdminPage() {
             tone="text-gray-400"
             onClick={() => { setResultFilter("pending"); setTab("picks"); }}
             active={tab === "picks" && resultFilter === "pending"}
+          />
+          <StatCard
+            label="Pushes"
+            value={String(stats.pushes)}
+            tone="text-yellow-400"
+            onClick={() => { setResultFilter("push"); setTab("picks"); }}
+            active={tab === "picks" && resultFilter === "push"}
           />
           <StatCard
             label="Win rate"
