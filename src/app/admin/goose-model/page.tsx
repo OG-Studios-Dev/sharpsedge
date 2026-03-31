@@ -1646,7 +1646,7 @@ export default function GooseModelAdminPage() {
       <MLBLineupPanel date={date} />
 
       {/* System results ingestion — broader learning beyond lab-generated picks */}
-      <SystemResultsPanel sport={sportFilter} />
+      {tab === "picks" && <SystemResultsPanel sport={sportFilter} />}
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
@@ -1681,27 +1681,33 @@ export default function GooseModelAdminPage() {
       {tab === "picks" && (
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-xs text-gray-500">Result filter:</span>
-          {(["all", "win", "loss", "push", "pending"] as const).map((r) => (
-            <button
-              key={r}
-              onClick={() => setResultFilter(r)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                resultFilter === r
-                  ? r === "win"
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                    : r === "loss"
-                    ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
-                    : r === "push"
-                    ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-400"
-                    : r === "pending"
-                    ? "border-gray-500/40 bg-gray-500/10 text-gray-400"
-                    : "border-accent-blue/40 bg-accent-blue/10 text-accent-blue"
-                  : "border-dark-border text-gray-500 hover:text-gray-300"
-              }`}
-            >
-              {r === "all" ? `All (${picks.length})` : r}
-            </button>
-          ))}
+          {(["all", "win", "loss", "push", "pending"] as const).map((r) => {
+            const resultCount =
+              r === "all"
+                ? picks.length
+                : picks.filter((pick) => pick.result === r).length;
+            return (
+              <button
+                key={r}
+                onClick={() => setResultFilter(r)}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                  resultFilter === r
+                    ? r === "win"
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                      : r === "loss"
+                      ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
+                      : r === "push"
+                      ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-400"
+                      : r === "pending"
+                      ? "border-gray-500/40 bg-gray-500/10 text-gray-400"
+                      : "border-accent-blue/40 bg-accent-blue/10 text-accent-blue"
+                    : "border-dark-border text-gray-500 hover:text-gray-300"
+                }`}
+              >
+                {r === "all" ? `All (${resultCount})` : `${r} (${resultCount})`}
+              </button>
+            );
+          })}
           {resultFilter !== "all" && (
             <span className="text-xs text-gray-600 italic">
               Showing {filteredPicks.length} {resultFilter} pick{filteredPicks.length !== 1 ? "s" : ""}
