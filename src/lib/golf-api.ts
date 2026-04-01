@@ -326,6 +326,7 @@ const KNOWN_COURSES: Record<string, { course: string; location: string; par?: nu
   "travelers championship": { course: "TPC River Highlands", location: "Cromwell, CT", par: 70, yardage: 6841 },
   "rbc canadian open": { course: "Hamilton Golf & CC", location: "Hamilton, ON, Canada", par: 70, yardage: 6968 },
   "the cj cup byron nelson": { course: "TPC Craig Ranch", location: "McKinney, TX", par: 72, yardage: 7468 },
+  "valero texas open": { course: "TPC San Antonio (Oaks Course)", location: "San Antonio, TX", par: 72, yardage: 7494 },
   "charles schwab challenge": { course: "Colonial Country Club", location: "Fort Worth, TX", par: 70, yardage: 7209 },
   "rbc heritage": { course: "Harbour Town Golf Links", location: "Hilton Head, SC", par: 71, yardage: 7099 },
   "zurich classic of new orleans": { course: "TPC Louisiana", location: "Avondale, LA", par: 72, yardage: 7425 },
@@ -715,6 +716,7 @@ async function getGolfLeaderboard(tour: GolfTourKey): Promise<GolfLeaderboard | 
 const PGA_2026_FALLBACK: GolfTournament[] = [
   { id: "valspar-2026", name: "Valspar Championship", course: "Innisbrook Resort (Copperhead)", location: "Palm Harbor, FL", dates: "Mar 19 - Mar 22", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-03-19", endDate: "2026-03-22", current: true },
   { id: "texas-childrens-2026", name: "Texas Children's Houston Open", course: "Memorial Park Golf Course", location: "Houston, TX", dates: "Mar 26 - Mar 29", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-03-26", endDate: "2026-03-29", current: false },
+  { id: "valero-texas-open-2026", name: "Valero Texas Open", course: "TPC San Antonio (Oaks Course)", location: "San Antonio, TX", dates: "Apr 2 - Apr 5", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-04-02", endDate: "2026-04-05", current: false },
   { id: "masters-2026", name: "Masters Tournament", course: "Augusta National Golf Club", location: "Augusta, GA", dates: "Apr 9 - Apr 12", purse: "$20,000,000", status: "upcoming", tour: "PGA", startDate: "2026-04-09", endDate: "2026-04-12", current: false },
   { id: "rbc-heritage-2026", name: "RBC Heritage", course: "Harbour Town Golf Links", location: "Hilton Head Island, SC", dates: "Apr 17 - Apr 20", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-04-17", endDate: "2026-04-20", current: false },
   { id: "wells-fargo-2026", name: "Wells Fargo Championship", course: "Quail Hollow Club", location: "Charlotte, NC", dates: "May 7 - May 10", purse: "$9,700,000", status: "upcoming", tour: "PGA", startDate: "2026-05-07", endDate: "2026-05-10", current: false },
@@ -853,4 +855,53 @@ export async function getPGATournamentById(eventId: string) {
 
 export async function getPlayerTournamentHistory(playerId: string, limit = HISTORY_SCAN_LIMIT) {
   return getGolfPlayerTournamentHistory(playerId, "pga", limit);
+}
+
+// ─── Local Bovada Snapshot Reader ─────────────────────────────────────────────
+// Reads the most recent local golf-odds-snapshot file for a given tournament
+// slug substring. Used to surface pre-tournament odds on the golf page when
+// The Odds API / Supabase are unavailable. Server-only (uses fs).
+
+export interface LocalGolfOddsSnapshot {
+  tournament: string;
+  startDate: string;
+  scrapedAt: string;
+  source: string;
+  winner: Array<{ player: string; odds: number }>;
+  snapshotFile: string;
+}
+
+export async function getLocalMastersOddsSnapshot(): Promise<LocalGolfOddsSnapshot | null> {
+  try {
+    const { readdirSync, readFileSync, existsSync } = await import("fs");
+    const { join } = await import("path");
+    const dir = join(process.cwd(), "data", "golf-odds-snapshots");
+    if (!existsSync(dir)) return null;
+
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".json") && (f.includes("masters") || f.includes("the-masters")))
+      .sort()
+      .reverse(); // most recent first
+
+    if (files.length === 0) return null;
+    const file = files[0];
+    const raw = readFileSync(join(dir, file), "utf-8");
+    const parsed = JSON.parse(raw);
+    const snap = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (!snap) return null;
+
+    const winner: Array<{ player: string; odds: number }> =
+      Array.isArray(snap?.markets?.winner) ? snap.markets.winner : [];
+
+    return {
+      tournament: snap.tournament ?? "Masters Tournament",
+      startDate: snap.startDate ?? "2026-04-09",
+      scrapedAt: snap.scrapedAt ?? snap.snapshotDate ?? "",
+      source: snap.source ?? "bovada",
+      winner,
+      snapshotFile: file,
+    };
+  } catch {
+    return null;
+  }
 }

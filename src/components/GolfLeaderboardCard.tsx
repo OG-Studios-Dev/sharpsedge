@@ -7,8 +7,9 @@ import { LeaderboardSkeleton } from "@/components/LoadingSkeleton";
 function scoreTone(score: string) {
   if (score === "CUT") return "text-red-400";
   if (score === "E") return "text-white";
-  if (score.startsWith("-")) return "text-red-500";
-  if (score.startsWith("+")) return "text-gray-400";
+  // In golf, negative = under par = good (green), positive = over par = bad (red)
+  if (score.startsWith("-")) return "text-emerald-400";
+  if (score.startsWith("+")) return "text-red-400";
   return "text-white";
 }
 
@@ -58,8 +59,14 @@ export default function GolfLeaderboardCard({
               {typeof tournament.coursePar === "number" ? ` · Par ${tournament.coursePar}` : ""}
             </p>
           </div>
-          <span className="rounded-full bg-red-600 px-2.5 py-1 text-[11px] font-bold text-white">
-            {leaderboard.statusBadge ?? "R4"}
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold text-white ${
+            leaderboard.statusBadge === "LIVE" || leaderboard.statusBadge?.startsWith("R")
+              ? "bg-emerald-600"
+              : leaderboard.statusBadge === "Final"
+                ? "bg-gray-600"
+                : "bg-blue-700"
+          }`}>
+            {leaderboard.statusBadge ?? "Live"}
           </span>
         </div>
       </div>
