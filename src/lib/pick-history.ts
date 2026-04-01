@@ -15,7 +15,10 @@ function roundToTwo(value: number) {
 
 export function computePickHistorySummary(records: PickHistoryRecord[]): PickHistorySummary {
   const summary = records.reduce<PickHistorySummary>((acc, record) => {
-    const units = typeof record.units === "number" && Number.isFinite(record.units) ? record.units : 1;
+    // Always treat units as a positive stake. Negative values (e.g. -1) are a
+    // data anomaly where P&L was stored instead of the stake amount. Clamping to
+    // a minimum of 1 prevents double-negatives in the loss calculation below.
+    const units = typeof record.units === "number" && Number.isFinite(record.units) && record.units > 0 ? record.units : 1;
     const odds = typeof record.odds === "number" ? record.odds : undefined;
 
     if (record.result === "win") {

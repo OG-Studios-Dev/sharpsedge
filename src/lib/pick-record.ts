@@ -32,7 +32,10 @@ function calculatePayout(odds: number | undefined, units: number): number {
 
 export function computePickRecord(picks: AIPick[]): PickRecord {
   return picks.reduce<PickRecord>((record, pick) => {
-    const units = pick.units || 1;
+    // Clamp units to a positive stake value. Negative units are a data anomaly
+    // (P&L stored instead of stake). A negative stake would double-negate the
+    // loss calculation, inflating profit by 2× per affected pick.
+    const units = typeof pick.units === "number" && pick.units > 0 ? pick.units : 1;
 
     if (pick.result === "win") {
       record.wins += 1;
