@@ -45,13 +45,13 @@ export const GOOSE_MODEL_VERSION = "goose-v1";
 // ── Production thresholds ────────────────────────────────────
 export const PROD_HIT_RATE_FLOOR = 65;
 export const PROD_EDGE_FLOOR     = 5;
-// Volume policy (Marco 2026-03-29):
-//   No forced minimum. Soft ceiling = 5 picks per sport per day.
-//   Hard max = 7, only when picks with edge ≥ PROD_STRONG_EDGE_FLOOR fill
-//   the band — genuinely strong edges justify extra volume.
-export const PROD_TOP_N          = 5;   // soft ceiling
-export const PROD_HARD_MAX       = 7;   // absolute max (strong-edge exception)
-export const PROD_STRONG_EDGE_FLOOR = 15; // % edge required to trigger hard max
+// Volume policy (Marco 2026-04-01, production tightening):
+//   Hard max = 3 picks per sport per day. No expansion, no exceptions.
+//   Below 65% hit rate never reaches production.
+//   Strong-edge expansion path removed — production is tight and trust-first.
+export const PROD_TOP_N          = 3;   // hard ceiling: 3 picks per sport per day
+export const PROD_HARD_MAX       = 3;   // same — no expansion path exists
+export const PROD_STRONG_EDGE_FLOOR = 15; // retained for sandbox scoring only — NOT used for volume expansion
 
 // ── Sandbox thresholds (wider net — captures borderline picks so the
 //    signal-weight engine learns what thresholds actually matter) ──────
@@ -668,20 +668,11 @@ export async function generateGoosePicks(
   // Attach experiment tag to each scored candidate for downstream use
   const taggedScored = scored.map((c) => ({ ...c, _experimentTag: experimentTag }));
 
-  // ── Volume policy (Marco 2026-03-29) ─────────────────────────
+  // ── Volume policy (Marco 2026-04-01, production tightening) ──────────
   // No forced minimum — zero picks is valid when no genuine edges exist.
-  // Soft ceiling: PROD_TOP_N (5). Hard max: PROD_HARD_MAX (7), only when
-  // enough qualifying picks clear PROD_STRONG_EDGE_FLOOR (15% edge).
-  const softCap = opts.topN ?? (sandbox ? SANDBOX_TOP_N : PROD_TOP_N);
-  let effectiveCap = softCap;
-  if (!sandbox) {
-    const strongEdgeCount = taggedScored.filter(
-      (c) => typeof c.edge === "number" && c.edge >= PROD_STRONG_EDGE_FLOOR,
-    ).length;
-    if (strongEdgeCount >= softCap) {
-      effectiveCap = Math.max(softCap, PROD_HARD_MAX);
-    }
-  }
+  // Production: hard max = PROD_TOP_N (3). No expansion path. No exceptions.
+  // Sandbox: uses SANDBOX_TOP_N (10) for broader data collection.
+  const effectiveCap = opts.topN ?? (sandbox ? SANDBOX_TOP_N : PROD_TOP_N);
 
   const selected = taggedScored.slice(0, effectiveCap);
 

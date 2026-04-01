@@ -7,7 +7,7 @@
  * Body: {
  *   date: string;
  *   sport: "NHL" | "NBA" | "MLB" | "PGA";
- *   topN?: number;                // default 5 (prod) or 10 (sandbox)
+ *   topN?: number;                // default 3 (prod) or 10 (sandbox)
  *   dry_run?: boolean;            // if true, returns picks but doesn't persist
  *   sandbox?: boolean;            // use relaxed thresholds (55% hitRate, 3% edge, top 10)
  *   experiment_tag?: string;      // default "baseline-v1" in sandbox mode
@@ -29,6 +29,7 @@ import {
   SANDBOX_TOP_N,
   SANDBOX_EXPERIMENT_TAG,
   SANDBOX_ODDS_CAP,
+  PROD_TOP_N,
 } from "@/lib/goose-model/generator";
 import type { AIPick } from "@/lib/types";
 
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     const isSandbox = body.sandbox ?? false;
     const isDryRun = body.dry_run ?? false;
     const experimentTag = body.experiment_tag ?? (isSandbox ? SANDBOX_EXPERIMENT_TAG : null);
-    const topN = body.topN ?? (isSandbox ? SANDBOX_TOP_N : 5);
+    const topN = body.topN ?? (isSandbox ? SANDBOX_TOP_N : PROD_TOP_N);
     const requestOrigin = req.nextUrl.origin;
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestOrigin || "http://localhost:3000";
 

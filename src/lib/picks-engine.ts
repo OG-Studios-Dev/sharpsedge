@@ -341,48 +341,26 @@ function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): Scor
 }
 
 // ── Production quality floors (V1 user-facing picks) ─────────────────────────
-// hitRate floor: 65% hard minimum (no streak exception — 60% picks were slipping through daily)
-// edge floor: 10% minimum model edge over implied odds
+// hitRate floor: 65% hard minimum. Below 65 never reaches production — no exceptions.
+// edge floor: 10% minimum model edge over implied odds.
 // These gates apply to NHL, NBA, and MLB picks equally.
 const V1_HIT_RATE_FLOOR = 65;
 const V1_EDGE_FLOOR = 10;
 
-// ── Volume policy (Marco 2026-03-29) ─────────────────────────────────────────
-// Goal: profitable in every sport with 70%+ hit rate. Spray hurts this.
+// ── Volume policy (Marco 2026-04-01, production tightening) ──────────────────
+// Goal: tight, trust-first production slate. Quality over quantity.
 //
 // Rules:
 //   - No forced minimum. Zero picks is a valid output when no genuine edges exist.
-//   - Soft ceiling: 5 picks/sport/day (SOFT_MAX_PLAYER player props + SOFT_MAX_TEAM team trends).
-//   - Hard max: 7 picks. Only reached when ≥ (SOFT_MAX_PLAYER + SOFT_MAX_TEAM) picks each
-//     clear the STRONG_EDGE_FLOOR (15% edge). Strong-edge qualifying picks justify extra volume.
-//   - The old fill-to-3 loop is removed. No padding from a wider pool to hit a target.
-const SOFT_MAX_PLAYER = 3;    // default player prop picks ceiling
-const SOFT_MAX_TEAM   = 2;    // default team trend picks ceiling
-const HARD_MAX_PLAYER = 4;    // hard-max player props (strong-edge exception)
-const HARD_MAX_TEAM   = 3;    // hard-max team trends (strong-edge exception)
-const STRONG_EDGE_FLOOR = 15; // edge % threshold to qualify as a "strong edge" pick
-
-/**
- * Calculate how many player and team picks to target for this slate.
- * Returns soft defaults unless enough strong-edge picks are present to justify
- * pushing to the hard max.
- */
-function pickVolumeTargets(
-  scoredProps: ScoredPlayerProp[],
-  scoredTrends: ScoredTeamTrend[],
-): { playerTarget: number; teamTarget: number } {
-  const allQualified: Array<{ edge?: number }> = [...scoredProps, ...scoredTrends];
-  const strongEdgeCount = allQualified.filter(
-    (p) => normalizePercentValue(p.edge) >= STRONG_EDGE_FLOOR,
-  ).length;
-
-  // Only expand to hard max when enough genuinely strong picks are present
-  const softTotal = SOFT_MAX_PLAYER + SOFT_MAX_TEAM;
-  if (strongEdgeCount >= softTotal) {
-    return { playerTarget: HARD_MAX_PLAYER, teamTarget: HARD_MAX_TEAM };
-  }
-  return { playerTarget: SOFT_MAX_PLAYER, teamTarget: SOFT_MAX_TEAM };
-}
+//   - HARD MAX: 3 picks per sport per day — no exceptions, no strong-edge expansion.
+//   - Split: up to 2 player props + up to 1 team trend = 3 total.
+//   - The old soft/hard/strong-edge expansion logic is removed.
+//   - System lab / sandbox runs with a wider intake (55% / 3% floors, top 10).
+//     Production and system lab are strictly separate pipelines.
+const PROD_MAX_PLAYER = 2;   // player prop picks — hard ceiling
+const PROD_MAX_TEAM   = 1;   // team trend picks  — hard ceiling
+// Combined hard maximum: PROD_MAX_PLAYER + PROD_MAX_TEAM = 3 picks per sport per day.
+export const PROD_MAX_PICKS_PER_SPORT = PROD_MAX_PLAYER + PROD_MAX_TEAM;
 
 export function selectTopPicks(
   props: PlayerProp[],
@@ -416,17 +394,16 @@ export function selectTopPicks(
   // No forced minimum — zero is valid when nothing qualifies.
   if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
 
-  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
-  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
-
-  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
-  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+  // Hard max: 3 picks per sport per day (2 player + 1 team). No expansion.
+  const playerPicks = selectVariedPlayerPicks(scoredProps, PROD_MAX_PLAYER);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, PROD_MAX_TEAM);
 
   const picks: AIPick[] = [];
   for (const p of playerPicks) picks.push(playerPickToAIPick(p, date));
   for (const t of teamPicks) picks.push(teamTrendToAIPick(t, date));
 
-  return picks;
+  // Belt-and-suspenders: never exceed the hard max, regardless of split logic above.
+  return picks.slice(0, PROD_MAX_PICKS_PER_SPORT);
 }
 
 export function selectNBATopPicks(
@@ -457,11 +434,9 @@ export function selectNBATopPicks(
   // No forced minimum — zero is valid when nothing qualifies.
   if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
 
-  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
-  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
-
-  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
-  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+  // Hard max: 3 picks per sport per day (2 player + 1 team). No expansion.
+  const playerPicks = selectVariedPlayerPicks(scoredProps, PROD_MAX_PLAYER);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, PROD_MAX_TEAM);
 
   const picks: AIPick[] = [];
   for (const p of playerPicks) {
@@ -475,7 +450,8 @@ export function selectNBATopPicks(
     picks.push(pick);
   }
 
-  return picks;
+  // Belt-and-suspenders: never exceed the hard max.
+  return picks.slice(0, PROD_MAX_PICKS_PER_SPORT);
 }
 
 export function selectMLBTopPicks(
@@ -512,12 +488,10 @@ export function selectMLBTopPicks(
   // No forced minimum — zero is valid when nothing qualifies.
   if (scoredProps.length === 0 && scoredTrends.length === 0) return [];
 
-  // Dynamic volume: soft band (3p + 2t = 5) or hard max (4p + 3t = 7) on strong edges.
-  const { playerTarget, teamTarget } = pickVolumeTargets(scoredProps, scoredTrends);
-
-  const playerPicks = selectVariedPlayerPicks(scoredProps, playerTarget);
+  // Hard max: 3 picks per sport per day (2 player + 1 team). No expansion.
+  const playerPicks = selectVariedPlayerPicks(scoredProps, PROD_MAX_PLAYER);
   // MLB team picks use direct slice (no conflict-key dedup needed here — dedup is in scoring).
-  const teamPicks = selectDistinctTeamPicks(scoredTrends, teamTarget);
+  const teamPicks = selectDistinctTeamPicks(scoredTrends, PROD_MAX_TEAM);
 
   const picks: AIPick[] = [];
   for (const prop of playerPicks) {
@@ -531,5 +505,6 @@ export function selectMLBTopPicks(
     picks.push(pick);
   }
 
-  return picks;
+  // Belt-and-suspenders: never exceed the hard max.
+  return picks.slice(0, PROD_MAX_PICKS_PER_SPORT);
 }
