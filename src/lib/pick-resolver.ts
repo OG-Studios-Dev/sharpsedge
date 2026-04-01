@@ -434,8 +434,17 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
   const game = await fetchMLBScheduleGame(gameId, pick.date);
   if (!game || !isMLBGameComplete(game)) return "pending";
 
-  const homeAbbrev = normalizeMLBTeam(game?.teams?.home?.team?.abbreviation);
-  const awayAbbrev = normalizeMLBTeam(game?.teams?.away?.team?.abbreviation);
+  // Fetch boxscore for accurate team abbreviations.
+  // The schedule API endpoint (/schedule?date=…) does NOT include team.abbreviation —
+  // only team.name and team.id. Without abbreviations we cannot determine isAway for
+  // road picks (e.g. "NYY Win ML (Road)"). The boxscore endpoint always has abbreviation.
+  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${gameId}/boxscore`);
+  const homeAbbrev = normalizeMLBTeam(
+    boxscore?.teams?.home?.team?.abbreviation || game?.teams?.home?.team?.abbreviation
+  );
+  const awayAbbrev = normalizeMLBTeam(
+    boxscore?.teams?.away?.team?.abbreviation || game?.teams?.away?.team?.abbreviation
+  );
   const targetTeam = normalizeMLBTeam(pick.team);
   const isAway = targetTeam === awayAbbrev ? true : targetTeam === homeAbbrev ? false : pick.isAway;
   const homeScore = toNumber(game?.teams?.home?.score);
@@ -444,9 +453,16 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
   const oppScore = isAway ? homeScore : awayScore;
   const margin = teamScore - oppScore;
 
-  if (pick.betType === "Run Line") {
-    const line = parseMLBLine(pick.line);
-    if (line === undefined) {
+  // Run Line — handles "Run Line" (from updated normalizeIncomingPick for "run line" labels),
+  // "Spread" (from old inference path), and any remaining unlabeled pick with a +/- in the label.
+  // In MLB the only spread-type bet is the run line, so all three are equivalent.
+  const isRunLineBet = pick.betType === "Run Line"
+    || pick.betType === "Spread"
+    || String(pick.pickLabel || "").toLowerCase().includes("run line");
+  if (isRunLineBet) {
+    // parseTeamSpreadLine extracts the numeric line from the label when pick.line is unset
+    const line = parseMLBLine(pick.line) ?? parseTeamSpreadLine(pick);
+    if (line == null) {
       logResolverIssue(pick, "mlb_run_line_missing_line");
       return "pending";
     }
@@ -456,14 +472,21 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
     return "push";
   }
 
-  if (pick.betType === "Total Runs O/U") {
-    const line = parseMLBLine(pick.line);
-    if (line === undefined) {
+  // Total Runs O/U — also handles "Team Points O/U", which is what normalizeIncomingPick
+  // infers when the pick label contains "over" or "under" for a team bet.
+  if (pick.betType === "Total Runs O/U" || pick.betType === "Team Points O/U") {
+    let line = parseMLBLine(pick.line);
+    if (line == null) {
+      // Extract numeric line from label: e.g. "CHC Over 7" → 7, "MIA Under 11.5" → 11.5
+      const labelMatch = pick.pickLabel.match(/(?:over|under)\s+(\d+(?:\.\d+)?)/i);
+      if (labelMatch) line = parseFloat(labelMatch[1]);
+    }
+    if (line == null) {
       logResolverIssue(pick, "mlb_total_missing_line");
       return "pending";
     }
     const totalRuns = homeScore + awayScore;
-    const side = pick.pickLabel.includes("Under") ? "Under" : "Over";
+    const side = pick.pickLabel.toLowerCase().includes("under") ? "Under" : "Over";
     if (side === "Under") {
       if (totalRuns < line) return "win";
       if (totalRuns > line) return "loss";
@@ -474,7 +497,10 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
     return "push";
   }
 
-  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak"].includes(pick.betType || "")) {
+  // Win ML — also handles "H2H ML", which is what normalizeIncomingPick infers
+  // for any pick label containing "win ml" (e.g. "STL Win ML", "NYY Win ML (Road)").
+  // NHL and NBA resolvers already include "H2H ML"; MLB was missing it.
+  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak", "H2H ML"].includes(pick.betType || "")) {
     if (teamScore > oppScore) return "win";
     if (teamScore < oppScore) return "loss";
     return "push";
@@ -625,7 +651,11 @@ export function normalizeIncomingPick(raw: AIPick): AIPick {
   const inferredBetType = raw.betType || (() => {
     const lower = pickLabel.toLowerCase();
     if (lower.includes("win ml") || /\bh2h\b/.test(lower)) return "H2H ML";
-    if (lower.includes("spread") || /\b[+-]\d+(?:\.\d+)?\b/.test(pickLabel)) return "Spread";
+    // "run line" labels (e.g. "STL -1.5 Run Line") — detected by text before regex
+    // Note: /\b[+-]\d+/ does NOT match " -1.5" because '\b' requires a word boundary
+    // that doesn't exist before '-'. Text detection is more reliable here.
+    if (lower.includes("run line")) return "Run Line";
+    if (lower.includes("spread") || /(?:^|\s)[+-]\d+(?:\.\d+)?(?:\s|$)/.test(pickLabel)) return "Spread";
     if (lower.includes("over") || lower.includes("under")) return type === "team" ? "Team Points O/U" : undefined;
     return undefined;
   })();
