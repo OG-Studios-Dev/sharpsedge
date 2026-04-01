@@ -43,8 +43,27 @@ const SUPABASE_URL = () => getEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SUPABASE_KEY = () => getEnv("SUPABASE_SERVICE_ROLE_KEY");
 const ODDS_API_KEY = () => getEnv("ODDS_API_KEY");
 
-// Masters sport key for The Odds API
+// Masters sport key for The Odds API (majors only — Valero and regular PGA events are NOT covered)
 const MASTERS_SPORT_KEY = "golf_masters_tournament_winner";
+
+// Tournament slug → local snapshot file matching patterns
+const TOURNAMENT_FILE_PATTERNS: Record<string, string[]> = {
+  masters: ["masters", "the-masters"],
+  "the-masters": ["masters", "the-masters"],
+  valero: ["valero", "valero-texas-open"],
+  "valero-texas-open": ["valero", "valero-texas-open"],
+  houston: ["houston"],
+  "rbc-heritage": ["rbc-heritage", "rbc"],
+};
+
+// Tournaments where The Odds API has a dedicated winner sport key (majors only)
+const ODDS_API_SPORT_KEYS: Record<string, string> = {
+  masters: "golf_masters_tournament_winner",
+  "the-masters": "golf_masters_tournament_winner",
+  "pga-championship": "golf_pga_championship_winner",
+  "us-open": "golf_us_open_winner",
+  "the-open": "golf_the_open_championship_winner",
+};
 
 // ─── Supabase helpers ─────────────────────────────────────────────────────────
 
@@ -134,16 +153,28 @@ async function readBovadaFinishSnapshot(): Promise<FinishOddsSnapshot | null> {
   }
 }
 
-// Also try local file snapshot (dev fallback)
-async function readLocalBovadaSnapshot(): Promise<FinishOddsSnapshot | null> {
+/**
+ * Read local Bovada snapshot for a given tournament slug.
+ * Supports Masters, Valero Texas Open, and any other tournament with a local file.
+ *
+ * If the snapshot has explicit top5/10/20 lines → returns those directly.
+ * If the snapshot only has winner odds (common for weekly PGA Tour events like Valero)
+ * → derives provisional finish-market odds from winner probability scaling.
+ * This is HONEST: the source_label clearly states it is derived from Bovada winner odds.
+ */
+async function readLocalBovadaSnapshot(tournament: string): Promise<FinishOddsSnapshot | null> {
   try {
     const { readdirSync, readFileSync, existsSync } = await import("fs");
     const { join } = await import("path");
     const dir = join(process.cwd(), "data", "golf-odds-snapshots");
     if (!existsSync(dir)) return null;
 
+    // Resolve matching file patterns for this tournament
+    const tournamentKey = tournament.toLowerCase();
+    const patterns = TOURNAMENT_FILE_PATTERNS[tournamentKey] ?? [tournamentKey];
+
     const files = readdirSync(dir)
-      .filter((f) => f.endsWith(".json") && (f.includes("masters") || f.includes("the-masters")))
+      .filter((f) => f.endsWith(".json") && patterns.some((p) => f.includes(p)))
       .sort()
       .reverse();
 
@@ -155,38 +186,63 @@ async function readLocalBovadaSnapshot(): Promise<FinishOddsSnapshot | null> {
     if (!parsed) return null;
 
     const markets = parsed.markets ?? {};
-    const top5 = markets.top5 ?? [];
-    const top10 = markets.top10 ?? [];
-    const top20 = markets.top20 ?? [];
-
-    if (top5.length === 0 && top10.length === 0 && top20.length === 0) return null;
+    const top5: Array<{ player: string; odds: number }> = markets.top5 ?? [];
+    const top10: Array<{ player: string; odds: number }> = markets.top10 ?? [];
+    const top20: Array<{ player: string; odds: number }> = markets.top20 ?? [];
+    const winnerLines: Array<{ player: string; odds: number }> = markets.winner ?? [];
 
     const makeLines = (
       arr: Array<{ player: string; odds: number }>,
       market: "top5" | "top10" | "top20",
+      labelSuffix = "",
     ): FinishOddsLine[] =>
       arr.map((e) => ({
         player: e.player,
         market,
         odds: e.odds,
         impliedProb: americanToImplied(e.odds),
-        source: "bovada-snapshot",
-        source_label: "Bovada (local snapshot)",
-        captured_at: parsed.scrapedAt,
-        tournament: parsed.tournament,
+        source: "bovada-snapshot" as const,
+        source_label: `Bovada (local snapshot)${labelSuffix}`,
+        captured_at: parsed.scrapedAt as string,
+        tournament: (parsed.tournament as string) ?? tournament,
         book: "Bovada",
       }));
 
-    return {
-      tournament: parsed.tournament,
-      generatedAt: parsed.scrapedAt,
-      source: "bovada-snapshot",
-      source_label: "Bovada (local snapshot)",
-      limitation: null,
-      top5: makeLines(top5, "top5"),
-      top10: makeLines(top10, "top10"),
-      top20: makeLines(top20, "top20"),
-    };
+    // Case 1: snapshot has explicit finish-market lines
+    if (top5.length > 0 || top10.length > 0 || top20.length > 0) {
+      return {
+        tournament: (parsed.tournament as string) ?? tournament,
+        generatedAt: parsed.scrapedAt as string,
+        source: "bovada-snapshot",
+        source_label: "Bovada (local snapshot)",
+        limitation: null,
+        top5: makeLines(top5, "top5"),
+        top10: makeLines(top10, "top10"),
+        top20: makeLines(top20, "top20"),
+      };
+    }
+
+    // Case 2: only winner odds available (e.g. Valero Texas Open — Bovada posts winner
+    // market only for most regular PGA Tour events pre-tournament).
+    // Derive provisional Top 5/10/20 from winner probability scaling.
+    // Honest label: caller will see source_label clearly states derivation.
+    if (winnerLines.length > 0) {
+      const sorted = [...winnerLines].sort((a, b) => a.odds - b.odds);
+      const players = sorted.map((p) => ({
+        player: p.player,
+        bestOdds: p.odds,
+        allOdds: [p.odds],
+      }));
+      const provisional = deriveProvisionalFinishOdds(players, (parsed.tournament as string) ?? tournament);
+      // Override source metadata to reflect Bovada winner origin
+      return {
+        ...provisional,
+        source: "bovada-snapshot",
+        source_label: `Bovada winner odds → provisional finish markets (${winnerLines.length} players, snapped ${(parsed.scrapedAt as string)?.slice(0, 10) ?? "unknown"})`,
+      };
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -212,9 +268,29 @@ async function buildProvisionalFromOddsApi(tournament: string): Promise<FinishOd
     };
   }
 
+  // The Odds API only covers majors — Valero and regular PGA Tour events are not available.
+  const sportKey = ODDS_API_SPORT_KEYS[tournament.toLowerCase()] ?? null;
+  if (!sportKey) {
+    return {
+      tournament,
+      generatedAt: new Date().toISOString(),
+      source: "provisional",
+      source_label: "Provisional / Reference Market Odds",
+      limitation:
+        `The Odds API does not carry finish-market lines for '${tournament}'. ` +
+        "Only majors (Masters, PGA Championship, US Open, The Open) are covered. " +
+        "For the Valero Texas Open and other PGA Tour events: " +
+        "use POST /api/golf/finish-market-odds with real DraftKings/book lines, " +
+        "or refresh Bovada snapshot via /api/golf/odds-snapshot.",
+      top5: [],
+      top10: [],
+      top20: [],
+    };
+  }
+
   try {
     const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${MASTERS_SPORT_KEY}/odds?apiKey=${apiKey}&regions=us,uk,eu,au&markets=outrights&oddsFormat=american`,
+      `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us,uk,eu,au&markets=outrights&oddsFormat=american`,
       { next: { revalidate: 1800 } }, // 30-min cache
     );
 
@@ -351,8 +427,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Priority 3: local Bovada snapshot (dev)
-  const bovadaLocal = await readLocalBovadaSnapshot();
+  // Priority 3: local Bovada snapshot (dev/prod fallback) — supports Valero, Masters, and other tournaments
+  const bovadaLocal = await readLocalBovadaSnapshot(tournament);
   if (bovadaLocal) {
     return NextResponse.json({
       ...bovadaLocal,
@@ -377,12 +453,31 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST: ingest manually captured Oddschecker data
+/**
+ * POST /api/golf/finish-market-odds
+ *
+ * Manual ingest of real book lines (DraftKings, Oddschecker, FanDuel, etc.).
+ * Use this to inject live Top 5/Top 10 finish-market odds for any tournament
+ * including the Valero Texas Open where automated sources are not available.
+ *
+ * Example body for Valero DraftKings lines:
+ * {
+ *   "source": "draftkings-manual",
+ *   "tournament": "valero-texas-open",
+ *   "book": "DraftKings",
+ *   "markets": {
+ *     "top5":  [{ "player": "Ludvig Aberg", "odds": 260 }, ...],
+ *     "top10": [{ "player": "Ludvig Aberg", "odds": 115 }, ...],
+ *     "top20": [{ "player": "Ludvig Aberg", "odds": -200 }, ...]
+ *   }
+ * }
+ */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
       source?: string;
       tournament?: string;
+      book?: string; // e.g. "DraftKings", "FanDuel", "Oddschecker"
       markets?: {
         top5?: Array<{ player: string; odds: number }>;
         top10?: Array<{ player: string; odds: number }>;
@@ -399,6 +494,8 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
     const source = (body.source ?? "oddschecker-manual") as FinishOddsSnapshot["source"];
+    const bookName = body.book ?? (source.includes("draftkings") ? "DraftKings" : null);
+    const sourceDisplay = bookName ? `${bookName} (manual capture)` : "Manual capture (book line)";
 
     const makeLines = (
       arr: Array<{ player: string; odds: number }>,
@@ -410,17 +507,17 @@ export async function POST(req: NextRequest) {
         odds: e.odds,
         impliedProb: americanToImplied(e.odds),
         source,
-        source_label: "Oddschecker (manual capture)",
+        source_label: sourceDisplay,
         captured_at: now,
         tournament: body.tournament!,
-        book: null,
+        book: bookName,
       }));
 
     const snapshot: FinishOddsSnapshot = {
       tournament: body.tournament,
       generatedAt: now,
       source,
-      source_label: "Oddschecker (manual capture)",
+      source_label: sourceDisplay,
       limitation: null,
       top5: makeLines(body.markets.top5 ?? [], "top5"),
       top10: makeLines(body.markets.top10 ?? [], "top10"),
