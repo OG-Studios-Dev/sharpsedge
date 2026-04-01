@@ -57,7 +57,7 @@ export interface FinishOddsLine {
   odds: number;
   /** Implied probability after vig removal */
   impliedProb: number;
-  source: "oddschecker-manual" | "provisional" | "bovada-snapshot";
+  source: "oddschecker-manual" | "draftkings-manual" | "provisional" | "bovada-snapshot";
   source_label: string;
   captured_at: string;
   tournament: string;
@@ -67,7 +67,7 @@ export interface FinishOddsLine {
 export interface FinishOddsSnapshot {
   tournament: string;
   generatedAt: string;
-  source: "oddschecker-manual" | "provisional" | "bovada-snapshot";
+  source: "oddschecker-manual" | "draftkings-manual" | "provisional" | "bovada-snapshot";
   source_label: string;
   limitation: string | null;
   top5: FinishOddsLine[];

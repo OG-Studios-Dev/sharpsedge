@@ -73,8 +73,9 @@ async function readManualInjection(tournament: string): Promise<FinishOddsSnapsh
   if (!url || !key) return null;
 
   try {
+    // Accept both oddschecker-manual and draftkings-manual sources
     const res = await fetch(
-      `${url}/rest/v1/pga_finish_odds?tournament=eq.${encodeURIComponent(tournament)}&source=eq.oddschecker-manual&order=captured_at.desc&limit=1`,
+      `${url}/rest/v1/pga_finish_odds?tournament=eq.${encodeURIComponent(tournament)}&source=in.(oddschecker-manual,draftkings-manual)&order=captured_at.desc&limit=1`,
       {
         headers: { apikey: key, Authorization: `Bearer ${key}` },
         cache: "no-store",
@@ -148,6 +149,29 @@ async function readBovadaFinishSnapshot(): Promise<FinishOddsSnapshot | null> {
       top10: makeLines(top10, "top10"),
       top20: makeLines(top20, "top20"),
     };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read local DraftKings manual seed for a given tournament slug.
+ * File path: data/manual-dk-seeds/{tournament}.json
+ * These are manually captured DraftKings finish-market lines (Top 5 / Top 10).
+ * This is Priority 1 — takes precedence over all automated sources.
+ */
+async function readLocalDKSeed(tournament: string): Promise<FinishOddsSnapshot | null> {
+  try {
+    const { readFileSync, existsSync } = await import("fs");
+    const { join } = await import("path");
+    const filePath = join(process.cwd(), "data", "manual-dk-seeds", `${tournament.toLowerCase()}.json`);
+    if (!existsSync(filePath)) return null;
+
+    const raw = readFileSync(filePath, "utf-8");
+    const parsed = JSON.parse(raw) as FinishOddsSnapshot;
+    if (!parsed || !parsed.source || !parsed.top5) return null;
+
+    return parsed;
   } catch {
     return null;
   }
@@ -399,7 +423,20 @@ export async function GET(req: NextRequest) {
     await scrapeOddscheckerFinishMarkets(tournament);
   const hasOddschecker = ocLines.length > 0;
 
-  // Priority 1: manual injection in Supabase
+  // Priority 1: local DK manual seed (repo-side file, highest fidelity for Valero etc.)
+  const dkSeed = await readLocalDKSeed(tournament);
+  if (dkSeed) {
+    return NextResponse.json({
+      ...dkSeed,
+      _meta: {
+        source_priority: "dk-local-seed",
+        oddschecker_status: hasOddschecker ? "ok" : "blocked",
+        oddschecker_limitation: ocLimitation,
+      },
+    });
+  }
+
+  // Priority 2: manual injection in Supabase (oddschecker-manual or draftkings-manual)
   if (!hasOddschecker) {
     const manual = await readManualInjection(tournament);
     if (manual) {
@@ -414,7 +451,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Priority 2: Bovada snapshot with finish lines (Supabase)
+  // Priority 3: Bovada snapshot with finish lines (Supabase)
   const bovadaDb = await readBovadaFinishSnapshot();
   if (bovadaDb) {
     return NextResponse.json({
@@ -427,7 +464,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Priority 3: local Bovada snapshot (dev/prod fallback) — supports Valero, Masters, and other tournaments
+  // Priority 4: local Bovada snapshot (dev/prod fallback) — supports Valero, Masters, and other tournaments
   const bovadaLocal = await readLocalBovadaSnapshot(tournament);
   if (bovadaLocal) {
     return NextResponse.json({
@@ -440,7 +477,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Priority 4: provisional from The Odds API multi-book winner consensus
+  // Priority 5: provisional from The Odds API multi-book winner consensus
   const provisional = await buildProvisionalFromOddsApi(tournament);
 
   return NextResponse.json({
@@ -493,7 +530,7 @@ export async function POST(req: NextRequest) {
     }
 
     const now = new Date().toISOString();
-    const source = (body.source ?? "oddschecker-manual") as FinishOddsSnapshot["source"];
+    const source = (body.source ?? "draftkings-manual") as FinishOddsSnapshot["source"];
     const bookName = body.book ?? (source.includes("draftkings") ? "DraftKings" : null);
     const sourceDisplay = bookName ? `${bookName} (manual capture)` : "Manual capture (book line)";
 
