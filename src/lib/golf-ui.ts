@@ -14,12 +14,14 @@ function normalizeTournamentName(value?: string) {
 }
 
 export function isGolfMajor(name?: string) {
-  const normalized = normalizeTournamentName(name);
+  // Strip trailing 4-digit year (e.g. "The Masters 2026" → "the masters")
+  const normalized = normalizeTournamentName(name).replace(/\s+\d{4}$/, "").trim();
   return normalized === "masters tournament"
     || normalized === "the masters"
     || normalized === "masters"
     || normalized === "pga championship"
     || normalized === "u s open"
+    || normalized === "us open"
     || normalized === "the open"
     || normalized === "open championship"
     || normalized === "the open championship";

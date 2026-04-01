@@ -104,7 +104,7 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
         />
 
         {/* Masters deep-dive analysis — only on Masters tournament page */}
-        {isGolfMajor(tournament.name) && (tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds ? (
+        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : null}
       </div>

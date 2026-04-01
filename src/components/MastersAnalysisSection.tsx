@@ -69,7 +69,7 @@ const TIER_1: TierPlayer[] = [
   {
     name: "Jon Rahm",
     odds: 1200,
-    note: "Defending Masters champion. One of the best iron players alive. Augusta fits his game perfectly.",
+    note: "2023 Masters champion. One of the best iron players alive. Augusta fits his game perfectly — course knowledge and iron play are elite.",
     tag: "value",
   },
   {
@@ -163,13 +163,13 @@ const H2H_ANGLES = [
   {
     label: "Rahm vs DeChambeau",
     edge: "Rahm",
-    note: "Both +1200. Defending champion vs. a player who has historically struggled at Augusta. Rahm's iron play and course comfort are dramatically superior.",
+    note: "Both +1200. 2023 Masters champion vs. a player who has historically struggled at Augusta. Rahm's iron play and course comfort are dramatically superior.",
     strength: "strong",
   },
   {
     label: "Spieth vs Cameron Young",
     edge: "Spieth",
-    note: "Spieth is a 2.2× underdog (+4000 vs +2200) with a win and two runner-up finishes here. Young has zero Augusta track record.",
+    note: "Spieth is an ~1.8× underdog (+4000 vs +2200) with a win and two runner-up finishes here. Young has zero Augusta track record.",
     strength: "strong",
   },
   {

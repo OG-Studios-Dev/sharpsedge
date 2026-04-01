@@ -57,13 +57,13 @@ This is where the real edge is. H2H removes field noise — you just need one pl
 ### 🔥 TIER 1 H2H VALUE — Strong Opinion
 
 **1. Rahm over DeChambeau (same price, both +1200)**
-- Defending Masters champion vs. a guy who struggles at Augusta
+- 2023 Masters champion vs. a player who has historically struggled at Augusta
 - Rahm's iron play and course comfort are dramatically superior
 - If the book posts this matchup, HEAVY lean on Rahm
 - Edge: RAHM
 
 **2. Spieth over Cameron Young (+4000 vs +2200)**
-- Spieth is a 2.2x underdog but has won here, been runner-up twice
+- Spieth is an ~1.8x underdog (+4000 vs +2200) but has won here and been runner-up twice
 - Young has zero Augusta track record
 - Augusta is where Spieth's career comes alive. Young is a flat-track bully
 - At these relative prices, Spieth is a strong lean
@@ -111,7 +111,7 @@ This is where the real edge is. H2H removes field noise — you just need one pl
 
 | Pick | Odds | Rationale |
 |------|------|-----------|
-| Jon Rahm | +1200 | Defending champion, elite Augusta fit, same price as DeChambeau who doesn't suit the course |
+| Jon Rahm | +1200 | 2023 Masters champion, elite Augusta fit, same price as DeChambeau who doesn't suit the course |
 | Ludvig Åberg | +1600 | T2 in debut, elite ball-striker, young + fearless, excellent value vs the field |
 | Jordan Spieth | +4000 | Three-time Augusta runner-up/winner, course knowledge unmatched, elevated by Augusta mentally |
 | Hideki Matsuyama | +4000 | Augusta champion, elite iron player, full course knowledge, massively underpriced |
