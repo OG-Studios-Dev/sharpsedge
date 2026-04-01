@@ -1692,7 +1692,7 @@ export default function GooseModelAdminPage() {
 
       {/* Stats row */}
       {stats && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
           <StatCard
             label="Total picks"
             value={String(scopedStats.total)}
@@ -1806,49 +1806,35 @@ export default function GooseModelAdminPage() {
       {tab === "picks" && <SystemResultsPanel sport={sportFilter} />}
 
       {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         {(["picks", "analytics", "signals", "scorecard", "promotions", "performance", "logic"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
               tab === t
                 ? "border-accent-blue/30 bg-accent-blue/10 text-accent-blue"
                 : "border-dark-border text-gray-400 hover:text-white"
             }`}
           >
             {t === "picks"
-              ? `Pick history (${filteredPicks.length})`
+              ? `Picks (${filteredPicks.length})`
               : t === "analytics"
               ? "Analytics"
               : t === "signals"
-              ? "Signal weights"
+              ? "Signals"
               : t === "scorecard"
               ? "Scorecard"
               : t === "promotions"
-              ? "Promote to production"
+              ? "Promotions"
               : t === "logic"
-              ? "Logic notes"
+              ? "Logic"
               : "Performance"}
           </button>
         ))}
       </div>
 
-      {tab !== "picks" && (
-        <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/30 px-4 py-3 text-xs text-gray-500">
-          {tab === "analytics"
-            ? "Analytics shows aggregated learning patterns across the active lab scope."
-            : tab === "signals"
-            ? "Signal weights ranks learned signal performance from graded lab picks."
-            : tab === "scorecard"
-            ? "Scorecard is the per-sport report card for signal quality and confidence."
-            : tab === "promotions"
-            ? "Promotions shows which lab picks are closest to production-worthy standards."
-            : tab === "performance"
-            ? "Performance summarizes historical outcomes from the currently loaded lab scope."
-            : "Logic notes is lightweight reference, not a primary workflow tab."}
-        </div>
-      )}
+
 
       {/* Result drill-down filter (visible in picks tab) */}
       {tab === "picks" && (

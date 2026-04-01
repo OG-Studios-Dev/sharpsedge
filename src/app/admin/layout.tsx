@@ -34,12 +34,12 @@ export default function AdminLayout({
           </div>
         </header>
 
-        <nav className="flex flex-wrap gap-2">
+        <nav className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-full border border-dark-border bg-dark-surface px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:border-accent-blue/30 hover:text-white"
+              className="shrink-0 rounded-full border border-dark-border bg-dark-surface px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:border-accent-blue/30 hover:text-white"
             >
               {link.label}
             </Link>

@@ -62,7 +62,7 @@ export default async function AdminSystemPage() {
                     {hasIssue ? "Needs review" : "Healthy"}
                   </span>
                 </div>
-                <div className="mt-3 grid gap-3 text-xs text-gray-400 md:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-400 md:grid-cols-4">
                   <p>Schedule: {cron.schedule}</p>
                   <p>Last run: {cron.lastRunAt ? new Date(cron.lastRunAt).toLocaleString() : "—"}</p>
                   <p>Last success: {cron.lastSuccessAt ? new Date(cron.lastSuccessAt).toLocaleString() : "—"}</p>
