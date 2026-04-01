@@ -521,7 +521,7 @@ export default function PicksPage() {
   const golfFlat = Object.values(golfAll).flat();
   const filteredHistoryRecords = useMemo(() => (
     sportLeague === "All"
-      ? historyPicks
+      ? historyPicks.filter((pick) => pick.league !== "PGA")
       : historyPicks.filter((pick) => pick.league === sportLeague)
   ), [historyPicks, sportLeague]);
   const remoteHistoryItems = useMemo(() => (
