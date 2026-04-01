@@ -21,7 +21,8 @@ export function isGolfMajor(name?: string) {
     || normalized === "pga championship"
     || normalized === "u s open"
     || normalized === "the open"
-    || normalized === "open championship";
+    || normalized === "open championship"
+    || normalized === "the open championship";
 }
 
 export function getGolfTournamentBadgeLabel(
