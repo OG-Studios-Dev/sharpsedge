@@ -142,7 +142,12 @@ export function resolveSpreadResult(teamScore: number, opponentScore: number, sp
 
 export async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    // NHL API (and some others) return 403 to bare server-side requests without a User-Agent.
+    // Always send a browser-style UA so upstream APIs don't block our Vercel environment.
+    const res = await fetch(url, {
+      next: { revalidate: 60 },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Goosalytics/1.0; +https://goosalytics.vercel.app)" },
+    });
     if (!res.ok) {
       console.warn("[pick-resolver] upstream fetch failed", { url, status: res.status });
       return null;
@@ -235,8 +240,12 @@ export async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]
   const teamScore = isAway ? awayScore : homeScore;
   const oppScore = isAway ? homeScore : awayScore;
 
-  if (pick.betType === "Team Goals O/U") {
+  // NHL team/game total: accept both "Team Goals O/U" (stored) and "Team Points O/U" (inferred by normalizeIncomingPick)
+  if (pick.betType === "Team Goals O/U" || pick.betType === "Team Points O/U") {
     const line = pick.line ?? (() => {
+      // Try label first (e.g. "STL Over 2.5 Goals" → 2.5)
+      const labelMatch = pick.pickLabel?.match(/(?:over|under)\s+([\d.]+)/i);
+      if (labelMatch) return parseFloat(labelMatch[1]);
       const match = pick.reasoning?.match(/over\s+([\d.]+)/i);
       return match ? parseFloat(match[1]) : undefined;
     })();
@@ -246,6 +255,25 @@ export async function resolveNHLTeamPick(pick: AIPick): Promise<AIPick["result"]
     }
     if (teamScore > line) return "win";
     if (teamScore < line) return "loss";
+    return "push";
+  }
+
+  // 1P ML: resolve using play-by-play period 1 goal counts
+  if (pick.betType === "1P ML") {
+    const pbp = await fetchJSON<any>(`${NHL_BASE}/gamecenter/${gameId}/play-by-play`);
+    if (!pbp) return "pending";
+    const plays: any[] = pbp.plays || [];
+    const awayId = pbp.awayTeam?.id;
+    const homeId = pbp.homeTeam?.id;
+    const p1Goals = plays.filter(
+      (p: any) => p.typeDescKey === "goal" && p.periodDescriptor?.number === 1
+    );
+    const awayP1 = p1Goals.filter((g: any) => g.details?.eventOwnerTeamId === awayId).length;
+    const homeP1 = p1Goals.filter((g: any) => g.details?.eventOwnerTeamId === homeId).length;
+    const teamP1 = isAway ? awayP1 : homeP1;
+    const oppP1 = isAway ? homeP1 : awayP1;
+    if (teamP1 > oppP1) return "win";
+    if (teamP1 < oppP1) return "loss";
     return "push";
   }
 
@@ -650,6 +678,8 @@ export function normalizeIncomingPick(raw: AIPick): AIPick {
 
   const inferredBetType = raw.betType || (() => {
     const lower = pickLabel.toLowerCase();
+    // 1P ML must be detected before the generic "win ml" check since it doesn't contain "win ml"
+    if (/\b1p\s*ml\b/.test(lower) || lower.includes("first period ml") || lower.includes("1st period ml")) return "1P ML";
     if (lower.includes("win ml") || /\bh2h\b/.test(lower)) return "H2H ML";
     // "run line" labels (e.g. "STL -1.5 Run Line") — detected by text before regex
     // Note: /\b[+-]\d+/ does NOT match " -1.5" because '\b' requires a word boundary
