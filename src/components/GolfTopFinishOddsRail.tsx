@@ -24,8 +24,11 @@ function formatOdds(odds: number | null): string {
 
 function oddsColor(odds: number | null): string {
   if (odds === null) return "text-gray-500";
-  if (odds < 0) return "text-red-300";
-  if (odds <= 200) return "text-amber-200";
+  // Negative odds = heavy favorite to place (good outcome, short price) → neutral white
+  // Low positive odds = mild underdog → amber
+  // High positive odds = long shot → green (valuable)
+  if (odds < 0) return "text-white";
+  if (odds <= 350) return "text-amber-200";
   return "text-emerald-300";
 }
 

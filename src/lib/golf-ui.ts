@@ -16,6 +16,8 @@ function normalizeTournamentName(value?: string) {
 export function isGolfMajor(name?: string) {
   const normalized = normalizeTournamentName(name);
   return normalized === "masters tournament"
+    || normalized === "the masters"
+    || normalized === "masters"
     || normalized === "pga championship"
     || normalized === "u s open"
     || normalized === "the open"

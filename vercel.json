@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/golf/scrape?cron=true",
-      "schedule": "0 10 * * 2,3,4"
+      "schedule": "0 10 * * 1,2,3"
     },
     {
       "path": "/api/golf/odds-snapshot?cron=true",

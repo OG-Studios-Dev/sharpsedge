@@ -182,7 +182,12 @@ export default async function GolfPage() {
                       <p className="truncate text-sm font-medium text-white">{player.name}</p>
                       <p className="mt-1 text-xs text-gray-500">{player.thru || player.teeTime || "Board pending"}</p>
                     </div>
-                    <p className="text-right text-sm font-semibold text-white">{player.score}</p>
+                    <p className={`text-right text-sm font-semibold ${
+                      player.score === "E" ? "text-white"
+                      : player.score.startsWith("-") ? "text-emerald-300"
+                      : player.score.startsWith("+") ? "text-red-400"
+                      : "text-white"
+                    }`}>{player.score}</p>
                   </div>
                 )) : (
                   <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-gray-400">

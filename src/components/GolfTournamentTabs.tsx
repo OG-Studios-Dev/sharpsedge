@@ -220,8 +220,9 @@ function finishChipTone(finish: string) {
 function scoreTone(score: string) {
   if (score === "CUT") return "text-rose-300";
   if (score === "E") return "text-white";
+  // In golf, negative = under par = good (green), positive = over par = bad (amber/red)
   if (score.startsWith("-")) return "text-emerald-300";
-  if (score.startsWith("+")) return "text-amber-100";
+  if (score.startsWith("+")) return "text-red-400";
   return "text-white";
 }
 
@@ -277,7 +278,7 @@ function PickCard({
           Edge {formatGolfSignedPercent(typeof edge === "number" ? edge : player.edge)}
         </span>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
-          {player.position || "—"} · {player.score}
+          {player.position || "—"} · <span className={scoreTone(player.score)}>{player.score}</span>
         </span>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
           {player.thru || player.teeTime || "Board pending"}
@@ -309,55 +310,27 @@ export default function GolfTournamentTabs({
 
   return (
     <section className="space-y-5">
-      <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Tournament Data State</p>
-            <h2 className="mt-1 text-xl font-semibold text-white">{predictionSourceLabel}</h2>
-            <p className="mt-3 max-w-3xl text-sm text-gray-400">
-              {predictions?.players.length
-                ? datagolf?.reason ?? "Current field and model data are loaded."
-                : leaderboardPlayers.length
-                  ? "Field data is present, but the contender board is still waiting on model inputs."
-                  : "The tournament page is waiting on ESPN to post the active field or a live leaderboard."}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-[11px]">
-            <span className={`rounded-full border px-2.5 py-1 ${statusChipTone(Boolean(datagolf?.ready), Boolean(datagolf?.fresh), Boolean(datagolf?.populated))}`}>
-              {datagolf?.ready
-                ? datagolf.fresh ? "DataGolf ready" : "DataGolf stale"
-                : datagolf?.populated ? "DataGolf partial" : "DataGolf unavailable"}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
-              {leaderboardPlayers.length} active players
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-gray-300">
-              {predictions?.dataSources?.odds === "live-odds" ? "Live outrights" : "Model odds"}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Cache</p>
-            <p className="mt-2 text-sm font-medium text-white">
-              {datagolf?.lastScrape ? formatGolfUpdatedAt(datagolf.lastScrape) : "No scrape cached"}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Field Match</p>
-            <p className="mt-2 text-sm font-medium text-white">
-              {datagolf ? `${datagolf.matchedPlayers}/${datagolf.totalPlayers || leaderboardPlayers.length}` : `0/${leaderboardPlayers.length}`}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-gray-500">Rows Cached</p>
-            <p className="mt-2 text-sm font-medium text-white">
-              {datagolf ? `${datagolf.predictionsCount} predictions · ${datagolf.rankingsCount} rankings` : "0 rows"}
-            </p>
-          </div>
-        </div>
-      </section>
+      {/* Compact data status bar — visible but not dominating */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusChipTone(Boolean(datagolf?.ready), Boolean(datagolf?.fresh), Boolean(datagolf?.populated))}`}>
+          {datagolf?.ready
+            ? datagolf.fresh ? "Model ready" : "Model stale"
+            : datagolf?.populated ? "Model partial" : "Model pending"}
+        </span>
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] text-gray-400">
+          {leaderboardPlayers.length > 0 ? `${leaderboardPlayers.length} players` : "Field pending"}
+        </span>
+        {predictions?.dataSources?.odds === "live-odds" && (
+          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+            Live odds
+          </span>
+        )}
+        {datagolf?.lastScrape && (
+          <span className="text-[10px] text-gray-600">
+            Updated {formatGolfUpdatedAt(datagolf.lastScrape)}
+          </span>
+        )}
+      </div>
 
       <div className="overflow-x-auto">
         <div className="flex min-w-max gap-2">

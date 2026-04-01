@@ -2,7 +2,8 @@ import Link from "next/link";
 import GolfMarketEdgesSection from "@/components/GolfMarketEdgesSection";
 import GolfTopFinishOddsRail from "@/components/GolfTopFinishOddsRail";
 import GolfTournamentTabs from "@/components/GolfTournamentTabs";
-import { getPGALeaderboard, getPGATournamentById, getPGATournamentLeaderboard } from "@/lib/golf-api";
+import MastersAnalysisSection from "@/components/MastersAnalysisSection";
+import { getPGALeaderboard, getPGATournamentById, getPGATournamentLeaderboard, getLocalMastersOddsSnapshot } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";
 import { getGolfOdds } from "@/lib/golf-odds";
 import { getGolfBadgeTone, getGolfTournamentBadgeLabel, isGolfMajor } from "@/lib/golf-ui";
@@ -11,11 +12,12 @@ export const dynamic = "force-dynamic";
 
 export default async function GolfTournamentDetailPage({ params }: { params: { id: string } }) {
   const eventId = params.id;
-  const [scheduleTournament, leaderboard, activeLeaderboard, odds] = await Promise.all([
+  const [scheduleTournament, leaderboard, activeLeaderboard, odds, mastersLocalOdds] = await Promise.all([
     getPGATournamentById(eventId),
     getPGATournamentLeaderboard(eventId),
     getPGALeaderboard(),
     getGolfOdds(),
+    getLocalMastersOddsSnapshot().catch(() => null),
   ]);
 
   const tournament = leaderboard?.tournament ?? scheduleTournament;
@@ -100,6 +102,11 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
           predictions={predictions}
           latestWinner={latestWinner}
         />
+
+        {/* Masters deep-dive analysis — only on Masters tournament page */}
+        {isGolfMajor(tournament.name) && (tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds ? (
+          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
+        ) : null}
       </div>
     </main>
   );

@@ -176,7 +176,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
-export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["home", "trends", "props", "picks", "systems"];
+export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["home", "golf", "props", "picks", "trends"];
 
 export function getNavItemById(id: AppNavItemId) {
   return APP_NAV_ITEMS.find((item) => item.id === id) ?? null;
