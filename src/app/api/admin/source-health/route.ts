@@ -257,15 +257,17 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
     const data = await res.json() as Record<string, unknown>;
     const mlbSteps = (data.steps as Record<string, unknown>) ?? {};
     const ebStep = mlbSteps.enrichment_board as Record<string, unknown> | undefined;
-    const coverageStep = mlbSteps.source_coverage as Record<string, unknown> | undefined;
-    const mlbContextHints = mlbSteps.context_hints as Record<string, unknown> | undefined;
+    const coverageStep = (data.source_coverage as Record<string, unknown> | undefined)
+      ?? (mlbSteps.source_coverage as Record<string, unknown> | undefined);
+    const mlbContextHints = (data.context_hints as Record<string, unknown> | undefined)
+      ?? (mlbSteps.context_hints as Record<string, unknown> | undefined);
 
     const gamesCount = (ebStep?.gamesCount as number) ?? 0;
     checks.push({
       name: "schedule",
       status: gamesCount >= 0 ? "healthy" : "missing",
       detail: `${gamesCount} MLB games active`,
-      age_minutes: null,
+      age_minutes: ageMinutes(typeof ebStep?.generatedAt === "string" ? ebStep.generatedAt : null),
     });
 
     const weatherCount = (coverageStep?.gamesWithWeather as number) ?? 0;
