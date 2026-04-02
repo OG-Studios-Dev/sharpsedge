@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
-const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system"]);
 const MIN_SAMPLE_FOR_TIER = 8;
+const WATCHLIST_ONLY_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
 type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
 
@@ -89,21 +90,39 @@ function formatTrackability(trackability: TrackedSystem["trackabilityBucket"]) {
   return "Watching";
 }
 
-function sortSystemsForDisplay(systems: TrackedSystem[]) {
+function sortSystemsForDisplay(systems: TrackedSystem[], dbPerfMap: Map<string, DbSystemPerformanceSummary>) {
   const priorityMap: Record<string, number> = {
     "nba-goose-system": 0,
-    "swaggy-stretch-drive": 1,
-    "falcons-fight-pummeled-pitchers": 2,
-    "tonys-hot-bats": 3,
-    "robbies-ripper-fast-5": 4,
+    "robbies-ripper-fast-5": 1,
+    "swaggy-stretch-drive": 2,
+    "falcons-fight-pummeled-pitchers": 3,
+    "tonys-hot-bats": 4,
     "the-blowout": 5,
     "hot-teams-matchup": 6,
   };
+
+  const getLiveWeight = (system: TrackedSystem) => {
+    const perf = dbPerfMap.get(system.id);
+    const logged = perf?.qualifiers_logged ?? 0;
+    const localQualified = system.records.filter((record) => Boolean(record.qualifiedTeam)).length;
+    if (logged > 0 || localQualified > 0) return 0;
+    return 1;
+  };
+
+  const getWatchlistWeight = (system: TrackedSystem) => WATCHLIST_ONLY_IDS.has(system.id) ? 1 : 0;
 
   return [...systems].sort((a, b) => {
     const aTrackable = a.trackabilityBucket === "trackable_now" ? 0 : 1;
     const bTrackable = b.trackabilityBucket === "trackable_now" ? 0 : 1;
     if (aTrackable !== bTrackable) return aTrackable - bTrackable;
+
+    const aLive = getLiveWeight(a);
+    const bLive = getLiveWeight(b);
+    if (aLive !== bLive) return aLive - bLive;
+
+    const aWatch = getWatchlistWeight(a);
+    const bWatch = getWatchlistWeight(b);
+    if (aWatch !== bWatch) return aWatch - bWatch;
 
     const aPriority = priorityMap[a.slug] ?? 999;
     const bPriority = priorityMap[b.slug] ?? 999;
@@ -118,8 +137,8 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
     ? systems
     : systems.filter((system) => system.league === activeLeague);
 
-  const orderedSystems = sortSystemsForDisplay(filteredSystems);
   const dbPerfMap = new Map(dbPerformance.map((p) => [p.system_id, p]));
+  const orderedSystems = sortSystemsForDisplay(filteredSystems, dbPerfMap);
 
   return (
     <div className="space-y-4 px-4 py-3 lg:px-0 lg:py-4">
@@ -208,6 +227,8 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             }
 
             const tier = getWinPctTier(winPctForTier, gradedForTier);
+            const isWatchlistOnly = WATCHLIST_ONLY_IDS.has(system.id);
+            const liveQualifierCount = dbPerf?.qualifiers_logged ?? system.records.filter((record) => Boolean(record.qualifiedTeam)).length;
             const rowOpacity = tier === "weak" ? "opacity-70" : "";
 
             const trackDot =
@@ -230,6 +251,16 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${trackabilityPill(system.trackabilityBucket)}`}>
                         {formatTrackability(system.trackabilityBucket)}
                       </span>
+                      {isWatchlistOnly && (
+                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-300">
+                          Watchlist only
+                        </span>
+                      )}
+                      {!isWatchlistOnly && liveQualifierCount > 0 && (
+                        <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                          {liveQualifierCount} live
+                        </span>
+                      )}
                       <WinPctBadge tier={tier} winPct={winPctForTier} />
                     </div>
                     <h2 className="mt-0.5 text-[13px] font-semibold leading-tight text-white">{system.name}</h2>
@@ -256,7 +287,9 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                           : `${metrics.qualifiedGames} qualifiers logged`}
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-500">
-                        {isMLGradeable
+                        {isWatchlistOnly
+                          ? "Monitoring setups only — not a bet-direction system yet."
+                          : isMLGradeable
                           ? (hasDbRecord && dbPerf.graded_qualifiers > 0
                             ? `${dbPerf.graded_qualifiers} graded games`
                             : "Grading outcomes as results come in.")

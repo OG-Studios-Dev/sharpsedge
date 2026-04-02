@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
-const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers"]);
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system"]);
 const MIN_SAMPLE_FOR_TIER = 8; // minimum graded qualifiers before we display a tier
+const WATCHLIST_ONLY_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
 type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
 
@@ -37,13 +38,13 @@ function WinPctBadge({ tier, winPct }: { tier: WinPctTier; winPct: number | null
   );
 }
 
-function sortSystemsForHome(systems: TrackedSystem[]) {
+function sortSystemsForHome(systems: TrackedSystem[], dbPerfMap: Map<string, DbSystemPerformanceSummary>) {
   const priorityMap: Record<string, number> = {
     "nba-goose-system": 0,
-    "swaggy-stretch-drive": 1,
-    "falcons-fight-pummeled-pitchers": 2,
-    "tonys-hot-bats": 3,
-    "robbies-ripper-fast-5": 4,
+    "robbies-ripper-fast-5": 1,
+    "swaggy-stretch-drive": 2,
+    "falcons-fight-pummeled-pitchers": 3,
+    "tonys-hot-bats": 4,
     "the-blowout": 5,
     "hot-teams-matchup": 6,
   };
@@ -52,6 +53,16 @@ function sortSystemsForHome(systems: TrackedSystem[]) {
     const aTrackable = a.trackabilityBucket === "trackable_now" ? 0 : 1;
     const bTrackable = b.trackabilityBucket === "trackable_now" ? 0 : 1;
     if (aTrackable !== bTrackable) return aTrackable - bTrackable;
+
+    const aPerf = dbPerfMap.get(a.id);
+    const bPerf = dbPerfMap.get(b.id);
+    const aLive = (aPerf?.qualifiers_logged ?? 0) > 0 || a.records.some((r) => Boolean(r.qualifiedTeam)) ? 0 : 1;
+    const bLive = (bPerf?.qualifiers_logged ?? 0) > 0 || b.records.some((r) => Boolean(r.qualifiedTeam)) ? 0 : 1;
+    if (aLive !== bLive) return aLive - bLive;
+
+    const aWatch = WATCHLIST_ONLY_IDS.has(a.id) ? 1 : 0;
+    const bWatch = WATCHLIST_ONLY_IDS.has(b.id) ? 1 : 0;
+    if (aWatch !== bWatch) return aWatch - bWatch;
 
     const aActionable = getSystemDerivedMetrics(a).performance.actionable ? 0 : 1;
     const bActionable = getSystemDerivedMetrics(b).performance.actionable ? 0 : 1;
@@ -85,9 +96,9 @@ type Props = {
 };
 
 export default function HomeSystemsSection({ systems, dbPerformance = [] }: Props) {
-  // Show top 3 only — compact homepage real estate
-  const featuredSystems = sortSystemsForHome(systems).slice(0, 3);
   const dbPerfMap = new Map(dbPerformance.map((p) => [p.system_id, p]));
+  // Show top 3 only — compact homepage real estate
+  const featuredSystems = sortSystemsForHome(systems, dbPerfMap).slice(0, 3);
 
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
@@ -154,6 +165,8 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
           }
 
           const tier = getWinPctTier(winPctForTier, gradedForTier);
+          const isWatchlistOnly = WATCHLIST_ONLY_IDS.has(system.id);
+          const liveQualifierCount = dbPerf?.qualifiers_logged ?? system.records.filter((record) => Boolean(record.qualifiedTeam)).length;
 
           // Row opacity/muting based on tier
           const rowOpacity = tier === "weak" ? "opacity-60" : "";
@@ -176,7 +189,11 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-white leading-tight">{system.name}</span>
                 <span className="block truncate text-[10px] text-gray-500 mt-0.5">
-                  {getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}
+                  {isWatchlistOnly
+                    ? "Watchlist only — monitoring setups"
+                    : liveQualifierCount > 0
+                    ? `${liveQualifierCount} live qualifier${liveQualifierCount === 1 ? "" : "s"} • ${getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}`
+                    : getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}
                 </span>
               </div>
               <WinPctBadge tier={tier} winPct={winPctForTier} />
