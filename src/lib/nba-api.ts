@@ -523,6 +523,7 @@ export const ESPN_TEAM_IDS: Record<string, string> = {
   LAC: "12", LAL: "13", MEM: "29", MIA: "14", MIL: "15", MIN: "16",
   NOP: "3", NYK: "18", OKC: "25", ORL: "19", PHI: "20", PHX: "21",
   POR: "22", SAC: "23", SAS: "24", TOR: "28", UTA: "26", WAS: "27",
+  WSH: "27",
 };
 
 export const BDL_TEAM_IDS: Record<string, number> = {
@@ -531,6 +532,7 @@ export const BDL_TEAM_IDS: Record<string, number> = {
   LAC: 13, LAL: 14, MEM: 15, MIA: 16, MIL: 17, MIN: 18,
   NOP: 19, NYK: 20, OKC: 21, ORL: 22, PHI: 23, PHX: 24,
   POR: 25, SAC: 26, SAS: 27, TOR: 28, UTA: 29, WAS: 30,
+  WSH: 30,
 };
 
 // ── Team colors ───────────────────────────────────────────────────────────────

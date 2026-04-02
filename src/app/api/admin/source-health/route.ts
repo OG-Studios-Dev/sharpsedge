@@ -386,7 +386,7 @@ async function probePGA(baseUrl: string): Promise<SportHealthResult> {
       name: "course-weather",
       status: courseWeather?.status === "available" ? "healthy" : "stale",
       detail: courseWeather?.status === "available"
-        ? `Wind: ${courseWeather.wind_speed_mph}mph, temp: ${courseWeather.temperature_f}°F`
+        ? `Wind: ${courseWeather.wind_mph ?? "?"}mph, temp: ${courseWeather.temp_f ?? "?"}°F`
         : "Course weather unavailable (unmapped venue or off-week)",
       age_minutes: null,
     });

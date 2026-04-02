@@ -89,6 +89,16 @@ export const PGA_VENUES: PGAVenueEntry[] = [
     state: "TX",
   },
   {
+    courseName: "TPC San Antonio (Oaks Course)",
+    tournamentKeywords: ["valero", "valero texas open", "texas open", "tpc san antonio", "oaks course"],
+    latitude: 29.7254,
+    longitude: -98.6309,
+    timezone: "America/Chicago",
+    city: "San Antonio",
+    state: "TX",
+    notes: "Valero Texas Open host venue. Wind is the main weather lever.",
+  },
+  {
     courseName: "Bay Hill Club",
     tournamentKeywords: ["bay hill", "arnold palmer", "orlando"],
     latitude: 28.4831,
