@@ -90,9 +90,10 @@ async function probeNHL(baseUrl: string): Promise<SportHealthResult> {
       };
     }
     const data = await res.json() as Record<string, unknown>;
+    const nhlSteps = (data.steps as Record<string, unknown>) ?? {};
 
-    const schedule = data.schedule as Record<string, unknown> | undefined;
-    const gamesCount = (schedule?.games_today as number) ?? 0;
+    const scheduleStep = nhlSteps.schedule as Record<string, unknown> | undefined;
+    const gamesCount = (scheduleStep?.games as number) ?? 0;
 
     checks.push({
       name: "schedule",
@@ -101,24 +102,29 @@ async function probeNHL(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const sources = data.sources as Record<string, unknown> | undefined;
-    const ppStatus = (sources as any)?.specialTeams?.status ?? "unknown";
+    const contextBoardStep = nhlSteps.context_board as Record<string, unknown> | undefined;
+    const ppDegraded = Boolean((contextBoardStep?.specialTeams as any)?.degraded);
     checks.push({
       name: "special-teams (PP/PK)",
-      status: ppStatus === "healthy" ? "healthy" : ppStatus === "degraded" ? "degraded" : "unknown",
-      detail: (sources as any)?.specialTeams?.detail ?? "PP/PK stats from NHL REST API",
+      status: ppDegraded ? "degraded" : "healthy",
+      detail: (contextBoardStep?.specialTeams as any)?.note ?? "PP/PK stats from NHL REST API",
       age_minutes: null,
     });
 
-    const shotRefresh = (sources as any)?.shotAggregates?.status ?? "unknown";
+    const shotProfileStep = nhlSteps.shot_zone_profile as Record<string, unknown> | undefined;
+    const shotRefresh = shotProfileStep?.error ? "error" :
+      shotProfileStep?.status === "unavailable" ? "unavailable" :
+      shotProfileStep?.hdcfPct !== undefined ? "available" : "unknown";
     checks.push({
       name: "shot-aggregates (HDCF/xG)",
       status: shotRefresh === "available" ? "healthy" : "stale",
-      detail: (sources as any)?.shotAggregates?.detail ?? "PBP shot zone aggregates",
+      detail: shotProfileStep?.error ? String(shotProfileStep.error) : "PBP shot zone aggregates",
       age_minutes: null,
     });
 
-    const moneyPuck = (data.context_hints as any)?.team_xgoals_pct !== null ? "healthy" : "stale";
+    const contextHintsStep = nhlSteps.context_hints as Record<string, unknown> | undefined;
+    const moneyPuck = contextHintsStep?.team_xgoals_pct !== null &&
+      contextHintsStep?.team_xgoals_pct !== undefined ? "healthy" : "stale";
     checks.push({
       name: "moneypuck-xgoals",
       status: moneyPuck,
@@ -172,8 +178,10 @@ async function probeNBA(baseUrl: string): Promise<SportHealthResult> {
       };
     }
     const data = await res.json() as Record<string, unknown>;
+    const nbaSteps = (data.steps as Record<string, unknown>) ?? {};
 
-    const gamesCount = (data.schedule as any)?.games_count ?? 0;
+    const nbaScheduleStep = nbaSteps.schedule as Record<string, unknown> | undefined;
+    const gamesCount = (nbaScheduleStep?.count as number) ?? 0;
     checks.push({
       name: "schedule",
       status: gamesCount >= 0 ? "healthy" : "missing",
@@ -181,19 +189,23 @@ async function probeNBA(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const rosterStatus = (data.roster as any)?.status ?? "unknown";
+    const rosterProvenance = nbaSteps.rosterProvenance as Record<string, unknown> | undefined;
+    const anyRosterDegraded = rosterProvenance
+      ? Object.values(rosterProvenance).some((v: any) => v?.degraded === true || Boolean(v?.error))
+      : true;
     checks.push({
       name: "rosters",
-      status: rosterStatus === "available" ? "healthy" : "stale",
-      detail: (data.roster as any)?.detail ?? "ESPN roster fetch",
+      status: anyRosterDegraded ? "stale" : "healthy",
+      detail: anyRosterDegraded ? "ESPN roster degraded or unavailable for a probed team" : "ESPN roster fetch OK",
       age_minutes: null,
     });
 
-    const boxscoreStatus = (data.boxscores as any)?.status ?? "unknown";
+    const boxscoreStep = nbaSteps.boxscoreTest as Record<string, unknown> | undefined;
+    const boxscoreOk = boxscoreStep && !boxscoreStep.error && (boxscoreStep.totalPlayers as number) > 0;
     checks.push({
       name: "boxscores",
-      status: boxscoreStatus === "available" ? "healthy" : "stale",
-      detail: (data.boxscores as any)?.detail ?? "ESPN boxscore fetch",
+      status: boxscoreOk ? "healthy" : "stale",
+      detail: boxscoreStep?.error ? String(boxscoreStep.error) : "ESPN boxscore fetch",
       age_minutes: null,
     });
 
@@ -243,9 +255,12 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       };
     }
     const data = await res.json() as Record<string, unknown>;
-    const board = data.enrichment_board as Record<string, unknown> | undefined;
+    const mlbSteps = (data.steps as Record<string, unknown>) ?? {};
+    const ebStep = mlbSteps.enrichment_board as Record<string, unknown> | undefined;
+    const coverageStep = mlbSteps.source_coverage as Record<string, unknown> | undefined;
+    const mlbContextHints = mlbSteps.context_hints as Record<string, unknown> | undefined;
 
-    const gamesCount = (board?.games as unknown[])?.length ?? 0;
+    const gamesCount = (ebStep?.gamesCount as number) ?? 0;
     checks.push({
       name: "schedule",
       status: gamesCount >= 0 ? "healthy" : "missing",
@@ -253,7 +268,7 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const weatherCount = (board?.sources as any)?.weatherGames ?? 0;
+    const weatherCount = (coverageStep?.gamesWithWeather as number) ?? 0;
     checks.push({
       name: "weather",
       status: weatherCount > 0 ? "healthy" : gamesCount > 0 ? "degraded" : "healthy",
@@ -261,7 +276,7 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const parkFactorCount = (board?.sources as any)?.parkFactorGames ?? 0;
+    const parkFactorCount = (coverageStep?.gamesWithParkFactor as number) ?? 0;
     checks.push({
       name: "park-factors",
       status: parkFactorCount > 0 ? "healthy" : gamesCount > 0 ? "degraded" : "healthy",
@@ -269,7 +284,7 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const bullpenCount = (board?.sources as any)?.bullpenGames ?? 0;
+    const bullpenCount = (coverageStep?.gamesWithBullpenData as number) ?? 0;
     checks.push({
       name: "bullpen",
       status: bullpenCount > 0 ? "healthy" : gamesCount > 0 ? "stale" : "healthy",
@@ -277,10 +292,7 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const lineupCount = (board?.games as any[])?.filter((g: any) =>
-      g.lineup?.home?.confirmationStatus === "official" ||
-      g.lineup?.away?.confirmationStatus === "official"
-    ).length ?? 0;
+    const lineupCount = (coverageStep?.gamesWithOfficialLineup as number) ?? 0;
     checks.push({
       name: "lineups",
       status: lineupCount > 0 ? "healthy" : "stale",
@@ -288,7 +300,7 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
-    const umpCtx = (data.context_hints as any)?.umpire_context;
+    const umpCtx = (mlbContextHints?.umpire_context as any);
     checks.push({
       name: "umpire-zone",
       status: umpCtx?.hp_ump_name ? "healthy" : "stale",
