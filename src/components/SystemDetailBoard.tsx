@@ -62,7 +62,14 @@ function classifyRecords(system: TrackedSystem) {
   return { qualified, monitoring };
 }
 
+function formatSpread(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}`;
+}
+
 function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) {
+  const hasQuarterLines = record.firstQuarterSpread != null || record.thirdQuarterSpread != null;
+
   return (
     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -76,6 +83,20 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
           </span>
         )}
       </div>
+
+      {hasQuarterLines && (
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-dark-border/60 pt-3">
+          <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">1Q spread</p>
+            <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.firstQuarterSpread)}</p>
+          </div>
+          <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">3Q spread</p>
+            <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.thirdQuarterSpread)}</p>
+          </div>
+        </div>
+      )}
+
       {record.notes && (
         <p className="mt-3 text-sm leading-relaxed text-gray-300 border-t border-dark-border/60 pt-3">
           <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 block mb-1">
@@ -350,6 +371,13 @@ export default function SystemDetailBoard({
         </p>
       </section>
 
+      {/* ── Record / performance above the fold ─────────────────────────── */}
+      <RecentHistorySection
+        systemId={system.id}
+        dbPerformance={dbPerformance}
+        dbHistory={dbHistory}
+      />
+
       {/* ── Today's qualified games ──────────────────────────────────────── */}
       <CurrentQualifiersSection system={system} />
 
@@ -384,13 +412,6 @@ export default function SystemDetailBoard({
 
       {/* ── Qualifier rules ──────────────────────────────────────────────── */}
       <QualifierRulesSection system={system} />
-
-      {/* ── Performance history ──────────────────────────────────────────── */}
-      <RecentHistorySection
-        systemId={system.id}
-        dbPerformance={dbPerformance}
-        dbHistory={dbHistory}
-      />
     </div>
   );
 }
