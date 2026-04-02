@@ -112,23 +112,29 @@ async function probeNHL(baseUrl: string): Promise<SportHealthResult> {
     });
 
     const shotProfileStep = nhlSteps.shot_zone_profile as Record<string, unknown> | undefined;
+    const noSlateContext = gamesCount === 0;
     const shotRefresh = shotProfileStep?.error ? "error" :
       shotProfileStep?.status === "unavailable" ? "unavailable" :
       shotProfileStep?.hdcfPct !== undefined ? "available" : "unknown";
     checks.push({
       name: "shot-aggregates (HDCF/xG)",
-      status: shotRefresh === "available" ? "healthy" : "stale",
-      detail: shotProfileStep?.error ? String(shotProfileStep.error) : "PBP shot zone aggregates",
+      status: shotRefresh === "available" ? "healthy" : (noSlateContext ? "healthy" : "stale"),
+      detail: shotRefresh === "available"
+        ? "PBP shot zone aggregates"
+        : (noSlateContext ? "No active NHL slate; shot aggregates not required" : (shotProfileStep?.error ? String(shotProfileStep.error) : "PBP shot zone aggregates unavailable")),
       age_minutes: null,
     });
 
     const contextHintsStep = nhlSteps.context_hints as Record<string, unknown> | undefined;
-    const moneyPuck = contextHintsStep?.team_xgoals_pct !== null &&
-      contextHintsStep?.team_xgoals_pct !== undefined ? "healthy" : "stale";
+    const hasMoneyPuck = contextHintsStep?.team_xgoals_pct !== null &&
+      contextHintsStep?.team_xgoals_pct !== undefined;
+    const moneyPuck: "healthy" | "stale" = hasMoneyPuck || noSlateContext ? "healthy" : "stale";
     checks.push({
       name: "moneypuck-xgoals",
       status: moneyPuck,
-      detail: moneyPuck === "healthy" ? "xGoals% available" : "xGoals% null (may be stale)",
+      detail: hasMoneyPuck
+        ? "xGoals% available"
+        : (noSlateContext ? "No active NHL slate; xGoals context not required" : "xGoals% null (may be stale)"),
       age_minutes: null,
     });
 
