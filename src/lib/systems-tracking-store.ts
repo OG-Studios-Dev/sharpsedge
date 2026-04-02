@@ -3383,11 +3383,12 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
   };
 
   for (const game of targetGames) {
-    const event = aggregated.find((candidate) => {
-      if (getEventDate(candidate.commenceTime) !== game.gameDate) return false;
-      const sameTeams = candidate.awayAbbrev === game.matchup.awayTeam.abbrev && candidate.homeAbbrev === game.matchup.homeTeam.abbrev;
-      return sameTeams;
-    });
+    const event = findAggregatedEventForSplitsGame(
+      aggregated,
+      game.matchup.homeTeam.abbrev,
+      game.matchup.awayTeam.abbrev,
+      game.gameDate,
+    );
     if (!event) {
       audit.failedNoOddsEvent += 1;
       continue;
@@ -3410,7 +3411,7 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
       const fatigue = entry.derived.fatigueScore;
       const oppFatigue = opponent.derived.fatigueScore;
 
-      if (entry.derived.playoffPressure.urgencyTier !== 'high') {
+      if (entry.derived.playoffPressure.urgencyTier !== 'high' && entry.derived.playoffPressure.urgencyTier !== 'medium') {
         audit.failedUrgency += 1;
         continue;
       }
@@ -4469,16 +4470,13 @@ async function refreshMLBHomeMajorityHandleSystemData(
   }
 
   const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. ML unavailable: ${audit.notAvailable}. Below 60% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
-  const updated: TrackedSystem = {
-    ...system,
-    status: "tracking" as SystemTrackingStatus,
-    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
-    snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} MLB Home Handle qualifier(s) today | ${auditNote}`
-      : `🟡 No MLB home handle qualifiers today | ${auditNote}`,
-    records: freshRecords,
-  };
-  return updated;
+  system.status = "tracking" as SystemTrackingStatus;
+  system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
+  system.snapshot = audit.qualified > 0
+    ? `🟢 ${audit.qualified} MLB Home Handle qualifier(s) today | ${auditNote}`
+    : `🟡 No MLB home handle qualifiers today | ${auditNote}`;
+  system.records = freshRecords;
+  return system;
 }
 
 /**
@@ -4557,16 +4555,13 @@ async function refreshMLBUnderMajorityHandleSystemData(
   }
 
   const auditNote = `Scanned ${audit.gamesScanned} MLB games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 62% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
-  const updated: TrackedSystem = {
-    ...system,
-    status: "tracking" as SystemTrackingStatus,
-    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
-    snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} MLB Under qualifier(s) today | ${auditNote}`
-      : `🟡 No MLB under qualifiers today | ${auditNote}`,
-    records: freshRecords,
-  };
-  return updated;
+  system.status = "tracking" as SystemTrackingStatus;
+  system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
+  system.snapshot = audit.qualified > 0
+    ? `🟢 ${audit.qualified} MLB Under qualifier(s) today | ${auditNote}`
+    : `🟡 No MLB under qualifiers today | ${auditNote}`;
+  system.records = freshRecords;
+  return system;
 }
 
 // ── NFL Handle System — refresh function (off-season dormant) ────────────────
@@ -4664,6 +4659,7 @@ export async function refreshTrackedSystem(systemId: string, options: SystemRefr
 
   const data = await readSystemsTrackingData();
   const system = await tracker.refresh(data, options);
+  data.systems = data.systems.map((entry) => entry.id === system.id ? system : entry);
   upsertSystemQualificationLog(data, system);
   data.updatedAt = new Date().toISOString();
   await writeSystemsTrackingData(data);
@@ -4679,6 +4675,7 @@ export async function refreshTrackableSystems(options: SystemRefreshOptions = {}
     const tracker = SYSTEM_TRACKERS[system.id];
     if (!tracker) continue;
     const refreshedSystem = await tracker.refresh(data, options);
+    data.systems = data.systems.map((entry) => entry.id === refreshedSystem.id ? refreshedSystem : entry);
     upsertSystemQualificationLog(data, refreshedSystem);
     refreshed.push(refreshedSystem);
   }

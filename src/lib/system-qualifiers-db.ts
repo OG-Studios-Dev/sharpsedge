@@ -186,9 +186,14 @@ function logEntryToDbRow(entry: SystemQualificationLogEntry): DbSystemQualifier 
 export async function upsertSystemQualifiers(entries: SystemQualificationLogEntry[]): Promise<void> {
   if (!entries.length) return;
 
-  const rows = entries.map(logEntryToDbRow);
+  const dedupedById = new Map<string, DbSystemQualifier>();
+  for (const entry of entries) {
+    const row = logEntryToDbRow(entry);
+    dedupedById.set(row.id, row);
+  }
+  const rows = Array.from(dedupedById.values());
 
-  // Batch in chunks of 50 to avoid payload limits
+  // Batch in chunks of 50 to avoid payload limits and duplicate-conflict errors
   const chunkSize = 50;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
