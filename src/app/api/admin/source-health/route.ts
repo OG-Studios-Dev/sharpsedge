@@ -347,24 +347,27 @@ async function probePGA(baseUrl: string): Promise<SportHealthResult> {
     }
     const data = await res.json() as Record<string, unknown>;
 
-    const cacheStatus = (data.dg_cache as any)?.status ?? "unknown";
-    const rankingsCount = (data.dg_cache as any)?.rankings_count ?? 0;
+    const dgCacheStep = (data.steps as any)?.dg_cache ?? {};
+    const contextHintsStep = (data.steps as any)?.context_hints ?? {};
+
+    const cacheReady = Boolean(dgCacheStep.ready);
+    const rankingsCount = Number(dgCacheStep.rankingsCount ?? 0);
     checks.push({
       name: "datagolf-cache",
-      status: cacheStatus === "available" ? "healthy" : "degraded",
-      detail: `${rankingsCount} DG rankings, tournament: ${(data.dg_cache as any)?.tournament ?? "none"}`,
-      age_minutes: null,
+      status: cacheReady ? "healthy" : "degraded",
+      detail: `${rankingsCount} DG rankings, tournament: ${dgCacheStep.tournament ?? "none"}`,
+      age_minutes: ageMinutes(dgCacheStep.lastScrape),
     });
 
-    const predCount = (data.dg_cache as any)?.predictions_count ?? 0;
+    const predCount = Number(dgCacheStep.predictionsCount ?? 0);
     checks.push({
       name: "dg-predictions",
       status: predCount > 0 ? "healthy" : "stale",
-      detail: `${predCount} DG predictions (low pre-tournament is normal)`,
-      age_minutes: null,
+      detail: `${predCount} DG predictions${cacheReady ? "" : " (cache not ready)"}`,
+      age_minutes: ageMinutes(dgCacheStep.lastScrape),
     });
 
-    const courseWeather = (data.context_hints as any)?.course_weather;
+    const courseWeather = contextHintsStep?.course_weather;
     checks.push({
       name: "course-weather",
       status: courseWeather?.status === "available" ? "healthy" : "stale",
@@ -380,11 +383,11 @@ async function probePGA(baseUrl: string): Promise<SportHealthResult> {
     return {
       sport: "PGA",
       overall,
-      model_ready: cacheStatus === "available",
-      model_ready_note: cacheStatus === "available" ? "DG cache healthy" : "DG cache missing or stale",
+      model_ready: cacheReady,
+      model_ready_note: cacheReady ? "DG cache healthy" : "DG cache missing or stale",
       checks,
       degraded_sources: degraded,
-      critical_gaps: cacheStatus !== "available" ? ["DG cache unavailable — picks will use bundled snapshot"] : [],
+      critical_gaps: cacheReady ? [] : ["DG cache unavailable — picks will use bundled snapshot"],
       last_checked: now,
     };
   } catch (err) {
