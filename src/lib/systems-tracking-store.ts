@@ -1688,8 +1688,23 @@ const ML_GRADEABLE_SYSTEM_IDS = new Set([
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
 ]);
 
+const ACTIONABLE_SYSTEM_IDS = new Set([
+  NBA_GOOSE_SYSTEM_ID,
+  SWAGGY_STRETCH_DRIVE_SYSTEM_ID,
+  FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
+  ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+  BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
+  COACH_NO_REST_SYSTEM_ID,
+  NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
+  NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
+  MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+]);
+
 function systemHasActionableTracking(system: TrackedSystem) {
-  return system.id === NBA_GOOSE_SYSTEM_ID || ML_GRADEABLE_SYSTEM_IDS.has(system.id);
+  return ACTIONABLE_SYSTEM_IDS.has(system.id);
 }
 
 function systemIsMLGradeable(system: TrackedSystem) {
@@ -1771,7 +1786,7 @@ function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackin
     opponentTeam: record.opponentTeam || null,
     marketType: record.marketType || null,
     actionLabel: actionable ? `${system.name} flat 1u qualifier` : null,
-    actionSide: actionable ? record.roadTeam : null,
+    actionSide: actionable ? (record.qualifiedTeam || record.roadTeam || null) : null,
     flatStakeUnits: 1,
     settlementStatus,
     outcome,

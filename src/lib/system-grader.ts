@@ -23,6 +23,17 @@ import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/
 export const GRADEABLE_ML_SYSTEMS = [
   "swaggy-stretch-drive",
   "falcons-fight-pummeled-pitchers",
+  "coach-no-rest",
+  "bigcat-bonaza-puckluck",
+  "nba-home-dog-majority-handle",
+  "nba-home-super-majority-close-game",
+  "nhl-home-dog-majority-handle",
+  "mlb-home-majority-handle",
+] as const;
+
+export const GRADEABLE_TOTAL_SYSTEMS = [
+  "nhl-under-majority-handle",
+  "mlb-under-majority-handle",
 ] as const;
 
 export const GRADEABLE_PROGRESSION_SYSTEMS = [
@@ -366,6 +377,127 @@ async function gradeRobbiesRipperFast5Qualifiers(
 
 // ─── Public grading entry point ───────────────────────────────────────────────
 
+type TotalsGameResult = {
+  homeAbbrev: string;
+  awayAbbrev: string;
+  homeScore: number;
+  awayScore: number;
+  gameDate?: string;
+};
+
+function gradeTotalOutcome(
+  totalLine: number | null,
+  homeScore: number,
+  awayScore: number,
+  direction: "under" | "over" = "under",
+): SystemQualifierOutcome {
+  if (totalLine == null) return "ungradeable";
+  const total = homeScore + awayScore;
+  if (total === totalLine) return "push";
+  if (direction === "under") return total < totalLine ? "win" : "loss";
+  return total > totalLine ? "win" : "loss";
+}
+
+async function gradePendingMlQualifiers(
+  pending: DbSystemQualifier[],
+  source: "nhl" | "mlb",
+  gradingSource: string,
+): Promise<GradeQualifierInput[]> {
+  if (!pending.length) return [];
+
+  if (source === "nhl") {
+    const teams = pending.map((q) => q.qualified_team).filter(Boolean) as string[];
+    const resultsByTeam = await fetchNHLRecentResults(teams);
+    return pending.flatMap((qualifier) => {
+      const qualifiedTeam = qualifier.qualified_team;
+      if (!qualifiedTeam) return [];
+      const matchResult = (resultsByTeam.get(qualifiedTeam) ?? []).find((r) => (
+        r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
+        r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase()
+      ));
+      if (!matchResult) return [];
+      const outcome = gradeMLOutcome(qualifiedTeam, matchResult.homeAbbrev, matchResult.awayAbbrev, matchResult.homeScore, matchResult.awayScore);
+      return [{
+        id: qualifier.id,
+        outcome,
+        settlementStatus: outcome === "ungradeable" ? "ungradeable" : "settled",
+        netUnits: mlNetUnits(outcome, qualifier.qualifier_odds),
+        gradingSource,
+        gradingNotes: `${matchResult.homeAbbrev} ${matchResult.homeScore} - ${matchResult.awayAbbrev} ${matchResult.awayScore}. ${qualifiedTeam} ML ${qualifier.qualifier_odds != null ? (qualifier.qualifier_odds > 0 ? `+${qualifier.qualifier_odds}` : `${qualifier.qualifier_odds}`) : "unknown"}.`,
+      }];
+    });
+  }
+
+  const mlbResults = await fetchMLBRecentResults();
+  return pending.flatMap((qualifier) => {
+    const qualifiedTeam = qualifier.qualified_team;
+    if (!qualifiedTeam) return [];
+    const matchResult = mlbResults.find((r) => (
+      r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
+      r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase() &&
+      r.gameDate === qualifier.game_date
+    ));
+    if (!matchResult) return [];
+    const outcome = gradeMLOutcome(qualifiedTeam, matchResult.homeAbbrev, matchResult.awayAbbrev, matchResult.homeScore, matchResult.awayScore);
+    return [{
+      id: qualifier.id,
+      outcome,
+      settlementStatus: outcome === "ungradeable" ? "ungradeable" : "settled",
+      netUnits: mlNetUnits(outcome, qualifier.qualifier_odds),
+      gradingSource,
+      gradingNotes: `${matchResult.homeAbbrev} ${matchResult.homeScore} - ${matchResult.awayAbbrev} ${matchResult.awayScore}. ${qualifiedTeam} ML ${qualifier.qualifier_odds != null ? (qualifier.qualifier_odds > 0 ? `+${qualifier.qualifier_odds}` : `${qualifier.qualifier_odds}`) : "unknown"}.`,
+    }];
+  });
+}
+
+async function gradePendingTotalQualifiers(
+  pending: DbSystemQualifier[],
+  source: "nhl" | "mlb",
+  gradingSource: string,
+): Promise<GradeQualifierInput[]> {
+  if (!pending.length) return [];
+
+  let results: TotalsGameResult[] = [];
+  if (source === "nhl") {
+    const teams = pending.flatMap((q) => [q.home_team, q.road_team]).filter(Boolean) as string[];
+    const resultsByTeam = await fetchNHLRecentResults(teams);
+    const seen = new Map<string, TotalsGameResult>();
+    Array.from(resultsByTeam.values()).forEach((list) => {
+      list.forEach((r) => {
+        seen.set(`${r.awayAbbrev}@${r.homeAbbrev}`, r);
+      });
+    });
+    results = Array.from(seen.values());
+  } else {
+    results = await fetchMLBRecentResults();
+  }
+
+  return pending.flatMap((qualifier) => {
+    const provenance = qualifier.provenance as Record<string, unknown> | null;
+    const totalLineRaw = provenance?.totalLine;
+    const totalLine = typeof totalLineRaw === "number"
+      ? totalLineRaw
+      : typeof provenance?.recordSnapshot === "object" && provenance?.recordSnapshot && typeof (provenance.recordSnapshot as Record<string, unknown>).totalLine === "number"
+      ? ((provenance.recordSnapshot as Record<string, unknown>).totalLine as number)
+      : null;
+    const match = results.find((r) => (
+      r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
+      r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase() &&
+      (source === "nhl" || !r.gameDate || r.gameDate === qualifier.game_date)
+    ));
+    if (!match) return [];
+    const outcome = gradeTotalOutcome(totalLine, match.homeScore, match.awayScore, "under");
+    return [{
+      id: qualifier.id,
+      outcome,
+      settlementStatus: outcome === "ungradeable" ? "ungradeable" : "settled",
+      netUnits: outcome === "win" ? mlNetUnits("win", qualifier.qualifier_odds) : outcome === "loss" ? -1 : 0,
+      gradingSource,
+      gradingNotes: `Final total ${match.awayAbbrev} ${match.awayScore} + ${match.homeAbbrev} ${match.homeScore} = ${match.awayScore + match.homeScore} vs total ${totalLine ?? "unknown"}.`,
+    }];
+  });
+}
+
 export type SystemGradingReport = {
   systemId: string;
   pendingChecked: number;
@@ -403,63 +535,45 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
     pendingBySystem.get(q.system_id)!.push(q);
   }
 
-  // Grade Swaggy
-  const swaggyPending = pendingBySystem.get("swaggy-stretch-drive") ?? [];
-  totalPending += swaggyPending.length;
-  if (swaggyPending.length > 0) {
+  const gradeAndReport = async (
+    systemId: string,
+    grader: () => Promise<GradeQualifierInput[]>,
+  ) => {
+    const pending = pendingBySystem.get(systemId) ?? [];
+    totalPending += pending.length;
+    if (pending.length === 0) return;
     const errors: string[] = [];
     let gradedInputs: GradeQualifierInput[] = [];
     try {
-      gradedInputs = await gradeSwaggyQualifiers(swaggyPending);
+      gradedInputs = await grader();
     } catch (err) {
       errors.push(err instanceof Error ? err.message : String(err));
     }
-
     const gradedCount = gradedInputs.length > 0 ? await batchGradeSystemQualifiers(gradedInputs) : 0;
     totalGraded += gradedCount;
-
     const outcomeCounts = gradedInputs.reduce((acc, g) => {
       acc.set(g.outcome, (acc.get(g.outcome) ?? 0) + 1);
       return acc;
     }, new Map<SystemQualifierOutcome, number>());
-
     reports.push({
-      systemId: "swaggy-stretch-drive",
-      pendingChecked: swaggyPending.length,
+      systemId,
+      pendingChecked: pending.length,
       graded: gradedCount,
       outcomes: Array.from(outcomeCounts.entries()).map(([outcome, count]) => ({ outcome, count })),
       errors,
     });
-  }
+  };
 
-  // Grade Falcons Fight
-  const falconsPending = pendingBySystem.get("falcons-fight-pummeled-pitchers") ?? [];
-  totalPending += falconsPending.length;
-  if (falconsPending.length > 0) {
-    const errors: string[] = [];
-    let gradedInputs: GradeQualifierInput[] = [];
-    try {
-      gradedInputs = await gradeFalconsQualifiers(falconsPending);
-    } catch (err) {
-      errors.push(err instanceof Error ? err.message : String(err));
-    }
-
-    const gradedCount = gradedInputs.length > 0 ? await batchGradeSystemQualifiers(gradedInputs) : 0;
-    totalGraded += gradedCount;
-
-    const outcomeCounts = gradedInputs.reduce((acc, g) => {
-      acc.set(g.outcome, (acc.get(g.outcome) ?? 0) + 1);
-      return acc;
-    }, new Map<SystemQualifierOutcome, number>());
-
-    reports.push({
-      systemId: "falcons-fight-pummeled-pitchers",
-      pendingChecked: falconsPending.length,
-      graded: gradedCount,
-      outcomes: Array.from(outcomeCounts.entries()).map(([outcome, count]) => ({ outcome, count })),
-      errors,
-    });
-  }
+  await gradeAndReport("swaggy-stretch-drive", async () => gradeSwaggyQualifiers(pendingBySystem.get("swaggy-stretch-drive") ?? []));
+  await gradeAndReport("falcons-fight-pummeled-pitchers", async () => gradeFalconsQualifiers(pendingBySystem.get("falcons-fight-pummeled-pitchers") ?? []));
+  await gradeAndReport("coach-no-rest", async () => gradePendingMlQualifiers(pendingBySystem.get("coach-no-rest") ?? [], "nhl", "nhl-api-final"));
+  await gradeAndReport("bigcat-bonaza-puckluck", async () => gradePendingMlQualifiers(pendingBySystem.get("bigcat-bonaza-puckluck") ?? [], "nhl", "nhl-api-final"));
+  await gradeAndReport("nba-home-dog-majority-handle", async () => []);
+  await gradeAndReport("nba-home-super-majority-close-game", async () => []);
+  await gradeAndReport("nhl-home-dog-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("nhl-home-dog-majority-handle") ?? [], "nhl", "nhl-api-final"));
+  await gradeAndReport("mlb-home-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("mlb-home-majority-handle") ?? [], "mlb", "mlb-api-final"));
+  await gradeAndReport("nhl-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("nhl-under-majority-handle") ?? [], "nhl", "nhl-api-final"));
+  await gradeAndReport("mlb-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("mlb-under-majority-handle") ?? [], "mlb", "mlb-api-final"));
 
   // Grade Robbie's Ripper Fast 5 (F5 inning linescore)
   const ripperPending = pendingBySystem.get("robbies-ripper-fast-5") ?? [];
@@ -565,6 +679,46 @@ export function getGradeabilityMap(): Record<string, {
       gradeable: true,
       gradingType: "moneyline",
       notes: "MLB moneyline: qualified team ML (-140 to +125). Graded from MLB Stats API final scores.",
+    },
+    "coach-no-rest": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NHL moneyline: backs the rested side vs the B2B team. Graded from NHL API final scores.",
+    },
+    "bigcat-bonaza-puckluck": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NHL moneyline: backs the underfinishing regression candidate. Graded from NHL API final scores.",
+    },
+    "nba-home-dog-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NBA moneyline: backs the qualified home dog with majority handle. Graded from ESPN/NBA final scores.",
+    },
+    "nba-home-super-majority-close-game": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NBA moneyline: backs the qualified home team in close-game super-majority handle spots. Graded from ESPN/NBA final scores.",
+    },
+    "nhl-home-dog-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NHL moneyline: backs the qualified home dog with majority handle. Graded from NHL API final scores.",
+    },
+    "mlb-home-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "MLB moneyline: backs the qualified home team with majority handle. Graded from MLB Stats API final scores.",
+    },
+    "nhl-under-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NHL totals under: grades against final combined score and stored total line.",
+    },
+    "mlb-under-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "MLB totals under: grades against final combined score and stored total line.",
     },
     "the-blowout": {
       gradeable: false,
