@@ -785,14 +785,14 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB qualifier tracker for probable starters coming off a recent shelling, filtered by listed ERA and current moneyline. Alerts first, not official picks.",
-      snapshot: "🟢 FIRING | MLB season underway. Qualifying when probable starters posted with pummeled prior start.",
+      snapshot: "Awaiting nightly QA refresh. If Falcons has no qualifiers, admin output must explain the blocker honestly.",
       definition:
         "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
       qualifierRules: [
         "Upcoming MLB game must list a probable starter.",
         "That same starter must have a prior start within the last 10 days.",
         "The prior start counts as 'pummeled' if earned runs >= 5, hits allowed >= 8, or innings pitched < 4.0.",
-        "Listed ERA must be 4.50 or lower when MLB provides an ERA; missing ERA stays unresolved instead of guessed.",
+        "Listed ERA must be 5.25 or lower when MLB provides an ERA; missing ERA stays unresolved instead of guessed.",
         "Current moneyline for the starter's team must be between -140 and +125.",
       ],
       progressionLogic: [],
@@ -2242,10 +2242,10 @@ function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
     ? Math.round(scoredRows.reduce((sum, record) => sum + (record.falconsScore || 0), 0) / scoredRows.length)
     : null;
 
-  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + weighted alert rows" : "Awaiting fresh qualifiers";
+  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier tracking + weighted alert rows" : "Nightly QA required — no Falcons qualifiers";
   system.automationStatusDetail = qualifiers > 0
     ? `${qualifiers} MLB qualifier${qualifiers === 1 ? "" : "s"} stored. Avg Falcons score ${averageScore ?? "-"}/100. ${withEra} with listed ERA, ${withMoneyline} with captured moneyline, ${withLineups} with lineup context, ${withWeather} with weather, ${withParkFactors} with park context, ${withBullpen} with bullpen context, and ${withF5} checked for F5 availability.`
-    : "Refresh scans probable starters, prior pitching logs, listed ERA, moneyline, lineup status, weather, park factors, bullpen workload, and explicit F5 market availability for live qualifier rows. Falcons score is a conservative weighted alert score, not a claimed win probability.";
+    : "No Falcons qualifiers stored tonight. Run QA on starter availability, prior-start damage gate, moneyline band, and odds matching before calling this system healthy.";
 }
 
 function applySimpleWatchlistReadiness(system: TrackedSystem) {
@@ -3776,7 +3776,7 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
         audit.failedNoProbableStarter += 1;
         continue;
       }
-      if (starter.era != null && starter.era > 4.5) {
+      if (starter.era != null && starter.era > 5.25) {
         audit.failedEra += 1;
         continue;
       }
@@ -3866,10 +3866,15 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
   });
   const auditSummary = `Audit ${audit.gamesScanned} games (${audit.matchedEventGames} matched odds events) / ${audit.starterChecks} starter checks • no matched event ${audit.failedNoEvent} • no probable starter ${audit.failedNoProbableStarter} • ERA filter ${audit.failedEra} • no moneyline ${audit.failedNoMoneyline} • moneyline band ${audit.failedMoneylineBand} • no prior start ${audit.failedNoPriorStart} • prior start not pummeled ${audit.failedNotPummeled}.`;
   applyFalconsFightPummeledPitchersReadiness(system);
+
+  system.status = freshRecords.length > 0 ? "tracking" : "awaiting_data";
   system.snapshot = freshRecords.length > 0
-    ? `${system.snapshot} ${auditSummary}`
+    ? `${freshRecords.length} Falcons qualifier${freshRecords.length === 1 ? "" : "s"} for ${targetDate}. ${auditSummary}`
     : `No Falcons qualifiers met the current screen for ${targetDate}. ${auditSummary}`;
-  system.automationStatusDetail = `${system.automationStatusDetail} ${auditSummary}`;
+  system.automationStatusLabel = freshRecords.length > 0 ? 'Live — buy-low starter qualifiers active' : 'Awaiting buy-low starter spot';
+  system.automationStatusDetail = freshRecords.length > 0
+    ? `Falcons is live with ${freshRecords.length} stored qualifier${freshRecords.length === 1 ? '' : 's'}. ${auditSummary}`
+    : `Falcons nightly QA: no qualifiers stored for ${targetDate}. ${auditSummary}`;
   return system;
 }
 
