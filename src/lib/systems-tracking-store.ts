@@ -4287,16 +4287,13 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
   }
 
   const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below 60% handle: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
-  const updated: TrackedSystem = {
-    ...system,
-    status: "tracking" as SystemTrackingStatus,
-    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
-    snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} NHL Home Dog qualifier(s) today | ${auditNote}`
-      : `🟡 No qualifiers today | ${auditNote}`,
-    records: freshRecords,
-  };
-  return updated;
+  system.status = "tracking" as SystemTrackingStatus;
+  system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
+  system.snapshot = audit.qualified > 0
+    ? `🟢 ${audit.qualified} NHL Home Dog qualifier(s) today | ${auditNote}`
+    : `🟡 No qualifiers today | ${auditNote}`;
+  system.records = freshRecords;
+  return system;
 }
 
 /**
@@ -4376,16 +4373,13 @@ async function refreshNHLUnderMajorityHandleSystemData(
   }
 
   const auditNote = `Scanned ${audit.gamesScanned} NHL games. No splits: ${audit.noSplits}. Total unavailable: ${audit.notAvailable}. Below 62% threshold: ${audit.belowThreshold}. Qualified: ${audit.qualified}.`;
-  const updated: TrackedSystem = {
-    ...system,
-    status: "tracking" as SystemTrackingStatus,
-    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
-    snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} NHL Under qualifier(s) today | ${auditNote}`
-      : `🟡 No NHL under qualifiers today | ${auditNote}`,
-    records: freshRecords,
-  };
-  return updated;
+  system.status = "tracking" as SystemTrackingStatus;
+  system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
+  system.snapshot = audit.qualified > 0
+    ? `🟢 ${audit.qualified} NHL Under qualifier(s) today | ${auditNote}`
+    : `🟡 No NHL under qualifiers today | ${auditNote}`;
+  system.records = freshRecords;
+  return system;
 }
 
 // ── MLB Handle Systems — refresh functions ────────────────────────────────────
