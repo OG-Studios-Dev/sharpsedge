@@ -371,15 +371,15 @@ export default function SystemDetailBoard({
         </p>
       </section>
 
-      {/* ── Record / performance above the fold ─────────────────────────── */}
-      <RecentHistorySection
-        systemId={system.id}
-        dbPerformance={dbPerformance}
-        dbHistory={dbHistory}
-      />
-
-      {/* ── Today's qualified games ──────────────────────────────────────── */}
-      <CurrentQualifiersSection system={system} />
+      {/* ── Core action above the fold: record + tonight's picks ───────── */}
+      <div className="space-y-5">
+        <RecentHistorySection
+          systemId={system.id}
+          dbPerformance={dbPerformance}
+          dbHistory={dbHistory}
+        />
+        <CurrentQualifiersSection system={system} />
+      </div>
 
       {/* ── NHL context rails (Swaggy only) ─────────────────────────────── */}
       {system.slug === "swaggy-stretch-drive" && (
