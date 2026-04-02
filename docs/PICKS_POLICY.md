@@ -40,12 +40,12 @@ This is not a routine path. Most days stay at or below 5.
 
 | Floor | NHL | NBA | MLB |
 |-------|-----|-----|-----|
-| Hit rate | ≥ 65% | ≥ 65% | ≥ 65% |
-| Edge | ≥ 10% | ≥ 10% | ≥ 8% |
+| Hit rate | ≥ 65% | ≥ 65% | ≥ 68% |
+| Edge | ≥ 10% | ≥ 10% | ≥ 10% |
 | Odds | −200 to +300 | −200 to +300 | −200 to +300 |
 
-MLB uses a slightly lower edge floor (8%) to account for thin early-season samples.
-The hit rate floor is the same across all sports.
+MLB production is currently tightened beyond the baseline cross-sport gate.
+Marco directive (2026-04-02): raise MLB thresholds until the public MLB card is back above 60%.
 
 ---
 
@@ -55,13 +55,12 @@ The hit rate floor is the same across all sports.
 
 | Constant | Value | Role |
 |---|---|---|
-| `V1_HIT_RATE_FLOOR` | 65 | Hit rate quality gate |
-| `V1_EDGE_FLOOR` | 10 | Edge quality gate |
-| `SOFT_MAX_PLAYER` | 3 | Default player prop ceiling |
-| `SOFT_MAX_TEAM` | 2 | Default team trend ceiling |
-| `HARD_MAX_PLAYER` | 4 | Strong-edge player ceiling |
-| `HARD_MAX_TEAM` | 3 | Strong-edge team ceiling |
-| `STRONG_EDGE_FLOOR` | 15 | Edge % to trigger hard max |
+| `V1_HIT_RATE_FLOOR` | 65 | Baseline hit rate quality gate |
+| `V1_EDGE_FLOOR` | 10 | Baseline edge quality gate |
+| `MLB_HIT_RATE_FLOOR` | 68 | Tightened MLB production hit-rate gate |
+| `MLB_EDGE_FLOOR` | 10 | Tightened MLB production edge gate |
+
+Production volume remains capped at 3 picks per sport per day (2 player + 1 team), with zero picks valid.
 
 **Removed:** Fill-to-3 loops in `selectTopPicks`, `selectNBATopPicks`, `selectMLBTopPicks`.
 

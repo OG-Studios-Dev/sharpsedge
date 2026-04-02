@@ -459,18 +459,18 @@ export function selectMLBTopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  // MLB uses the same V1 quality floors as NHL/NBA.
-  // MLB season is short and early-season samples are thin, so we use a slightly
-  // lower edge floor (8%) compared to NHL/NBA (10%) to avoid 0-pick slates in
-  // the first weeks. hitRate floor remains the same 65%.
-  const MLB_EDGE_FLOOR = 8;
+  // MLB is currently underperforming badly, so production must run tighter than
+  // the baseline cross-sport gate until the public card is back above 60%.
+  // Marco directive (2026-04-02): tighten MLB and raise thresholds.
+  const MLB_HIT_RATE_FLOOR = 68;
+  const MLB_EDGE_FLOOR = 10;
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
     .filter((p) => {
       const hr = normalizePercentValue(p.hitRate);
       const e = typeof p.edge === "number" ? normalizePercentValue(p.edge) : 0;
-      return hr >= V1_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
+      return hr >= MLB_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
     })
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
@@ -480,7 +480,7 @@ export function selectMLBTopPicks(
     .filter((t) => {
       const hr = normalizePercentValue(t.hitRate);
       const e = typeof t.edge === "number" ? normalizePercentValue(t.edge) : 0;
-      return hr >= V1_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
+      return hr >= MLB_HIT_RATE_FLOOR && e >= MLB_EDGE_FLOOR;
     })
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
