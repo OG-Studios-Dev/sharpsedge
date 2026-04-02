@@ -14,6 +14,7 @@
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
+import { getRecentNBAGames } from "@/lib/nba-api";
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
@@ -385,6 +386,30 @@ type TotalsGameResult = {
   gameDate?: string;
 };
 
+let _nbaResultsCache: { data: TotalsGameResult[]; fetchedAt: number } | null = null;
+const NBA_RESULTS_TTL_MS = 30 * 60 * 1000;
+
+async function fetchNBARecentResults(): Promise<TotalsGameResult[]> {
+  const now = Date.now();
+  if (_nbaResultsCache && now - _nbaResultsCache.fetchedAt < NBA_RESULTS_TTL_MS) {
+    return _nbaResultsCache.data;
+  }
+
+  const games = await getRecentNBAGames(14);
+  const results: TotalsGameResult[] = games
+    .filter((g) => g.status === "Final" && g.homeScore != null && g.awayScore != null)
+    .map((g) => ({
+      homeAbbrev: g.homeTeam.abbreviation,
+      awayAbbrev: g.awayTeam.abbreviation,
+      homeScore: g.homeScore!,
+      awayScore: g.awayScore!,
+      gameDate: g.date,
+    }));
+
+  _nbaResultsCache = { data: results, fetchedAt: now };
+  return results;
+}
+
 function gradeTotalOutcome(
   totalLine: number | null,
   homeScore: number,
@@ -400,7 +425,7 @@ function gradeTotalOutcome(
 
 async function gradePendingMlQualifiers(
   pending: DbSystemQualifier[],
-  source: "nhl" | "mlb",
+  source: "nhl" | "mlb" | "nba",
   gradingSource: string,
 ): Promise<GradeQualifierInput[]> {
   if (!pending.length) return [];
@@ -428,14 +453,14 @@ async function gradePendingMlQualifiers(
     });
   }
 
-  const mlbResults = await fetchMLBRecentResults();
+  const results = source === "nba" ? await fetchNBARecentResults() : await fetchMLBRecentResults();
   return pending.flatMap((qualifier) => {
     const qualifiedTeam = qualifier.qualified_team;
     if (!qualifiedTeam) return [];
-    const matchResult = mlbResults.find((r) => (
+    const matchResult = results.find((r) => (
       r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
       r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase() &&
-      r.gameDate === qualifier.game_date
+      (source === "nba" || r.gameDate === qualifier.game_date)
     ));
     if (!matchResult) return [];
     const outcome = gradeMLOutcome(qualifiedTeam, matchResult.homeAbbrev, matchResult.awayAbbrev, matchResult.homeScore, matchResult.awayScore);
@@ -452,7 +477,7 @@ async function gradePendingMlQualifiers(
 
 async function gradePendingTotalQualifiers(
   pending: DbSystemQualifier[],
-  source: "nhl" | "mlb",
+  source: "nhl" | "mlb" | "nba",
   gradingSource: string,
 ): Promise<GradeQualifierInput[]> {
   if (!pending.length) return [];
@@ -468,6 +493,8 @@ async function gradePendingTotalQualifiers(
       });
     });
     results = Array.from(seen.values());
+  } else if (source === "nba") {
+    results = await fetchNBARecentResults();
   } else {
     results = await fetchMLBRecentResults();
   }
@@ -483,7 +510,7 @@ async function gradePendingTotalQualifiers(
     const match = results.find((r) => (
       r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
       r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase() &&
-      (source === "nhl" || !r.gameDate || r.gameDate === qualifier.game_date)
+      ((source === "nhl" || source === "nba") || !r.gameDate || r.gameDate === qualifier.game_date)
     ));
     if (!match) return [];
     const outcome = gradeTotalOutcome(totalLine, match.homeScore, match.awayScore, "under");
@@ -568,8 +595,8 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
   await gradeAndReport("falcons-fight-pummeled-pitchers", async () => gradeFalconsQualifiers(pendingBySystem.get("falcons-fight-pummeled-pitchers") ?? []));
   await gradeAndReport("coach-no-rest", async () => gradePendingMlQualifiers(pendingBySystem.get("coach-no-rest") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("bigcat-bonaza-puckluck", async () => gradePendingMlQualifiers(pendingBySystem.get("bigcat-bonaza-puckluck") ?? [], "nhl", "nhl-api-final"));
-  await gradeAndReport("nba-home-dog-majority-handle", async () => []);
-  await gradeAndReport("nba-home-super-majority-close-game", async () => []);
+  await gradeAndReport("nba-home-dog-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("nba-home-dog-majority-handle") ?? [], "nba", "nba-espn-final"));
+  await gradeAndReport("nba-home-super-majority-close-game", async () => gradePendingMlQualifiers(pendingBySystem.get("nba-home-super-majority-close-game") ?? [], "nba", "nba-espn-final"));
   await gradeAndReport("nhl-home-dog-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("nhl-home-dog-majority-handle") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("mlb-home-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("mlb-home-majority-handle") ?? [], "mlb", "mlb-api-final"));
   await gradeAndReport("nhl-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("nhl-under-majority-handle") ?? [], "nhl", "nhl-api-final"));
@@ -629,6 +656,16 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
       gradedInputs = await gradeFalconsQualifiers(allPending);
     } else if (systemId === "robbies-ripper-fast-5") {
       gradedInputs = await gradeRobbiesRipperFast5Qualifiers(allPending);
+    } else if (systemId === "coach-no-rest" || systemId === "bigcat-bonaza-puckluck" || systemId === "nhl-home-dog-majority-handle") {
+      gradedInputs = await gradePendingMlQualifiers(allPending, "nhl", "nhl-api-final");
+    } else if (systemId === "mlb-home-majority-handle") {
+      gradedInputs = await gradePendingMlQualifiers(allPending, "mlb", "mlb-api-final");
+    } else if (systemId === "nhl-under-majority-handle") {
+      gradedInputs = await gradePendingTotalQualifiers(allPending, "nhl", "nhl-api-final");
+    } else if (systemId === "mlb-under-majority-handle") {
+      gradedInputs = await gradePendingTotalQualifiers(allPending, "mlb", "mlb-api-final");
+    } else if (systemId === "nba-home-dog-majority-handle" || systemId === "nba-home-super-majority-close-game") {
+      gradedInputs = await gradePendingMlQualifiers(allPending, "nba", "nba-espn-final");
     }
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));

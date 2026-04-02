@@ -14,7 +14,12 @@ async function cachedFetch<T>(url: string, ttl: number = CACHE_TTL): Promise<T> 
   }
   const revalidate = Math.round(ttl / 1000);
   const res = await fetch(url, { next: { revalidate } });
-  if (!res.ok) throw new Error(`NHL API error: ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 429 && cached) {
+      return cached.data as T;
+    }
+    throw new Error(`NHL API error: ${res.status}`);
+  }
   const data = await res.json();
   cache.set(url, { data, timestamp: Date.now() });
   return data;

@@ -1683,9 +1683,15 @@ function normalizeQualificationLogEntry(entry: Partial<SystemQualificationLogEnt
 
 // Systems with real W/L grading (NBA Goose via quarter ATS; Swaggy + Falcons via ML; Robbie's Ripper via F5 inning linescore)
 const ML_GRADEABLE_SYSTEM_IDS = new Set([
-  "swaggy-stretch-drive",
-  "falcons-fight-pummeled-pitchers",
+  SWAGGY_STRETCH_DRIVE_SYSTEM_ID,
+  FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+  BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
+  COACH_NO_REST_SYSTEM_ID,
+  NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
+  NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
 ]);
 
 const ACTIONABLE_SYSTEM_IDS = new Set([
@@ -1725,6 +1731,8 @@ function isGooseRecordUngradeable(record: SystemTrackingRecord) {
 function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackingRecord): SystemQualificationLogEntry {
   const actionable = systemHasActionableTracking(system);
   const isML = systemIsMLGradeable(system);
+  const isTotalQualifier = record.marketType === "total";
+  const totalDirection = isTotalQualifier ? "under" : null;
 
   // For ML-gradeable systems (Swaggy, Falcons): emit pending entries — grading happens via system-grader + Supabase
   if (isML) {
@@ -1743,8 +1751,8 @@ function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackin
       qualifiedTeam: record.qualifiedTeam || null,
       opponentTeam: record.opponentTeam || null,
       marketType: record.marketType || "moneyline",
-      actionLabel: `${system.name} ML qualifier`,
-      actionSide: record.qualifiedTeam || null,
+      actionLabel: isTotalQualifier ? `${system.name} total qualifier` : `${system.name} ML qualifier`,
+      actionSide: isTotalQualifier ? totalDirection : (record.qualifiedTeam || null),
       flatStakeUnits: 1,
       settlementStatus: "pending",
       outcome: "pending",
@@ -1849,14 +1857,16 @@ async function writeSystemsTrackingData(data: SystemsTrackingData) {
   }
   await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
 
-  // Async Supabase persistence — non-blocking, graceful fallback
+  // Supabase persistence — await so refresh callers see consistent DB-backed state
   const actionableEntries = (data.qualificationLog || []).filter(
     (entry) => entry.settlementStatus !== "not_applicable",
   );
   if (actionableEntries.length > 0) {
-    upsertSystemQualifiers(actionableEntries).catch((err) => {
+    try {
+      await upsertSystemQualifiers(actionableEntries);
+    } catch (err) {
       console.warn("[systems-tracking] Supabase upsert failed (graceful skip):", err instanceof Error ? err.message : err);
-    });
+    }
   }
 }
 
@@ -4266,7 +4276,7 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
           `Home ML: +${homeML}. ${totalLine !== null ? `Total: ${totalLine}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — not a pick. Watchlist until direction and win-rate validated.`,
+          `Live system pick: back the qualified home dog moneyline when this qualifier fires.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4355,7 +4365,7 @@ async function refreshNHLUnderMajorityHandleSystemData(
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — sharp under signal. Watchlist until direction and win-rate validated.`,
+          `Live system pick: play the full-game under when this qualifier fires.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4449,7 +4459,7 @@ async function refreshMLBHomeMajorityHandleSystemData(
           homeIsUnderdog ? "Home team is ML underdog — public backing a dog (notable)." : "Home team is ML favourite — public backing expected.",
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Watchlist alert only — no bet direction implied. No historical win-rate claimed.`,
+          `Live system pick: back the qualified home team moneyline when this qualifier fires. No inflated historical claim — results will build from tracked grading.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4537,7 +4547,7 @@ async function refreshMLBUnderMajorityHandleSystemData(
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Alert only — sharp under signal. Watchlist until win-rate validated. Starter quality and park context required before acting.`,
+          `Live system pick: play the full-game under when this qualifier fires. Starter quality and park context stay attached as supporting context.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4816,7 +4826,7 @@ async function refreshNBAHomeDogMajorityHandleSystemData(
       `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation} (home). Ticket %: ${mlTicketPct ?? "—"}%.`,
       `Home ML: +${homeML}. Spread: ${splits.spreadAway != null ? `${game.awayTeam.abbreviation} ${splits.spreadAway}` : "—"}.`,
       `Num bets tracked: ${splits.numBets}. Source: Action Network.`,
-      `Alert only — not a pick. Verify value and context before acting.`,
+      `Live system pick: back the home team moneyline when this qualifier fires. Verify price discipline and context, but this is a real tracked system pick.`,
     ].join(" • ");
 
     freshRecords.push(
@@ -4932,7 +4942,7 @@ async function refreshNBAHomeSuperMajorityCloseGameSystemData(
       `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation}. Ticket %: ${mlTicketPct ?? "—"}%.`,
       `Spread: ${homeSpread != null ? `${game.homeTeam.abbreviation} ${homeSpread > 0 ? "+" : ""}${homeSpread}` : "—"}. ML: ${homeML != null ? (homeML > 0 ? "+" : "") + homeML : "—"}.`,
       `Num bets: ${splits.numBets}. Source: Action Network.`,
-      `Alert only — not a pick. Close spread + super-majority home handle detected.`,
+      `Live system pick: back the home team moneyline when this qualifier fires in a close spread game with super-majority handle.`,
     ].join(" • ");
 
     freshRecords.push(

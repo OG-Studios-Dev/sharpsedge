@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refreshTrackableSystems, refreshTrackedSystem } from "@/lib/systems-tracking-store";
+import { readSystemsTrackingData, refreshTrackableSystems, refreshTrackedSystem } from "@/lib/systems-tracking-store";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,31 @@ function authorizeCron(request: NextRequest) {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
 }
 
+async function buildRefreshResponse(systemId?: string, date?: string) {
+  if (systemId) {
+    const system = await refreshTrackedSystem(systemId, { date });
+    const persisted = await readSystemsTrackingData();
+    const persistedSystem = persisted.systems.find((entry) => entry.id === systemId) ?? system;
+    return NextResponse.json({
+      ok: Boolean(persistedSystem),
+      refreshed: Boolean(persistedSystem),
+      system: persistedSystem,
+      updatedAt: persisted.updatedAt || new Date().toISOString(),
+      error: persistedSystem ? null : `No tracker registered for ${systemId}`,
+    }, { status: persistedSystem ? 200 : 404 });
+  }
+
+  await refreshTrackableSystems({ date });
+  const persisted = await readSystemsTrackingData();
+  return NextResponse.json({
+    ok: true,
+    refreshed: true,
+    count: persisted.systems.length,
+    systems: persisted.systems,
+    updatedAt: persisted.updatedAt || new Date().toISOString(),
+  });
+}
+
 export async function GET(request: NextRequest) {
   const unauthorized = authorizeCron(request);
   if (unauthorized) return unauthorized;
@@ -36,25 +61,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (systemId) {
-      const system = await refreshTrackedSystem(systemId, { date });
-      return NextResponse.json({
-        ok: Boolean(system),
-        refreshed: Boolean(system),
-        system,
-        updatedAt: new Date().toISOString(),
-        error: system ? null : `No tracker registered for ${systemId}`,
-      }, { status: system ? 200 : 404 });
-    }
-
-    const systems = await refreshTrackableSystems({ date });
-    return NextResponse.json({
-      ok: true,
-      refreshed: true,
-      count: systems.length,
-      systems,
-      updatedAt: new Date().toISOString(),
-    });
+    return await buildRefreshResponse(systemId, date);
   } catch (error) {
     return NextResponse.json({
       ok: false,
@@ -69,25 +76,7 @@ export async function POST(request: NextRequest) {
     const systemId = typeof body?.systemId === "string" ? body.systemId : undefined;
     const date = typeof body?.date === "string" ? body.date : undefined;
 
-    if (systemId) {
-      const system = await refreshTrackedSystem(systemId, { date });
-      return NextResponse.json({
-        ok: Boolean(system),
-        refreshed: Boolean(system),
-        system,
-        updatedAt: new Date().toISOString(),
-        error: system ? null : `No tracker registered for ${systemId}`,
-      }, { status: system ? 200 : 404 });
-    }
-
-    const systems = await refreshTrackableSystems({ date });
-    return NextResponse.json({
-      ok: true,
-      refreshed: true,
-      count: systems.length,
-      systems,
-      updatedAt: new Date().toISOString(),
-    });
+    return await buildRefreshResponse(systemId, date);
   } catch (error) {
     return NextResponse.json({
       ok: false,
