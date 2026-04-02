@@ -234,9 +234,9 @@ function PerformanceStrip({
       ) : (
         <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4 sm:col-span-2">
           <p className="meta-label">Grading status</p>
-          <p className="mt-2 text-base font-semibold text-gray-300">Watchlist — qualifier tracking only</p>
+          <p className="mt-2 text-base font-semibold text-gray-300">Off — not a live firing system yet</p>
           <p className="mt-1 text-xs text-gray-500">
-            No bet direction proven yet. Win/loss will appear when a direction rule is established.
+            This system stays off until the bet direction and grading rule are defined honestly.
           </p>
         </div>
       )}

@@ -9,7 +9,7 @@
  *   - Mattys 1Q Chase NBA (Goose): graded via ESPN quarter scores (existing path)
  *   - Robbie's Ripper Fast 5 (MLB F5 side/total): graded from MLB Stats API inning linescore
  *
- * Not gradeable (watchlist-only, no bet direction):
+ * Not gradeable yet (system is off until bet direction is defined honestly):
  *   - The Blowout, Hot Teams Matchup, Tony's Tight Bats
  */
 
@@ -29,7 +29,7 @@ export const GRADEABLE_PROGRESSION_SYSTEMS = [
   "nba-goose-system",
 ] as const;
 
-export const WATCHLIST_ONLY_SYSTEMS = [
+export const OFFLINE_SYSTEMS = [
   "the-blowout",
   "hot-teams-matchup",
   "tonys-hot-bats",
@@ -569,7 +569,7 @@ export function getGradeabilityMap(): Record<string, {
     "the-blowout": {
       gradeable: false,
       gradingType: "watchlist_only",
-      notes: "Bet direction unresolved. Qualifier watchlist only — not gradeable until direction is defined.",
+      notes: "Off. Bet direction unresolved, so this system is not gradeable until a real rule is defined.",
     },
     "hot-teams-matchup": {
       gradeable: false,
@@ -579,7 +579,7 @@ export function getGradeabilityMap(): Record<string, {
     "tonys-hot-bats": {
       gradeable: false,
       gradingType: "watchlist_only",
-      notes: "Early trigger watchlist. No explicit bet direction — not gradeable until picks model is defined.",
+      notes: "Off. No explicit bet direction yet — not gradeable until the picks rule is defined.",
     },
     "robbies-ripper-fast-5": {
       gradeable: true,

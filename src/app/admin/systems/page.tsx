@@ -33,7 +33,7 @@ function winPctColor(pct: number | null | undefined) {
 }
 
 function statusBadge(s: DbSystemPerformanceSummary, isGradeable: boolean) {
-  if (!isGradeable) return { label: "Watchlist", cls: "bg-gray-500/15 text-gray-400 border-gray-600/40" };
+  if (!isGradeable) return { label: "Off", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" };
   if (s.graded_qualifiers === 0) return { label: "No data", cls: "bg-gray-500/15 text-gray-500 border-gray-700/40" };
   const wr = Number(s.win_pct ?? 0);
   if (wr >= 55) return { label: "On track", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
@@ -68,7 +68,7 @@ type GradeStatus = {
 const GRADEABLE_LABELS: Record<string, string> = {
   moneyline: "ML",
   quarter_ats: "1Q/3Q ATS",
-  watchlist_only: "Watchlist",
+  watchlist_only: "Off",
 };
 
 // ─── SystemCard ───────────────────────────────────────────────────────────────

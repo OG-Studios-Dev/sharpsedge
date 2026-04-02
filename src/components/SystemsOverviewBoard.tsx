@@ -3,7 +3,7 @@ import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSu
 
 const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system"]);
 const MIN_SAMPLE_FOR_TIER = 8;
-const WATCHLIST_ONLY_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
+const OFFLINE_SYSTEM_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
 type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
 
@@ -109,7 +109,7 @@ function sortSystemsForDisplay(systems: TrackedSystem[], dbPerfMap: Map<string, 
     return 1;
   };
 
-  const getWatchlistWeight = (system: TrackedSystem) => WATCHLIST_ONLY_IDS.has(system.id) ? 1 : 0;
+  const getWatchlistWeight = (system: TrackedSystem) => OFFLINE_SYSTEM_IDS.has(system.id) ? 1 : 0;
 
   return [...systems].sort((a, b) => {
     const aTrackable = a.trackabilityBucket === "trackable_now" ? 0 : 1;
@@ -227,7 +227,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
             }
 
             const tier = getWinPctTier(winPctForTier, gradedForTier);
-            const isWatchlistOnly = WATCHLIST_ONLY_IDS.has(system.id);
+            const isOfflineSystem = OFFLINE_SYSTEM_IDS.has(system.id);
             const liveQualifierCount = dbPerf?.qualifiers_logged ?? system.records.filter((record) => Boolean(record.qualifiedTeam)).length;
             const rowOpacity = tier === "weak" ? "opacity-70" : "";
 
@@ -251,12 +251,12 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                       <span className={`rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] ${trackabilityPill(system.trackabilityBucket)}`}>
                         {formatTrackability(system.trackabilityBucket)}
                       </span>
-                      {isWatchlistOnly && (
-                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-300">
-                          Watchlist only
+                      {isOfflineSystem && (
+                        <span className="rounded border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-rose-300">
+                          Off
                         </span>
                       )}
-                      {!isWatchlistOnly && liveQualifierCount > 0 && (
+                      {!isOfflineSystem && liveQualifierCount > 0 && (
                         <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
                           {liveQualifierCount} live
                         </span>
@@ -287,15 +287,15 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                           : `${metrics.qualifiedGames} qualifiers logged`}
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-500">
-                        {isWatchlistOnly
-                          ? "Monitoring setups only — not a bet-direction system yet."
+                        {isOfflineSystem
+                          ? "Off until rules/data support a real live firing system."
                           : isMLGradeable
                           ? (hasDbRecord && dbPerf.graded_qualifiers > 0
                             ? `${dbPerf.graded_qualifiers} graded games`
                             : "Grading outcomes as results come in.")
                           : metrics.performance.actionable
                           ? `${metrics.performance.gradedQualifiers} graded games`
-                          : "Tracking qualifiers — bet direction not locked in yet."}
+                          : "Tracking qualifiers — grading history will populate as results settle."}
                       </p>
                     </div>
                     <div className="rounded-xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2">

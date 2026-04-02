@@ -3,7 +3,7 @@ import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSu
 
 const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system"]);
 const MIN_SAMPLE_FOR_TIER = 8; // minimum graded qualifiers before we display a tier
-const WATCHLIST_ONLY_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
+const OFFLINE_SYSTEM_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
 type WinPctTier = "gold" | "neutral" | "weak" | "small_sample";
 
@@ -60,8 +60,8 @@ function sortSystemsForHome(systems: TrackedSystem[], dbPerfMap: Map<string, DbS
     const bLive = (bPerf?.qualifiers_logged ?? 0) > 0 || b.records.some((r) => Boolean(r.qualifiedTeam)) ? 0 : 1;
     if (aLive !== bLive) return aLive - bLive;
 
-    const aWatch = WATCHLIST_ONLY_IDS.has(a.id) ? 1 : 0;
-    const bWatch = WATCHLIST_ONLY_IDS.has(b.id) ? 1 : 0;
+    const aWatch = OFFLINE_SYSTEM_IDS.has(a.id) ? 1 : 0;
+    const bWatch = OFFLINE_SYSTEM_IDS.has(b.id) ? 1 : 0;
     if (aWatch !== bWatch) return aWatch - bWatch;
 
     const aActionable = getSystemDerivedMetrics(a).performance.actionable ? 0 : 1;
@@ -165,7 +165,7 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
           }
 
           const tier = getWinPctTier(winPctForTier, gradedForTier);
-          const isWatchlistOnly = WATCHLIST_ONLY_IDS.has(system.id);
+          const isOfflineSystem = OFFLINE_SYSTEM_IDS.has(system.id);
           const liveQualifierCount = dbPerf?.qualifiers_logged ?? system.records.filter((record) => Boolean(record.qualifiedTeam)).length;
 
           // Row opacity/muting based on tier
@@ -189,8 +189,8 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-white leading-tight">{system.name}</span>
                 <span className="block truncate text-[10px] text-gray-500 mt-0.5">
-                  {isWatchlistOnly
-                    ? "Watchlist only — monitoring setups"
+                  {isOfflineSystem
+                    ? "Off — waiting on rules/data to make this a real live system"
                     : liveQualifierCount > 0
                     ? `${liveQualifierCount} live qualifier${liveQualifierCount === 1 ? "" : "s"} • ${getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}`
                     : getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}

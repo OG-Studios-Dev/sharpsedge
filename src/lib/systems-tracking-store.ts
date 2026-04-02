@@ -371,8 +371,8 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "Neutral NBA watchlist for teams coming off a massive recent result, tracked honestly as qualifiers until direction and pricing rules are proven.",
-      snapshot: "🟡 WATCHLIST | NBA regular season active. Neutral qualifier watchlist — bet direction unresolved.",
+      summary: "NBA blowout-reaction concept is cataloged but OFF until we define a real bet direction and pricing rule.",
+      snapshot: "🔴 OFF | Bet direction unresolved. Not live until rulebook is defined.",
       definition:
         "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
       qualifierRules: [
@@ -381,32 +381,32 @@ function seededCatalog(): TrackedSystem[] {
         "That most recent game margin must be at least 18 points either for or against the qualified team.",
         "Next-game spread from the qualified team perspective must have absolute value <= 6.5.",
         "Opponent season win percentage must be >= .450.",
-        "Direction stays unresolved for v1, so rows are stored as watchlist qualifiers only rather than auto-picks.",
+        "Direction is unresolved, so this system stays off until a real picks rule is defined.",
       ],
       progressionLogic: [],
       thesis:
-        "Huge recent results can distort the next-game narrative, but without a settled bet-direction rule this belongs in honest qualifier tracking first, not pick marketing.",
+        "Huge recent results can distort the next-game narrative, but without a settled bet-direction rule this system should stay off rather than pretend to be live.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Implemented as a neutral qualifier tracker first because the bet direction after a blowout is still unresolved.",
+          detail: "Cataloged only. Bet direction after a blowout is still unresolved, so this is not a live system yet.",
         },
       ],
-      automationStatusLabel: "Live qualifier watchlist",
-      automationStatusDetail: "Qualifiers are generated from live NBA schedule, standings, recent results, and current spreads. Stored rows stay directional-neutral.",
+      automationStatusLabel: "Off pending rulebook",
+      automationStatusDetail: "NBA data rails exist, but the system remains off until bet direction and grading logic are defined honestly.",
       dataRequirements: [
         { label: "Recent NBA results", status: "ready", detail: "Used to confirm the most recent game margin and recency window." },
         { label: "Current full-game spread", status: "ready", detail: "Used to confirm the next-game spread stays within +/-6.5 from the qualified team perspective." },
-        { label: "Opponent season win percentage", status: "ready", detail: "Used to keep the watchlist from firing on bottom-tier opponents." },
-        { label: "Bet-direction rulebook", status: "partial", detail: "Still unresolved, so the product stores qualifier/watchlist rows instead of picks." },
+        { label: "Opponent season win percentage", status: "ready", detail: "Available as a guardrail once the live rulebook exists." },
+        { label: "Bet-direction rulebook", status: "pending", detail: "Still unresolved. System stays off until this is defined." },
       ],
       unlockNotes: [
-        "Bet-direction logic still needs proof before this can become a picks system.",
+        "Bet-direction logic must be defined before this can turn on.",
         "Historical close-versus-margin work would strengthen the blowout trigger later.",
       ],
       trackingNotes: [
-        "Rows are stored per qualifying team, so a single game can produce two watchlist rows if both clubs meet the blowout criteria.",
-        "Spread is recorded from the qualifying team perspective to keep the neutral watchlist honest.",
+        "This concept should not surface as live until it has a directional rule and grading path.",
+        "Spread will be recorded from the qualifying team perspective once the live rulebook exists.",
       ],
       records: [],
     },
@@ -419,8 +419,8 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "NBA form-collision watchlist for games where two legitimately hot teams meet on a playable number with a posted total.",
-      snapshot: "🟡 WATCHLIST | NBA regular season active. Hot-team collision watchlist — bet direction unresolved.",
+      summary: "NBA hot-teams collision concept is OFF until we define whether the bet is side, total, or pass.",
+      snapshot: "🔴 OFF | Direction unresolved. Not live until the rulebook is defined.",
       definition:
         "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
       qualifierRules: [
@@ -429,27 +429,27 @@ function seededCatalog(): TrackedSystem[] {
         "Both teams must have season win percentages of .550 or better.",
         "Current full-game spread must be within +/-5.5.",
         "A game total must be available.",
-        "Direction stays unresolved for v1, so rows are stored as matchup watchlist qualifiers only.",
+        "Direction is unresolved, so this system stays off until a real picks rule is defined.",
       ],
       progressionLogic: [],
       thesis:
-        "When two genuinely hot teams collide, the market can struggle to price whether form carries, cancels out, or spills into the total. Until that direction is proven, this should stay a tracked discovery system.",
+        "When two genuinely hot teams collide, the market can struggle to price whether form carries, cancels out, or spills into the total. Until that direction is proven, this system should stay off.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Implemented as a single-row matchup watchlist so the qualifier can be logged without pretending the bet direction is solved.",
+          detail: "Cataloged only. The matchup can be detected, but this is not a live system until the direction is solved.",
         },
       ],
-      automationStatusLabel: "Live qualifier watchlist",
-      automationStatusDetail: "Qualifiers are generated from live NBA standings, recent results, and current odds. Stored rows remain direction-neutral.",
+      automationStatusLabel: "Off pending rulebook",
+      automationStatusDetail: "NBA data rails exist, but this system remains off until side/total/pass logic is defined honestly.",
       dataRequirements: [
         { label: "Recent last-5 results", status: "ready", detail: "Used to confirm both teams are at least 4-1 in their last five completed games." },
         { label: "Season win percentages", status: "ready", detail: "Used to confirm both teams clear the .550 quality threshold." },
         { label: "Current spread and total", status: "ready", detail: "Used to confirm the spread band and that a posted total exists." },
-        { label: "Bet-direction rulebook", status: "partial", detail: "Still unresolved, so the product stores qualifier/watchlist rows rather than picks." },
+        { label: "Bet-direction rulebook", status: "pending", detail: "Still unresolved. System stays off until this is defined." },
       ],
       unlockNotes: [
-        "Need proof on whether this is a side, total, or pass framework before it can graduate from watchlist to picks.",
+        "Need proof on whether this is a side, total, or pass framework before it can turn on.",
       ],
       trackingNotes: [
         "Rows are stored once per game to avoid duplicate qualifiers from both team perspectives.",
@@ -728,14 +728,14 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "MLB tight-bats watchlist using official lineup IDs, recent hitter game logs, park factors, weather, and bullpen context to flag same-day offense spots. Live trigger board - watchlist alerts, not a claims model.",
+      summary: "MLB tight-bats concept is OFF until recent-hitter context becomes a real directional picks rule with validation.",
       snapshot: "🟢 FIRING | MLB season open. Board activates when official lineups posted; early-season samples building.",
       definition:
-        "A first-pass hitting-form watchlist designed to catch offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
+        "A first-pass hitting-form concept designed to detect offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
       qualifierRules: [
         "Use official MLB live-feed lineup status only; teams without an official batting order do not qualify.",
         "Recent-offense trigger is based on the first four confirmed hitters only, using MLB player game logs from the last 10 games.",
-        "A watchlist row needs at least three of the top four hitters to have 5+ logged recent games and a lineup-average of at least 1.00 hit/game, 1.60 total bases/game, and 0.55 runs+RBI/game.",
+        "A live row would need at least three of the top four hitters to have 5+ logged recent games and a lineup-average of at least 1.00 hit/game, 1.60 total bases/game, and 0.55 runs+RBI/game.",
         "Run environment must help rather than fight the offense: hitter-friendly park, warm weather, or a taxed opposing bullpen can support the row.",
         "Market context matters; totals and moneyline pricing are captured only when books are actually posting them, but price discipline is not finalized yet.",
       ],
@@ -749,27 +749,27 @@ function seededCatalog(): TrackedSystem[] {
         },
         {
           label: "Honesty policy",
-          detail: "Rows are early watchlist triggers, not official picks. Missing lineups, weak hitter samples, or incomplete market context stay unresolved instead of being guessed.",
+          detail: "Current rows are internal trigger context only. Missing lineups, weak hitter samples, or incomplete market context must keep this system off rather than guessed into picks.",
         },
       ],
-      automationStatusLabel: "Live qualifier board - daily MLB tight-bats watchlist",
-      automationStatusDetail: "Refreshes daily from official MLB lineup IDs, MLB hitter game logs (last 10 games), park factors, Open-Meteo weather, and bullpen workload rails. Stores trigger alerts when top-of-order production and run-environment context align. Not a validated picks model - watchlist alerts only.",
+      automationStatusLabel: "Off pending validation",
+      automationStatusDetail: "Data rails refresh daily, but the system stays off until hitter-form context becomes a real directional rule with validation and grading.",
       dataRequirements: [
         { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected. Only officially published batting orders qualify (conservative - no third-party lineup guesses)." },
         { label: "Top-of-order hitter game logs", status: "ready", detail: "Official lineup player IDs connect to MLB hitter game logs. 10-game sample: H/G, TB/G, R+RBI/G thresholds enforced." },
         { label: "Weather / park context", status: "ready", detail: "Open-Meteo temperature/wind and seeded Statcast park factors attached per game when available." },
         { label: "Bullpen workload context", status: "ready", detail: "Last-three-day bullpen usage context from MLB boxscores. High/moderate/low fatigue label per side." },
         { label: "Market availability context", status: "partial", detail: "Moneyline, total, and F5 availability surfaced only when books are posting them. No synthetic lines created." },
-        { label: "Price discipline / validation layer", status: "pending", detail: "Opening/closing price history, opponent starter context, and outcome validation not yet finalized. Treat rows as watchlist, not picks." },
+        { label: "Price discipline / validation layer", status: "pending", detail: "Opening/closing price history, opponent starter context, and outcome validation are not finalized. System stays off until they are." },
       ],
       unlockNotes: [
-        "Primary rails live - trigger board is actionable for inspection.",
-        "Price discipline and outcome validation still needed before treating triggers as picks.",
+        "Primary rails are live, but that is not enough to call this a live system.",
+        "Price discipline and outcome validation still need to exist before this can turn on.",
         "Noise-control (BABIP / quality-of-contact) would strengthen triggers beyond raw last-10 production.",
         "Opponent starter quality not yet in the qualifier gate - can be added as next improvement.",
       ],
       trackingNotes: [
-        "Rows are early watchlist triggers, not bets, not backtests, and not a claim that the full Tony's Tight Bats model is complete.",
+        "Internal trigger rows should not surface as live picks until the full Tony's Tight Bats rule is complete.",
         "Lineup status comes only from MLB's live feed; no third-party lineup scrape is used to fake certainty.",
         "Market availability notes stay tied to posted books/markets. No synthetic F5 or total lines are created.",
       ],
@@ -2225,8 +2225,12 @@ function applyFalconsFightPummeledPitchersReadiness(system: TrackedSystem) {
 
 function applySimpleWatchlistReadiness(system: TrackedSystem) {
   const qualifiers = system.records.length;
-  system.status = qualifiers > 0 ? "tracking" : "awaiting_data";
-  system.automationStatusLabel = qualifiers > 0 ? "Live qualifier watchlist" : "Awaiting fresh qualifiers";
+  system.status = "awaiting_verification";
+  system.trackabilityBucket = "blocked_missing_data";
+  system.automationStatusLabel = qualifiers > 0 ? "Off pending rulebook" : "Off";
+  system.automationStatusDetail = qualifiers > 0
+    ? `${qualifiers} internal qualifier row${qualifiers === 1 ? " exists" : "s exist"}, but this system stays off until bet direction and grading logic are defined honestly.`
+    : "System is off until a real bet-direction rule and grading path are defined.";
 }
 
 function applyTonysHotBatsReadiness(system: TrackedSystem) {
@@ -2240,11 +2244,12 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   const marketReady = system.records.filter((record) => record.marketType || record.currentMoneyline != null || record.f5Summary).length;
   const recentOffenseReady = system.records.filter((record) => record.notes?.includes("Recent offense trigger:")).length;
 
-  system.status = rows > 0 ? "tracking" : "awaiting_data";
-  system.automationStatusLabel = rows > 0 ? "Early trigger watchlist live" : "Awaiting today's MLB board";
+  system.status = "awaiting_verification";
+  system.trackabilityBucket = "blocked_missing_data";
+  system.automationStatusLabel = rows > 0 ? "Off pending validation" : "Off";
   system.automationStatusDetail = rows > 0
-    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored. ${triggeredRows} early trigger${triggeredRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
-    : "Refresh will build a same-day MLB watchlist from official lineups, recent hitter production, weather, park factors, bullpen usage, and posted markets when games exist.";
+    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored internally. ${triggeredRows} trigger${triggeredRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context. System stays off until validated directional rules exist.`
+    : "System is off until official lineup context, price discipline, and validation support a real live picks rule.";
 
   const lineupRequirement = findRequirement(system, "Official lineup status");
   if (lineupRequirement) {
@@ -2262,7 +2267,7 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
     topOrderRequirement.detail = recentOffenseReady > 0
       ? `${recentOffenseReady} stored row${recentOffenseReady === 1 ? " includes" : "s include"} recent top-of-order hitter scoring built from MLB game logs.`
       : officialLineups > 0
-        ? "Official lineups exist, but recent hitter sample thresholds did not produce a scored watchlist row yet."
+        ? "Official lineups exist, but recent hitter sample thresholds did not produce a scored live trigger yet."
         : rows > 0
           ? "The game board exists, but hitter-log scoring cannot finalize until MLB exposes official lineup IDs."
           : "No same-day MLB board has been stored yet.";
@@ -2300,8 +2305,8 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   if (validationRequirement) {
     validationRequirement.status = "pending";
     validationRequirement.detail = triggeredRows > 0
-      ? "Watchlist triggers now exist, but they still need price-history discipline, opponent starter context, and tracked outcomes before they can graduate into a validated picks model."
-      : "No watchlist trigger should be treated as a picks model until price-history discipline and validation are added.";
+      ? "Trigger rows now exist, but they still need price-history discipline, opponent starter context, and tracked outcomes before this can become a validated live system."
+      : "No trigger row should be treated as a live picks model until price-history discipline and validation are added.";
   }
 }
 
