@@ -729,7 +729,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB tight-bats concept is OFF until recent-hitter context becomes a real directional picks rule with validation.",
-      snapshot: "🟢 FIRING | MLB season open. Board activates when official lineups posted; early-season samples building.",
+      snapshot: "🔴 OFF | No bet direction defined. Context board only until a validated picks rule exists.",
       definition:
         "A first-pass hitting-form concept designed to detect offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
       qualifierRules: [
@@ -752,8 +752,8 @@ function seededCatalog(): TrackedSystem[] {
           detail: "Current rows are internal trigger context only. Missing lineups, weak hitter samples, or incomplete market context must keep this system off rather than guessed into picks.",
         },
       ],
-      automationStatusLabel: "Off pending validation",
-      automationStatusDetail: "Data rails refresh daily, but the system stays off until hitter-form context becomes a real directional rule with validation and grading.",
+      automationStatusLabel: "Off pending rulebook",
+      automationStatusDetail: "Daily context rails exist, but Tony's Hot Bats stays off until a validated bet direction and price-discipline rulebook is defined honestly.",
       dataRequirements: [
         { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected. Only officially published batting orders qualify (conservative - no third-party lineup guesses)." },
         { label: "Top-of-order hitter game logs", status: "ready", detail: "Official lineup player IDs connect to MLB hitter game logs. 10-game sample: H/G, TB/G, R+RBI/G thresholds enforced." },
@@ -1886,7 +1886,6 @@ function getTrackedSystem(data: SystemsTrackingData, systemId: string, factory: 
   system.owner = defaults.owner;
   system.trackabilityBucket = defaults.trackabilityBucket;
   system.summary = defaults.summary;
-  system.snapshot = defaults.snapshot;
   system.definition = defaults.definition;
   system.qualifierRules = defaults.qualifierRules;
   system.progressionLogic = defaults.progressionLogic;
@@ -3074,7 +3073,11 @@ export function getSystemSnapshot(system: TrackedSystem) {
 }
 
 function getTrackableSystems(data: SystemsTrackingData) {
-  return data.systems.filter((system) => system.trackabilityBucket === "trackable_now" && Boolean(SYSTEM_TRACKERS[system.id]));
+  return data.systems.filter((system) => {
+    if (!SYSTEM_TRACKERS[system.id]) return false;
+    const templateBucket = SYSTEM_TEMPLATE_MAP.get(system.id)?.trackabilityBucket;
+    return system.trackabilityBucket === "trackable_now" || templateBucket === "trackable_now";
+  });
 }
 
 function summarizeLineupStatus(status?: string | null) {
