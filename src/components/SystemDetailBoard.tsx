@@ -183,33 +183,64 @@ function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
 function PerformanceStrip({
   systemId,
   dbPerformance,
+  dbHistory,
 }: {
   systemId: string;
   dbPerformance: DbSystemPerformanceSummary[];
+  dbHistory: DbSystemQualifier[];
 }) {
   const perf = dbPerformance.find((p) => p.system_id === systemId);
   const isMLGradeable = ML_GRADEABLE_IDS.has(systemId);
-  if (!perf) return null;
 
-  const winPct = perf.win_pct != null ? `${Number(perf.win_pct).toFixed(1)}%` : "—";
+  const fallbackQualifiersLogged = dbHistory.length;
+  const fallbackGraded = dbHistory.filter((row) => row.outcome === "win" || row.outcome === "loss" || row.outcome === "push").length;
+  const fallbackWins = dbHistory.filter((row) => row.outcome === "win").length;
+  const fallbackLosses = dbHistory.filter((row) => row.outcome === "loss").length;
+  const fallbackPushes = dbHistory.filter((row) => row.outcome === "push").length;
+  const fallbackPending = dbHistory.filter((row) => row.outcome === "pending" || row.settlement_status === "pending").length;
+  const fallbackUngradeable = dbHistory.filter((row) => row.outcome === "ungradeable" || row.settlement_status === "ungradeable").length;
+  const fallbackFlatNetUnits = dbHistory.reduce((sum, row) => sum + (typeof row.net_units === "number" ? row.net_units : 0), 0);
+  const fallbackFirstQualifierDate = dbHistory.length ? dbHistory[dbHistory.length - 1]?.game_date ?? null : null;
+
+  const perfView = perf ?? {
+    system_id: systemId,
+    system_slug: systemId,
+    system_name: systemId,
+    league: null,
+    qualifiers_logged: fallbackQualifiersLogged,
+    graded_qualifiers: fallbackGraded,
+    wins: fallbackWins,
+    losses: fallbackLosses,
+    pushes: fallbackPushes,
+    pending: fallbackPending,
+    ungradeable: fallbackUngradeable,
+    win_pct: fallbackGraded > 0 ? (fallbackWins / fallbackGraded) * 100 : null,
+    flat_net_units: fallbackGraded > 0 || fallbackFlatNetUnits !== 0 ? fallbackFlatNetUnits : null,
+    first_qualifier_date: fallbackFirstQualifierDate,
+    last_qualifier_date: dbHistory[0]?.game_date ?? null,
+  } satisfies DbSystemPerformanceSummary;
+
+  if (!perf && dbHistory.length === 0) return null;
+
+  const winPct = perfView.win_pct != null ? `${Number(perfView.win_pct).toFixed(1)}%` : "—";
   const netUnits =
-    perf.flat_net_units != null
-      ? `${Number(perf.flat_net_units) > 0 ? "+" : ""}${Number(perf.flat_net_units).toFixed(2)}u`
+    perfView.flat_net_units != null
+      ? `${Number(perfView.flat_net_units) > 0 ? "+" : ""}${Number(perfView.flat_net_units).toFixed(2)}u`
       : "—";
   const netUnitsColor =
-    perf.flat_net_units == null
+    perfView.flat_net_units == null
       ? "text-gray-400"
-      : Number(perf.flat_net_units) > 0
+      : Number(perfView.flat_net_units) > 0
         ? "text-emerald-400"
-        : Number(perf.flat_net_units) < 0
+        : Number(perfView.flat_net_units) < 0
           ? "text-rose-400"
           : "text-yellow-400";
   const winPctColor =
-    perf.win_pct == null
+    perfView.win_pct == null
       ? "text-gray-400"
-      : Number(perf.win_pct) >= 55
+      : Number(perfView.win_pct) >= 55
         ? "text-emerald-400"
-        : Number(perf.win_pct) >= 50
+        : Number(perfView.win_pct) >= 50
           ? "text-yellow-400"
           : "text-rose-400";
 
@@ -217,9 +248,9 @@ function PerformanceStrip({
     <div className="grid gap-3 sm:grid-cols-3">
       <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
         <p className="meta-label">Qualifiers logged</p>
-        <p className="mt-2 text-2xl font-bold text-white">{perf.qualifiers_logged}</p>
+        <p className="mt-2 text-2xl font-bold text-white">{perfView.qualifiers_logged}</p>
         <p className="mt-1 text-xs text-gray-500">
-          {perf.first_qualifier_date ? `Since ${perf.first_qualifier_date}` : "All time"}
+          {perfView.first_qualifier_date ? `Since ${perfView.first_qualifier_date}` : "All time"}
         </p>
       </div>
       {isMLGradeable ? (
@@ -227,13 +258,13 @@ function PerformanceStrip({
           <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
             <p className="meta-label">Record</p>
             <p className="mt-2 text-xl font-bold">
-              {perf.graded_qualifiers > 0 ? (
+              {perfView.graded_qualifiers > 0 ? (
                 <>
-                  <span className="text-emerald-400">{perf.wins}</span>
+                  <span className="text-emerald-400">{perfView.wins}</span>
                   <span className="text-gray-500">-</span>
-                  <span className="text-rose-400">{perf.losses}</span>
-                  {perf.pushes > 0 && (
-                    <span className="text-yellow-400">-{perf.pushes}</span>
+                  <span className="text-rose-400">{perfView.losses}</span>
+                  {perfView.pushes > 0 && (
+                    <span className="text-yellow-400">-{perfView.pushes}</span>
                   )}
                 </>
               ) : (
@@ -241,7 +272,7 @@ function PerformanceStrip({
               )}
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              {perf.pending > 0 ? `${perf.pending} pending` : "All settled"}
+              {perfView.pending > 0 ? `${perfView.pending} pending` : "All settled"}
             </p>
           </div>
           <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
@@ -290,7 +321,7 @@ function RecentHistorySection({
           : "Qualifier entries tracked but not yet graded — bet direction not finalized."}
       </p>
       <div className="mt-4">
-        <PerformanceStrip systemId={systemId} dbPerformance={dbPerformance} />
+        <PerformanceStrip systemId={systemId} dbPerformance={dbPerformance} dbHistory={dbHistory} />
       </div>
       {dbHistory.length > 0 && (
         <div className="mt-4">
