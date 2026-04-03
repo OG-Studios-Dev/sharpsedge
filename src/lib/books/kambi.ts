@@ -60,6 +60,8 @@ function parseOffer(odds: ReturnType<typeof makeEmptyBookOdds>, offer: any, home
     ?? outcomes.find((outcome: any) => outcome?.points != null)?.points,
   );
 
+  const isFirstFiveOffer = sport === "MLB" && (offerName.includes("first 5") || offerName.includes("1st 5") || offerName.includes("five innings"));
+
   if ((offerName.includes("match") || offerName.includes("moneyline") || offerName.includes("regular time")) && outcomes.length >= 2) {
     for (const outcome of outcomes) {
       const label = getOutcomeLabel(outcome);
@@ -67,13 +69,21 @@ function parseOffer(odds: ReturnType<typeof makeEmptyBookOdds>, offer: any, home
       // Kambi 3-way uses "1" (home), "2" (away), "X" (draw) or OT_ONE/OT_TWO types
       const outcomeType = String(outcome?.type || "").toUpperCase();
       if (label === "1" || outcomeType === "OT_ONE") {
-        odds.homeML = american;
+        if (isFirstFiveOffer) odds.firstFiveHomeML = american;
+        else odds.homeML = american;
       } else if (label === "2" || outcomeType === "OT_TWO") {
-        odds.awayML = american;
+        if (isFirstFiveOffer) odds.firstFiveAwayML = american;
+        else odds.awayML = american;
       } else {
         const normalized = normalizeTeamName(label, sport);
-        if (normalized === homeAbbrev) odds.homeML = american;
-        if (normalized === awayAbbrev) odds.awayML = american;
+        if (normalized === homeAbbrev) {
+          if (isFirstFiveOffer) odds.firstFiveHomeML = american;
+          else odds.homeML = american;
+        }
+        if (normalized === awayAbbrev) {
+          if (isFirstFiveOffer) odds.firstFiveAwayML = american;
+          else odds.awayML = american;
+        }
       }
     }
   }
@@ -103,12 +113,22 @@ function parseOffer(odds: ReturnType<typeof makeEmptyBookOdds>, offer: any, home
       const american = decimalToAmerican(toNumber(outcome?.odds) !== null ? Number(outcome.odds) / 1000 : null);
       const outcomeLine = normalizeKambiLine(outcome?.line ?? outcome?.points ?? line);
       if (label.includes("over")) {
-        odds.total = outcomeLine ?? odds.total;
-        odds.overOdds = american;
+        if (isFirstFiveOffer) {
+          odds.firstFiveTotal = outcomeLine ?? odds.firstFiveTotal;
+          odds.firstFiveOverOdds = american;
+        } else {
+          odds.total = outcomeLine ?? odds.total;
+          odds.overOdds = american;
+        }
       }
       if (label.includes("under")) {
-        odds.total = outcomeLine ?? odds.total;
-        odds.underOdds = american;
+        if (isFirstFiveOffer) {
+          odds.firstFiveTotal = outcomeLine ?? odds.firstFiveTotal;
+          odds.firstFiveUnderOdds = american;
+        } else {
+          odds.total = outcomeLine ?? odds.total;
+          odds.underOdds = american;
+        }
       }
     }
   }
@@ -138,6 +158,9 @@ function parseEvent(entry: any, eventMap: Map<number, any>, sport: AggregatedSpo
     && odds.awayML === null
     && odds.homeSpread === null
     && odds.total === null
+    && odds.firstFiveHomeML === null
+    && odds.firstFiveAwayML === null
+    && odds.firstFiveTotal === null
   ) {
     return null;
   }
