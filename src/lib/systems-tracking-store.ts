@@ -3569,6 +3569,8 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
     const f5SupportedMarkets: string[] = Array.isArray(f5Market?.supportedMarkets) ? f5Market.supportedMarkets : [];
     const f5ML = f5Market?.moneyline ?? null;
     const f5Total = f5Market?.total ?? null;
+    const hasF5Moneyline = Boolean(f5ML?.away?.odds != null || f5ML?.home?.odds != null);
+    const hasF5Total = Boolean(f5Total?.line != null && (f5Total?.overOdds != null || f5Total?.underOdds != null));
 
     // Summarise market info
     const marketAvailability = f5Available
@@ -3649,6 +3651,10 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
           ? `Context board: ${awayStarterSummary} vs ${homeStarterSummary}${qualityGap != null ? ` • quality gap ${qualityGap} pts (threshold 12)` : ""}`
           : "Context board: at least one probable starter still unlisted.",
       `F5: ${marketAvailability}`,
+      f5Available ? `Posted F5 options: ${[
+        hasF5Moneyline ? "moneyline" : null,
+        hasF5Total ? "total" : null,
+      ].filter(Boolean).join(" + ") || "unknown"}.` : "",
       `Weather: ${weatherSummary}`,
       `Park: ${parkFactorSummary}`,
       `Bullpen: ${bullpenSummary}`,
@@ -3665,7 +3671,13 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
       roadTeam: awayAbbrev,
       homeTeam: homeAbbrev,
       recordKind: isAlert ? "alert" : "qualifier",
-      marketType: isAlert ? (f5SupportedMarkets.includes("total") ? "f5-total" : "f5-moneyline") : "context-board",
+      marketType: isAlert
+        ? hasF5Moneyline
+          ? "f5-moneyline"
+          : hasF5Total
+            ? "f5-total"
+            : "context-board"
+        : "context-board",
       alertLabel: isAlert ? "Ripper F5 alert" : "Context board / no trigger",
       currentMoneyline: qualifiedMoneyline,
       qualifiedTeam: isAlert ? qualifiedTeam : null,

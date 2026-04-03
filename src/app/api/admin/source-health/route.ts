@@ -284,6 +284,35 @@ async function probeMLB(baseUrl: string): Promise<SportHealthResult> {
       age_minutes: null,
     });
 
+    try {
+      const f5Res = await fetch(`${baseUrl}/api/admin/source-health/mlb-f5`, { cache: "no-store" });
+      if (f5Res.ok) {
+        const f5Data = await f5Res.json() as Record<string, any>;
+        const f5Summary = (f5Data.summary as Record<string, any>) ?? {};
+        const gamesWithAnyF5 = Number(f5Summary.gamesWithAnyF5 ?? 0);
+        checks.push({
+          name: "f5-market-coverage",
+          status: gamesWithAnyF5 > 0 ? "healthy" : gamesCount > 0 ? "degraded" : "healthy",
+          detail: `${gamesWithAnyF5}/${gamesCount} games with explicit F5 markets`,
+          age_minutes: ageMinutes(typeof f5Data.generatedAt === "string" ? f5Data.generatedAt : null),
+        });
+      } else {
+        checks.push({
+          name: "f5-market-coverage",
+          status: gamesCount > 0 ? "degraded" : "healthy",
+          detail: `MLB F5 diagnostics unavailable (HTTP ${f5Res.status})`,
+          age_minutes: null,
+        });
+      }
+    } catch {
+      checks.push({
+        name: "f5-market-coverage",
+        status: gamesCount > 0 ? "degraded" : "healthy",
+        detail: "MLB F5 diagnostics request failed",
+        age_minutes: null,
+      });
+    }
+
     const parkFactorCount = (coverageStep?.gamesWithParkFactor as number) ?? 0;
     checks.push({
       name: "park-factors",
