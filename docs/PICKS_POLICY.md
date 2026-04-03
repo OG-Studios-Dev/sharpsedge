@@ -40,12 +40,12 @@ This is not a routine path. Most days stay at or below 5.
 
 | Floor | NHL | NBA | MLB |
 |-------|-----|-----|-----|
-| Hit rate | ≥ 65% | ≥ 65% | ≥ 68% |
-| Edge | ≥ 10% | ≥ 10% | ≥ 10% |
+| Hit rate | ≥ 65% | ≥ 65% | ≥ 72% |
+| Edge | ≥ 10% | ≥ 10% | ≥ 12% |
 | Odds | −200 to +300 | −200 to +300 | −200 to +300 |
 
-MLB production is currently tightened beyond the baseline cross-sport gate.
-Marco directive (2026-04-02): raise MLB thresholds until the public MLB card is back above 60%.
+MLB production is currently tightened materially beyond the baseline cross-sport gate.
+Marco directive (2026-04-03): MLB spray is unacceptable; require at least 72% hit rate and a higher edge until the public MLB card earns trust back.
 
 ---
 
@@ -57,10 +57,11 @@ Marco directive (2026-04-02): raise MLB thresholds until the public MLB card is 
 |---|---|---|
 | `V1_HIT_RATE_FLOOR` | 65 | Baseline hit rate quality gate |
 | `V1_EDGE_FLOOR` | 10 | Baseline edge quality gate |
-| `MLB_HIT_RATE_FLOOR` | 68 | Tightened MLB production hit-rate gate |
-| `MLB_EDGE_FLOOR` | 10 | Tightened MLB production edge gate |
+| `MLB_HIT_RATE_FLOOR` | 72 | Tightened MLB production hit-rate gate |
+| `MLB_EDGE_FLOOR` | 12 | Tightened MLB production edge gate |
 
 Production volume remains capped at 3 picks per sport per day (2 player + 1 team), with zero picks valid.
+MLB now has the strictest public gate in the product: if nothing clears 72% / 12%, no MLB picks go out.
 
 **Removed:** Fill-to-3 loops in `selectTopPicks`, `selectNBATopPicks`, `selectMLBTopPicks`.
 
@@ -117,3 +118,4 @@ This is a gap to address once the unit-management layer exists.
 | Date | Change |
 |------|--------|
 | 2026-03-29 | Removed fill-to-3 forced minimum in picks-engine. Added soft band (5) and hard-max (7) volume policy. Added policy spec. |
+| 2026-04-03 | Tightened MLB production gate again to ≥72% hit rate and ≥12% edge after sub-20% MLB performance. |

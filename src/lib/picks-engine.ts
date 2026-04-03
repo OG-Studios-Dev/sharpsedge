@@ -459,11 +459,12 @@ export function selectMLBTopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  // MLB is currently underperforming badly, so production must run tighter than
-  // the baseline cross-sport gate until the public card is back above 60%.
-  // Marco directive (2026-04-02): tighten MLB and raise thresholds.
-  const MLB_HIT_RATE_FLOOR = 68;
-  const MLB_EDGE_FLOOR = 10;
+  // MLB is currently underperforming badly, so production must run materially
+  // tighter than the baseline cross-sport gate until quality is restored.
+  // Marco directive (2026-04-03): raise MLB production to at least 72% hit rate
+  // and require a higher edge so spray dies immediately.
+  const MLB_HIT_RATE_FLOOR = 72;
+  const MLB_EDGE_FLOOR = 12;
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
