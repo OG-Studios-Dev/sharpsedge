@@ -41,11 +41,12 @@ export default function SystemQualifierHistoryToggle({
   rows: DbSystemQualifier[];
   isMLGradeable: boolean;
 }) {
+  const actionableRows = rows.filter((row) => row.qualified_team || row.action_side || row.market_type !== "context-board");
   const [showAll, setShowAll] = useState(false);
-  const displayed = showAll ? rows : rows.slice(0, INITIAL_ROWS);
-  const hasMore = rows.length > INITIAL_ROWS;
+  const displayed = showAll ? actionableRows : actionableRows.slice(0, INITIAL_ROWS);
+  const hasMore = actionableRows.length > INITIAL_ROWS;
 
-  if (rows.length === 0) return null;
+  if (actionableRows.length === 0) return null;
 
   return (
     <div className="space-y-3">
@@ -91,7 +92,7 @@ export default function SystemQualifierHistoryToggle({
           onClick={() => setShowAll((v) => !v)}
           className="w-full rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 py-2.5 text-xs font-semibold text-gray-400 transition hover:border-white/20 hover:text-gray-200"
         >
-          {showAll ? `Show fewer` : `Show all ${rows.length} qualifier entries`}
+          {showAll ? `Show fewer` : `Show all ${actionableRows.length} qualifier entries`}
         </button>
       )}
     </div>

@@ -153,10 +153,10 @@ function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
   if (monitoring.length > 0) {
     return (
       <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-        <p className="section-heading">Today&apos;s qualifiers</p>
-        <h2 className="mt-2 text-lg font-semibold text-white">No triggers today</h2>
+        <p className="section-heading">Today&apos;s context board</p>
+        <h2 className="mt-2 text-lg font-semibold text-white">No live F5 triggers yet</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Monitoring {monitoring.length} game{monitoring.length === 1 ? "" : "s"} — no qualifiers fired yet.
+          Monitoring {monitoring.length} game{monitoring.length === 1 ? "" : "s"} — these are not picks until an explicit F5 market posts and the starter mismatch clears the trigger.
         </p>
         {system.snapshot && (
           <p className="mt-2 text-xs text-gray-500 leading-relaxed">{system.snapshot}</p>
@@ -308,8 +308,9 @@ function RecentHistorySection({
   dbHistory: DbSystemQualifier[];
 }) {
   const isMLGradeable = ML_GRADEABLE_IDS.has(systemId);
+  const actionableHistory = dbHistory.filter((row) => row.qualified_team || row.action_side || row.market_type !== "context-board");
   const hasPerf = dbPerformance.some((p) => p.system_id === systemId);
-  if (!hasPerf && dbHistory.length === 0) return null;
+  if (!hasPerf && actionableHistory.length === 0) return null;
 
   return (
     <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
@@ -323,9 +324,9 @@ function RecentHistorySection({
       <div className="mt-4">
         <PerformanceStrip systemId={systemId} dbPerformance={dbPerformance} dbHistory={dbHistory} />
       </div>
-      {dbHistory.length > 0 && (
+      {actionableHistory.length > 0 && (
         <div className="mt-4">
-          <SystemQualifierHistoryToggle rows={dbHistory} isMLGradeable={isMLGradeable} />
+          <SystemQualifierHistoryToggle rows={actionableHistory} isMLGradeable={isMLGradeable} />
         </div>
       )}
     </section>
