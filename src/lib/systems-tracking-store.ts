@@ -1811,7 +1811,12 @@ function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackin
 
 function upsertSystemQualificationLog(data: SystemsTrackingData, system: TrackedSystem) {
   const retained = (data.qualificationLog || []).filter((entry) => entry.systemId !== system.id);
-  const fresh = system.records.map((record) => buildQualificationLogEntry(system, record));
+  const fresh = system.records
+    .filter((record) => {
+      if (!systemHasActionableTracking(system)) return true;
+      return Boolean(record.qualifiedTeam) && (record.recordKind === "alert" || record.recordKind === "progression");
+    })
+    .map((record) => buildQualificationLogEntry(system, record));
   data.qualificationLog = [...retained, ...fresh].sort((left, right) => {
     return left.gameDate.localeCompare(right.gameDate)
       || left.systemName.localeCompare(right.systemName)
