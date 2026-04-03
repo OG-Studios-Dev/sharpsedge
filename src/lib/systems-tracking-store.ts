@@ -3192,6 +3192,8 @@ async function buildFalconsQualifierRecord(input: {
   matchup: string;
   roadTeam: string;
   homeTeam: string;
+  qualifiedTeam: string;
+  opponentTeam: string;
   starterName: string;
   starterEra: number | null;
   currentMoneyline: number;
@@ -3249,6 +3251,8 @@ async function buildFalconsQualifierRecord(input: {
     homeTeam: input.homeTeam,
     recordKind: "qualifier",
     marketType: "moneyline",
+    qualifiedTeam: input.qualifiedTeam,
+    opponentTeam: input.opponentTeam,
     alertLabel: "Tracked qualifier / system alert",
     starterName: input.starterName,
     starterEra: input.starterEra,
@@ -3942,6 +3946,8 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
         matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
         roadTeam: game.awayTeam.abbreviation,
         homeTeam: game.homeTeam.abbreviation,
+        qualifiedTeam: candidate.teamAbbrev,
+        opponentTeam: candidate.side === "away" ? game.homeTeam.abbreviation : game.awayTeam.abbreviation,
         starterName: starter.name,
         starterEra: starter.era ?? null,
         currentMoneyline,
@@ -4526,7 +4532,6 @@ async function refreshMLBHomeMajorityHandleSystemData(
       // Tightened threshold: 55% → 60% (2026-03-29) — 55% fires too broadly given structural home-team bias
       if (homeHandlePct === null || homeHandlePct < 60) { audit.belowThreshold += 1; continue; }
 
-      audit.qualified += 1;
       const awayHandlePct = game.splits.find((s) => s.source === game.effectiveSource && s.marketType === "moneyline" && s.side === "away")?.handlePercent ?? null;
       const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
       const homeML = event?.bestHome?.odds ?? null;
@@ -4538,6 +4543,8 @@ async function refreshMLBHomeMajorityHandleSystemData(
         audit.notAvailable += 1;
         continue;
       }
+
+      audit.qualified += 1;
 
       // ── Line-move context (informational, not a qualifier gate) ──────────
       const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
