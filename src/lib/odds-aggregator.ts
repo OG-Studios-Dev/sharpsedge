@@ -324,6 +324,13 @@ async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds
   if (sport === "NBA") {
     marketKeys.push("spreads_q1", "spreads_q3");
   }
+  // MLB F5 (first-5-innings) markets: request explicitly from Odds API so they
+  // flow into aggregated events alongside the Pinnacle/Kambi scraper F5 feeds.
+  // Without these keys the Odds API path never returns h2h_1st_5_innings /
+  // totals_1st_5_innings, leaving F5 coverage dependent on direct-scraper success alone.
+  if (sport === "MLB") {
+    marketKeys.push("h2h_1st_5_innings", "totals_1st_5_innings");
+  }
   const marketsParam = marketKeys.join(",");
 
   // Round-robin across available keys
