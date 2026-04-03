@@ -82,16 +82,18 @@ function pickBestSpread(
 function pickBestTotal(
   books: AggregatedBookOdds[],
   oddsSelector: (book: AggregatedBookOdds) => number | null,
+  lineSelector: (book: AggregatedBookOdds) => number | null = (book) => book.total,
 ): AggregatedTotalPrice | null {
   let best: AggregatedTotalPrice | null = null;
   for (const book of books) {
     const odds = oddsSelector(book);
+    const line = lineSelector(book);
     if (typeof odds !== "number" || !Number.isFinite(odds)) continue;
-    if (typeof book.total !== "number" || !Number.isFinite(book.total)) continue;
+    if (typeof line !== "number" || !Number.isFinite(line)) continue;
     if (!best || odds > best.odds) {
       best = {
         odds,
-        line: book.total,
+        line,
         book: book.book,
       };
     }
@@ -118,6 +120,11 @@ function mergeBookOdds(primary: AggregatedBookOdds, secondary: AggregatedBookOdd
     thirdQuarterHomeSpreadOdds: primary.thirdQuarterHomeSpreadOdds ?? secondary.thirdQuarterHomeSpreadOdds,
     thirdQuarterAwaySpread: primary.thirdQuarterAwaySpread ?? secondary.thirdQuarterAwaySpread,
     thirdQuarterAwaySpreadOdds: primary.thirdQuarterAwaySpreadOdds ?? secondary.thirdQuarterAwaySpreadOdds,
+    firstFiveHomeML: primary.firstFiveHomeML ?? secondary.firstFiveHomeML,
+    firstFiveAwayML: primary.firstFiveAwayML ?? secondary.firstFiveAwayML,
+    firstFiveTotal: primary.firstFiveTotal ?? secondary.firstFiveTotal,
+    firstFiveOverOdds: primary.firstFiveOverOdds ?? secondary.firstFiveOverOdds,
+    firstFiveUnderOdds: primary.firstFiveUnderOdds ?? secondary.firstFiveUnderOdds,
     total: primary.total ?? secondary.total,
     overOdds: primary.overOdds ?? secondary.overOdds,
     underOdds: primary.underOdds ?? secondary.underOdds,
@@ -238,7 +245,9 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
       const totalMarket = bookmaker.markets.find((market) => market.key === "totals");
       const firstQuarterSpreadMarket = bookmaker.markets.find((market) => market.key === "spreads_q1");
       const thirdQuarterSpreadMarket = bookmaker.markets.find((market) => market.key === "spreads_q3");
-      if (!moneylineMarket && !spreadMarket && !totalMarket && !firstQuarterSpreadMarket && !thirdQuarterSpreadMarket) continue;
+      const firstFiveMoneylineMarket = bookmaker.markets.find((market) => market.key === "h2h_1st_5_innings");
+      const firstFiveTotalMarket = bookmaker.markets.find((market) => market.key === "totals_1st_5_innings");
+      if (!moneylineMarket && !spreadMarket && !totalMarket && !firstQuarterSpreadMarket && !thirdQuarterSpreadMarket && !firstFiveMoneylineMarket && !firstFiveTotalMarket) continue;
 
       const odds = {
         ...makeEmptyBookOdds(bookmaker.title, isoNow()),
@@ -258,6 +267,11 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
         thirdQuarterHomeSpreadOdds: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.price ?? null,
         thirdQuarterAwaySpread: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.point ?? null,
         thirdQuarterAwaySpreadOdds: thirdQuarterSpreadMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.price ?? null,
+        firstFiveHomeML: firstFiveMoneylineMarket?.outcomes.find((outcome) => outcome.name === event.home_team)?.price ?? null,
+        firstFiveAwayML: firstFiveMoneylineMarket?.outcomes.find((outcome) => outcome.name === event.away_team)?.price ?? null,
+        firstFiveTotal: firstFiveTotalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.point ?? null,
+        firstFiveOverOdds: firstFiveTotalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.price ?? null,
+        firstFiveUnderOdds: firstFiveTotalMarket?.outcomes.find((outcome) => outcome.name === "Under")?.price ?? null,
         total: totalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.point ?? null,
         overOdds: totalMarket?.outcomes.find((outcome) => outcome.name === "Over")?.price ?? null,
         underOdds: totalMarket?.outcomes.find((outcome) => outcome.name === "Under")?.price ?? null,

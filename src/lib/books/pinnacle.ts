@@ -80,6 +80,10 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
           if (designation === "home") odds.homeML = american;
           if (designation === "away") odds.awayML = american;
         }
+        if (sport === "MLB" && period === 1) {
+          if (designation === "home") odds.firstFiveHomeML = american;
+          if (designation === "away") odds.firstFiveAwayML = american;
+        }
       }
     }
 
@@ -142,6 +146,16 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
             odds.underOdds = american;
           }
         }
+        if (sport === "MLB" && period === 1) {
+          if (designation === "over") {
+            odds.firstFiveTotal = line ?? odds.firstFiveTotal;
+            odds.firstFiveOverOdds = american;
+          }
+          if (designation === "under") {
+            odds.firstFiveTotal = line ?? odds.firstFiveTotal;
+            odds.firstFiveUnderOdds = american;
+          }
+        }
       }
     }
   }
@@ -151,6 +165,9 @@ function parseMarkets(matchup: any, marketsPayload: any, sport: AggregatedSport)
     && odds.awayML === null
     && odds.homeSpread === null
     && odds.total === null
+    && odds.firstFiveHomeML === null
+    && odds.firstFiveAwayML === null
+    && odds.firstFiveTotal === null
   ) {
     return null;
   }
