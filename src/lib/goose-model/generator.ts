@@ -39,6 +39,13 @@ import type { PGAFeatureSnapshot, PGAContextHints } from "./pga-features";
 import type { GooseSport } from "./types";
 import { parsePropLine } from "./prop-parser";
 import type { ParsedPropLine } from "./prop-parser";
+import {
+  diagnoseMLBGeneralInputs,
+  diagnoseNHLInputs,
+  diagnoseNBAPlayerPropsInputs,
+  diagnosePGATopFinishInputs,
+} from "@/lib/live-system-diagnostics";
+import type { SystemDiagnosticResult } from "@/lib/system-diagnostics";
 
 export const GOOSE_MODEL_VERSION = "goose-v1";
 
@@ -124,6 +131,14 @@ export interface PickFactors {
   l5_avg_stat: number | null;
 
   /**
+   * Pre-qualification input diagnostic — frozen at generation time.
+   * Describes whether each required input was present, missing, stale, or blocked
+   * when the pick was generated. canQualify=false indicates the pick was generated
+   * with degraded inputs (useful for audit; does not suppress the pick).
+   */
+  input_diagnostic: SystemDiagnosticResult | null;
+
+  /**
    * Inline "why this pick exists" context — frozen at generation time.
    * Provides a structured decision chain without needing a separate explain call.
    * Use /api/admin/goose-model/explain?id=<id> for the full deep explanation.
@@ -169,6 +184,9 @@ function buildPickFactors(
   // Build PGA feature snapshot if applicable
   const pgaFeatures = (candidate as any)._pga_feature_snapshot as PGAFeatureSnapshot | null ?? null;
 
+  // Retrieve pre-qualification input diagnostic (built during scoring)
+  const inputDiagnostic = (candidate as any)._input_diagnostic as SystemDiagnosticResult | null ?? null;
+
   return {
     edge_pct: typeof candidate.edge === "number" ? candidate.edge : null,
     hit_rate_pct: typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time : null,
@@ -201,6 +219,7 @@ function buildPickFactors(
     prop_is_combo: parsed.isCombo,
     l5_hit_rate: nbaFeatures?.player_l5_hit_rate ?? null,
     l5_avg_stat: nbaFeatures?.player_avg_stat_l5 ?? null,
+    input_diagnostic: inputDiagnostic,
     pick_why: buildPickWhy(candidate, sigs, mlbFeatures, nhlFeatures),
   };
 }
@@ -565,6 +584,30 @@ export async function scoreGooseCandidates(
       ? Array.from(new Set([...signals, ...autoSignals]))
       : signals;
 
+    // ── Pre-qualification input diagnostic ─────────────────
+    // Build a lightweight input diagnostic from the already-fetched context
+    // hints so each pick carries visibility into which inputs were present,
+    // missing, stale, or blocked at generation time. This does NOT block picks
+    // (degraded service > no service) but surfaces enrichment gaps for audit.
+    const contextKey = candidate.team && candidate.opponent
+      ? `${candidate.team} vs ${candidate.opponent}`
+      : (candidate.game_id ?? candidate.pick_label);
+
+    let inputDiagnostic: SystemDiagnosticResult | null = null;
+    if (candidate.sport === "MLB") {
+      const mlbCtx = mlbContextMap.get(i) ?? null;
+      inputDiagnostic = diagnoseMLBGeneralInputs(contextKey, mlbCtx);
+    } else if (candidate.sport === "NHL") {
+      const nhlCtx = nhlContextMap.get(i) ?? null;
+      inputDiagnostic = diagnoseNHLInputs(contextKey, nhlCtx);
+    } else if (candidate.sport === "NBA") {
+      const nbaCtx = nbaContextMap.get(i) ?? null;
+      inputDiagnostic = diagnoseNBAPlayerPropsInputs(contextKey, nbaCtx);
+    } else if (candidate.sport === "PGA") {
+      const pgaCtx = pgaContextMap.get(i) ?? null;
+      inputDiagnostic = diagnosePGATopFinishInputs(contextKey, pgaCtx);
+    }
+
     scored.push({
       ...candidate,
       signals_present: mergedSignals,
@@ -574,11 +617,13 @@ export async function scoreGooseCandidates(
       _nhl_feature_snapshot: nhlFeatureSnapshot,
       _mlb_feature_snapshot: mlbFeatureSnapshot,
       _pga_feature_snapshot: pgaFeatureSnapshot,
+      _input_diagnostic: inputDiagnostic,
     } as ScoredGooseCandidate & {
       _nba_feature_snapshot: typeof nbaFeatureSnapshot;
       _nhl_feature_snapshot: typeof nhlFeatureSnapshot;
       _mlb_feature_snapshot: typeof mlbFeatureSnapshot;
       _pga_feature_snapshot: typeof pgaFeatureSnapshot;
+      _input_diagnostic: SystemDiagnosticResult | null;
     });
   }
 
