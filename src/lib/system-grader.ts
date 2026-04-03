@@ -26,6 +26,7 @@ export const GRADEABLE_ML_SYSTEMS = [
   "falcons-fight-pummeled-pitchers",
   "coach-no-rest",
   "bigcat-bonaza-puckluck",
+  "fat-tonys-fade",
   "nba-home-dog-majority-handle",
   "nba-home-super-majority-close-game",
   "nhl-home-dog-majority-handle",
@@ -282,10 +283,14 @@ async function gradeRobbiesRipperFast5Qualifiers(
   const graded: GradeQualifierInput[] = [];
 
   for (const qualifier of pending) {
-    // gamePk is stored in qualifier_id as "robbies-ripper-fast-5:{gameId}" or extracted from provenance
+    // gamePk is stored in qualifier_id as "robbies-ripper-fast-5:{gameId}" (or with a
+    // market suffix like "robbies-ripper-fast-5:{gameId}:ml" / ":total").
+    // Primary source is provenance.gameId (always set from record.gameId).
+    // Fallback extracts segment [1] — never .pop() — to avoid returning "ml"/"total".
     const provenance = qualifier.provenance as Record<string, unknown> | null;
+    const idSegments = qualifier.qualifier_id.split(":");
     const gamePk = (provenance?.gameId as string | undefined)
-      || qualifier.qualifier_id.split(":").pop()
+      || (idSegments.length >= 2 ? idSegments[1] : "")
       || "";
     if (!gamePk) continue;
 
@@ -721,6 +726,11 @@ export function getGradeabilityMap(): Record<string, {
       gradeable: true,
       gradingType: "moneyline",
       notes: "NHL moneyline: backs the rested side vs the B2B team. Graded from NHL API final scores.",
+    },
+    "fat-tonys-fade": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NBA moneyline fade system: grades the qualified faded side from ESPN/NBA final scores once qualifiers are logged.",
     },
     "bigcat-bonaza-puckluck": {
       gradeable: true,

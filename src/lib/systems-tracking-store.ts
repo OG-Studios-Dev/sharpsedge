@@ -1688,6 +1688,7 @@ const ML_GRADEABLE_SYSTEM_IDS = new Set([
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
   BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
+  FAT_TONYS_FADE_SYSTEM_ID,
   NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
   NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
   NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
@@ -1701,6 +1702,7 @@ const ACTIONABLE_SYSTEM_IDS = new Set([
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
   BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
+  FAT_TONYS_FADE_SYSTEM_ID,
   NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
   NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
   NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
@@ -3644,42 +3646,22 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
       ? `F5 ${f5Completeness}${f5SupportedMarkets.length ? ` (${f5SupportedMarkets.join(", ")})` : ""}.`
       : "F5 none.";
 
-    const notes = [
-      isAlert
-        ? `Ripper alert: ${qualifiedTeam} has quality edge (gap ${qualityGap} pts) • ${awayStarterSummary} vs ${homeStarterSummary}`
-        : hasBothPitchers
-          ? `Context board: ${awayStarterSummary} vs ${homeStarterSummary}${qualityGap != null ? ` • quality gap ${qualityGap} pts (threshold 12)` : ""}`
-          : "Context board: at least one probable starter still unlisted.",
-      `F5: ${marketAvailability}`,
-      f5Available ? `Posted F5 options: ${[
-        hasF5Moneyline ? "moneyline" : null,
-        hasF5Total ? "total" : null,
-      ].filter(Boolean).join(" + ") || "unknown"}.` : "",
-      `Weather: ${weatherSummary}`,
-      `Park: ${parkFactorSummary}`,
-      `Bullpen: ${bullpenSummary}`,
-      !f5Available ? "Waiting on F5 market to post." : "",
-      !mismatchQualifies && hasBothPitchers ? `Quality gap ${qualityGap ?? "—"} pts below 12-pt mismatch threshold.` : "",
-    ].filter(Boolean).join(" • ");
+    // Shared context notes (used by both alert records and context-board records)
+    const postedMarketsNote = f5Available
+      ? `Posted F5 options: ${[hasF5Moneyline ? "moneyline" : null, hasF5Total ? "total" : null].filter(Boolean).join(" + ") || "unknown"}.`
+      : "";
+    const bothMarketsNote = hasF5Moneyline && hasF5Total
+      ? "Both F5 moneyline and F5 total are posted — each is tracked as a separate actionable record."
+      : null;
 
-    freshRecords.push(normalizeRecord({
-      id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}`,
+    // Shared record fields common to every record emitted for this game
+    const sharedProps = {
       gameId: game.gameId,
-      oddsEventId: null,
+      oddsEventId: null as null,
       gameDate: game.date,
       matchup,
       roadTeam: awayAbbrev,
       homeTeam: homeAbbrev,
-      recordKind: isAlert ? "alert" : "qualifier",
-      marketType: isAlert
-        ? hasF5Moneyline
-          ? "f5-moneyline"
-          : hasF5Total
-            ? "f5-total"
-            : "context-board"
-        : "context-board",
-      alertLabel: isAlert ? "Ripper F5 alert" : "Context board / no trigger",
-      currentMoneyline: qualifiedMoneyline,
       qualifiedTeam: isAlert ? qualifiedTeam : null,
       opponentTeam: isAlert ? (qualifiedTeam === awayAbbrev ? homeAbbrev : awayAbbrev) : null,
       marketAvailability,
@@ -3687,36 +3669,136 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
       weatherSummary,
       parkFactorSummary,
       bullpenSummary,
-      totalLine: f5Total?.line ?? null,
-      source: isAlert
-        ? "MLB enrichment board (F5 market rail + ERA/WHIP starter quality + weather + park + bullpen)"
-        : "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-      notes,
-      sourceHealthStatus: game?.sourceHealth?.status ?? null,
+      sourceHealthStatus: (game?.sourceHealth?.status ?? null) as "healthy" | "stale" | "degraded" | "missing" | null,
       freshnessSummary: game?.sourceHealth?.checks?.length
         ? game.sourceHealth.checks.map((check: any) => `${check.label}: ${check.status}`).join(" • ")
         : null,
       lastSyncedAt: new Date().toISOString(),
-    }));
+    };
 
-    if (isAlert) audit.alerts += 1;
-    else audit.contextBoard += 1;
+    if (isAlert) {
+      // ── Alert path: emit one record per posted F5 market type ─────────────
+      // When both moneyline AND total are posted for a qualifying game, we
+      // create two independent actionable records so neither option is hidden.
+      type AlertMarket = { suffix: string; marketType: string; label: string; moneyline: number | null; recordTotalLine: number | null; marketNote: string };
+      const alertMarkets: AlertMarket[] = [];
+
+      const mlSuffix   = hasF5Moneyline && hasF5Total ? ":ml"    : "";
+      const totSuffix  = hasF5Moneyline && hasF5Total ? ":total" : "";
+
+      if (hasF5Moneyline) {
+        const mlOdds = qualifiedMoneyline;
+        alertMarkets.push({
+          suffix: mlSuffix,
+          marketType: "f5-moneyline",
+          label: hasF5Total ? "Ripper F5 alert — moneyline" : "Ripper F5 alert",
+          moneyline: mlOdds,
+          recordTotalLine: null,
+          marketNote: `F5 moneyline — ${qualifiedTeam}${mlOdds != null ? ` ${mlOdds > 0 ? "+" : ""}${mlOdds}` : " (odds not captured)"}`,
+        });
+      }
+
+      if (hasF5Total) {
+        const overLine  = f5Total?.line ?? null;
+        const overOdds  = f5Total?.overOdds ?? null;
+        const underOdds = f5Total?.underOdds ?? null;
+        const overStr   = overOdds  != null ? ` • over ${overOdds > 0 ? "+" : ""}${overOdds}`   : "";
+        const underStr  = underOdds != null ? ` • under ${underOdds > 0 ? "+" : ""}${underOdds}` : "";
+        alertMarkets.push({
+          suffix: totSuffix,
+          marketType: "f5-total",
+          label: hasF5Moneyline ? "Ripper F5 alert — total" : "Ripper F5 alert",
+          moneyline: null,
+          recordTotalLine: overLine,
+          marketNote: `F5 total — line ${overLine ?? "n/a"}${overStr}${underStr}`,
+        });
+      }
+
+      // Fallback: alert triggered but no market captured yet (rare)
+      if (alertMarkets.length === 0) {
+        alertMarkets.push({
+          suffix: "",
+          marketType: "context-board",
+          label: "Ripper F5 alert — market pending",
+          moneyline: null,
+          recordTotalLine: null,
+          marketNote: "F5 alert qualified but no specific market line captured.",
+        });
+      }
+
+      for (const market of alertMarkets) {
+        const alertNotes = [
+          `Ripper alert: ${qualifiedTeam} has quality edge (gap ${qualityGap} pts) • ${awayStarterSummary} vs ${homeStarterSummary}`,
+          `F5: ${marketAvailability}`,
+          postedMarketsNote,
+          bothMarketsNote,
+          `This record: ${market.marketNote}`,
+          `Weather: ${weatherSummary}`,
+          `Park: ${parkFactorSummary}`,
+          `Bullpen: ${bullpenSummary}`,
+        ].filter(Boolean).join(" • ");
+
+        freshRecords.push(normalizeRecord({
+          ...sharedProps,
+          id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}${market.suffix}`,
+          recordKind: "alert",
+          marketType: market.marketType,
+          alertLabel: market.label,
+          currentMoneyline: market.moneyline,
+          totalLine: market.recordTotalLine ?? (f5Total?.line ?? null),
+          source: "MLB enrichment board (F5 market rail + ERA/WHIP starter quality + weather + park + bullpen)",
+          notes: alertNotes,
+        }));
+      }
+
+      audit.alerts += 1; // count alert-qualifying games, not individual market records
+    } else {
+      // ── Context-board path: single record per game ─────────────────────────
+      const contextNotes = [
+        hasBothPitchers
+          ? `Context board: ${awayStarterSummary} vs ${homeStarterSummary}${qualityGap != null ? ` • quality gap ${qualityGap} pts (threshold 12)` : ""}`
+          : "Context board: at least one probable starter still unlisted.",
+        `F5: ${marketAvailability}`,
+        postedMarketsNote,
+        `Weather: ${weatherSummary}`,
+        `Park: ${parkFactorSummary}`,
+        `Bullpen: ${bullpenSummary}`,
+        !f5Available ? "Waiting on F5 market to post." : "",
+        !mismatchQualifies && hasBothPitchers ? `Quality gap ${qualityGap ?? "—"} pts below 12-pt mismatch threshold.` : "",
+      ].filter(Boolean).join(" • ");
+
+      freshRecords.push(normalizeRecord({
+        ...sharedProps,
+        id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}`,
+        recordKind: "qualifier",
+        marketType: "context-board",
+        alertLabel: "Context board / no trigger",
+        currentMoneyline: null,
+        totalLine: f5Total?.line ?? null,
+        source: "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
+        notes: contextNotes,
+      }));
+
+      audit.contextBoard += 1;
+    }
   }
 
   system.records = [...priorRecords, ...freshRecords].sort((left, right) => {
     return left.gameDate.localeCompare(right.gameDate) || left.matchup.localeCompare(right.matchup);
   });
 
-  const alertCount = freshRecords.filter((r) => r.recordKind === "alert").length;
-  const auditSummary = `Scanned ${audit.gamesScanned} games • ${audit.alerts} alert${audit.alerts === 1 ? "" : "s"} • ${audit.contextBoard} context-board • missing pitchers ${audit.missingBothPitchers} • no F5 market ${audit.missingF5Market} • below mismatch threshold ${audit.belowMismatchThreshold}.`;
+  // alertRecordCount = total records emitted for alert-qualifying games (may be 2 per game when both ML+total posted)
+  // audit.alerts = number of alert-qualifying games (always 1 per game, regardless of how many markets were posted)
+  const alertRecordCount = freshRecords.filter((r) => r.recordKind === "alert").length;
+  const auditSummary = `Scanned ${audit.gamesScanned} games • ${audit.alerts} alert game${audit.alerts === 1 ? "" : "s"} (${alertRecordCount} alert record${alertRecordCount === 1 ? "" : "s"}) • ${audit.contextBoard} context-board • missing pitchers ${audit.missingBothPitchers} • no F5 market ${audit.missingF5Market} • below mismatch threshold ${audit.belowMismatchThreshold}.`;
 
   system.status = freshRecords.length > 0 ? "tracking" : "awaiting_data";
-  system.snapshot = alertCount > 0
-    ? `${alertCount} Ripper F5 alert${alertCount === 1 ? "" : "s"} today — F5 market posted with meaningful starter mismatch. ${auditSummary}`
+  system.snapshot = alertRecordCount > 0
+    ? `${audit.alerts} Ripper F5 alert game${audit.alerts === 1 ? "" : "s"} today (${alertRecordCount} actionable F5 option${alertRecordCount === 1 ? "" : "s"}) — F5 market posted with meaningful starter mismatch. ${auditSummary}`
     : freshRecords.length > 0
       ? `Context board loaded (${freshRecords.length} games). No F5 alert qualified today. ${auditSummary}`
       : `No MLB games found for ${targetDate}. ${auditSummary}`;
-  system.automationStatusLabel = alertCount > 0 ? "Live F5 alert — starter mismatch + F5 market confirmed" : "Context board live — awaiting F5 market posts";
+  system.automationStatusLabel = alertRecordCount > 0 ? `Live F5 alert — ${alertRecordCount} actionable option${alertRecordCount === 1 ? "" : "s"} (starter mismatch + F5 market confirmed)` : "Context board live — awaiting F5 market posts";
   system.automationStatusDetail = auditSummary;
 
   // Update data requirements based on current state
@@ -4451,6 +4533,11 @@ async function refreshMLBHomeMajorityHandleSystemData(
       const awayML = event?.bestAway?.odds ?? null;
       const totalLine = event ? getEventTotalLine(event) : null;
       const homeIsUnderdog = homeML !== null && homeML > 0;
+
+      if (homeML === null) {
+        audit.notAvailable += 1;
+        continue;
+      }
 
       // ── Line-move context (informational, not a qualifier gate) ──────────
       const history = event ? await getMarketHistoryRail(event).catch(() => null) : null;
