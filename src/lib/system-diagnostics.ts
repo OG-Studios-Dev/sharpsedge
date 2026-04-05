@@ -227,7 +227,7 @@ export function buildInput(params: {
     detail,
   } = params;
 
-  const hasValue = value !== null && value !== undefined && value !== "" && value !== 0;
+  const hasValue = value !== null && value !== undefined && value !== "";
 
   if (!hasValue) {
     if (blockedReason) return inputBlocked(key, label, blockedReason, required);

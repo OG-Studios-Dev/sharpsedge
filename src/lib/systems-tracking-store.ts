@@ -1644,14 +1644,23 @@ function normalizeQualificationLogEntry(entry: Partial<SystemQualificationLogEnt
   if (!qualifierId || !systemId) return null;
   const snapshot = normalizeRecord((entry.recordSnapshot || {}) as Partial<SystemTrackingRecord>);
   const recordKind = entry.recordKind === "alert" || entry.recordKind === "progression" ? entry.recordKind : "qualifier";
-  const settlementStatus = entry.settlementStatus === "settled" || entry.settlementStatus === "not_applicable"
+  const settlementStatus: SystemQualifierSettlementStatus = entry.settlementStatus === "settled"
+    || entry.settlementStatus === "ungradeable"
+    || entry.settlementStatus === "not_applicable"
     ? entry.settlementStatus
     : "pending";
-  const outcome = entry.outcome === "win" || entry.outcome === "loss" || entry.outcome === "push" || entry.outcome === "not_applicable"
+  const outcome: SystemQualifierOutcome = entry.outcome === "win"
+    || entry.outcome === "loss"
+    || entry.outcome === "push"
+    || entry.outcome === "pending"
+    || entry.outcome === "ungradeable"
+    || entry.outcome === "not_applicable"
     ? entry.outcome
-    : settlementStatus === "pending"
-      ? "pending"
-      : "not_applicable";
+    : settlementStatus === "ungradeable"
+      ? "ungradeable"
+      : settlementStatus === "pending"
+        ? "pending"
+        : "not_applicable";
   return {
     id: typeof entry.id === "string" && entry.id ? entry.id : `${systemId}:${qualifierId}`,
     systemId,
@@ -1733,8 +1742,20 @@ function isGooseRecordUngradeable(record: SystemTrackingRecord) {
 function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackingRecord): SystemQualificationLogEntry {
   const actionable = systemHasActionableTracking(system);
   const isML = systemIsMLGradeable(system);
-  const isTotalQualifier = record.marketType === "total";
-  const totalDirection = isTotalQualifier ? "under" : null;
+  const marketType = record.marketType || null;
+  const isTotalQualifier = marketType === "total" || marketType === "f5-total";
+  const totalDirection = marketType === "total"
+    ? "under"
+    : marketType === "f5-total"
+      ? "over"
+      : null;
+  const actionLabel = marketType === "f5-total"
+    ? `${system.name} F5 total qualifier`
+    : marketType === "f5-moneyline"
+      ? `${system.name} F5 side qualifier`
+      : isTotalQualifier
+        ? `${system.name} total qualifier`
+        : `${system.name} ML qualifier`;
 
   // For ML-gradeable systems (Swaggy, Falcons): emit pending entries — grading happens via system-grader + Supabase
   if (isML) {
@@ -1752,8 +1773,8 @@ function buildQualificationLogEntry(system: TrackedSystem, record: SystemTrackin
       homeTeam: record.homeTeam,
       qualifiedTeam: record.qualifiedTeam || null,
       opponentTeam: record.opponentTeam || null,
-      marketType: record.marketType || "moneyline",
-      actionLabel: isTotalQualifier ? `${system.name} total qualifier` : `${system.name} ML qualifier`,
+      marketType: marketType || "moneyline",
+      actionLabel,
       actionSide: isTotalQualifier ? totalDirection : (record.qualifiedTeam || null),
       flatStakeUnits: 1,
       settlementStatus: "pending",
@@ -1965,10 +1986,15 @@ function normalizeTeamLabel(value?: string | null) {
 }
 
 function normalizeGooseRecord(record: SystemTrackingRecord) {
+  const closingSpread = typeof record.closingSpread === "number" ? record.closingSpread : null;
+  const qualifiedTeam = record.qualifiedTeam || (closingSpread !== null && closingSpread < 0 ? record.roadTeam : null);
+  const opponentTeam = record.opponentTeam || (qualifiedTeam ? (qualifiedTeam === record.roadTeam ? record.homeTeam : record.roadTeam) : null);
   return normalizeRecord({
     ...record,
     recordKind: "progression",
     espnEventId: record.espnEventId ?? (isNumericId(record.oddsEventId) ? record.oddsEventId : null),
+    qualifiedTeam,
+    opponentTeam,
   });
 }
 
@@ -2798,7 +2824,7 @@ function buildGooseProgressionRecord(record: Partial<SystemTrackingRecord>, scor
       )
     : null;
   const derived = deriveSequence(bet1Result, bet2Result);
-  const finalSequenceResult = derived.sequenceResult === "pending" && scores.gameCompleted ? null : derived.sequenceResult;
+  const finalSequenceResult = derived.sequenceResult === "pending" && scores.gameCompleted ? "pending" : derived.sequenceResult;
   const finalEstimatedNetUnits = finalSequenceResult == null ? null : derived.estimatedNetUnits;
   const missingBits = [
     normalized.firstQuarterSpread == null ? "1Q line" : null,

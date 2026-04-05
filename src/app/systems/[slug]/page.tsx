@@ -55,7 +55,7 @@ export default async function SystemDetailPage({ params }: Props) {
   const dbHistory = await loadSystemQualifierHistory(system.id, 60).catch(() => [] as DbSystemQualifier[]);
 
   return (
-    <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24">
+    <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24 overflow-auto">
       <PageHeader
         title={system.name}
         subtitle={`${system.league} • ${system.category} • ${system.status.replaceAll("_", " ")}`}

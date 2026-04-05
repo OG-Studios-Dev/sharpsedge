@@ -330,7 +330,7 @@ export function diagnoseNHLInputs(
       key: "team_goalie",
       label: "Team Starting Goalie",
       required: true,
-      value: !hints.team_goalie_is_backup ? "confirmed" : null,
+      value: "confirmed",
       detail: hints.team_goalie_is_backup
         ? "Backup confirmed (goalie_news signal fires)"
         : "Starter status: confirmed",
@@ -447,7 +447,10 @@ export function diagnoseNBAPlayerPropsInputs(
           ? `L5 hit rate: ${(hints.player_l5_hit_rate * 100).toFixed(0)}%, Avg: ${hints.player_avg_stat_l5?.toFixed(1) ?? "N/A"}`
           : hints.player_found
             ? "Player found but no recent game log (injury / new player)"
-            : "Player not found in ESPN roster",
+            : hints.source_degraded
+              ? `Player lookup unavailable — roster source degraded${hints.fallback_source ? ` (${hints.fallback_source.toUpperCase()} fallback)` : ""}`
+              : "Player not found in ESPN roster",
+      blockedReason: !hints.player_found && hints.source_degraded ? "Roster source degraded" : undefined,
     }),
 
     // Required: opponent DVP rank (defense vs position)
@@ -491,7 +494,10 @@ export function diagnoseNBAPlayerPropsInputs(
           ? hints.player_confirmed_active
             ? "Player confirmed active"
             : `Status: ${hints.player_severity ?? "unknown"}`
-          : "Availability not checked (player not found)",
+          : hints.source_degraded
+            ? `Availability not verifiable — roster source degraded${hints.fallback_source ? ` (${hints.fallback_source.toUpperCase()} fallback)` : ""}`
+            : "Availability not checked (player not found)",
+      blockedReason: hints.player_confirmed_active === null && hints.source_degraded ? "Roster source degraded" : undefined,
     }),
 
     // Enrichment: key teammate out (usage surge signal)
@@ -554,11 +560,11 @@ export function diagnoseNBATeamMLInputs(
       key: "rest_context",
       label: "Rest / Back-to-Back Status",
       required: true,
-      value: hints.player_found !== undefined ? "checked" : null,
-      detail:
-        hints.player_found !== undefined
-          ? `Source degraded: ${hints.source_degraded}, Data fetched at: ${hints.fetched_at}`
-          : "Rest context unavailable — NBA API failed",
+      value: hints.fetched_at ? "checked" : null,
+      detail: hints.fetched_at
+        ? `Source degraded: ${hints.source_degraded}, Data fetched at: ${hints.fetched_at}`
+        : "Rest context unavailable — NBA API failed",
+      blockedReason: hints.source_degraded ? "Roster source degraded" : undefined,
     }),
 
     buildInput({

@@ -68,6 +68,8 @@ type GradeStatus = {
 const GRADEABLE_LABELS: Record<string, string> = {
   moneyline: "ML",
   quarter_ats: "1Q/3Q ATS",
+  totals: "Total",
+  f5: "F5",
   watchlist_only: "Off",
 };
 
@@ -105,6 +107,8 @@ function SystemCard({
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                 g.gradingType === "moneyline" ? "border-blue-500/30 bg-blue-500/10 text-blue-300" :
                 g.gradingType === "quarter_ats" ? "border-violet-500/30 bg-violet-500/10 text-violet-300" :
+                g.gradingType === "totals" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" :
+                g.gradingType === "f5" ? "border-amber-500/30 bg-amber-500/10 text-amber-300" :
                 "border-gray-600/40 bg-gray-500/10 text-gray-400"
               }`}>
                 {GRADEABLE_LABELS[g.gradingType] ?? g.gradingType}
@@ -365,6 +369,8 @@ export default function AdminSystemsPage() {
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] ${
                       info.gradingType === "moneyline" ? "border-blue-500/20 text-blue-400" :
                       info.gradingType === "quarter_ats" ? "border-violet-500/20 text-violet-400" :
+                      info.gradingType === "totals" ? "border-emerald-500/20 text-emerald-400" :
+                      info.gradingType === "f5" ? "border-amber-500/20 text-amber-400" :
                       "border-gray-700 text-gray-600"
                     }`}>
                       {GRADEABLE_LABELS[info.gradingType] ?? info.gradingType}

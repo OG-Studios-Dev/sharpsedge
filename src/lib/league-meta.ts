@@ -14,6 +14,7 @@ export const leagueMeta: Record<League, { icon: string; subtitle: string; accent
   NCAAB: { icon: "🎓", subtitle: "College hoops edges and model signals", accent: "from-blue-500/20 to-slate-500/10" },
   NCAAF: { icon: "🎓", subtitle: "College football props and totals", accent: "from-amber-500/20 to-orange-500/10" },
   AFL: { icon: "🏉", subtitle: "Australian football trends and lines", accent: "from-yellow-500/20 to-amber-500/10" },
+  UFC: { icon: "👊", subtitle: "MMA fights, props, and knockout trends", accent: "from-red-500/20 to-orange-500/10" },
 };
 
-export const featuredLeagues: League[] = ["NHL", "NBA", "MLB", "PGA", "NFL", "EPL", "Serie A"];
+export const featuredLeagues: League[] = ["NHL", "NBA", "MLB", "PGA", "NFL", "EPL", "Serie A", "UFC"];

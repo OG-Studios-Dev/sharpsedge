@@ -14,7 +14,7 @@
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
-import { getRecentNBAGames } from "@/lib/nba-api";
+import { getNBAGameSummary, getRecentNBAGames } from "@/lib/nba-api";
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
@@ -149,6 +149,138 @@ function mlNetUnits(outcome: SystemQualifierOutcome, odds: number | null): numbe
   }
   if (outcome === "loss") return -1;
   return null;
+}
+
+function resolveQuarterSpreadResult(
+  roadScore: number | null,
+  homeScore: number | null,
+  roadSpread: number | null,
+): "win" | "loss" | "push" | "pending" {
+  if (roadScore == null || homeScore == null || roadSpread == null) return "pending";
+  const margin = roadScore + roadSpread - homeScore;
+  if (margin > 0) return "win";
+  if (margin < 0) return "loss";
+  return "push";
+}
+
+function deriveGooseSequence(
+  bet1Result: "win" | "loss" | "push" | "pending" | null,
+  bet2Result: "win" | "loss" | "push" | "pending" | null,
+): { outcome: SystemQualifierOutcome; settlementStatus: SystemQualifierSettlementStatus; netUnits: number | null } {
+  if (bet1Result === "win") return { outcome: "win", settlementStatus: "settled", netUnits: 1 };
+  if (bet1Result === "push") return { outcome: "push", settlementStatus: "settled", netUnits: 0 };
+  if (bet1Result == null || bet1Result === "pending") return { outcome: "pending", settlementStatus: "pending", netUnits: null };
+  if (bet2Result === "win") return { outcome: "win", settlementStatus: "settled", netUnits: 1 };
+  if (bet2Result === "push") return { outcome: "push", settlementStatus: "settled", netUnits: -1 };
+  if (bet2Result === "loss") return { outcome: "loss", settlementStatus: "settled", netUnits: -3 };
+  return { outcome: "pending", settlementStatus: "pending", netUnits: null };
+}
+
+function parseQuarterScore(value: unknown): number | null {
+  const raw = (value as { displayValue?: unknown; value?: unknown } | null)?.displayValue
+    ?? (value as { value?: unknown } | null)?.value
+    ?? value;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function gradeGooseQualifiers(
+  pending: DbSystemQualifier[],
+): Promise<GradeQualifierInput[]> {
+  if (!pending.length) return [];
+
+  const graded: GradeQualifierInput[] = [];
+
+  for (const qualifier of pending) {
+    const provenance = qualifier.provenance as Record<string, unknown> | null;
+    const espnEventId = typeof provenance?.espnEventId === "string" && provenance.espnEventId
+      ? provenance.espnEventId
+      : typeof provenance?.oddsEventId === "string" && /^\d+$/.test(provenance.oddsEventId)
+        ? provenance.oddsEventId
+        : null;
+
+    if (!espnEventId) continue;
+
+    let summary: any;
+    try {
+      summary = await getNBAGameSummary(espnEventId);
+    } catch {
+      continue;
+    }
+
+    const competition = summary?.header?.competitions?.[0];
+    const competitors: any[] = competition?.competitors ?? [];
+    const home = competitors.find((entry) => entry?.homeAway === "home");
+    const away = competitors.find((entry) => entry?.homeAway === "away");
+    const homeLinescores: any[] = Array.isArray(home?.linescores) ? home.linescores : [];
+    const awayLinescores: any[] = Array.isArray(away?.linescores) ? away.linescores : [];
+
+    const firstQuarterRoadScore = parseQuarterScore(awayLinescores[0]);
+    const firstQuarterHomeScore = parseQuarterScore(homeLinescores[0]);
+    const thirdQuarterRoadScore = parseQuarterScore(awayLinescores[2]);
+    const thirdQuarterHomeScore = parseQuarterScore(homeLinescores[2]);
+
+    const statusType = competition?.status?.type;
+    const gameCompleted = statusType?.completed === true
+      || statusType?.state === "post"
+      || String(statusType?.description || "").toLowerCase() === "final";
+
+    const firstQuarterSpreadRaw = provenance?.firstQuarterSpread;
+    const thirdQuarterSpreadRaw = provenance?.thirdQuarterSpread;
+    const firstQuarterSpread = typeof firstQuarterSpreadRaw === "number"
+      ? firstQuarterSpreadRaw
+      : typeof firstQuarterSpreadRaw === "string" && firstQuarterSpreadRaw.trim() !== ""
+        ? Number(firstQuarterSpreadRaw)
+        : null;
+    const thirdQuarterSpread = typeof thirdQuarterSpreadRaw === "number"
+      ? thirdQuarterSpreadRaw
+      : typeof thirdQuarterSpreadRaw === "string" && thirdQuarterSpreadRaw.trim() !== ""
+        ? Number(thirdQuarterSpreadRaw)
+        : null;
+
+    const bet1Result = resolveQuarterSpreadResult(firstQuarterRoadScore, firstQuarterHomeScore, Number.isFinite(firstQuarterSpread as number) ? firstQuarterSpread : null);
+    const bet2Result = bet1Result === "loss"
+      ? resolveQuarterSpreadResult(thirdQuarterRoadScore, thirdQuarterHomeScore, Number.isFinite(thirdQuarterSpread as number) ? thirdQuarterSpread : null)
+      : null;
+
+    const missingRequiredInput = firstQuarterSpread == null
+      || firstQuarterRoadScore == null
+      || firstQuarterHomeScore == null
+      || (bet1Result === "loss" && (thirdQuarterSpread == null || thirdQuarterRoadScore == null || thirdQuarterHomeScore == null));
+
+    if (gameCompleted && missingRequiredInput) {
+      const missingBits = [
+        firstQuarterSpread == null ? "1Q line" : null,
+        firstQuarterRoadScore == null || firstQuarterHomeScore == null ? "1Q score" : null,
+        bet1Result === "loss" && thirdQuarterSpread == null ? "3Q line" : null,
+        bet1Result === "loss" && (thirdQuarterRoadScore == null || thirdQuarterHomeScore == null) ? "3Q score" : null,
+      ].filter(Boolean).join(", ");
+
+      graded.push({
+        id: qualifier.id,
+        outcome: "ungradeable",
+        settlementStatus: "ungradeable",
+        netUnits: null,
+        gradingSource: "espn-quarter-scores",
+        gradingNotes: `Final but missing required Goose settlement input(s): ${missingBits}.`,
+      });
+      continue;
+    }
+
+    const derived = deriveGooseSequence(bet1Result, bet2Result);
+    if (derived.outcome === "pending") continue;
+
+    graded.push({
+      id: qualifier.id,
+      outcome: derived.outcome,
+      settlementStatus: derived.settlementStatus,
+      netUnits: derived.netUnits,
+      gradingSource: "espn-quarter-scores",
+      gradingNotes: `Goose sequence: 1Q ${away?.team?.abbreviation ?? qualifier.road_team} ${firstQuarterRoadScore ?? "?"}-${firstQuarterHomeScore ?? "?"} ${home?.team?.abbreviation ?? qualifier.home_team} vs spread ${firstQuarterSpread ?? "missing"};${bet1Result === "loss" ? ` 3Q ${away?.team?.abbreviation ?? qualifier.road_team} ${thirdQuarterRoadScore ?? "?"}-${thirdQuarterHomeScore ?? "?"} ${home?.team?.abbreviation ?? qualifier.home_team} vs spread ${thirdQuarterSpread ?? "missing"}.` : " no chase leg needed."}`,
+    });
+  }
+
+  return graded;
 }
 
 // ─── NHL Swaggy grading ──────────────────────────────────────────────────────
@@ -297,7 +429,11 @@ async function gradeRobbiesRipperFast5Qualifiers(
     const qualifiedTeam = qualifier.qualified_team;
     const marketType = qualifier.market_type;
     const totalLineRaw = provenance?.totalLine;
-    const totalLine = typeof totalLineRaw === "number" ? totalLineRaw : null;
+    const totalLine = typeof totalLineRaw === "number"
+      ? totalLineRaw
+      : typeof totalLineRaw === "string" && totalLineRaw.trim() !== ""
+        ? Number(totalLineRaw)
+        : null;
 
     let linescore;
     try {
@@ -331,9 +467,32 @@ async function gradeRobbiesRipperFast5Qualifiers(
     const isQualifiedAway = qualifiedTeam?.toUpperCase() === roadTeam?.toUpperCase();
 
     // F5 Total grading (when marketType is f5-total and totalLine is known)
-    if (marketType === "f5-total" && totalLine != null && totalRunsF5 != null) {
+    if (marketType === "f5-total") {
+      if (totalLine == null || !Number.isFinite(totalLine)) {
+        graded.push({
+          id: qualifier.id,
+          outcome: "ungradeable",
+          settlementStatus: "ungradeable",
+          netUnits: null,
+          gradingSource: "mlb-api-linescore",
+          gradingNotes: "F5 total qualifier missing a valid posted total line in provenance.",
+        });
+        continue;
+      }
+      if (totalRunsF5 == null) {
+        graded.push({
+          id: qualifier.id,
+          outcome: "ungradeable",
+          settlementStatus: "ungradeable",
+          netUnits: null,
+          gradingSource: "mlb-api-linescore",
+          gradingNotes: "F5 total qualifier had null combined runs after linescore fetch.",
+        });
+        continue;
+      }
+
       let outcome: SystemQualifierOutcome;
-      if (totalRunsF5 > totalLine) outcome = "win";   // assuming we back the over when a high-scoring environment qualifies
+      if (totalRunsF5 > totalLine) outcome = "win";   // system stores only true posted-total alert rows; no synthetic side
       else if (totalRunsF5 < totalLine) outcome = "loss";
       else outcome = "push";
       graded.push({
@@ -559,8 +718,15 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
   const allPending = await loadPendingQualifiers();
   const pendingBySystem = new Map<string, DbSystemQualifier[]>();
 
+  const gradeableSystemIds = new Set<string>([
+    ...GRADEABLE_ML_SYSTEMS,
+    ...GRADEABLE_TOTAL_SYSTEMS,
+    ...GRADEABLE_PROGRESSION_SYSTEMS,
+    "robbies-ripper-fast-5",
+  ]);
+
   for (const q of allPending) {
-    if (!GRADEABLE_ML_SYSTEMS.includes(q.system_id as any)) continue;
+    if (!gradeableSystemIds.has(q.system_id)) continue;
     if (!pendingBySystem.has(q.system_id)) {
       pendingBySystem.set(q.system_id, []);
     }
@@ -596,10 +762,12 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
     });
   };
 
+  await gradeAndReport("nba-goose-system", async () => gradeGooseQualifiers(pendingBySystem.get("nba-goose-system") ?? []));
   await gradeAndReport("swaggy-stretch-drive", async () => gradeSwaggyQualifiers(pendingBySystem.get("swaggy-stretch-drive") ?? []));
   await gradeAndReport("falcons-fight-pummeled-pitchers", async () => gradeFalconsQualifiers(pendingBySystem.get("falcons-fight-pummeled-pitchers") ?? []));
   await gradeAndReport("coach-no-rest", async () => gradePendingMlQualifiers(pendingBySystem.get("coach-no-rest") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("bigcat-bonaza-puckluck", async () => gradePendingMlQualifiers(pendingBySystem.get("bigcat-bonaza-puckluck") ?? [], "nhl", "nhl-api-final"));
+  await gradeAndReport("fat-tonys-fade", async () => gradePendingMlQualifiers(pendingBySystem.get("fat-tonys-fade") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("nba-home-dog-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("nba-home-dog-majority-handle") ?? [], "nba", "nba-espn-final"));
   await gradeAndReport("nba-home-super-majority-close-game", async () => gradePendingMlQualifiers(pendingBySystem.get("nba-home-super-majority-close-game") ?? [], "nba", "nba-espn-final"));
   await gradeAndReport("nhl-home-dog-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("nhl-home-dog-majority-handle") ?? [], "nhl", "nhl-api-final"));
@@ -655,13 +823,15 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
   const errors: string[] = [];
 
   try {
-    if (systemId === "swaggy-stretch-drive") {
+    if (systemId === "nba-goose-system") {
+      gradedInputs = await gradeGooseQualifiers(allPending);
+    } else if (systemId === "swaggy-stretch-drive") {
       gradedInputs = await gradeSwaggyQualifiers(allPending);
     } else if (systemId === "falcons-fight-pummeled-pitchers") {
       gradedInputs = await gradeFalconsQualifiers(allPending);
     } else if (systemId === "robbies-ripper-fast-5") {
       gradedInputs = await gradeRobbiesRipperFast5Qualifiers(allPending);
-    } else if (systemId === "coach-no-rest" || systemId === "bigcat-bonaza-puckluck" || systemId === "nhl-home-dog-majority-handle") {
+    } else if (systemId === "coach-no-rest" || systemId === "bigcat-bonaza-puckluck" || systemId === "fat-tonys-fade" || systemId === "nhl-home-dog-majority-handle") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "nhl", "nhl-api-final");
     } else if (systemId === "mlb-home-majority-handle") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "mlb", "mlb-api-final");
@@ -703,7 +873,7 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
  */
 export function getGradeabilityMap(): Record<string, {
   gradeable: boolean;
-  gradingType: "moneyline" | "quarter_ats" | "watchlist_only";
+  gradingType: "moneyline" | "quarter_ats" | "totals" | "f5" | "watchlist_only";
   notes: string;
 }> {
   return {
@@ -759,12 +929,12 @@ export function getGradeabilityMap(): Record<string, {
     },
     "nhl-under-majority-handle": {
       gradeable: true,
-      gradingType: "moneyline",
+      gradingType: "totals",
       notes: "NHL totals under: grades against final combined score and stored total line.",
     },
     "mlb-under-majority-handle": {
       gradeable: true,
-      gradingType: "moneyline",
+      gradingType: "totals",
       notes: "MLB totals under: grades against final combined score and stored total line.",
     },
     "the-blowout": {
@@ -784,7 +954,7 @@ export function getGradeabilityMap(): Record<string, {
     },
     "robbies-ripper-fast-5": {
       gradeable: true,
-      gradingType: "moneyline",
+      gradingType: "f5",
       notes: "MLB F5 side/total: grades from MLB Stats API per-inning linescore. Rows stay pending until 5 complete innings confirmed. Alert rows with a qualified team are graded as F5 side; f5-total rows grade against the posted line.",
     },
   };

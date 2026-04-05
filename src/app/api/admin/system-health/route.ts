@@ -66,6 +66,7 @@ import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
 import { getNBASchedule } from "@/lib/nba-api";
 import { getDateKey, MLB_TIME_ZONE } from "@/lib/date-utils";
+import { findBestFuzzyNameMatch } from "@/lib/name-match";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -383,14 +384,12 @@ async function selectBestNBAContext(
 
   try {
     const schedule = await getNBASchedule(0);
-    // Filter to today's games only (status !== "Final")
     todayGames = schedule.filter((g) => g.status !== "Final");
   } catch {
     // Fall through
   }
 
   if (todayGames.length === 0) {
-    // No games today — use well-known defaults that usually have ESPN data
     return {
       player: player ?? "Jayson Tatum",
       team: "BOS",
@@ -401,60 +400,149 @@ async function selectBestNBAContext(
     };
   }
 
-  // Walk today's games and find the first with a known star player
-  let selectedGame = todayGames[0];
-  let selectedPlayer: string | null = player ?? null;
-  let selectionReason = "";
-  let candidatesScanned = 0;
+  const candidateContexts: Array<{ player: string | null; team: string; opponent: string; reason: string }> = [];
 
-  if (!player) {
+  if (player) {
+    const explicitTeam = team?.toUpperCase() ?? null;
+    const explicitOpponent = opponent?.toUpperCase() ?? null;
+
+    if (explicitTeam && explicitOpponent) {
+      candidateContexts.push({
+        player,
+        team: explicitTeam,
+        opponent: explicitOpponent,
+        reason: `player explicitly specified: ${player}`,
+      });
+    } else {
+      const matchingGame = todayGames.find((game) => {
+        const home = game.homeTeam.abbreviation.toUpperCase();
+        const away = game.awayTeam.abbreviation.toUpperCase();
+        return home === explicitTeam || away === explicitTeam;
+      });
+
+      if (matchingGame) {
+        const home = matchingGame.homeTeam.abbreviation.toUpperCase();
+        const away = matchingGame.awayTeam.abbreviation.toUpperCase();
+        const inferredTeam = explicitTeam ?? home;
+        candidateContexts.push({
+          player,
+          team: inferredTeam,
+          opponent: inferredTeam === home ? away : home,
+          reason: `player explicitly specified: ${player}`,
+        });
+      }
+    }
+  } else {
     for (const game of todayGames) {
-      candidatesScanned++;
       const homeAbbrev = game.homeTeam.abbreviation.toUpperCase();
       const awayAbbrev = game.awayTeam.abbreviation.toUpperCase();
-
       const homeStar = NBA_STAR_PLAYERS[homeAbbrev];
       const awayStar = NBA_STAR_PLAYERS[awayAbbrev];
 
       if (homeStar) {
-        selectedGame = game;
-        selectedPlayer = homeStar;
-        selectionReason = `${homeStar} (${homeAbbrev}) is a known active player on today's schedule`;
-        break;
+        candidateContexts.push({
+          player: homeStar,
+          team: homeAbbrev,
+          opponent: awayAbbrev,
+          reason: `${homeStar} (${homeAbbrev}) is a mapped star on today's schedule`,
+        });
       }
       if (awayStar) {
-        selectedGame = game;
-        selectedPlayer = awayStar;
-        selectionReason = `${awayStar} (${awayAbbrev}) is a known active player on today's schedule`;
-        break;
+        candidateContexts.push({
+          player: awayStar,
+          team: awayAbbrev,
+          opponent: homeAbbrev,
+          reason: `${awayStar} (${awayAbbrev}) is a mapped star on today's schedule`,
+        });
+      }
+    }
+  }
+
+  if (candidateContexts.length === 0) {
+    const first = todayGames[0];
+    const home = first.homeTeam.abbreviation.toUpperCase();
+    const away = first.awayTeam.abbreviation.toUpperCase();
+    const fallbackPlayer = NBA_STAR_PLAYERS[home] ?? NBA_STAR_PLAYERS[away] ?? "Jayson Tatum";
+    return {
+      player: fallbackPlayer,
+      team: NBA_STAR_PLAYERS[home] ? home : away,
+      opponent: NBA_STAR_PLAYERS[home] ? away : home,
+      rationale: `no mapped star player found for today's ${todayGames.length} games — using best fallback baseline`,
+      candidatesScanned: todayGames.length,
+      score: 0,
+    };
+  }
+
+  let best = {
+    player: candidateContexts[0].player,
+    team: candidateContexts[0].team,
+    opponent: candidateContexts[0].opponent,
+    rationale: candidateContexts[0].reason,
+    score: -1,
+  };
+
+  for (const candidate of candidateContexts) {
+    const hints = await fetchNBAContextHints(candidate.player, candidate.team, candidate.opponent, "points", null)
+      .catch(() => emptyNBAContextHints());
+
+    let score = 0;
+    const reasons: string[] = [];
+
+    if (hints.player_found) {
+      score += 3;
+      reasons.push("player resolved");
+    } else if (candidate.player) {
+      const mapped = Object.values(NBA_STAR_PLAYERS);
+      const fuzzy = findBestFuzzyNameMatch(mapped, candidate.player, (name) => name);
+      if (fuzzy) {
+        score += 1;
+        reasons.push(`player fuzzy-matchable (${fuzzy})`);
       }
     }
 
-    if (!selectedPlayer) {
-      // Fallback: use a reliable default player regardless of schedule
-      selectedPlayer = "Jayson Tatum";
-      selectionReason = `no mapped star player found for today's ${todayGames.length} games — using Jayson Tatum as reliable ESPN baseline`;
+    if (hints.player_confirmed_active === true) {
+      score += 2;
+      reasons.push("player confirmed active");
     }
-  } else {
-    selectionReason = `player explicitly specified: ${player}`;
-    candidatesScanned = todayGames.length;
+
+    if (hints.player_avg_minutes_l5 != null) {
+      score += 2;
+      reasons.push(`L5 minutes ${hints.player_avg_minutes_l5.toFixed(1)}`);
+    }
+
+    if (hints.player_avg_stat_l5 != null) {
+      score += 2;
+      reasons.push("L5 stat available");
+    }
+
+    if (hints.opponent_dvp_rank != null) {
+      score += 1;
+      reasons.push(`DvP rank ${hints.opponent_dvp_rank}`);
+    }
+
+    if (hints.team_pace_rank != null && hints.opponent_pace_rank != null) {
+      score += 1;
+      reasons.push("pace context ready");
+    }
+
+    if (score > best.score) {
+      best = {
+        player: candidate.player,
+        team: candidate.team,
+        opponent: candidate.opponent,
+        rationale: `${candidate.team} vs ${candidate.opponent} — ${candidate.reason}; fetched readiness ${score}/11: ${reasons.join(", ") || "best available"}`,
+        score,
+      };
+    }
   }
 
-  const homeAbbrev = selectedGame.homeTeam.abbreviation;
-  const awayAbbrev = selectedGame.awayTeam.abbreviation;
-  const starTeam = selectedPlayer
-    ? (Object.entries(NBA_STAR_PLAYERS).find(([, name]) => name === selectedPlayer)?.[0] ?? homeAbbrev)
-    : homeAbbrev;
-  const selectedTeam = starTeam;
-  const selectedOpponent = selectedTeam === homeAbbrev ? awayAbbrev : homeAbbrev;
-
   return {
-    player: selectedPlayer,
-    team: selectedTeam,
-    opponent: selectedOpponent,
-    rationale: selectionReason,
-    candidatesScanned: candidatesScanned || todayGames.length,
-    score: selectedPlayer ? 1 : 0,
+    player: best.player,
+    team: best.team,
+    opponent: best.opponent,
+    rationale: best.rationale,
+    candidatesScanned: candidateContexts.length,
+    score: best.score,
   };
 }
 
@@ -582,9 +670,6 @@ async function probeMLBSystems(
   let selectionRationale = selected.rationale;
   let selectionScore = selected.score;
 
-  // Second-pass upgrade: if the board-level selector picked a weak "named but unusable"
-  // starter context, scan all games through the real hint fetcher and promote the best
-  // actually-usable matchup for diagnostics.
   if (!team && !opponent) {
     try {
       const today = getDateKey(new Date(), MLB_TIME_ZONE);
@@ -605,25 +690,48 @@ async function probeMLBSystems(
 
         let liveScore = 0;
         const reasons: string[] = [];
-        if (hints.team_starter_era != null || hints.team_starter_quality != null) {
-          liveScore += 2;
-          reasons.push(`away starter ready`);
+
+        const startersReady = (hints.team_starter_era != null || hints.team_starter_quality != null)
+          && (hints.opponent_starter_era != null || hints.opponent_starter_quality != null);
+        const oneStarterReady = (hints.team_starter_era != null || hints.team_starter_quality != null)
+          || (hints.opponent_starter_era != null || hints.opponent_starter_quality != null);
+
+        if (startersReady) {
+          liveScore += 4;
+          reasons.push("both starters ready");
+        } else if (oneStarterReady) {
+          liveScore += 1;
+          reasons.push("only one starter ready");
+        } else {
+          reasons.push("starter context still thin");
         }
-        if (hints.opponent_starter_era != null || hints.opponent_starter_quality != null) {
-          liveScore += 2;
-          reasons.push(`home starter ready`);
-        }
+
         if (hints.park_runs_index != null) {
           liveScore += 1;
-          reasons.push(`park factor`);
+          reasons.push("park factor");
         }
-        if (hints.weather_eligible ? (hints.wind_speed_mph != null || hints.temperature_f != null) : true) {
+
+        if (hints.weather_eligible) {
+          if (hints.wind_speed_mph != null || hints.temperature_f != null) {
+            liveScore += 1;
+            reasons.push("weather usable");
+          }
+        } else {
           liveScore += 1;
-          reasons.push(`weather usable`);
+          reasons.push("roofed/non-weather-dependent venue");
         }
+
         if (hints.team_lineup_status === "official" || hints.opponent_lineup_status === "official") {
+          liveScore += 2;
+          reasons.push("official lineup present");
+        } else if (hints.team_lineup_status === "partial" || hints.opponent_lineup_status === "partial") {
           liveScore += 1;
-          reasons.push(`lineups live`);
+          reasons.push("partial lineup context");
+        }
+
+        if (hints.team_bullpen_level !== "unknown" && hints.opponent_bullpen_level !== "unknown") {
+          liveScore += 1;
+          reasons.push("bullpen context ready");
         }
 
         if (liveScore > bestLive.score) {
@@ -631,7 +739,7 @@ async function probeMLBSystems(
             team: away,
             opponent: home,
             score: liveScore,
-            rationale: `${away} @ ${home} scored ${liveScore}/7 from fetched hints: ${reasons.join(", ") || "best available"}`,
+            rationale: `${away} @ ${home} scored ${liveScore}/9 from fetched hints: ${reasons.join(", ") || "best available"}`,
             hints,
           };
         }
