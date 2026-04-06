@@ -576,6 +576,87 @@ export async function getRecentNBAGames(daysBack = 10): Promise<NBAGame[]> {
   return games;
 }
 
+// ─── API-Sports Basketball v2 — Q1/Q3 linescore fallback ─────────────────────
+// Used when espnEventId is null on a system qualifier.
+// Free plan: 100 req/day, ~3-day rolling window.
+
+const API_SPORTS_NBA_BASE = "https://v2.basketball.api-sports.io";
+const NBA_LEAGUE_ID = 12; // NBA
+
+/** NBA team abbreviation → API-Sports team name fragment (partial match) */
+const NBA_APISPORTS_ABBREV: Record<string, string> = {
+  ATL: "Atlanta", BOS: "Boston", BKN: "Brooklyn", CHA: "Charlotte", CHI: "Chicago",
+  CLE: "Cleveland", DAL: "Dallas", DEN: "Denver", DET: "Detroit", GSW: "Golden State",
+  HOU: "Houston", IND: "Indiana", LAC: "LA Clippers", LAL: "LA Lakers", MEM: "Memphis",
+  MIA: "Miami", MIL: "Milwaukee", MIN: "Minnesota", NOP: "New Orleans", NYK: "New York",
+  OKC: "Oklahoma City", ORL: "Orlando", PHI: "Philadelphia", PHX: "Phoenix", POR: "Portland",
+  SAC: "Sacramento", SAS: "San Antonio", TOR: "Toronto", UTA: "Utah", WAS: "Washington",
+};
+
+export interface NBAQuarterScores {
+  q1Home: number | null;
+  q1Away: number | null;
+  q3Home: number | null;
+  q3Away: number | null;
+  source: "api-sports";
+}
+
+/**
+ * Fetch Q1 and Q3 linescore for an NBA game via API-Sports Basketball v2.
+ * Lookup by date + home team abbreviation.
+ * Returns null if API key missing, quota exhausted, or no match found.
+ */
+export async function getNBAQuarterScoresFromApiSports(
+  gameDate: string, // YYYY-MM-DD
+  homeTeamAbbrev: string,
+  awayTeamAbbrev: string,
+): Promise<NBAQuarterScores | null> {
+  const apiKey = process.env.API_SPORTS_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const season = new Date(gameDate).getFullYear();
+    const url = `${API_SPORTS_NBA_BASE}/games?date=${gameDate}&league=${NBA_LEAGUE_ID}&season=${season}`;
+    const res = await fetch(url, {
+      headers: { "x-apisports-key": apiKey },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.errors && Object.keys(data.errors).length > 0) return null;
+
+    const games: any[] = data.response ?? [];
+    const homeFragment = NBA_APISPORTS_ABBREV[homeTeamAbbrev.toUpperCase()];
+    const awayFragment = NBA_APISPORTS_ABBREV[awayTeamAbbrev.toUpperCase()];
+    if (!homeFragment || !awayFragment) return null;
+
+    const match = games.find((g: any) => {
+      const home: string = g?.teams?.home?.name ?? "";
+      const away: string = g?.teams?.visitors?.name ?? "";
+      return home.includes(homeFragment) && away.includes(awayFragment);
+    });
+    if (!match) return null;
+
+    const scores: number[] = match?.scores?.home?.linescore ?? [];
+    const awayScores: number[] = match?.scores?.visitors?.linescore ?? [];
+
+    const parseScore = (arr: number[], idx: number): number | null => {
+      const v = arr[idx];
+      return typeof v === "number" ? v : null;
+    };
+
+    return {
+      q1Home: parseScore(scores, 0),
+      q1Away: parseScore(awayScores, 0),
+      q3Home: parseScore(scores, 2),
+      q3Away: parseScore(awayScores, 2),
+      source: "api-sports",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ESPN embedded odds fallback (DraftKings, no API key needed)
 export function parseESPNOdds(event: any): { spread?: string; overUnder?: number; homeML?: number; awayML?: number; book?: string } | null {
   const odds = event?.competitions?.[0]?.odds;

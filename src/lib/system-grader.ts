@@ -14,7 +14,7 @@
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
-import { getNBAGameSummary, getRecentNBAGames } from "@/lib/nba-api";
+import { getNBAGameSummary, getRecentNBAGames, getNBAQuarterScoresFromApiSports } from "@/lib/nba-api";
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
@@ -199,31 +199,56 @@ async function gradeGooseQualifiers(
         ? provenance.oddsEventId
         : null;
 
-    if (!espnEventId) continue;
+    // Primary: ESPN game summary (requires espnEventId)
+    // Fallback: API-Sports Basketball v2 (lookup by date + teams, no eventId needed)
+    let firstQuarterRoadScore: number | null = null;
+    let firstQuarterHomeScore: number | null = null;
+    let thirdQuarterRoadScore: number | null = null;
+    let thirdQuarterHomeScore: number | null = null;
+    let gameCompleted = false;
+    let gradingSourceLabel = "espn-quarter-scores";
 
-    let summary: any;
-    try {
-      summary = await getNBAGameSummary(espnEventId);
-    } catch {
-      continue;
+    if (espnEventId) {
+      let summary: any;
+      try {
+        summary = await getNBAGameSummary(espnEventId);
+      } catch {
+        summary = null;
+      }
+      const competition = summary?.header?.competitions?.[0];
+      const competitors: any[] = competition?.competitors ?? [];
+      const home = competitors.find((entry: any) => entry?.homeAway === "home");
+      const away = competitors.find((entry: any) => entry?.homeAway === "away");
+      const homeLinescores: any[] = Array.isArray(home?.linescores) ? home.linescores : [];
+      const awayLinescores: any[] = Array.isArray(away?.linescores) ? away.linescores : [];
+      firstQuarterRoadScore = parseQuarterScore(awayLinescores[0]);
+      firstQuarterHomeScore = parseQuarterScore(homeLinescores[0]);
+      thirdQuarterRoadScore = parseQuarterScore(awayLinescores[2]);
+      thirdQuarterHomeScore = parseQuarterScore(homeLinescores[2]);
+      const statusType = competition?.status?.type;
+      gameCompleted = statusType?.completed === true
+        || statusType?.state === "post"
+        || String(statusType?.description || "").toLowerCase() === "final";
+    } else {
+      // No espnEventId — try API-Sports Basketball v2 as fallback
+      const gameDate = qualifier.game_date; // YYYY-MM-DD
+      const apiScores = await getNBAQuarterScoresFromApiSports(
+        gameDate,
+        qualifier.home_team,
+        qualifier.road_team,
+      );
+      if (apiScores) {
+        firstQuarterRoadScore = apiScores.q1Away;
+        firstQuarterHomeScore = apiScores.q1Home;
+        thirdQuarterRoadScore = apiScores.q3Away;
+        thirdQuarterHomeScore = apiScores.q3Home;
+        gameCompleted = true; // API-Sports only returns completed games
+        gradingSourceLabel = "api-sports-quarter-scores";
+      } else {
+        // No data available from either source — skip (stay pending)
+        continue;
+      }
     }
-
-    const competition = summary?.header?.competitions?.[0];
-    const competitors: any[] = competition?.competitors ?? [];
-    const home = competitors.find((entry) => entry?.homeAway === "home");
-    const away = competitors.find((entry) => entry?.homeAway === "away");
-    const homeLinescores: any[] = Array.isArray(home?.linescores) ? home.linescores : [];
-    const awayLinescores: any[] = Array.isArray(away?.linescores) ? away.linescores : [];
-
-    const firstQuarterRoadScore = parseQuarterScore(awayLinescores[0]);
-    const firstQuarterHomeScore = parseQuarterScore(homeLinescores[0]);
-    const thirdQuarterRoadScore = parseQuarterScore(awayLinescores[2]);
-    const thirdQuarterHomeScore = parseQuarterScore(homeLinescores[2]);
-
-    const statusType = competition?.status?.type;
-    const gameCompleted = statusType?.completed === true
-      || statusType?.state === "post"
-      || String(statusType?.description || "").toLowerCase() === "final";
 
     const firstQuarterSpreadRaw = provenance?.firstQuarterSpread;
     const thirdQuarterSpreadRaw = provenance?.thirdQuarterSpread;
@@ -261,7 +286,7 @@ async function gradeGooseQualifiers(
         outcome: "ungradeable",
         settlementStatus: "ungradeable",
         netUnits: null,
-        gradingSource: "espn-quarter-scores",
+        gradingSource: gradingSourceLabel,
         gradingNotes: `Final but missing required Goose settlement input(s): ${missingBits}.`,
       });
       continue;
@@ -275,8 +300,8 @@ async function gradeGooseQualifiers(
       outcome: derived.outcome,
       settlementStatus: derived.settlementStatus,
       netUnits: derived.netUnits,
-      gradingSource: "espn-quarter-scores",
-      gradingNotes: `Goose sequence: 1Q ${away?.team?.abbreviation ?? qualifier.road_team} ${firstQuarterRoadScore ?? "?"}-${firstQuarterHomeScore ?? "?"} ${home?.team?.abbreviation ?? qualifier.home_team} vs spread ${firstQuarterSpread ?? "missing"};${bet1Result === "loss" ? ` 3Q ${away?.team?.abbreviation ?? qualifier.road_team} ${thirdQuarterRoadScore ?? "?"}-${thirdQuarterHomeScore ?? "?"} ${home?.team?.abbreviation ?? qualifier.home_team} vs spread ${thirdQuarterSpread ?? "missing"}.` : " no chase leg needed."}`,
+      gradingSource: gradingSourceLabel,
+      gradingNotes: `Goose sequence: 1Q ${qualifier.road_team} ${firstQuarterRoadScore ?? "?"}-${firstQuarterHomeScore ?? "?"} ${qualifier.home_team} vs spread ${firstQuarterSpread ?? "missing"};${bet1Result === "loss" ? ` 3Q ${qualifier.road_team} ${thirdQuarterRoadScore ?? "?"}-${thirdQuarterHomeScore ?? "?"} ${qualifier.home_team} vs spread ${thirdQuarterSpread ?? "missing"}.` : " no chase leg needed."}`,
     });
   }
 
