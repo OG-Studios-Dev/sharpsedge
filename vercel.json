@@ -20,7 +20,7 @@
     },
     {
       "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB",
-      "schedule": "17 * * * *"
+      "schedule": "17 */4 * * *"
     },
     {
       "path": "/api/odds/aggregated/snapshot?cron=true&sports=NBA&reason=nba-q1-q3-daily-archive",
