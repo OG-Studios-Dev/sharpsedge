@@ -17,9 +17,11 @@ export default function BottomNav() {
     return null;
   }
 
+  const gridColsClass = BOTTOM_NAV_ITEM_IDS.length === 6 ? "grid-cols-6" : "grid-cols-5";
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-[100] w-full h-16 safe-bottom border-t border-dark-border bg-dark-bg/95 backdrop-blur-sm lg:hidden">
-      <div className="mx-auto grid h-16 w-full max-w-lg grid-cols-5">
+      <div className={`mx-auto grid h-16 w-full max-w-lg ${gridColsClass}`}>
         {BOTTOM_NAV_ITEM_IDS.map((itemId) => {
           const item = getNavItemById(itemId);
           if (!item) return null;
