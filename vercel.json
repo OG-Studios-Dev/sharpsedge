@@ -65,6 +65,10 @@
     {
       "path": "/api/admin/goose-model/ingest-production-picks",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/ufc/card",
+      "schedule": "0 16 * * *"
     }
   ]
 }

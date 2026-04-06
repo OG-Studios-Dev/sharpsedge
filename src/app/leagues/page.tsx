@@ -13,7 +13,8 @@ const LEAGUE_ROUTES: Partial<Record<League, string>> = {
   NFL: "/schedule",
   EPL: "/schedule",
   "Serie A": "/schedule",
-  PGA: "/schedule",
+  PGA: "/golf",
+  UFC: "/ufc",
 };
 
 export default function LeaguesPage() {
