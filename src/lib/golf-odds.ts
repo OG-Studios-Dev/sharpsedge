@@ -1,7 +1,8 @@
 import { GolfHeadToHeadOdds, GolfOddsBoard, GolfOutrightOdds } from "@/lib/types";
+import { getOddsApiKeys } from "@/lib/odds-aggregator";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
-const CACHE_TTL = 15 * 60 * 1000;
+const CACHE_TTL = 4 * 60 * 60 * 1000; // 4h — golf odds don't move fast enough to justify 15min burns
 const GOLF_MARKETS = "outrights,h2h";
 const DEFAULT_SPORT_KEYS = [
   "golf_pga_tour",
@@ -72,8 +73,9 @@ async function fetchOddsForSportKey(sportKey: string): Promise<RawOddsEvent[]> {
     return hit.data;
   }
 
-  const apiKey = normalizeEnv(process.env.ODDS_API_KEY);
-  if (!apiKey || apiKey === "your_key_here") {
+  const keys = getOddsApiKeys();
+  const apiKey = keys[0];
+  if (!apiKey) {
     return [];
   }
 

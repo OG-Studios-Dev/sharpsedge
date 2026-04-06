@@ -273,7 +273,8 @@ export async function getDailyPlayerPropOddsEvents(
     return buildResult(normalizedIds, "cache", cache, league);
   }
 
-  cache.quota = await probeOddsApiQuota();
+  // quota probe disabled — costs 1 req/call; check manually via /api/odds/health if needed
+  // cache.quota = await probeOddsApiQuota();
   const remainingQuota = cache.quota?.remaining;
   if (remainingQuota !== null && remainingQuota !== undefined && remainingQuota < 50) {
     leagueCache.blockedAt = new Date().toISOString();

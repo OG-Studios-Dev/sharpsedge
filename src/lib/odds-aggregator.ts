@@ -297,7 +297,7 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
 }
 
 /** Rotate between available Odds API keys to double quota */
-function getOddsApiKeys(): string[] {
+export function getOddsApiKeys(): string[] {
   const keys: string[] = [];
   const candidates = [
     process.env.ODDS_API_KEY,

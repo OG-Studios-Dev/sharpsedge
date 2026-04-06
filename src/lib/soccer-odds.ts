@@ -1,11 +1,12 @@
 import { getDateKeyWithOffset } from "@/lib/date-utils";
 import { americanOddsToImpliedProbability } from "@/lib/odds-api";
+import { getOddsApiKeys } from "@/lib/odds-aggregator";
 import type { OddsEvent, OddsMarket } from "@/lib/types";
 import type { SoccerLeague, SoccerMatch } from "@/lib/soccer-api";
 
 const ESPN_SITE_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer";
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
-const CACHE_TTL = 15 * 60 * 1000;
+const CACHE_TTL = 4 * 60 * 60 * 1000; // 4h — soccer odds don't change fast enough for 15min polling
 
 type CacheEntry<T> = {
   data: T;
@@ -142,8 +143,9 @@ async function getESPNOdds(league: SoccerLeague): Promise<OddsEvent[]> {
 }
 
 async function getOddsApiOdds(league: SoccerLeague): Promise<OddsEvent[]> {
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") return [];
+  const keys = getOddsApiKeys();
+  const apiKey = keys[0];
+  if (!apiKey) return [];
 
   const config = LEAGUE_CONFIG[league];
 

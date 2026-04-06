@@ -108,8 +108,14 @@ async function fetchOddsApiGolfOutrights(
 }
 
 export async function captureFromOddsApi(): Promise<FallbackCaptureResult[]> {
-  const apiKey = normalizeEnv("ODDS_API_KEY_2");
-  if (!apiKey || apiKey === "your_key_here") {
+  // Use rotating key pool instead of hardcoded key 2
+  const keyPool = [
+    normalizeEnv("ODDS_API_KEY"),
+    normalizeEnv("ODDS_API_KEY_2"),
+    normalizeEnv("ODDS_API_KEY_3"),
+  ].filter((k) => k && k !== "your_key_here");
+  const apiKey = keyPool[0];
+  if (!apiKey) {
     return [];
   }
 
