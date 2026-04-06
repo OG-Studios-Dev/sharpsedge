@@ -303,6 +303,7 @@ export function getOddsApiKeys(): string[] {
     process.env.ODDS_API_KEY,
     process.env.ODDS_API_KEY_2,
     process.env.ODDS_API_KEY_3,
+    process.env.ODDS_API_KEY_4,
   ];
 
   for (const key of candidates) {
