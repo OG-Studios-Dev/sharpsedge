@@ -63,8 +63,11 @@ export default async function GolfPage() {
     getLocalMastersOddsSnapshot().catch(() => null),
   ]);
 
+  const upcomingMajor = schedule.find((tournament) => tournament.status === "upcoming" && isGolfMajor(tournament.name));
+
   const heroTournament = activeLeaderboard?.tournament
     ?? schedule.find((tournament) => tournament.current)
+    ?? upcomingMajor
     ?? schedule.find((tournament) => tournament.status === "upcoming")
     ?? schedule[0]
     ?? null;

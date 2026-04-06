@@ -4,6 +4,7 @@ import Link from "next/link";
 import { League } from "@/lib/types";
 import { featuredLeagues, leagueMeta } from "@/lib/league-meta";
 import { useLeague } from "@/hooks/useLeague";
+import { getLeagueLogo } from "@/lib/visual-identity";
 
 const LEAGUE_ROUTES: Partial<Record<League, string>> = {
   NHL: "/leagues/nhl",
@@ -28,8 +29,12 @@ export default function LeaguesPage() {
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
           <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Active league</div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-dark-bg text-2xl border border-dark-border">
-              {leagueMeta[league].icon}
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-dark-bg text-2xl border border-dark-border overflow-hidden">
+              {getLeagueLogo(league) ? (
+                <img src={getLeagueLogo(league)!} alt={league} className="h-8 w-8 object-contain" />
+              ) : (
+                leagueMeta[league].icon
+              )}
             </div>
             <div>
               <div className="text-white text-lg font-semibold">{league}</div>
@@ -50,8 +55,12 @@ export default function LeaguesPage() {
                 <div className="relative">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-dark-bg/80 border border-dark-border flex items-center justify-center text-2xl">
-                        {leagueMeta[item].icon}
+                      <div className="w-12 h-12 rounded-2xl bg-dark-bg/80 border border-dark-border flex items-center justify-center text-2xl overflow-hidden">
+                        {getLeagueLogo(item) ? (
+                          <img src={getLeagueLogo(item)!} alt={item} className="h-8 w-8 object-contain" />
+                        ) : (
+                          leagueMeta[item].icon
+                        )}
                       </div>
                       <div>
                         <div className="text-white text-base font-semibold flex items-center gap-2">

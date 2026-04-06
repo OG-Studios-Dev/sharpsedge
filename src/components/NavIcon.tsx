@@ -30,7 +30,7 @@ const ICON_MAP: Record<AppNavItemId, React.ComponentType<LucideProps>> = {
   picks: Target,
   trends: BarChart2,
   odds: DollarSign,
-  ufc: Flag,
+  leagues: Flag,
   parlays: Layers,
   "my-picks": Bookmark,
   search: Search,
