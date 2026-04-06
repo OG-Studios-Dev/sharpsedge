@@ -53,7 +53,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     id: "schedule",
     href: "/schedule",
     label: "Schedule & Standings",
-    shortLabel: "Schedule & Standings",
+    shortLabel: "Schedule",
     emoji: "📅",
     group: "research",
     shortcutEligible: true,
@@ -176,7 +176,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
-export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["picks", "odds", "props", "teams", "schedule", "ufc"];
+export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["picks", "odds", "props", "teams", "schedule"];
 
 export function getNavItemById(id: AppNavItemId) {
   return APP_NAV_ITEMS.find((item) => item.id === id) ?? null;
