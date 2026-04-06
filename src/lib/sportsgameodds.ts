@@ -17,10 +17,27 @@ export type SportsGameOddsFetchResult<T> = {
   text?: string;
 };
 
+const LEAGUE_IDS: Record<string, string> = {
+  NBA: "4",
+  NHL: "5",
+  MLB: "6",
+  NFL: "7",
+  PGA: "2",
+  UFC: "10",
+  EPL: "17",
+  SERIE_A: "18",
+  "SERIE A": "18",
+};
+
 function getApiKey(): string {
   const key = process.env.SPORTSGAMEODDS_API_KEY;
   if (!key) throw new Error("SPORTSGAMEODDS_API_KEY missing");
   return key;
+}
+
+function getLeagueId(sport: string): string | null {
+  const normalized = String(sport || "NBA").toUpperCase();
+  return LEAGUE_IDS[normalized] ?? null;
 }
 
 async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
@@ -86,11 +103,16 @@ export async function getSportsGameOddsUsage(): Promise<SportsGameOddsFetchResul
 
 export async function getSportsGameOddsSample(sport = "NBA") {
   const normalized = String(sport || "NBA").toUpperCase();
-  const paths = [
-    `/events?league=${encodeURIComponent(normalized)}`,
-    `/odds?league=${encodeURIComponent(normalized)}`,
-    `/scores?league=${encodeURIComponent(normalized)}`,
-  ];
+  const leagueID = getLeagueId(normalized);
+  const paths = leagueID
+    ? [
+        `/events?leagueID=${encodeURIComponent(leagueID)}`,
+        `/odds?leagueID=${encodeURIComponent(leagueID)}`,
+      ]
+    : [
+        `/events?league=${encodeURIComponent(normalized)}`,
+        `/odds?league=${encodeURIComponent(normalized)}`,
+      ];
 
   const attempts = [] as Array<{ path: string; ok: boolean; status: number; error?: string; text?: string; sampleSize: number }>;
 
@@ -114,6 +136,7 @@ export async function getSportsGameOddsSample(sport = "NBA") {
         ok: true,
         status: res.status,
         path,
+        leagueID,
         attempts,
         sample: payload,
       };
@@ -124,6 +147,7 @@ export async function getSportsGameOddsSample(sport = "NBA") {
     ok: false,
     status: attempts[0]?.status ?? 0,
     path: null,
+    leagueID,
     attempts,
     sample: null,
   };
