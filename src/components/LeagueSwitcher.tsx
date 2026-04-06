@@ -1,16 +1,17 @@
 "use client";
 
 import { League } from "@/lib/types";
+import LeagueLogo from "@/components/LeagueLogo";
 
-const LEAGUES: Array<{ key: League; icon: string; label: string }> = [
-  { key: "All", icon: "🪿", label: "All" },
-  { key: "NHL", icon: "🏒", label: "NHL" },
-  { key: "NBA", icon: "🏀", label: "NBA" },
-  { key: "MLB", icon: "⚾", label: "MLB" },
-  { key: "NFL", icon: "🏈", label: "NFL" },
-  { key: "EPL", icon: "⚽", label: "EPL" },
-  { key: "Serie A", icon: "⚽", label: "Serie A" },
-  { key: "PGA", icon: "⛳", label: "PGA" },
+const LEAGUES: Array<{ key: League; label: string }> = [
+  { key: "All", label: "All" },
+  { key: "NHL", label: "NHL" },
+  { key: "NBA", label: "NBA" },
+  { key: "MLB", label: "MLB" },
+  { key: "NFL", label: "NFL" },
+  { key: "EPL", label: "EPL" },
+  { key: "Serie A", label: "Serie A" },
+  { key: "PGA", label: "PGA" },
 ];
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
 export default function LeagueSwitcher({ active, onChange }: Props) {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-      {LEAGUES.map(({ key, icon, label }) => {
+      {LEAGUES.map(({ key, label }) => {
         const isActive = active === key;
         return (
           <button
@@ -33,7 +34,7 @@ export default function LeagueSwitcher({ active, onChange }: Props) {
                 : "bg-dark-surface border-dark-border text-gray-400 hover:text-white hover:border-gray-600"
             }`}
           >
-            <span>{icon}</span>
+            {key === "All" ? <span>🪿</span> : <LeagueLogo league={key} size={18} />}
             <span>{label}</span>
           </button>
         );

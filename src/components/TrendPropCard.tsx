@@ -1,5 +1,5 @@
 import Link from "next/link";
-import TeamLogo from "./TeamLogo";
+import PlayerAvatar from "./PlayerAvatar";
 import TrendIndicatorDots from "./TrendIndicatorDots";
 import TrendSplitBars from "./TrendSplitBars";
 import { PlayerProp } from "@/lib/types";
@@ -15,7 +15,7 @@ export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
       <div className="h-1 w-full" style={{ background: prop.teamColor }} />
       <div className="p-4">
         <div className="flex items-start gap-3">
-          <TeamLogo team={prop.team} color={prop.teamColor} size={28} />
+          <PlayerAvatar name={prop.playerName} team={prop.team} league={prop.league} playerId={prop.playerId} size={28} teamColor={prop.teamColor} />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

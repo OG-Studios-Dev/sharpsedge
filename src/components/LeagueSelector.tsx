@@ -4,6 +4,7 @@ import { useState } from "react";
 import { League } from "@/lib/types";
 import { leagueCategories } from "@/data/seed";
 import { leagueMeta } from "@/lib/league-meta";
+import LeagueLogo from "@/components/LeagueLogo";
 
 type Props = {
   selected: League;
@@ -19,7 +20,7 @@ export default function LeagueSelector({ selected, onSelect }: Props) {
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-dark-surface border border-dark-border text-sm font-medium text-white hover:bg-dark-card transition-colors"
       >
-        <span>{leagueMeta[selected]?.icon}</span>
+        <LeagueLogo league={selected} size={18} />
         <span>{selected}</span>
         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -50,7 +51,7 @@ export default function LeagueSelector({ selected, onSelect }: Props) {
                       className="flex items-center justify-between w-full px-1 py-3.5 border-b border-dark-border/50 hover:bg-dark-surface/50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{leagueMeta[league]?.icon}</span>
+                        <LeagueLogo league={league} size={18} />
                         <span className="text-white text-[15px]">{league}</span>
                       </div>
                       {selected === league && (

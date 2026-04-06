@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { PlayerProp } from "@/lib/types";
 import TeamLogo from "./TeamLogo";
+import PlayerAvatar from "./PlayerAvatar";
+import LeagueLogo from "./LeagueLogo";
 import SavePickButton from "./SavePickButton";
 import { formatOdds } from "@/lib/edge-engine";
 import { getPlayerTrendHrefFromProp } from "@/lib/player-trend";
@@ -55,7 +57,7 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
-            <TeamLogo team={prop.team} color={prop.teamColor || "#4a9eff"} size={24} />
+            <PlayerAvatar name={prop.playerName} team={prop.team} league={prop.league} playerId={prop.playerId} size={24} teamColor={prop.teamColor || "#4a9eff"} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{prop.playerName}</p>
               <p className="mt-1 text-xs text-gray-500">
@@ -99,11 +101,11 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-start gap-3">
-          <TeamLogo team={prop.team} color={prop.teamColor} size={28} />
+          <PlayerAvatar name={prop.playerName} team={prop.team} league={prop.league} playerId={prop.playerId} size={28} teamColor={prop.teamColor} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="card-title truncate">{prop.playerName}</span>
-              <span className="text-[9px] text-gray-600 uppercase">{prop.league}</span>
+              <span className="inline-flex items-center gap-1 text-[9px] text-gray-500 uppercase"><LeagueLogo league={prop.league} size={12} />{prop.league}</span>
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-gray-400 text-xs">

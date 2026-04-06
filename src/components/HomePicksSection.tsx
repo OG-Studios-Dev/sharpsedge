@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import TeamLogo from "./TeamLogo";
+import PlayerAvatar from "./PlayerAvatar";
+import LeagueLogo from "./LeagueLogo";
 import { AIPick } from "@/lib/types";
 import { computePickRecord, computePickWinRateStats } from "@/lib/pick-record";
 import { computePickHistorySummary } from "@/lib/pick-history";
@@ -94,14 +96,18 @@ function PickRow({ pick }: { pick: AIPick }) {
 
   return (
     <Link href={drillHref} className="flex items-start gap-3 py-3 border-b border-dark-border/40 last:border-0 group sm:items-center sm:py-2.5">
-      <TeamLogo team={pick.team} size={30} color={pick.teamColor} />
+      {pick.type === "player" ? (
+        <PlayerAvatar name={pick.playerName || pick.team} team={pick.team} league={pick.league} playerId={pick.playerId} size={30} teamColor={pick.teamColor} />
+      ) : (
+        <TeamLogo team={pick.team} size={30} color={pick.teamColor} />
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-white text-[13px] sm:text-xs font-semibold truncate group-hover:text-emerald-300 transition-colors">
             {pick.type === "player" ? pick.playerName : formatPickMatchup(pick) || pick.team}
           </p>
           {pick.league && (
-            <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
+            <span className="inline-flex items-center gap-1 text-[9px] text-gray-500 uppercase shrink-0"><LeagueLogo league={pick.league} size={12} />{pick.league}</span>
           )}
         </div>
         <p className="text-accent-blue text-xs sm:text-[11px] truncate mt-0.5">{pick.type === "player" ? formatPickDetail(pick) : pick.pickLabel}</p>
@@ -126,10 +132,10 @@ function computeRecord(picks: AIPick[]) {
 
 const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
   All: { icon: "🏆", label: "All" },
-  NHL: { icon: "🏒", label: "NHL" },
-  NBA: { icon: "🏀", label: "NBA" },
-  MLB: { icon: "⚾", label: "MLB" },
-  PGA: { icon: "⛳", label: "PGA" },
+  NHL: { icon: "NHL", label: "NHL" },
+  NBA: { icon: "NBA", label: "NBA" },
+  MLB: { icon: "MLB", label: "MLB" },
+  PGA: { icon: "PGA", label: "PGA" },
 };
 
 export default function HomePicksSection({ league = "All" }: { league?: string }) {
@@ -237,7 +243,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
                 }`}
                 aria-label={`Show ${key} record`}
               >
-                {icon}
+                {key === "All" ? <span>{icon}</span> : <LeagueLogo league={key} size={18} />}
               </button>
             ))}
           </div>
