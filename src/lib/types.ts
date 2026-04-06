@@ -1,4 +1,4 @@
-export type League = "All" | "NHL" | "NBA" | "NFL" | "MLB" | "PGA" | "LIV" | "Serie A" | "EPL" | "WNBA" | "NCAAB" | "NCAAF" | "AFL";
+export type League = "All" | "NHL" | "NBA" | "NFL" | "MLB" | "PGA" | "LIV" | "Serie A" | "EPL" | "WNBA" | "NCAAB" | "NCAAF" | "AFL" | "UFC";
 
 export type LeagueCategory = {
   name: string;

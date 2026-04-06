@@ -8,7 +8,7 @@ export type AppNavItemId =
   | "picks"
   | "trends"
   | "odds"
-  | "golf"
+  | "ufc"
   | "parlays"
   | "my-picks"
   | "search"
@@ -97,14 +97,14 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     badge: "pro",
   },
   {
-    id: "golf",
-    href: "/golf",
-    label: "Golf",
-    shortLabel: "Golf",
-    emoji: "⛳",
+    id: "ufc",
+    href: "/leagues",
+    label: "UFC",
+    shortLabel: "UFC",
+    emoji: "👊",
     group: "research",
     shortcutEligible: true,
-    leagueOverride: "PGA",
+    leagueOverride: "UFC",
   },
   {
     id: "parlays",
@@ -176,7 +176,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
-export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["picks", "odds", "props", "teams", "schedule"];
+export const BOTTOM_NAV_ITEM_IDS: AppNavItemId[] = ["picks", "odds", "props", "teams", "schedule", "ufc"];
 
 export function getNavItemById(id: AppNavItemId) {
   return APP_NAV_ITEMS.find((item) => item.id === id) ?? null;
