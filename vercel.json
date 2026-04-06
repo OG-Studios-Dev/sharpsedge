@@ -61,6 +61,10 @@
     {
       "schedule": "0 7,14,20 * * *",
       "path": "/api/admin/picks/settle-pending?cron=true"
+    },
+    {
+      "path": "/api/admin/goose-model/ingest-production-picks",
+      "schedule": "0 8 * * *"
     }
   ]
 }
