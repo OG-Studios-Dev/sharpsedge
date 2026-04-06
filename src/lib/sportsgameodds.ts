@@ -14,6 +14,7 @@ export type SportsGameOddsFetchResult<T> = {
   url: string;
   data: T | null;
   error?: string;
+  text?: string;
 };
 
 function getApiKey(): string {
@@ -35,9 +36,10 @@ async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
       next: { revalidate: 300 },
     });
 
+    const text = await res.text();
     let data: T | null = null;
     try {
-      data = (await res.json()) as T;
+      data = text ? (JSON.parse(text) as T) : null;
     } catch {
       data = null;
     }
@@ -47,6 +49,7 @@ async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
       status: res.status,
       url,
       data,
+      text,
       error: res.ok ? undefined : `HTTP ${res.status}`,
     };
   } catch (error) {
@@ -55,6 +58,7 @@ async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
       status: 0,
       url,
       data: null,
+      text: null as unknown as string,
       error: error instanceof Error ? error.message : String(error),
     };
   }
@@ -88,7 +92,7 @@ export async function getSportsGameOddsSample(sport = "NBA") {
     `/scores?league=${encodeURIComponent(normalized)}`,
   ];
 
-  const attempts = [] as Array<{ path: string; ok: boolean; status: number; error?: string; sampleSize: number }>;
+  const attempts = [] as Array<{ path: string; ok: boolean; status: number; error?: string; text?: string; sampleSize: number }>;
 
   for (const path of paths) {
     const res = await sgFetch<any>(path);
@@ -103,7 +107,7 @@ export async function getSportsGameOddsSample(sport = "NBA") {
       ? Object.keys(payload).length
       : 0;
 
-    attempts.push({ path, ok: res.ok, status: res.status, error: res.error, sampleSize });
+    attempts.push({ path, ok: res.ok, status: res.status, error: res.error, text: res.text?.slice(0, 400), sampleSize });
 
     if (res.ok) {
       return {
