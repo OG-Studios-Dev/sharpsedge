@@ -48,6 +48,7 @@ export default function PlayerAvatar({
         logo={teamLogo ?? undefined}
         size={size}
         color={teamColor}
+        sport={league ?? undefined}
         className={`${src ? "hidden" : "flex"} ${className}`}
       />
     </>

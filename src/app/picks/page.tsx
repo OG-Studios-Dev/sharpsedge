@@ -114,7 +114,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
   const summaryContent = (
     <>
       <div className="flex items-center gap-3">
-        <TeamLogo team={pick.team} size={32} color={pick.teamColor} />
+        <TeamLogo team={pick.team} size={32} color={pick.teamColor} sport={pick.league ?? undefined} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-white font-semibold text-sm truncate">
@@ -902,7 +902,7 @@ export default function PicksPage() {
                             "border-l-2 border-l-gray-600"
                           }`}
                         >
-                          <TeamLogo team={pick.team} size={24} color={pick.teamColor} />
+                          <TeamLogo team={pick.team} size={24} color={pick.teamColor} sport={pick.league ?? undefined} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <p className="text-white text-xs font-medium truncate">

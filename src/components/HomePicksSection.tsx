@@ -99,7 +99,7 @@ function PickRow({ pick }: { pick: AIPick }) {
       {pick.type === "player" ? (
         <PlayerAvatar name={pick.playerName || pick.team} team={pick.team} league={pick.league} playerId={pick.playerId} size={30} teamColor={pick.teamColor} />
       ) : (
-        <TeamLogo team={pick.team} size={30} color={pick.teamColor} />
+        <TeamLogo team={pick.team} size={30} color={pick.teamColor} sport={pick.league ?? undefined} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">

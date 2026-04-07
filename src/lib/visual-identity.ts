@@ -38,6 +38,33 @@ export function getLeagueLabel(league?: string | null): string {
   return LEAGUE_LABELS[league as League] ?? league;
 }
 
+/**
+ * Returns an ESPN CDN team logo URL for a given league + team abbreviation.
+ * Returns null if the league is unsupported.
+ */
+export function getTeamLogoUrl(league: string | null | undefined, team: string): string | null {
+  if (!league || !team) return null;
+  const norm = league.toUpperCase();
+  const abbrev = team.toUpperCase();
+
+  if (norm === "NHL") {
+    return `https://a.espncdn.com/i/teamlogos/nhl/500/${abbrev.toLowerCase()}.png`;
+  }
+  if (norm === "NBA") {
+    return `https://a.espncdn.com/i/teamlogos/nba/500/${abbrev.toLowerCase()}.png`;
+  }
+  if (norm === "MLB") {
+    return `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev.toLowerCase()}.png`;
+  }
+  if (norm === "NFL") {
+    return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev.toLowerCase()}.png`;
+  }
+  if (norm === "PGA" || norm === "GOLF") {
+    return `https://a.espncdn.com/i/teamlogos/leagues/500/pga.png`;
+  }
+  return null;
+}
+
 export function getPlayerHeadshot({
   league,
   playerId,
