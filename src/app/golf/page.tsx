@@ -163,86 +163,19 @@ export default async function GolfPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-[28px] border border-white/10 bg-black/25 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Leaderboard Preview</p>
-                  <p className="mt-1 text-sm text-gray-400">Top three players from the current board.</p>
-                </div>
-                {heroLeaderboard?.lastUpdated ? (
-                  <span className="text-xs text-gray-500">Updated {heroLeaderboard.lastUpdated}</span>
-                ) : null}
-              </div>
-
-              <div className="mt-4 space-y-2.5">
-                {heroPlayers.length > 0 ? heroPlayers.map((player) => (
-                  <div
-                    key={`${player.id}-${player.position}`}
-                    className="grid grid-cols-[40px_minmax(0,1fr)_52px] items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.04] px-4 py-3"
-                  >
-                    <p className="text-sm font-semibold text-white">{player.position || "-"}</p>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">{player.name}</p>
-                      <p className="mt-1 text-xs text-gray-500">{player.thru || player.teeTime || "Board pending"}</p>
-                    </div>
-                    <p className={`text-right text-sm font-semibold ${
-                      player.score === "E" ? "text-white"
-                      : player.score.startsWith("-") ? "text-emerald-300"
-                      : player.score.startsWith("+") ? "text-red-400"
-                      : "text-white"
-                    }`}>{player.score}</p>
-                  </div>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-gray-400">
-                    Field and leaderboard will appear here once ESPN posts the board for this tournament.
-                  </div>
-                )}
-              </div>
-
-              {heroTournament ? (
+            {heroTournament ? (
+              <div className="mt-4">
                 <Link
                   href={`/golf/tournament/${heroTournament.id}`}
-                  className="mt-4 inline-flex items-center text-sm font-medium text-emerald-200 transition hover:text-emerald-100"
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-200 transition hover:bg-emerald-500/20"
                 >
                   View Full Leaderboard →
                 </Link>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </section>
 
           <div className="space-y-6">
-            <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Upcoming Tournaments</p>
-                  <h2 className="mt-1 text-xl font-semibold text-white">Next five stops</h2>
-                </div>
-                <span className="text-xs text-gray-500">{upcoming.length} loaded</span>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {upcoming.length > 0 ? upcoming.map((tournament) => (
-                  <Link
-                    key={tournament.id}
-                    href={`/golf/tournament/${tournament.id}`}
-                    className={`grid min-h-[52px] gap-2 rounded-2xl border px-3 py-3 transition hover:border-white/20 hover:bg-white/[0.06] md:grid-cols-[108px_minmax(0,1fr)_minmax(0,0.9fr)] ${getGolfRowTone(tournament)}`}
-                  >
-                    <p className="text-xs font-medium text-gray-300">{tournament.dates}</p>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">
-                        {isGolfMajor(tournament.name) ? "\u2B50 " : ""}
-                        {tournament.name}
-                      </p>
-                    </div>
-                    <p className="truncate text-xs text-gray-400">{tournament.course}</p>
-                  </Link>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-gray-400">
-                    No upcoming tournaments are posted yet.
-                  </div>
-                )}
-              </div>
-            </section>
 
             <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
               <div className="flex flex-col gap-2">
@@ -360,6 +293,36 @@ export default async function GolfPage() {
                 Winner odds and field will appear here once available from the odds API.
               </div>
             )}
+          </section>
+        )}
+
+        {upcoming.length > 0 && (
+          <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Upcoming Tournaments</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Next five stops</h2>
+              </div>
+              <span className="text-xs text-gray-500">{upcoming.length} loaded</span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {upcoming.map((tournament) => (
+                <Link
+                  key={tournament.id}
+                  href={`/golf/tournament/${tournament.id}`}
+                  className={`grid min-h-[52px] gap-2 rounded-2xl border px-3 py-3 transition hover:border-white/20 hover:bg-white/[0.06] md:grid-cols-[108px_minmax(0,1fr)_minmax(0,0.9fr)] ${getGolfRowTone(tournament)}`}
+                >
+                  <p className="text-xs font-medium text-gray-300">{tournament.dates}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-white">
+                      {isGolfMajor(tournament.name) ? "\u2B50 " : ""}
+                      {tournament.name}
+                    </p>
+                  </div>
+                  <p className="truncate text-xs text-gray-400">{tournament.course}</p>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
