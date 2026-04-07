@@ -24,7 +24,7 @@ export default function PlayerAvatar({
   size = 40,
   className = "",
 }: Props) {
-  const src = getPlayerHeadshot({ league, playerId, headshot });
+  const src = getPlayerHeadshot({ league, playerId, playerName: name, headshot });
 
   return (
     <>
