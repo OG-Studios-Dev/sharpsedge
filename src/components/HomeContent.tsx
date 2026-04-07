@@ -244,7 +244,7 @@ function GolfMatchupBoard({ matchups }: { matchups: GolfHeadToHeadPrediction[] }
   );
 }
 
-export default function HomeContent({ systemsSection, systemsFirst, mastersAnalysis }: { systemsSection?: ReactNode; systemsFirst?: boolean; mastersAnalysis?: ReactNode }) {
+export default function HomeContent({ systemsSection, systemsFirst, mastersAnalysis }: { systemsSection?: ReactNode; systemsFirst?: boolean; mastersAnalysis?: boolean }) {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
@@ -454,8 +454,20 @@ export default function HomeContent({ systemsSection, systemsFirst, mastersAnaly
 
         <div className="grid gap-5 px-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start lg:px-0">
           <div className="space-y-5">
-            {/* Masters Analysis — full section for All or PGA */}
-            {((sportLeague as string) === "All" || (sportLeague as string) === "PGA") && mastersAnalysis ? mastersAnalysis : null}
+            {/* Masters Analysis — compact banner linking to golf tournament page */}
+            {((sportLeague as string) === "All" || (sportLeague as string) === "PGA") && mastersAnalysis ? (
+              <a
+                href="/golf/tournament/masters-2026#analysis"
+                className="flex items-center justify-between rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm transition hover:bg-yellow-500/20"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="text-yellow-400">⛳</span>
+                  <span className="font-semibold text-yellow-300">Masters 2026 · Pre-Tournament Analysis</span>
+                  <span className="text-yellow-500/70 text-xs">Augusta National · Apr 9–12</span>
+                </span>
+                <span className="text-yellow-400 text-xs font-medium">View →</span>
+              </a>
+            ) : null}
 
             <HomePicksSection league={sportLeague} />
 

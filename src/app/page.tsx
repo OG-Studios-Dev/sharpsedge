@@ -1,6 +1,6 @@
 import HomeContent from "@/components/HomeContent";
 import HomeSystemsSection from "@/components/HomeSystemsSection";
-import MastersAnalysisSection from "@/components/MastersAnalysisSection";
+// MastersAnalysisSection moved to golf page only — home shows banner link
 import { getLocalMastersOddsSnapshot } from "@/lib/golf-api";
 import { loadSystemPerformanceStats, readSystemsTrackingData, refreshTrackableSystems, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
@@ -22,7 +22,7 @@ export default async function HomePage() {
     <HomeContent
       systemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} />}
       systemsFirst={systemsFirst}
-      mastersAnalysis={mastersLocalOdds && Date.now() < new Date("2026-04-10T04:00:00Z").getTime() ? <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} /> : null}
+      mastersAnalysis={mastersLocalOdds && Date.now() < new Date("2026-04-10T04:00:00Z").getTime() ? true : false}
     />
   );
 }

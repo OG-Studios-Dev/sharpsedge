@@ -89,10 +89,11 @@ function FightCard({ fight }: { fight: UFCFight }) {
       <div className="flex items-center justify-between gap-3">
         {/* Fighter 1 */}
         <div className={`flex-1 text-center ${finished && f1.winner ? "text-white" : "text-gray-300"}`}>
-          <div className="w-12 h-12 rounded-full bg-dark-bg border border-dark-border mx-auto mb-2 flex items-center justify-center text-xl">
+          <div className="w-12 h-12 rounded-full bg-dark-bg border border-dark-border mx-auto mb-2 flex items-center justify-center text-xl overflow-hidden">
             {f1.logo ? (
-              <img src={f1.logo} alt={f1.name} className="w-10 h-10 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            ) : "🥊"}
+              <img src={f1.logo} alt={f1.name} className="w-12 h-12 rounded-full object-cover" onError={(e) => { const t = e.target as HTMLImageElement; t.style.display="none"; t.nextElementSibling?.classList.remove("hidden"); }} />
+            ) : null}
+            <span className={`text-xs font-bold text-gray-400 ${f1.logo ? "hidden" : ""}`}>{f1.name.split(" ").map((n:string)=>n[0]).join("").slice(0,2)}</span>
           </div>
           <div className="text-sm font-semibold leading-tight">{f1.name}</div>
           {finished && f1.winner && (
@@ -106,10 +107,11 @@ function FightCard({ fight }: { fight: UFCFight }) {
 
         {/* Fighter 2 */}
         <div className={`flex-1 text-center ${finished && f2.winner ? "text-white" : "text-gray-300"}`}>
-          <div className="w-12 h-12 rounded-full bg-dark-bg border border-dark-border mx-auto mb-2 flex items-center justify-center text-xl">
+          <div className="w-12 h-12 rounded-full bg-dark-bg border border-dark-border mx-auto mb-2 flex items-center justify-center text-xl overflow-hidden">
             {f2.logo ? (
-              <img src={f2.logo} alt={f2.name} className="w-10 h-10 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            ) : "🥊"}
+              <img src={f2.logo} alt={f2.name} className="w-12 h-12 rounded-full object-cover" onError={(e) => { const t = e.target as HTMLImageElement; t.style.display="none"; t.nextElementSibling?.classList.remove("hidden"); }} />
+            ) : null}
+            <span className={`text-xs font-bold text-gray-400 ${f2.logo ? "hidden" : ""}`}>{f2.name.split(" ").map((n:string)=>n[0]).join("").slice(0,2)}</span>
           </div>
           <div className="text-sm font-semibold leading-tight">{f2.name}</div>
           {finished && f2.winner && (

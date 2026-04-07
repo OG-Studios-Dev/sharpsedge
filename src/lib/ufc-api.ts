@@ -58,10 +58,28 @@ async function mmaFetch<T>(path: string): Promise<T | null> {
   }
 }
 
+/** Normalize a raw API fight response — maps photo → logo for fighters */
+function normalizeFight(raw: Record<string, unknown>): MMAFight {
+  const fighters = raw.fighters as { first: Record<string, unknown>; second: Record<string, unknown> } | undefined;
+  return {
+    ...(raw as unknown as MMAFight),
+    fighters: {
+      first: {
+        ...(fighters?.first ?? {}),
+        logo: (fighters?.first?.photo as string | null) ?? (fighters?.first?.logo as string | null) ?? null,
+      } as MMAFighter,
+      second: {
+        ...(fighters?.second ?? {}),
+        logo: (fighters?.second?.photo as string | null) ?? (fighters?.second?.logo as string | null) ?? null,
+      } as MMAFighter,
+    },
+  };
+}
+
 /** Get all fights for a given date (YYYY-MM-DD) */
 export async function getUFCFights(date: string): Promise<MMAFight[]> {
-  const data = await mmaFetch<{ response: MMAFight[] }>(`/fights?date=${date}`);
-  return data?.response ?? [];
+  const data = await mmaFetch<{ response: Record<string, unknown>[] }>(`/fights?date=${date}`);
+  return (data?.response ?? []).map(normalizeFight);
 }
 
 /** Get fights for the next event within the 3-day rolling window */
