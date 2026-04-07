@@ -89,6 +89,7 @@ export type TeamTrend = {
   id: string;
   team: string;
   teamColor: string;
+  teamLogo?: string;
   opponent: string;
   isAway: boolean;
   betType: string;

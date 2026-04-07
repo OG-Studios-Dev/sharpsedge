@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import type { NHLContextBoardResponse } from "@/lib/nhl-context";
 import {
@@ -68,45 +69,57 @@ function formatSpread(value: number | null | undefined) {
 }
 
 function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) {
+  const [open, setOpen] = React.useState(false);
   const hasQuarterLines = record.firstQuarterSpread != null || record.thirdQuarterSpread != null;
 
   return (
-    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold text-white leading-snug">{record.matchup}</p>
-          <p className="mt-0.5 text-xs text-gray-400">{record.gameDate}</p>
+    <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 overflow-hidden">
+      {/* Collapsed 1-line row */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-white truncate">{record.matchup}</span>
+          {record.gameDate && (
+            <span className="ml-2 text-[11px] text-gray-500">{record.gameDate}</span>
+          )}
         </div>
         {record.qualifiedTeam && (
-          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 whitespace-nowrap">
+          <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
             ✓ {record.qualifiedTeam}
           </span>
         )}
-      </div>
+        <svg className={`shrink-0 w-4 h-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-      {hasQuarterLines && (
-        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-dark-border/60 pt-3">
-          <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">1Q spread</p>
-            <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.firstQuarterSpread)}</p>
-          </div>
-          <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">3Q spread</p>
-            <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.thirdQuarterSpread)}</p>
-          </div>
+      {/* Expanded detail */}
+      {open && (
+        <div className="px-4 pb-4 border-t border-dark-border/50 space-y-3 pt-3">
+          {hasQuarterLines && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">1Q spread</p>
+                <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.firstQuarterSpread)}</p>
+              </div>
+              <div className="rounded-xl border border-dark-border bg-dark-bg/50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-500">3Q spread</p>
+                <p className="mt-1 text-base font-semibold text-white">{formatSpread(record.thirdQuarterSpread)}</p>
+              </div>
+            </div>
+          )}
+          {record.notes && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Why qualified</p>
+              <p className="text-sm leading-relaxed text-gray-300">{record.notes}</p>
+            </div>
+          )}
+          {record.alertLabel && !record.alertLabel.toLowerCase().includes("no trigger") && (
+            <p className="text-xs text-gray-500">{record.alertLabel}</p>
+          )}
         </div>
-      )}
-
-      {record.notes && (
-        <p className="mt-3 text-sm leading-relaxed text-gray-300 border-t border-dark-border/60 pt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 block mb-1">
-            Why qualified
-          </span>
-          {record.notes}
-        </p>
-      )}
-      {record.alertLabel && !record.alertLabel.toLowerCase().includes("no trigger") && (
-        <p className="mt-2 text-xs text-gray-500">{record.alertLabel}</p>
       )}
     </div>
   );
