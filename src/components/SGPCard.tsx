@@ -34,7 +34,7 @@ export default function SGPCard({ sgp }: { sgp: SGP }) {
           <div key={i} className="rounded-2xl border border-dark-border/70 bg-dark-bg/45 px-3 py-3">
             <div className="flex items-start gap-2.5">
               <Link href={getTeamHref(leg.team, sgp.league)}>
-                <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+                <TeamLogo team={leg.team} color={leg.teamColor} size={28} sport={sgp.league} />
               </Link>
               <div className="min-w-0 flex-1">
                 <p className="text-white text-[13px] leading-5">
