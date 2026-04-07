@@ -244,7 +244,7 @@ function GolfMatchupBoard({ matchups }: { matchups: GolfHeadToHeadPrediction[] }
   );
 }
 
-export default function HomeContent({ systemsSection, systemsFirst }: { systemsSection?: ReactNode; systemsFirst?: boolean }) {
+export default function HomeContent({ systemsSection, systemsFirst, mastersAnalysis }: { systemsSection?: ReactNode; systemsFirst?: boolean; mastersAnalysis?: ReactNode }) {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
@@ -454,25 +454,8 @@ export default function HomeContent({ systemsSection, systemsFirst }: { systemsS
 
         <div className="grid gap-5 px-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)] lg:items-start lg:px-0">
           <div className="space-y-5">
-            {/* Masters Analysis Banner — show for All or PGA */}
-            {((sportLeague as string) === "All" || (sportLeague as string) === "PGA") && (
-              <Link href="/golf" className="block group">
-                <div className="tap-card rounded-2xl overflow-hidden border border-yellow-600/30 bg-[linear-gradient(135deg,#0a1f0a_0%,#0f1f0a_40%,#1a1400_100%)] shadow-[0_8px_32px_rgba(0,0,0,0.32)] p-4">
-                  <div className="flex items-center gap-4">
-                    <img src="/logos/pga.jpg" alt="PGA Tour" className="h-12 w-12 rounded-xl object-contain bg-white/5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-yellow-500/80">⭐ Live Now</p>
-                      <p className="text-lg font-bold text-white leading-tight">Masters Analysis</p>
-                      <p className="text-xs text-gray-400">Augusta National · April 9–13</p>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-1 text-yellow-400 group-hover:text-yellow-300 transition-colors">
-                      <span className="text-sm font-semibold">View</span>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            )}
+            {/* Masters Analysis — full section for All or PGA */}
+            {((sportLeague as string) === "All" || (sportLeague as string) === "PGA") && mastersAnalysis ? mastersAnalysis : null}
 
             <HomePicksSection league={sportLeague} />
 

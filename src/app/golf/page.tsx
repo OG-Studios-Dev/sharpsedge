@@ -222,7 +222,7 @@ export default async function GolfPage() {
         </section>
 
         {/* Masters / Upcoming Major Spotlight — surfaces when a major is within 14 days */}
-        {showMajorSpotlight && mastersLocalOdds ? (
+        {mastersLocalOdds ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : showMajorSpotlight && (
           <section className="rounded-[32px] border border-amber-500/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_40%),rgba(255,255,255,0.03)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
@@ -230,7 +230,7 @@ export default async function GolfPage() {
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-amber-400">⭐ Major Preview</p>
                 <h2 className="mt-1 text-2xl font-semibold text-white">
-                  {spotlightTournament?.name ?? mastersLocalOdds?.tournament ?? "Masters Tournament"}
+                  {spotlightTournament?.name ?? "Masters Tournament"}
                 </h2>
                 {spotlightTournament ? (
                   <p className="mt-1 text-sm text-gray-300">
@@ -242,7 +242,7 @@ export default async function GolfPage() {
                   {spotlightTournament?.dates ? <span>{spotlightTournament.dates}</span> : null}
                   {spotlightTournament?.purse && spotlightTournament.purse !== "TBD" ? <span>{spotlightTournament.purse}</span> : null}
                   {(() => {
-                    const start = spotlightTournament?.startDate ?? mastersLocalOdds?.startDate;
+                    const start = spotlightTournament?.startDate;
                     if (!start) return null;
                     const daysOut = Math.ceil((new Date(start).getTime() - now) / (24 * 60 * 60 * 1000));
                     if (daysOut < 0) return null;
@@ -268,9 +268,7 @@ export default async function GolfPage() {
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Winner Odds (Bovada)</p>
-                  {mastersLocalOdds?.scrapedAt ? (
-                    <span className="text-xs text-gray-600">Captured {formatGolfUpdatedAt(mastersLocalOdds.scrapedAt)}</span>
-                  ) : null}
+                  {null}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {mastersOddsFavorites.map((entry, index) => (
@@ -284,9 +282,7 @@ export default async function GolfPage() {
                     </div>
                   ))}
                 </div>
-                <p className="mt-2 text-xs text-gray-600">
-                  {mastersLocalOdds?.winner.length ?? 0}-player winner market · via Bovada snapshot · no live leaderboard until tournament begins.
-                </p>
+                <p className="mt-2 text-xs text-gray-600">Winner market · via Bovada snapshot.</p>
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-gray-400">
