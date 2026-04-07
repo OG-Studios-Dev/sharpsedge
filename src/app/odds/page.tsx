@@ -749,14 +749,14 @@ export default function OddsPage() {
                           <span className="text-xs text-gray-500">{formatCommenceTime(game.commenceTime)}</span>
                         </div>
                         <div className="mt-3 flex items-center gap-3">
-                          <TeamLogo team={game.awayAbbrev} size={28} color="#475569" />
+                          <TeamLogo team={game.awayAbbrev} size={28} color="#475569" sport={game.sport} />
                           <div>
                             <p className="card-title">{game.awayTeam}</p>
                             <p className="text-xs text-gray-500">{game.awayAbbrev}</p>
                           </div>
                         </div>
                         <div className="mt-2 flex items-center gap-3">
-                          <TeamLogo team={game.homeAbbrev} size={28} color="#475569" />
+                          <TeamLogo team={game.homeAbbrev} size={28} color="#475569" sport={game.sport} />
                           <div>
                             <p className="card-title">{game.homeTeam}</p>
                             <p className="text-xs text-gray-500">{game.homeAbbrev}</p>

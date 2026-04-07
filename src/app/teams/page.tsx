@@ -155,7 +155,7 @@ export default function TeamsPage() {
                 style={getStaggerStyle(index)}
               >
                 <div className="flex items-center gap-3">
-                  <TeamLogo team={row.teamAbbrev} size={36} />
+                  <TeamLogo team={row.teamAbbrev} size={36} sport={row.league} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-white font-semibold truncate">{row.teamName}</p>

@@ -30,7 +30,7 @@ export default function TrendRow({ row }: { row: TrendRowData }) {
     <Link href={href} className="block group">
       <div className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3 transition-colors group-hover:border-emerald-500/40 group-hover:bg-dark-surface">
         <div className="flex items-start gap-3">
-          <TeamLogo team={row.team} size={34} color={row.teamColor} />
+          <TeamLogo team={row.team} size={34} color={row.teamColor} sport={row.league} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-white text-sm font-semibold truncate group-hover:text-emerald-300 transition-colors">{row.title}</p>

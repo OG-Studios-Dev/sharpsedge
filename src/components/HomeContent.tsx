@@ -57,7 +57,7 @@ function QuickHitterCard({ row }: { row: QuickHitterRow }) {
               <span className="text-[9px] uppercase tracking-[0.18em] text-gray-600">{row.league}</span>
             </div>
             <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-400">
-              <TeamLogo team={row.team} size={20} color={row.teamColor} />
+              <TeamLogo team={row.team} size={20} color={row.teamColor} sport={row.league} />
               <span>{row.subtitle}</span>
             </div>
             <p className="mt-2 text-sm text-gray-200">{row.marketLabel}</p>

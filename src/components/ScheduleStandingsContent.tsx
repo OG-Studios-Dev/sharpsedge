@@ -87,7 +87,7 @@ function NHLStandings() {
                 <Link key={team.teamAbbrev} href={`/team/${team.teamAbbrev}`}
                   className="grid grid-cols-[1fr_repeat(6,_minmax(28px,40px))_48px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <TeamLogo team={team.teamAbbrev} logo={team.logo} size={26} />
+                    <TeamLogo team={team.teamAbbrev} logo={team.logo} size={26} sport="NHL" />
                     <span className="text-xs text-white font-medium truncate">{team.teamAbbrev}</span>
                   </div>
                   <div className="text-center text-xs text-gray-400">{team.gamesPlayed}</div>
@@ -189,7 +189,7 @@ function NBAStandings() {
               <Link key={team.teamAbbrev} href={`/nba/team/${team.teamAbbrev}`}
                 className="grid grid-cols-[1fr_40px_40px_40px_56px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0">
                 <div className="flex items-center gap-2 min-w-0">
-                  <TeamLogo team={team.teamAbbrev} size={26} />
+                  <TeamLogo team={team.teamAbbrev} size={26} sport="NBA" />
                   <span className="text-xs text-white font-medium truncate">{team.teamAbbrev}</span>
                 </div>
                 <div className="text-center text-xs text-white font-medium">{team.wins}</div>
@@ -282,7 +282,7 @@ function MLBStandings() {
                       className="grid grid-cols-[1fr_40px_40px_48px_48px_56px] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <TeamLogo team={team.teamAbbrev} size={26} />
+                        <TeamLogo team={team.teamAbbrev} size={26} sport="MLB" />
                         <span className="truncate text-xs font-medium text-white">{team.teamAbbrev}</span>
                       </div>
                       <div className="text-center text-xs font-medium text-white">{team.wins}</div>

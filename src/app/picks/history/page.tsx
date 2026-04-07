@@ -312,7 +312,7 @@ export default function PickHistoryPage() {
                         "border-l-2 border-l-gray-600"
                       }`}
                     >
-                      <TeamLogo team={pick.team} size={24} />
+                      <TeamLogo team={pick.team} size={24} sport={pick.league} />
                       <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                           <p className="text-white text-xs font-medium truncate">{pick.pick_label}</p>
