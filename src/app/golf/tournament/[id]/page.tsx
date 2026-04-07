@@ -91,6 +91,11 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
           </div>
         </section>
 
+        {/* Masters Analysis — top of page until tournament begins Thu Apr 10 */}
+        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() < new Date("2026-04-10T04:00:00Z").getTime() ? (
+          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
+        ) : null}
+
         <GolfMarketEdgesSection predictions={predictions} />
 
         {/* Top-finish odds rail: real Bovada lines or "no odds available" — never fabricated */}
@@ -103,8 +108,8 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
           latestWinner={latestWinner}
         />
 
-        {/* Masters deep-dive analysis — only on Masters tournament page */}
-        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds ? (
+        {/* Masters deep-dive analysis — bottom of page after tournament begins (Thu Apr 10+) */}
+        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() >= new Date("2026-04-10T04:00:00Z").getTime() ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : null}
       </div>

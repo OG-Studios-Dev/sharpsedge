@@ -22,7 +22,7 @@ export default async function HomePage() {
     <HomeContent
       systemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} />}
       systemsFirst={systemsFirst}
-      mastersAnalysis={mastersLocalOdds ? <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} /> : null}
+      mastersAnalysis={mastersLocalOdds && Date.now() < new Date("2026-04-10T04:00:00Z").getTime() ? <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} /> : null}
     />
   );
 }

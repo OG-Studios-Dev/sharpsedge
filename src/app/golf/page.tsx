@@ -133,6 +133,11 @@ export default async function GolfPage() {
           </div>
         </section>
 
+        {/* Masters Analysis — top of page until tournament begins Thu Apr 10 */}
+        {mastersLocalOdds && now < new Date("2026-04-10T04:00:00Z").getTime() ? (
+          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
+        ) : null}
+
         <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
           <section className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-5 shadow-[0_28px_100px_rgba(0,0,0,0.34)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -221,10 +226,13 @@ export default async function GolfPage() {
           </div>
         </section>
 
-        {/* Masters / Upcoming Major Spotlight — surfaces when a major is within 14 days */}
-        {mastersLocalOdds ? (
+        {/* Masters Analysis — bottom position after tournament begins (Thu Apr 10+) */}
+        {mastersLocalOdds && now >= new Date("2026-04-10T04:00:00Z").getTime() ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
-        ) : showMajorSpotlight && (
+        ) : null}
+
+        {/* Upcoming Major Spotlight fallback — only when no local odds snapshot */}
+        {!mastersLocalOdds && showMajorSpotlight && (
           <section className="rounded-[32px] border border-amber-500/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_40%),rgba(255,255,255,0.03)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
