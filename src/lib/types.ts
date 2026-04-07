@@ -459,6 +459,8 @@ export type GolfDashboardData = {
   playerInsights: GolfPlayer[];
   odds: GolfOddsBoard | null;
   predictions: GolfPredictionBoard | null;
+  /** BDL tee times for current tournament round (empty when not available) */
+  teeTimes?: import("./golf/bdl-pga").BDLTeeTime[];
   meta: {
     league: "PGA" | "LIV";
     oddsConnected: boolean;

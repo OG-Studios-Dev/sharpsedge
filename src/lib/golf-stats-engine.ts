@@ -16,6 +16,7 @@ import {
 } from "@/lib/types";
 import { getDGCache, summarizeDGCache, type DGCache } from "./datagolf-cache";
 import { type BovadaTopFinishOddsMap, findBovadaTopFinishOdds } from "./golf-odds";
+import { type BDLSeasonStat, type BDLFuturesOdds } from "./golf/bdl-pga";
 
 export const GOLF_PROP_TYPES = [
   "Tournament Winner",
@@ -469,11 +470,61 @@ function buildPredictionDataSources(params: {
   };
 }
 
+/**
+ * Merge BDL season stats into a GolfPlayerSeasonStats object.
+ * BDL provides gir_percentage, driving_accuracy, putts_per_round, scoring_avg —
+ * all fields currently null in our ESPN-derived stats.
+ */
+export function mergeBDLSeasonStats(
+  base: GolfPlayerSeasonStats | null,
+  bdlStat: BDLSeasonStat | undefined,
+): GolfPlayerSeasonStats | null {
+  if (!bdlStat) return base;
+  return {
+    scoringAverage: base?.scoringAverage ?? bdlStat.scoring_avg ?? null,
+    drivingAccuracy: bdlStat.driving_accuracy != null ? bdlStat.driving_accuracy : (base?.drivingAccuracy ?? null),
+    gir: bdlStat.gir_percentage != null ? bdlStat.gir_percentage : (base?.gir ?? null),
+    puttingAverage: bdlStat.putts_per_round != null ? bdlStat.putts_per_round : (base?.puttingAverage ?? null),
+  };
+}
+
+/**
+ * Build a lookup map from normalised player name → BDL season stat.
+ */
+export function buildBDLSeasonStatsMap(stats: BDLSeasonStat[]): Map<string, BDLSeasonStat> {
+  const map = new Map<string, BDLSeasonStat>();
+  for (const s of stats) {
+    if (s.player?.display_name) {
+      map.set(normalizeName(s.player.display_name), s);
+    }
+  }
+  return map;
+}
+
+/**
+ * Build a lookup map from normalised player name → best BDL futures odds (winner market).
+ */
+export function buildBDLFuturesMap(futures: BDLFuturesOdds[]): Map<string, BDLFuturesOdds> {
+  const map = new Map<string, BDLFuturesOdds>();
+  for (const f of futures) {
+    if (!f.player?.display_name) continue;
+    const key = normalizeName(f.player.display_name);
+    const existing = map.get(key);
+    // prefer DraftKings/FanDuel; otherwise take the best (lowest absolute odds for winners)
+    if (!existing || Math.abs(f.odds) < Math.abs(existing.odds)) {
+      map.set(key, f);
+    }
+  }
+  return map;
+}
+
 export function buildGolfPredictionBoard(
   leaderboard: GolfLeaderboard | null,
   historyByPlayer: PlayerHistoryMap,
   odds: GolfOddsBoard | null = null,
   dgCache: DGCache | null = null,
+  bdlSeasonStatsMap?: Map<string, BDLSeasonStat>,
+  bdlFuturesMap?: Map<string, BDLFuturesOdds>,
 ): GolfPredictionBoard {
   const generatedAt = new Date().toISOString();
   const activePlayers = leaderboard?.players.filter((player) => player.position !== "CUT" && player.position !== "MC") ?? [];
@@ -521,7 +572,9 @@ export function buildGolfPredictionBoard(
     const fullHistory = historyByPlayer[player.id] ?? [];
     const recentForm = fullHistory.slice(0, 5);
     const courseHistory = buildCourseHistory(fullHistory, leaderboard.tournament.course);
-    const seasonStats = deriveSeasonStats(player, fullHistory);
+    const rawSeasonStats = deriveSeasonStats(player, fullHistory);
+    const bdlStat = bdlSeasonStatsMap?.get(normalizeName(player.name));
+    const seasonStats = mergeBDLSeasonStats(rawSeasonStats, bdlStat);
     const hitRates = computeGolfHitRates(recentForm);
     const formScore = calculateRecentFormScore(recentForm);
     const courseHistoryScore = calculateCourseHistoryScore(courseHistory);
@@ -559,8 +612,9 @@ export function buildGolfPredictionBoard(
       courseHistory,
       seasonStats,
       hitRates,
-      outrightOdds: outright?.odds ?? null,
-      outrightBook: outright?.book ?? null,
+      outrightOdds: outright?.odds ?? (bdlFuturesMap?.get(normalizeName(player.name))?.odds ?? null),
+      outrightBook: outright?.book ?? (bdlFuturesMap?.get(normalizeName(player.name)) ? "BDL" : null),
+
       formScore: round(formScore),
       courseHistoryScore: round(courseHistoryScore),
       courseFitScore: round(resolvedCourseFitScore),

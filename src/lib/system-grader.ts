@@ -18,6 +18,7 @@ import { getNBAGameSummary, getRecentNBAGames, getNBAQuarterScoresFromApiSports 
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
+import { getBDLTournaments, getBDLTournamentResults } from "@/lib/golf/bdl-pga";
 
 // ─── System IDs that have ML grading ────────────────────────────────────────
 
@@ -42,11 +43,106 @@ export const GRADEABLE_PROGRESSION_SYSTEMS = [
   "nba-goose-system",
 ] as const;
 
+export const GRADEABLE_PGA_SYSTEMS = [
+  "pga-goose-picks",
+] as const;
+
 export const OFFLINE_SYSTEMS = [
   "the-blowout",
   "hot-teams-matchup",
   "tonys-hot-bats",
 ] as const;
+
+// ─── PGA pick grading ─────────────────────────────────────────────────────────
+
+/**
+ * Grade PGA Top 5 / Top 10 / Top 20 / Tournament Winner qualifiers
+ * using BDL tournament results (official final leaderboard).
+ *
+ * Qualifier provenance is expected to contain:
+ *   { playerName: string, market: "Top 5" | "Top 10" | "Top 20" | "Tournament Winner", tournamentId?: number }
+ */
+async function gradePGAQualifiers(
+  pending: DbSystemQualifier[],
+): Promise<GradeQualifierInput[]> {
+  if (!pending.length) return [];
+
+  // Gather unique tournament IDs from qualifiers
+  const tournamentIdSet = new Set<number>();
+  for (const q of pending) {
+    const tid = (q.provenance as Record<string, unknown>)?.tournamentId;
+    if (typeof tid === "number") tournamentIdSet.add(tid);
+  }
+
+  // If no explicit IDs, look up the most recently completed BDL tournament
+  if (tournamentIdSet.size === 0) {
+    const tournaments = await getBDLTournaments(new Date().getFullYear());
+    const completed = tournaments
+      .filter((t) => t.status === "COMPLETED")
+      .sort((a, b) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime());
+    if (completed[0]) tournamentIdSet.add(completed[0].id);
+  }
+
+  // Fetch results for each tournament
+  const resultsByTournament = new Map<number, Awaited<ReturnType<typeof getBDLTournamentResults>>>();
+  await Promise.all(
+    Array.from(tournamentIdSet).map(async (tid) => {
+      const results = await getBDLTournamentResults(tid).catch(() => []);
+      if (results.length > 0) resultsByTournament.set(tid, results);
+    }),
+  );
+
+  if (resultsByTournament.size === 0) return [];
+
+  const graded: GradeQualifierInput[] = [];
+
+  for (const q of pending) {
+    const prov = q.provenance as Record<string, unknown>;
+    const playerName = (prov?.playerName as string | undefined)?.toLowerCase().trim() ?? "";
+    const market = (prov?.market as string | undefined) ?? "Top 20";
+    const tid = typeof prov?.tournamentId === "number" ? prov.tournamentId : null;
+
+    // Use explicit tournamentId if available; otherwise try all fetched results
+    const candidateMaps = tid
+      ? [resultsByTournament.get(tid)]
+      : Array.from(resultsByTournament.values());
+
+    let outcome: SystemQualifierOutcome | null = null;
+    let notes = "";
+
+    for (const results of candidateMaps) {
+      if (!results?.length) continue;
+      const row = results.find(
+        (r) => r.player?.display_name?.toLowerCase().trim() === playerName,
+      );
+      if (!row) continue;
+
+      const pos = row.position;
+      let threshold = 20;
+      if (market === "Tournament Winner") threshold = 1;
+      else if (market === "Top 5") threshold = 5;
+      else if (market === "Top 10") threshold = 10;
+
+      const won = typeof pos === "number" && pos <= threshold;
+      outcome = won ? "win" : "loss";
+      notes = `BDL result: position ${pos} | market: ${market} | threshold: ${threshold}`;
+      break;
+    }
+
+    if (outcome) {
+      graded.push({
+        id: q.id,
+        outcome,
+        settlementStatus: "settled" as SystemQualifierSettlementStatus,
+        netUnits: null,
+        gradingSource: "bdl-tournament-results",
+        gradingNotes: notes,
+      });
+    }
+  }
+
+  return graded;
+}
 
 // ─── NHL game result lookup ──────────────────────────────────────────────────
 
@@ -747,6 +843,7 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
     ...GRADEABLE_ML_SYSTEMS,
     ...GRADEABLE_TOTAL_SYSTEMS,
     ...GRADEABLE_PROGRESSION_SYSTEMS,
+    ...GRADEABLE_PGA_SYSTEMS,
     "robbies-ripper-fast-5",
   ]);
 
@@ -799,6 +896,9 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
   await gradeAndReport("mlb-home-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("mlb-home-majority-handle") ?? [], "mlb", "mlb-api-final"));
   await gradeAndReport("nhl-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("nhl-under-majority-handle") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("mlb-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("mlb-under-majority-handle") ?? [], "mlb", "mlb-api-final"));
+
+  // Grade PGA picks via BDL tournament results
+  await gradeAndReport("pga-goose-picks", async () => gradePGAQualifiers(pendingBySystem.get("pga-goose-picks") ?? []));
 
   // Grade Robbie's Ripper Fast 5 (F5 inning linescore)
   const ripperPending = pendingBySystem.get("robbies-ripper-fast-5") ?? [];
@@ -866,6 +966,8 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
       gradedInputs = await gradePendingTotalQualifiers(allPending, "mlb", "mlb-api-final");
     } else if (systemId === "nba-home-dog-majority-handle" || systemId === "nba-home-super-majority-close-game") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "nba", "nba-espn-final");
+    } else if (systemId === "pga-goose-picks") {
+      gradedInputs = await gradePGAQualifiers(allPending);
     }
   } catch (err) {
     errors.push(err instanceof Error ? err.message : String(err));
@@ -981,6 +1083,11 @@ export function getGradeabilityMap(): Record<string, {
       gradeable: true,
       gradingType: "f5",
       notes: "MLB F5 side/total: grades from MLB Stats API per-inning linescore. Rows stay pending until 5 complete innings confirmed. Alert rows with a qualified team are graded as F5 side; f5-total rows grade against the posted line.",
+    },
+    "pga-goose-picks": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "PGA Top 5/10/20/Winner: graded via BDL tournament results (official final leaderboard). Qualifier provenance must include playerName and market fields. tournamentId optional; falls back to most recently completed BDL tournament.",
     },
   };
 }
