@@ -154,10 +154,21 @@ function logEntryToDbRow(entry: SystemQualificationLogEntry): DbSystemQualifier 
     home_team: entry.homeTeam,
     qualified_team: entry.qualifiedTeam ?? null,
     opponent_team: entry.opponentTeam ?? null,
-    league: entry.recordSnapshot?.source?.includes("NHL") ? "NHL"
-      : entry.recordSnapshot?.source?.includes("MLB") ? "MLB"
-      : entry.recordSnapshot?.source?.includes("NBA") ? "NBA"
-      : null,
+    league: ((): string | null => {
+      // Prefer explicit source string, then fall back to system slug/id for reliable detection
+      const src = entry.recordSnapshot?.source || "";
+      if (src.includes("NHL")) return "NHL";
+      if (src.includes("MLB")) return "MLB";
+      if (src.includes("NBA")) return "NBA";
+      if (src.includes("PGA") || src.includes("golf") || src.includes("Golf")) return "PGA";
+      // Slug-based fallback
+      const slug = entry.systemSlug || entry.systemId || "";
+      if (slug.startsWith("nhl") || slug.includes("swaggy") || slug.includes("coach-no-rest") || slug.includes("bigcat") || slug.includes("fat-tony")) return "NHL";
+      if (slug.startsWith("mlb") || slug.includes("falcons") || slug.includes("robbies")) return "MLB";
+      if (slug.startsWith("nba") || slug.includes("goose-system")) return "NBA";
+      if (slug.startsWith("pga")) return "PGA";
+      return null;
+    })(),
     market_type: entry.marketType ?? null,
     action_label: entry.actionLabel ?? null,
     action_side: entry.actionSide ?? null,
