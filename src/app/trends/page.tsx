@@ -119,10 +119,18 @@ export default function TrendsPage() {
   }, [dashboards.props, directionFilter, activeIndicators, propTypeFilter, sortBy]);
 
   const filteredTeams = useMemo(() => {
-    return dashboards.teamTrends
+    const all = dashboards.teamTrends
       .filter((trend) => (trend.hitRate ?? 0) >= TEAM_THRESHOLD)
       .filter((trend) => matchesIndicatorFilter(trend.indicators))
       .sort((a, b) => compareBySort(a, b, sortBy));
+    // Deduplicate: one card per team+matchup, keep highest hitRate
+    const seen = new Map<string, typeof all[0]>();
+    for (const t of all) {
+      const key = `${t.team}|${t.opponent}|${t.gameDate ?? ""}`;
+      const existing = seen.get(key);
+      if (!existing || (t.hitRate ?? 0) > (existing.hitRate ?? 0)) seen.set(key, t);
+    }
+    return Array.from(seen.values());
   }, [dashboards.teamTrends, activeIndicators, sortBy]);
   const isFreeTier = viewer.tier === "free";
   const limitedProps = isFreeTier ? filteredProps.slice(0, 5) : filteredProps;

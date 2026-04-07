@@ -42,6 +42,20 @@ export function getLeagueLabel(league?: string | null): string {
  * Returns an ESPN CDN team logo URL for a given league + team abbreviation.
  * Returns null if the league is unsupported.
  */
+// Soccer team logo map — ESPN numeric IDs (EPL + Serie A)
+const SOCCER_ESPN_LOGO: Record<string, string> = {
+  // Serie A
+  MIL: "103", ROMA: "104", ATA: "105", BOL: "107", CAG: "2925", COMO: "2572",
+  CRE: "4050", FIO: "109", GEN: "3263", VER: "119", INT: "110", JUV: "111",
+  LAZ: "112", LEC: "113", NAP: "114", PAR: "115", PIS: "3956", SAS: "3997",
+  TOR: "239", UDI: "118",
+  // EPL
+  BOU: "349", ARS: "359", AVL: "362", BRE: "337", BHA: "331", BUR: "379",
+  CHE: "363", CRY: "384", EVE: "368", FUL: "370", LEE: "357", LIV: "364",
+  MNC: "382", MAN: "360", NEW: "361", NFO: "393", SUN: "366", TOT: "367",
+  WHU: "371", WOL: "380",
+};
+
 // ESPN uses non-standard abbreviations for some teams — normalize before building CDN URLs
 const NHL_ESPN_ABBREV: Record<string, string> = {
   TBL: "tb", LAK: "la", SJS: "sj", NJD: "nj", CBJ: "cbj", VGK: "vgk",
@@ -79,6 +93,10 @@ export function getTeamLogoUrl(league: string | null | undefined, team: string):
   }
   if (norm === "PGA" || norm === "GOLF") {
     return "/logos/pga.jpg";
+  }
+  if (norm === "EPL" || norm === "SERIE A" || norm === "SERIE_A" || norm === "SOCCER") {
+    const espnId = SOCCER_ESPN_LOGO[abbrev];
+    if (espnId) return `https://a.espncdn.com/i/teamlogos/soccer/500/${espnId}.png`;
   }
   return null;
 }
