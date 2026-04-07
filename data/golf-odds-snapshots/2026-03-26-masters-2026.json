@@ -1,0 +1,160 @@
+{
+  "snapshotDate": "2026-03-26",
+  "scrapedAt": "2026-03-26T16:54:18.939Z",
+  "source": "bovada",
+  "tournament": "The Masters 2026",
+  "startDate": "2026-04-09",
+  "bovadaEventId": "15831604",
+  "markets": {
+    "winner": [
+      {
+        "player": "Scottie Scheffler",
+        "odds": 450
+      },
+      {
+        "player": "Rory McIlroy",
+        "odds": 1000
+      },
+      {
+        "player": "Bryson DeChambeau",
+        "odds": 1200
+      },
+      {
+        "player": "Jon Rahm",
+        "odds": 1200
+      },
+      {
+        "player": "Ludvig Aberg",
+        "odds": 1600
+      },
+      {
+        "player": "Xander Schauffele",
+        "odds": 1800
+      },
+      {
+        "player": "Cameron Young",
+        "odds": 2200
+      },
+      {
+        "player": "Tommy Fleetwood",
+        "odds": 2200
+      },
+      {
+        "player": "Matt Fitzpatrick",
+        "odds": 2500
+      },
+      {
+        "player": "Collin Morikawa",
+        "odds": 2800
+      },
+      {
+        "player": "Brooks Koepka",
+        "odds": 3000
+      },
+      {
+        "player": "Justin Rose",
+        "odds": 3000
+      },
+      {
+        "player": "Patrick Reed",
+        "odds": 3500
+      },
+      {
+        "player": "Hideki Matsuyama",
+        "odds": 4000
+      },
+      {
+        "player": "Jordan Spieth",
+        "odds": 4000
+      },
+      {
+        "player": "Viktor Hovland",
+        "odds": 4000
+      },
+      {
+        "player": "Robert MacIntyre",
+        "odds": 4500
+      },
+      {
+        "player": "Akshay Bhatia",
+        "odds": 5000
+      },
+      {
+        "player": "Justin Thomas",
+        "odds": 5000
+      },
+      {
+        "player": "Chris Gotterup",
+        "odds": 6000
+      },
+      {
+        "player": "Shane Lowry",
+        "odds": 6000
+      },
+      {
+        "player": "Min Woo Lee",
+        "odds": 6500
+      },
+      {
+        "player": "Sepp Straka",
+        "odds": 6500
+      },
+      {
+        "player": "Tyrrell Hatton",
+        "odds": 6500
+      },
+      {
+        "player": "Patrick Cantlay",
+        "odds": 6500
+      },
+      {
+        "player": "Joaquin Niemann",
+        "odds": 7000
+      },
+      {
+        "player": "Russell Henley",
+        "odds": 7000
+      },
+      {
+        "player": "Si Woo Kim",
+        "odds": 7500
+      },
+      {
+        "player": "Sungjae Im",
+        "odds": 7500
+      },
+      {
+        "player": "Adam Scott",
+        "odds": 8000
+      },
+      {
+        "player": "Cameron Smith",
+        "odds": 8000
+      },
+      {
+        "player": "Corey Conners",
+        "odds": 8000
+      },
+      {
+        "player": "Jacob Bridgeman",
+        "odds": 8000
+      },
+      {
+        "player": "Jason Day",
+        "odds": 8000
+      },
+      {
+        "player": "Sam Burns",
+        "odds": 8000
+      },
+      {
+        "player": "Tiger Woods",
+        "odds": 15000
+      },
+      {
+        "player": "Phil Mickelson",
+        "odds": 20000
+      }
+    ]
+  }
+}

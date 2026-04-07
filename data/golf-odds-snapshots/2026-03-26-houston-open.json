@@ -1,0 +1,664 @@
+{
+  "tournament": "Houston Open",
+  "bovadaEventId": "23563499",
+  "startDate": "2026-03-26",
+  "scrapedAt": "2026-03-26T17:11:06.946Z",
+  "source": "bovada",
+  "markets": {
+    "winner": [
+      {
+        "player": "Min Woo Lee",
+        "odds": 1400
+      },
+      {
+        "player": "Chris Gotterup",
+        "odds": 1800
+      },
+      {
+        "player": "Brooks Koepka",
+        "odds": 2000
+      },
+      {
+        "player": "Jake Knapp",
+        "odds": 2000
+      },
+      {
+        "player": "Sam Burns",
+        "odds": 1100
+      },
+      {
+        "player": "Kurt Kitayama",
+        "odds": 800
+      },
+      {
+        "player": "Michael Thorbjornsen",
+        "odds": 3000
+      },
+      {
+        "player": "Nicolai Hojgaard",
+        "odds": 10000
+      },
+      {
+        "player": "Marco Penge",
+        "odds": 1800
+      },
+      {
+        "player": "Rickie Fowler",
+        "odds": 3500
+      },
+      {
+        "player": "Ryan Gerard",
+        "odds": 12500
+      },
+      {
+        "player": "Adam Scott",
+        "odds": 4500
+      },
+      {
+        "player": "Ben Griffin",
+        "odds": 8000
+      },
+      {
+        "player": "Keith Mitchell",
+        "odds": 7000
+      },
+      {
+        "player": "Pierceson Coody",
+        "odds": 4500
+      },
+      {
+        "player": "Rasmus Hojgaard",
+        "odds": 3500
+      },
+      {
+        "player": "Sahith Theegala",
+        "odds": 6000
+      },
+      {
+        "player": "Shane Lowry",
+        "odds": 10000
+      },
+      {
+        "player": "Wyndham Clark",
+        "odds": 8000
+      },
+      {
+        "player": "Harris English",
+        "odds": 4500
+      },
+      {
+        "player": "Harry Hall",
+        "odds": 6500
+      },
+      {
+        "player": "Jordan Smith",
+        "odds": 8000
+      },
+      {
+        "player": "Sam Stevens",
+        "odds": 5000
+      },
+      {
+        "player": "Ryan Fox",
+        "odds": 20000
+      },
+      {
+        "player": "Stephan Jaeger",
+        "odds": 1000
+      },
+      {
+        "player": "Taylor Pendrith",
+        "odds": 4500
+      },
+      {
+        "player": "Alex Smalley",
+        "odds": 6000
+      },
+      {
+        "player": "Davis Thompson",
+        "odds": 6500
+      },
+      {
+        "player": "Jason Day",
+        "odds": 5500
+      },
+      {
+        "player": "Patrick Rodgers",
+        "odds": 6500
+      },
+      {
+        "player": "Sungjae Im",
+        "odds": 6500
+      },
+      {
+        "player": "Tony Finau",
+        "odds": 6500
+      },
+      {
+        "player": "Kristoffer Reitan",
+        "odds": 7000
+      },
+      {
+        "player": "Ricky Castillo",
+        "odds": 6000
+      },
+      {
+        "player": "Sudarshan Yellamaraju",
+        "odds": 12500
+      },
+      {
+        "player": "Aaron Rai",
+        "odds": 8000
+      },
+      {
+        "player": "Aldrich Potgieter",
+        "odds": 6500
+      },
+      {
+        "player": "Gary Woodland",
+        "odds": 8000
+      },
+      {
+        "player": "Jesper Svensson",
+        "odds": 6500
+      },
+      {
+        "player": "Max Greyserman",
+        "odds": 8000
+      },
+      {
+        "player": "Michael Brennan",
+        "odds": 6500
+      },
+      {
+        "player": "Nico Echavarria",
+        "odds": 30000
+      },
+      {
+        "player": "Rico Hoey",
+        "odds": 8000
+      },
+      {
+        "player": "Tom Kim",
+        "odds": 12500
+      },
+      {
+        "player": "Will Zalatoris",
+        "odds": 7500
+      },
+      {
+        "player": "William Mouw",
+        "odds": 5000
+      },
+      {
+        "player": "Adrien Dumont de Chassart",
+        "odds": 10000
+      },
+      {
+        "player": "Alejandro Tosti",
+        "odds": 10000
+      },
+      {
+        "player": "Mac Meissner",
+        "odds": 10000
+      },
+      {
+        "player": "Mackenzie Hughes",
+        "odds": 10000
+      },
+      {
+        "player": "Matti Schmid",
+        "odds": 10000
+      },
+      {
+        "player": "Rasmus Neergaard-Petersen",
+        "odds": 8000
+      },
+      {
+        "player": "Thorbjorn Olesen",
+        "odds": 10000
+      },
+      {
+        "player": "Christiaan Bezuidenhout",
+        "odds": 12500
+      },
+      {
+        "player": "Denny McCarthy",
+        "odds": 10000
+      },
+      {
+        "player": "Doug Ghim",
+        "odds": 250000
+      },
+      {
+        "player": "Haotong Li",
+        "odds": 12500
+      },
+      {
+        "player": "J.T. Poston",
+        "odds": 12500
+      },
+      {
+        "player": "John Parry",
+        "odds": 12500
+      },
+      {
+        "player": "Lee Hodges",
+        "odds": 12500
+      },
+      {
+        "player": "Matt Wallace",
+        "odds": 12500
+      },
+      {
+        "player": "Max McGreevy",
+        "odds": 12500
+      },
+      {
+        "player": "S H Kim",
+        "odds": 12500
+      },
+      {
+        "player": "Chris Kirk",
+        "odds": 12500
+      },
+      {
+        "player": "David Ford",
+        "odds": 15000
+      },
+      {
+        "player": "Eric Cole",
+        "odds": 15000
+      },
+      {
+        "player": "Johnny Keefer",
+        "odds": 7500
+      },
+      {
+        "player": "Kevin Yu",
+        "odds": 50000
+      },
+      {
+        "player": "A J Ewart",
+        "odds": 20000
+      },
+      {
+        "player": "Adrien Saddier",
+        "odds": 15000
+      },
+      {
+        "player": "Austin Eckroat",
+        "odds": 20000
+      },
+      {
+        "player": "Beau Hossler",
+        "odds": 75000
+      },
+      {
+        "player": "Billy Horschel",
+        "odds": 20000
+      },
+      {
+        "player": "Chad Ramey",
+        "odds": 15000
+      },
+      {
+        "player": "Chandler Blanchet",
+        "odds": 20000
+      },
+      {
+        "player": "Dan Brown",
+        "odds": 20000
+      },
+      {
+        "player": "David Lipsky",
+        "odds": 250000
+      },
+      {
+        "player": "Emiliano Grillo",
+        "odds": 20000
+      },
+      {
+        "player": "Garrick Higgo",
+        "odds": 50000
+      },
+      {
+        "player": "Isaiah Salinda",
+        "odds": 20000
+      },
+      {
+        "player": "Kevin Roy",
+        "odds": 20000
+      },
+      {
+        "player": "Kris Ventura",
+        "odds": 20000
+      },
+      {
+        "player": "Seamus Power",
+        "odds": 20000
+      },
+      {
+        "player": "Steven Fisk",
+        "odds": 20000
+      },
+      {
+        "player": "Zecheng Dou",
+        "odds": 22500
+      },
+      {
+        "player": "Andrew Putnam",
+        "odds": 50000
+      },
+      {
+        "player": "Jimmy Stanger",
+        "odds": 25000
+      },
+      {
+        "player": "Luke Clanton",
+        "odds": 25000
+      },
+      {
+        "player": "Matthieu Pavon",
+        "odds": 10000
+      },
+      {
+        "player": "Pontus Nyholm",
+        "odds": 25000
+      },
+      {
+        "player": "Vince Whaley",
+        "odds": 25000
+      },
+      {
+        "player": "Zach Bauchou",
+        "odds": 25000
+      },
+      {
+        "player": "Christo Lamprecht",
+        "odds": 30000
+      },
+      {
+        "player": "Dylan Wu",
+        "odds": 30000
+      },
+      {
+        "player": "Hank Lebioda",
+        "odds": 30000
+      },
+      {
+        "player": "Sam Ryder",
+        "odds": 30000
+      },
+      {
+        "player": "Danny Walker",
+        "odds": 35000
+      },
+      {
+        "player": "Jackson Suber",
+        "odds": 9000
+      },
+      {
+        "player": "Jhonattan Vegas",
+        "odds": 8000
+      },
+      {
+        "player": "John VanDerLaan",
+        "odds": 35000
+      },
+      {
+        "player": "Karl Vilips",
+        "odds": 35000
+      },
+      {
+        "player": "Patrick Fishburn",
+        "odds": 250000
+      },
+      {
+        "player": "Takumi Kanaya",
+        "odds": 20000
+      },
+      {
+        "player": "Tom Hoge",
+        "odds": 35000
+      },
+      {
+        "player": "Adam Svensson",
+        "odds": 40000
+      },
+      {
+        "player": "Bronson Burgoon",
+        "odds": 20000
+      },
+      {
+        "player": "Chandler Phillips",
+        "odds": 40000
+      },
+      {
+        "player": "Davis Riley",
+        "odds": 40000
+      },
+      {
+        "player": "Erik Van Rooyen",
+        "odds": 25000
+      },
+      {
+        "player": "Gordon Sargent",
+        "odds": 40000
+      },
+      {
+        "player": "Lucas Glover",
+        "odds": 40000
+      },
+      {
+        "player": "Mark Hubbard",
+        "odds": 40000
+      },
+      {
+        "player": "Matt Kuchar",
+        "odds": 40000
+      },
+      {
+        "player": "Neal Shipley",
+        "odds": 40000
+      },
+      {
+        "player": "Joe Highsmith",
+        "odds": 50000
+      },
+      {
+        "player": "Mason Howell",
+        "odds": 50000
+      },
+      {
+        "player": "Nick Dunlap",
+        "odds": 250000
+      },
+      {
+        "player": "Trey Mullinax",
+        "odds": 50000
+      },
+      {
+        "player": "Davis Chatfield",
+        "odds": 60000
+      },
+      {
+        "player": "Patton Kizzire",
+        "odds": 60000
+      },
+      {
+        "player": "Cole Hammer",
+        "odds": 70000
+      },
+      {
+        "player": "Aaron Wise",
+        "odds": 250000
+      },
+      {
+        "player": "Adam Schenk",
+        "odds": 75000
+      },
+      {
+        "player": "K H Lee",
+        "odds": 75000
+      },
+      {
+        "player": "Kensei Hirata",
+        "odds": 75000
+      },
+      {
+        "player": "Brian Campbell",
+        "odds": 100000
+      },
+      {
+        "player": "Brice Garnett",
+        "odds": 100000
+      },
+      {
+        "player": "Charley Hoffman",
+        "odds": 100000
+      },
+      {
+        "player": "Danny Willett",
+        "odds": 100000
+      },
+      {
+        "player": "Paul Waring",
+        "odds": 9000
+      },
+      {
+        "player": "Peter Malnati",
+        "odds": 100000
+      },
+      {
+        "player": "Casey Russell",
+        "odds": 200000
+      },
+      {
+        "player": "Jeffrey Kang",
+        "odds": 250000
+      },
+      {
+        "player": "Rafael Campos",
+        "odds": 150000
+      },
+      {
+        "player": "Justin Lower",
+        "odds": 50000
+      }
+    ],
+    "top5": [
+      {
+        "player": "Min Woo Lee",
+        "odds": 520,
+        "source": "screenshot-verified",
+        "note": "Verified from Marco screenshot 2026-03-28. +520 DraftKings."
+      },
+      {
+        "player": "Nicolai Hojgaard",
+        "odds": 550,
+        "source": "screenshot-verified",
+        "note": "Verified from Marco screenshot 2026-03-28. +550 DraftKings."
+      }
+    ],
+    "top10": [
+      {
+        "player": "Jake Knapp",
+        "odds": 280,
+        "source": "screenshot-verified",
+        "source_name": "BettingPros",
+        "corrected_at": "2026-03-29",
+        "note": "Corrected from -110 placeholder. +280 confirmed by Marco screenshot (BettingPros pre-tournament line)."
+      }
+    ],
+    "top20": [],
+    "makeCut": [],
+    "matchups": []
+  },
+  "analysis": {
+    "h2hPicks": [],
+    "outrightValue": [
+      {
+        "player": "K H Lee",
+        "odds": 75000,
+        "courseScore": 6.25,
+        "impliedProb": 0.0008637394854334076,
+        "valueTier": "FAIR",
+        "notes": "Exciting young talent, growing profile, limited Augusta history"
+      },
+      {
+        "player": "Nico Echavarria",
+        "odds": 30000,
+        "courseScore": 4.75,
+        "impliedProb": 0.002155044363988336,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Doug Ghim",
+        "odds": 250000,
+        "courseScore": 4.75,
+        "impliedProb": 0.0002593635959858013,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Kevin Yu",
+        "odds": 50000,
+        "courseScore": 4.75,
+        "impliedProb": 0.001294747212695587,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Beau Hossler",
+        "odds": 75000,
+        "courseScore": 4.75,
+        "impliedProb": 0.0008637394854334076,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "David Lipsky",
+        "odds": 250000,
+        "courseScore": 4.75,
+        "impliedProb": 0.0002593635959858013,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Garrick Higgo",
+        "odds": 50000,
+        "courseScore": 4.75,
+        "impliedProb": 0.001294747212695587,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Andrew Putnam",
+        "odds": 50000,
+        "courseScore": 4.75,
+        "impliedProb": 0.001294747212695587,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Christo Lamprecht",
+        "odds": 30000,
+        "courseScore": 4.75,
+        "impliedProb": 0.002155044363988336,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      },
+      {
+        "player": "Dylan Wu",
+        "odds": 30000,
+        "courseScore": 4.75,
+        "impliedProb": 0.002155044363988336,
+        "valueTier": "FAIR",
+        "notes": "Limited data \u2014 no strong Augusta profile on file"
+      }
+    ],
+    "generatedAt": "2026-03-26T17:11:07.136Z"
+  }
+}
