@@ -5,7 +5,7 @@ export const LEAGUE_LOGOS: Partial<Record<League, string>> = {
   NBA: "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png",
   MLB: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png",
   NFL: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png",
-  PGA: "https://a.espncdn.com/i/teamlogos/leagues/500/pga.png",
+  PGA: "https://a.espncdn.com/i/espn/misc_logos/500/golf.png",
   EPL: "https://a.espncdn.com/i/teamlogos/leagues/500/eng.1.png",
   "Serie A": "https://a.espncdn.com/i/teamlogos/leagues/500/ita.1.png",
   UFC: "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png",
@@ -60,7 +60,7 @@ export function getTeamLogoUrl(league: string | null | undefined, team: string):
     return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev.toLowerCase()}.png`;
   }
   if (norm === "PGA" || norm === "GOLF") {
-    return `https://a.espncdn.com/i/teamlogos/leagues/500/pga.png`;
+    return `https://a.espncdn.com/i/espn/misc_logos/500/golf.png`;
   }
   return null;
 }
