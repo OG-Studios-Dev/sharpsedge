@@ -96,7 +96,7 @@ export default function NHLStandingsPage() {
                       className="grid grid-cols-[1fr_repeat(5,_minmax(28px,40px))_48px] gap-1 px-3 py-2.5 items-center hover:bg-dark-bg/50 transition-colors border-b border-dark-border/30 last:border-b-0"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <TeamLogo team={team.teamAbbrev} logo={team.logo} size={28} />
+                        <TeamLogo team={team.teamAbbrev} logo={team.logo} size={28} sport="NHL" />
                         <span className="text-sm text-white font-medium truncate">{team.teamName}</span>
                       </div>
                       <div className="text-center text-xs text-gray-400">{team.gamesPlayed}</div>

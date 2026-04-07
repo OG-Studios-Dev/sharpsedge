@@ -40,7 +40,7 @@ export default function MLBGameCard({ game }: { game: MLBGame }) {
 
       {/* Away team row */}
       <div className={`flex items-center gap-2 py-1 ${awayWon ? "opacity-100" : isFinal ? "opacity-60" : ""}`}>
-        <TeamLogo team={awayAbbrev} logo={game.awayTeam.logo} size={20} color={awayColor} />
+        <TeamLogo team={awayAbbrev} logo={game.awayTeam.logo} size={20} color={awayColor} sport="MLB" />
         <span className={`text-xs font-semibold flex-1 ${awayWon ? "text-white" : "text-gray-300"}`}>{awayAbbrev}</span>
         <span className="text-[9px] text-gray-500 truncate max-w-[80px]">{game.awayTeam.probablePitcher?.name || ""}</span>
         {(isLive || isFinal) && game.awayScore !== null && (
@@ -53,7 +53,7 @@ export default function MLBGameCard({ game }: { game: MLBGame }) {
 
       {/* Home team row */}
       <div className={`flex items-center gap-2 py-1 ${homeWon ? "opacity-100" : isFinal ? "opacity-60" : ""}`}>
-        <TeamLogo team={homeAbbrev} logo={game.homeTeam.logo} size={20} color={homeColor} />
+        <TeamLogo team={homeAbbrev} logo={game.homeTeam.logo} size={20} color={homeColor} sport="MLB" />
         <span className={`text-xs font-semibold flex-1 ${homeWon ? "text-white" : "text-gray-300"}`}>{homeAbbrev}</span>
         <span className="text-[9px] text-gray-500 truncate max-w-[80px]">{game.homeTeam.probablePitcher?.name || ""}</span>
         {(isLive || isFinal) && game.homeScore !== null && (

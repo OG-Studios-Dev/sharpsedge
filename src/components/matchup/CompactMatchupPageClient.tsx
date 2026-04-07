@@ -47,14 +47,16 @@ function toPlayerProp(data: MatchupPageData, prop: MatchupPropCard): PlayerProp 
 function PlayerListCard({
   team,
   players,
+  league,
 }: {
   team: MatchupPageData["header"]["away"];
   players: MatchupPlayerCard[];
+  league?: string;
 }) {
   return (
     <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
       <div className="flex items-center gap-3">
-        <TeamLogo team={team.abbrev} logo={team.logo} size={34} color={team.color} />
+        <TeamLogo team={team.abbrev} logo={team.logo} size={34} color={team.color} sport={league} />
         <div>
           <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">{team.abbrev}</p>
           <h2 className="text-xl font-semibold text-white">{team.fullName || team.name}</h2>
@@ -153,7 +155,7 @@ export default function CompactMatchupPageClient({
         <section className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.08),transparent_32%),rgba(255,255,255,0.04)] p-5 shadow-[0_28px_100px_rgba(0,0,0,0.34)]">
           <div className="grid items-center gap-4 md:grid-cols-[1fr_auto_1fr]">
             <div className="flex items-center gap-3">
-              <TeamLogo team={data.header.away.abbrev} logo={data.header.away.logo} size={34} color={data.header.away.color} />
+              <TeamLogo team={data.header.away.abbrev} logo={data.header.away.logo} size={34} color={data.header.away.color} sport={data.league} />
               <div className="min-w-0">
                 <p className="truncate text-xl font-semibold text-white">
                   {data.header.away.abbrev}
@@ -176,7 +178,7 @@ export default function CompactMatchupPageClient({
                 </p>
                 <p className="truncate text-xs text-gray-400">{data.header.home.record}</p>
               </div>
-              <TeamLogo team={data.header.home.abbrev} logo={data.header.home.logo} size={34} color={data.header.home.color} />
+              <TeamLogo team={data.header.home.abbrev} logo={data.header.home.logo} size={34} color={data.header.home.color} sport={data.league} />
             </div>
           </div>
 
@@ -304,8 +306,8 @@ export default function CompactMatchupPageClient({
 
         {tab === "players" && (
           <div className="mt-6 grid gap-6 xl:grid-cols-2">
-            <PlayerListCard team={data.header.away} players={data.players.away} />
-            <PlayerListCard team={data.header.home} players={data.players.home} />
+            <PlayerListCard team={data.header.away} players={data.players.away} league={data.league} />
+            <PlayerListCard team={data.header.home} players={data.players.home} league={data.league} />
           </div>
         )}
 

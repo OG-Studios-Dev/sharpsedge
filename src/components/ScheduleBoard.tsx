@@ -245,7 +245,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
                       <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-center">
                         <div className="flex items-center gap-3 min-w-0">
                           <Link href={`/team/${game.awayTeam.abbrev}`} onClick={(e) => e.stopPropagation()} className="shrink-0">
-                            <TeamLogo team={game.awayTeam.abbrev} logo={game.awayTeam.logo} color="#334155" />
+                            <TeamLogo team={game.awayTeam.abbrev} logo={game.awayTeam.logo} color="#334155" sport="NHL" />
                           </Link>
                           <div className="min-w-0">
                             <Link href={`/team/${game.awayTeam.abbrev}`} onClick={(e) => e.stopPropagation()} className="text-white font-semibold truncate block hover:text-emerald-300 transition-colors">{game.awayTeam.name || game.awayTeam.abbrev}</Link>
@@ -264,7 +264,7 @@ export default function ScheduleBoard({ compact = false, showHeader = false }: {
                             <div className="text-xs text-gray-500">{game.homeTeam.abbrev}</div>
                           </div>
                           <Link href={`/team/${game.homeTeam.abbrev}`} onClick={(e) => e.stopPropagation()} className="shrink-0">
-                            <TeamLogo team={game.homeTeam.abbrev} logo={game.homeTeam.logo} color="#334155" />
+                            <TeamLogo team={game.homeTeam.abbrev} logo={game.homeTeam.logo} color="#334155" sport="NHL" />
                           </Link>
                         </div>
                       </div>

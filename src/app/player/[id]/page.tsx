@@ -142,7 +142,7 @@ export default function PlayerPage() {
               {player?.headshot ? (
                 <img src={player.headshot} alt={name} className="w-16 h-16 rounded-full object-cover border-2 border-dark-border" />
               ) : (
-                <TeamLogo team={teamAbbrev} size={56} />
+                <TeamLogo team={teamAbbrev} size={56} sport="NHL" />
               )}
               <div className="flex-1 min-w-0">
                 <h2 className="text-white text-lg font-bold truncate">{name}</h2>
@@ -217,7 +217,7 @@ export default function PlayerPage() {
                   <div key={g.gameId ?? i} className="flex items-center justify-between py-2 border-b border-dark-border/30 last:border-0">
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500 text-xs w-6">{g.homeRoadFlag === "H" ? "vs" : "@"}</span>
-                      <TeamLogo team={g.opponentAbbrev} size={20} />
+                      <TeamLogo team={g.opponentAbbrev} size={20} sport="NHL" />
                       <span className="text-white text-xs font-medium">{g.opponentAbbrev}</span>
                     </div>
                     <div className="flex items-center gap-3 text-xs">

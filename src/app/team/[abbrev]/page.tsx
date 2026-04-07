@@ -85,7 +85,7 @@ export default function TeamPage() {
         <div className="px-4 py-6 space-y-5">
           {/* Hero */}
           <div className="flex items-center gap-4">
-            <TeamLogo team={abbrev} logo={st.logo} size={64} color={color} />
+            <TeamLogo team={abbrev} logo={st.logo} size={64} color={color} sport={teamLeague} />
             <div>
               <div className="text-white text-2xl font-bold">{st.teamName}</div>
               <div className="text-sm text-gray-400">{st.conferenceName} &middot; {st.divisionName}</div>

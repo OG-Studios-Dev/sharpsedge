@@ -381,7 +381,7 @@ export default function MatchupResearchClient({
 
           <div className="mt-8 grid items-center gap-6 lg:grid-cols-[1fr_auto_1fr]">
             <div className="flex items-center gap-4 rounded-[28px] border border-white/8 bg-black/20 p-4">
-              <TeamLogo team={awayTeam.abbrev} logo={awayTeam.logo} size={64} color={awayTeam.color} />
+              <TeamLogo team={awayTeam.abbrev} logo={awayTeam.logo} size={64} color={awayTeam.color} sport={data.league} />
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-gray-500">{awayTeam.record}</p>
                 <h2 className="mt-1 text-2xl font-semibold text-white">{awayTeam.abbrev}</h2>
@@ -398,7 +398,7 @@ export default function MatchupResearchClient({
             </div>
 
             <div className="flex items-center gap-4 rounded-[28px] border border-white/8 bg-black/20 p-4">
-              <TeamLogo team={homeTeam.abbrev} logo={homeTeam.logo} size={64} color={homeTeam.color} />
+              <TeamLogo team={homeTeam.abbrev} logo={homeTeam.logo} size={64} color={homeTeam.color} sport={data.league} />
               <div className="min-w-0">
                 <p className="text-[11px] uppercase tracking-[0.22em] text-gray-500">{homeTeam.record}</p>
                 <h2 className="mt-1 text-2xl font-semibold text-white">{homeTeam.abbrev}</h2>
@@ -472,7 +472,7 @@ export default function MatchupResearchClient({
           <section className="mt-6 grid gap-5 lg:grid-cols-2">
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <TeamLogo team={awayTeam.abbrev} logo={awayTeam.logo} size={36} color={awayTeam.color} />
+                <TeamLogo team={awayTeam.abbrev} logo={awayTeam.logo} size={36} color={awayTeam.color} sport={data.league} />
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.28em] text-gray-500">Top 5</p>
                   <h2 className="text-xl font-semibold text-white">{awayTeam.abbrev} Key Players</h2>
@@ -487,7 +487,7 @@ export default function MatchupResearchClient({
 
             <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                <TeamLogo team={homeTeam.abbrev} logo={homeTeam.logo} size={36} color={homeTeam.color} />
+                <TeamLogo team={homeTeam.abbrev} logo={homeTeam.logo} size={36} color={homeTeam.color} sport={data.league} />
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.28em] text-gray-500">Top 5</p>
                   <h2 className="text-xl font-semibold text-white">{homeTeam.abbrev} Key Players</h2>

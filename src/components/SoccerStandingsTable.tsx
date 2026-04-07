@@ -69,7 +69,7 @@ export default function SoccerStandingsTable({ league }: { league: SoccerLeague 
                 >
                   <div className="text-center text-[10px] sm:text-xs text-gray-400">{team.position}</div>
                   <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                    <TeamLogo team={team.team} logo={team.logo} size={20} color={team.color} />
+                    <TeamLogo team={team.team} logo={team.logo} size={20} color={team.color} sport="EPL" />
                     <span className="truncate text-[11px] sm:text-xs font-medium text-white">{team.team}</span>
                   </div>
                   <div className="text-center text-[10px] sm:text-xs text-gray-400">{team.played}</div>

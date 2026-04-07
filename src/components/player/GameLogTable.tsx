@@ -136,7 +136,7 @@ export default function GameLogTable({
                     <td className="px-4 py-3 text-gray-300">{formatDate(game.date)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <TeamLogo team={game.opponentAbbrev} size={24} />
+                        <TeamLogo team={game.opponentAbbrev} size={24} sport={league} />
                         <span className="font-medium text-white">{game.opponentAbbrev}</span>
                       </div>
                     </td>

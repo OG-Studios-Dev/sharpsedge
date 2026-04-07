@@ -48,7 +48,7 @@ export default function PlayerHeader({
                 className="h-20 w-20 rounded-[24px] border border-white/10 object-cover shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
               />
             ) : (
-              <TeamLogo team={team || name.slice(0, 3)} color={teamColor} size={80} className="rounded-[24px]" />
+              <TeamLogo team={team || name.slice(0, 3)} color={teamColor} size={80} className="rounded-[24px]" sport={league} />
             )}
             <div className="min-w-0">
               <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300/80">{league} Player Analysis</p>

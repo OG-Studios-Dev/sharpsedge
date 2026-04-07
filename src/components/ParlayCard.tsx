@@ -19,7 +19,7 @@ export default function ParlayCard({ parlay }: { parlay: Parlay }) {
         {parlay.legs.map((leg, i) => (
           <div key={i} className="flex items-center gap-2.5">
             <Link href={getTeamHref(leg.team, leg.league || parlay.league)}>
-              <TeamLogo team={leg.team} color={leg.teamColor} size={28} />
+              <TeamLogo team={leg.team} color={leg.teamColor} size={28} sport={leg.league || parlay.league} />
             </Link>
             <span className="text-white text-[13px]">
               <Link href={getPlayerHref(leg.playerId)} className="font-semibold hover:text-accent-blue transition-colors">{leg.playerName}</Link>:

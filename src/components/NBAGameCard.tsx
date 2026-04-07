@@ -135,7 +135,7 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
           <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
             {/* Away Team */}
             <div className="flex flex-col items-center gap-1.5 text-center">
-              <TeamLogo team={awayAbbrev} size={32} color={awayColor} />
+              <TeamLogo team={awayAbbrev} size={32} color={awayColor} sport="NBA" />
               <Link href={`/nba/team/${awayAbbrev}`} onClick={(e) => e.stopPropagation()} className={`text-sm font-bold hover:underline ${awayWon ? "text-white" : "text-gray-400"}`}>
                 {awayAbbrev}
                 {awayWon && <span className="ml-1 text-accent-green text-[10px]">◄</span>}
@@ -161,7 +161,7 @@ export default function NBAGameCard({ game, oddsEvent }: NBAGameCardProps) {
 
             {/* Home Team */}
             <div className="flex flex-col items-center gap-1.5 text-center">
-              <TeamLogo team={homeAbbrev} size={32} color={homeColor} />
+              <TeamLogo team={homeAbbrev} size={32} color={homeColor} sport="NBA" />
               <Link href={`/nba/team/${homeAbbrev}`} onClick={(e) => e.stopPropagation()} className={`text-sm font-bold hover:underline ${homeWon ? "text-white" : "text-gray-400"}`}>
                 {homeWon && <span className="mr-1 text-accent-green text-[10px]">►</span>}
                 {homeAbbrev}

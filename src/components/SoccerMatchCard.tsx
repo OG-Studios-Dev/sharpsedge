@@ -48,7 +48,7 @@ export default function SoccerMatchCard({ match }: { match: SoccerMatch }) {
           { team: match.homeTeam, score: match.score.home },
         ].map(({ team, score }) => (
           <div key={`${match.id}-${team.id}`} className="flex items-center gap-3">
-            <TeamLogo team={team.abbreviation || team.shortName} logo={team.logo} size={28} color={team.color} />
+            <TeamLogo team={team.abbreviation || team.shortName} logo={team.logo} size={28} color={team.color} sport={match.league} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-white">{team.shortName || team.name}</div>
               <div className="text-[11px] text-gray-500">{team.abbreviation || team.name}</div>

@@ -26,7 +26,7 @@ export default function NFLGameCard({ game }: { game: NFLGame }) {
           { team: game.homeTeam, score: game.homeScore },
         ].map(({ team, score }) => (
           <div key={`${game.id}-${team.id}`} className="flex items-center gap-3">
-            <TeamLogo team={team.abbreviation} logo={team.logo} size={28} color={team.color} />
+            <TeamLogo team={team.abbreviation} logo={team.logo} size={28} color={team.color} sport="NFL" />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-semibold text-white">{team.fullName}</div>
               <div className="text-[11px] text-gray-500">{team.record || team.abbreviation}</div>

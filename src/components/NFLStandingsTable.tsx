@@ -65,7 +65,7 @@ export default function NFLStandingsTable() {
                       >
                         <div className="text-center text-xs text-gray-400">{team.position}</div>
                         <div className="flex items-center gap-2 min-w-0">
-                          <TeamLogo team={team.team} logo={team.logo} size={24} color={team.color} />
+                          <TeamLogo team={team.team} logo={team.logo} size={24} color={team.color} sport="NFL" />
                           <span className="truncate text-xs font-medium text-white">{team.team}</span>
                         </div>
                         <div className="text-center text-xs font-medium text-white">{team.wins}</div>

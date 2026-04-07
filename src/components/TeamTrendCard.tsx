@@ -46,7 +46,7 @@ export default function TeamTrendCard({ trend }: { trend: TeamTrend }) {
       >
         <div className="flex items-start gap-3">
           <Link href={getTeamHref(trend.team, trend.league)} onClick={(e) => e.stopPropagation()} className="tap-button -m-1 p-1 rounded-lg">
-            <TeamLogo team={trend.team} color={trend.teamColor} size={28} />
+            <TeamLogo team={trend.team} color={trend.teamColor} size={28} sport={trend.league} />
           </Link>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-3">

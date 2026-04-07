@@ -101,7 +101,7 @@ export default function NBATeamPage() {
         <div className="px-4 py-6 space-y-5">
           {/* Hero */}
           <div className="flex items-center gap-4">
-            <TeamLogo team={abbrev} size={64} color={color} />
+            <TeamLogo team={abbrev} size={64} color={color} sport="NBA" />
             <div>
               <div className="text-white text-2xl font-bold">{st.teamName}</div>
               <div className="text-sm text-gray-400">NBA &middot; {winPct}% Win Rate</div>
