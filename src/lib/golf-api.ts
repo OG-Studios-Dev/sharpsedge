@@ -863,6 +863,8 @@ export async function getPlayerTournamentHistory(playerId: string, limit = HISTO
 // The Odds API / Supabase are unavailable. Server-only (uses fs).
 
 export interface LocalGolfOddsSnapshot {
+  top5: Array<{ player: string; odds: number }>;
+  top10: Array<{ player: string; odds: number }>;
   tournament: string;
   startDate: string;
   scrapedAt: string;
@@ -892,6 +894,10 @@ export async function getLocalMastersOddsSnapshot(): Promise<LocalGolfOddsSnapsh
 
     const winner: Array<{ player: string; odds: number }> =
       Array.isArray(snap?.markets?.winner) ? snap.markets.winner : [];
+    const top5: Array<{ player: string; odds: number }> =
+      Array.isArray(snap?.markets?.top5) ? snap.markets.top5 : [];
+    const top10: Array<{ player: string; odds: number }> =
+      Array.isArray(snap?.markets?.top10) ? snap.markets.top10 : [];
 
     return {
       tournament: snap.tournament ?? "Masters Tournament",
@@ -899,6 +905,8 @@ export async function getLocalMastersOddsSnapshot(): Promise<LocalGolfOddsSnapsh
       scrapedAt: snap.scrapedAt ?? snap.snapshotDate ?? "",
       source: snap.source ?? "bovada",
       winner,
+      top5,
+      top10,
       snapshotFile: file,
     };
   } catch {

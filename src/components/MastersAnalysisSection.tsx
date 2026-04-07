@@ -271,13 +271,26 @@ export default function MastersAnalysisSection({
 }: {
   mastersLocalOdds: LocalGolfOddsSnapshot | null;
 }) {
-  // Build a name→odds lookup from the live snapshot for on-the-fly overrides
+  // Build name→odds lookups from the live snapshot
   const localOddsMap = new Map<string, number>(
     (mastersLocalOdds?.winner ?? []).map((entry) => [
       entry.player.toLowerCase(),
       entry.odds,
     ]),
   );
+  const top5Map = new Map<string, number>(
+    (mastersLocalOdds?.top5 ?? []).map((e) => [e.player.toLowerCase(), e.odds]),
+  );
+  const top10Map = new Map<string, number>(
+    (mastersLocalOdds?.top10 ?? []).map((e) => [e.player.toLowerCase(), e.odds]),
+  );
+  // Top 20 players by winner odds for the market table
+  const marketOddsRows = (mastersLocalOdds?.winner ?? []).slice(0, 20).map((p) => ({
+    player: p.player,
+    winner: p.odds,
+    top5: top5Map.get(p.player.toLowerCase()) ?? null as number | null,
+    top10: top10Map.get(p.player.toLowerCase()) ?? null as number | null,
+  }));
 
   const oddsDate = mastersLocalOdds?.scrapedAt
     ? formatGolfUpdatedAt(mastersLocalOdds.scrapedAt)
@@ -313,6 +326,37 @@ export default function MastersAnalysisSection({
           </span>
         </div>
       </div>
+
+      {/* DK Market Odds Table */}
+      {marketOddsRows.length > 0 && (
+        <div className="mt-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gray-500 mb-2">
+            DraftKings Outright Odds — Top 20
+          </p>
+          <div className="rounded-2xl border border-white/8 bg-black/20 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-white/8">
+                  <th className="px-3 py-2 text-left text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Player</th>
+                  <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Win</th>
+                  <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Top 5</th>
+                  <th className="px-3 py-2 text-right text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Top 10</th>
+                </tr>
+              </thead>
+              <tbody>
+                {marketOddsRows.map((row, i) => (
+                  <tr key={row.player} className={i % 2 === 0 ? "" : "bg-white/[0.02]"}>
+                    <td className="px-3 py-2 text-white font-medium">{row.player}</td>
+                    <td className="px-3 py-2 text-right text-emerald-300 tabular-nums font-semibold">+{row.winner.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right text-amber-200 tabular-nums">{row.top5 !== null ? (row.top5 < 0 ? row.top5 : `+${row.top5}`) : "—"}</td>
+                    <td className="px-3 py-2 text-right text-amber-200 tabular-nums">{row.top10 !== null ? (row.top10 < 0 ? row.top10 : `+${row.top10}`) : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Course Profile */}
       <div className="mt-6">
@@ -394,7 +438,7 @@ export default function MastersAnalysisSection({
         <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-400">
           <span>
             Source:{" "}
-            <span className="text-white">Bovada winner market</span>
+            <span className="text-white">DraftKings (Winner / Top 5 / Top 10)</span>
           </span>
           <span>
             Captured:{" "}
