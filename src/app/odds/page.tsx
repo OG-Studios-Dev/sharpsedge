@@ -579,6 +579,71 @@ function GolfBoard({ tab, golfData }: { tab: Tab; golfData: GolfDashboardData | 
   );
 }
 
+function CollapsibleGameList({ games }: { games: AggregatedOdds[] }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <div className="divide-y divide-dark-border rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+      {games.map((game) => {
+        const isOpen = expanded.has(game.gameId);
+        const bestAway = game.bestAway ? `${game.awayAbbrev} ${formatOdds(game.bestAway.odds)}` : null;
+        const bestHome = game.bestHome ? `${game.homeAbbrev} ${formatOdds(game.bestHome.odds)}` : null;
+        return (
+          <div key={game.gameId}>
+            {/* Collapsed row — 1 line */}
+            <button
+              onClick={() => toggle(game.gameId)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+            >
+              <div className="flex items-center gap-1 shrink-0">
+                <TeamLogo team={game.awayAbbrev} size={22} color="#475569" sport={game.sport} />
+                <span className="text-[9px] text-gray-600 mx-0.5">@</span>
+                <TeamLogo team={game.homeAbbrev} size={22} color="#475569" sport={game.sport} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">
+                  {game.awayAbbrev} @ {game.homeAbbrev}
+                </p>
+                <p className="text-[10px] text-gray-500 truncate">{game.sport} · {formatCommenceTime(game.commenceTime)}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {bestAway && (
+                  <span className="text-[11px] font-semibold text-accent-green bg-accent-green/10 border border-accent-green/20 rounded-full px-2 py-0.5">{bestAway}</span>
+                )}
+                {bestHome && (
+                  <span className="text-[11px] font-semibold text-accent-blue bg-accent-blue/10 border border-accent-blue/20 rounded-full px-2 py-0.5">{bestHome}</span>
+                )}
+                <svg className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+            {/* Expanded detail */}
+            {isOpen && (
+              <div className="px-4 pb-4 border-t border-dark-border/50">
+                <div className="mt-3">
+                  <p className="mb-2 section-heading">Best Prices</p>
+                  <BestLineSummary game={game} />
+                </div>
+                <div className="mt-4">
+                  <BookGrid game={game} />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function OddsPage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
@@ -737,45 +802,7 @@ export default function OddsPage() {
                 </div>
               )}
 
-              {displayedGames.map((game, index) => (
-                <div key={game.gameId} className="stagger-in" style={getStaggerStyle(index)}>
-                  <div className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full border border-dark-border bg-dark-bg/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-                            {game.sport}
-                          </span>
-                          <span className="text-xs text-gray-500">{formatCommenceTime(game.commenceTime)}</span>
-                        </div>
-                        <div className="mt-3 flex items-center gap-3">
-                          <TeamLogo team={game.awayAbbrev} size={28} color="#475569" sport={game.sport} />
-                          <div>
-                            <p className="card-title">{game.awayTeam}</p>
-                            <p className="text-xs text-gray-500">{game.awayAbbrev}</p>
-                          </div>
-                        </div>
-                        <div className="mt-2 flex items-center gap-3">
-                          <TeamLogo team={game.homeAbbrev} size={28} color="#475569" sport={game.sport} />
-                          <div>
-                            <p className="card-title">{game.homeTeam}</p>
-                            <p className="text-xs text-gray-500">{game.homeAbbrev}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="min-w-0 max-w-full shrink-0">
-                        <p className="mb-2 section-heading">Best Prices</p>
-                        <BestLineSummary game={game} />
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <BookGrid game={game} />
-                    </div>
-                  </div>
-                </div>
-              ))}
+<CollapsibleGameList games={displayedGames} />
             </div>
           )}
         </div>

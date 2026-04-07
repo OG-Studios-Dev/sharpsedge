@@ -42,22 +42,40 @@ export function getLeagueLabel(league?: string | null): string {
  * Returns an ESPN CDN team logo URL for a given league + team abbreviation.
  * Returns null if the league is unsupported.
  */
+// ESPN uses non-standard abbreviations for some teams — normalize before building CDN URLs
+const NHL_ESPN_ABBREV: Record<string, string> = {
+  TBL: "tb", LAK: "la", SJS: "sj", NJD: "nj", CBJ: "cbj", VGK: "vgk",
+};
+const NBA_ESPN_ABBREV: Record<string, string> = {
+  NOP: "no", NOH: "no", BKN: "bkn", CHA: "cha",
+};
+const MLB_ESPN_ABBREV: Record<string, string> = {
+  TBR: "tb", TBL: "tb", KCR: "kc", CWS: "chw", SDP: "sd", SFG: "sf",
+};
+const NFL_ESPN_ABBREV: Record<string, string> = {
+  JAC: "jac", JAX: "jax",
+};
+
 export function getTeamLogoUrl(league: string | null | undefined, team: string): string | null {
   if (!league || !team) return null;
   const norm = league.toUpperCase();
   const abbrev = team.toUpperCase();
 
   if (norm === "NHL") {
-    return `https://a.espncdn.com/i/teamlogos/nhl/500/${abbrev.toLowerCase()}.png`;
+    const id = (NHL_ESPN_ABBREV[abbrev] ?? abbrev).toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/nhl/500/${id}.png`;
   }
   if (norm === "NBA") {
-    return `https://a.espncdn.com/i/teamlogos/nba/500/${abbrev.toLowerCase()}.png`;
+    const id = (NBA_ESPN_ABBREV[abbrev] ?? abbrev).toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/nba/500/${id}.png`;
   }
   if (norm === "MLB") {
-    return `https://a.espncdn.com/i/teamlogos/mlb/500/${abbrev.toLowerCase()}.png`;
+    const id = (MLB_ESPN_ABBREV[abbrev] ?? abbrev).toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/mlb/500/${id}.png`;
   }
   if (norm === "NFL") {
-    return `https://a.espncdn.com/i/teamlogos/nfl/500/${abbrev.toLowerCase()}.png`;
+    const id = (NFL_ESPN_ABBREV[abbrev] ?? abbrev).toLowerCase();
+    return `https://a.espncdn.com/i/teamlogos/nfl/500/${id}.png`;
   }
   if (norm === "PGA" || norm === "GOLF") {
     return "/logos/pga.jpg";
