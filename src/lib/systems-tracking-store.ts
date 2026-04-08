@@ -221,6 +221,7 @@ const TONYS_HOT_BATS_SYSTEM_ID = "tonys-hot-bats";
 const SWAGGY_STRETCH_DRIVE_SYSTEM_ID = "swaggy-stretch-drive";
 const ROBBIES_RIPPER_FAST_5_SYSTEM_ID = "robbies-ripper-fast-5";
 const BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID = "bigcat-bonaza-puckluck";
+const BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID = "big-cats-nba-1q-under";
 const COACH_NO_REST_SYSTEM_ID = "coach-no-rest";
 const NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID = "nba-home-dog-majority-handle";
 const NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID = "nba-home-super-majority-close-game";
@@ -320,6 +321,48 @@ function defaultGooseSystem(): TrackedSystem {
 function seededCatalog(): TrackedSystem[] {
   return [
     defaultGooseSystem(),
+    {
+      id: BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
+      slug: "big-cats-nba-1q-under",
+      name: "Big Cats NBA 1Q Under",
+      league: "NBA",
+      category: "native",
+      owner: "Goosalytics Lab",
+      status: "awaiting_data",
+      trackabilityBucket: "trackable_now",
+      summary: "NBA first-quarter under system built from historical total-band validation. Fires when full-game total sits in the 210 to 225 range.",
+      snapshot: "🟢 LIVE | NBA totals board scanned daily for 210 to 225 full-game totals.",
+      definition:
+        "Flag NBA games with a posted full-game total between 210 and 225, then target the first-quarter under using a provisional threshold of 28% of the full-game total until exact sportsbook 1Q totals are captured live.",
+      qualifierRules: [
+        "League must be NBA.",
+        "A posted full-game total is required.",
+        "Full-game total must fall between 210 and 225 inclusive.",
+        "Qualifier is a first-quarter under candidate, with provisional target line estimated at 28% of the full-game total.",
+      ],
+      progressionLogic: [],
+      thesis:
+        "Mid-range NBA totals have produced strong first-quarter under results in historical proxy testing. This system stays narrow and only fires inside the validated total band.",
+      sourceNotes: [
+        {
+          label: "Historical proxy backtest",
+          detail: "Validated on 10 years of NBA archive data using first-quarter scoring versus a 28% full-game-total proxy.",
+        },
+      ],
+      automationStatusLabel: "Live qualifier rail",
+      automationStatusDetail: "Refresh scans the NBA odds board daily and stores candidates when the posted full-game total lands in the validated 210 to 225 band.",
+      dataRequirements: [
+        { label: "NBA full-game total", status: "ready", detail: "Pulled from aggregated NBA odds board." },
+        { label: "Exact sportsbook 1Q total", status: "pending", detail: "Current rail uses a 28% proxy until direct 1Q total capture is added." },
+      ],
+      unlockNotes: [
+        "Add direct sportsbook 1Q total capture so the proxy can be replaced with exact live market lines.",
+      ],
+      trackingNotes: [
+        "This is a live qualifier rail, but grading should remain conservative until exact 1Q totals are captured from books.",
+      ],
+      records: [],
+    },
     {
       id: "beefs-bounce-back",
       slug: "beefs-bounce-back-big-ats-loss",
@@ -459,8 +502,8 @@ function seededCatalog(): TrackedSystem[] {
     },
     {
       id: FAT_TONYS_FADE_SYSTEM_ID,
-      slug: "fat-tonys-fade",
-      name: "Fuch's Fade",
+      slug: "fat-tonys-road-chalk",
+      name: "Fat Tony's Road Chalk",
       league: "NBA",
       category: "historical",
       owner: "Goosalytics Lab",
@@ -1458,31 +1501,19 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
   [ROBBIES_RIPPER_FAST_5_SYSTEM_ID]: {
     refresh: refreshRobbiesRipperFast5SystemData,
   },
-  [BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID]: {
-    refresh: refreshBigCatBonazaPuckLuckSystemData,
-  },
-  [COACH_NO_REST_SYSTEM_ID]: {
+    [COACH_NO_REST_SYSTEM_ID]: {
     refresh: refreshCoachNoRestSystemData,
   },
-  [NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
-    refresh: refreshNBAHomeDogMajorityHandleSystemData,
-  },
-  [NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID]: {
-    refresh: refreshNBAHomeSuperMajorityCloseGameSystemData,
-  },
-  [FAT_TONYS_FADE_SYSTEM_ID]: {
+    [FAT_TONYS_FADE_SYSTEM_ID]: {
     refresh: refreshFuchsFadeSystemData,
   },
-  [NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
-    refresh: refreshNHLHomeDogMajorityHandleSystemData,
+  [BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID]: {
+    refresh: refreshBigCatsNBA1QUnderSystemData,
   },
-  [NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
+    [NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
     refresh: refreshNHLUnderMajorityHandleSystemData,
   },
-  [MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID]: {
-    refresh: refreshMLBHomeMajorityHandleSystemData,
-  },
-  [MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
+    [MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
     refresh: refreshMLBUnderMajorityHandleSystemData,
   },
   [NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
@@ -1698,10 +1729,7 @@ const ML_GRADEABLE_SYSTEM_IDS = new Set([
   BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
   FAT_TONYS_FADE_SYSTEM_ID,
-  NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
-  NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
-  NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
-  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
+  BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
   // Totals systems — use the same pending/grader pipeline, graded by gradePendingTotalQualifiers
   NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
   MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
@@ -1712,15 +1740,11 @@ const ACTIONABLE_SYSTEM_IDS = new Set([
   SWAGGY_STRETCH_DRIVE_SYSTEM_ID,
   FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
-  BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
   FAT_TONYS_FADE_SYSTEM_ID,
-  NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
-  NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
-  NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
   NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
-  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
   MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
+  BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
 ]);
 
 function systemHasActionableTracking(system: TrackedSystem) {
@@ -3486,6 +3510,14 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
         audit.failedGoalieStatus += 1;
         continue;
       }
+      if (typeof price !== "number" || !Number.isFinite(price)) {
+        audit.failedNoPrice += 1;
+        continue;
+      }
+      if (price < -150 || price > -110) {
+        audit.failedPriceBand += 1;
+        continue;
+      }
       if (fatigue != null && fatigue >= 55) {
         audit.failedFatigue += 1;
         continue;
@@ -3498,7 +3530,7 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
         audit.failedNoPrice += 1;
         continue;
       }
-      if (price < -145 || price > 115) {
+      if (price < -150 || price > -110) {
         audit.failedPriceBand += 1;
         continue;
       }
@@ -4440,7 +4472,7 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
 
 /**
  * NHL Under — Majority Handle
- * Fires when: ≥ 62% of total (O/U) handle goes to the Under in NHL games (tightened from 58% 2026-03-29).
+ * Fires when: total is exactly 5.5 and public under handle is strong enough to matter.
  * Line-move history attached as context note when Supabase snapshots available.
  */
 async function refreshNHLUnderMajorityHandleSystemData(
@@ -4470,12 +4502,13 @@ async function refreshNHLUnderMajorityHandleSystemData(
 
       const { side1: overEntry, side2: underEntry } = getMarketSplits(game, "total");
       const underHandlePct = underEntry?.handlePercent ?? null;
+      const totalLine = underEntry?.line ?? overEntry?.line ?? null;
       // Tightened threshold: 58% → 62% (2026-03-29) to improve signal quality
       if (underHandlePct === null || underHandlePct < 62) { audit.belowThreshold += 1; continue; }
+      if (totalLine !== 5.5) { audit.belowThreshold += 1; continue; }
 
       audit.qualified += 1;
       const overHandlePct = overEntry?.handlePercent ?? null;
-      const totalLine = underEntry?.line ?? overEntry?.line ?? null;
       const event = findAggregatedEventForSplitsGame(aggregatedEvents, game.homeTeam, game.awayTeam, targetDate);
       const homeML = event?.bestHome?.odds ?? null;
 
@@ -4712,6 +4745,54 @@ async function refreshMLBUnderMajorityHandleSystemData(
  * NFL Home Dog — Majority Handle
  * System logic is wired. Off-season during Mar–Aug; returns zero records honestly.
  */
+
+async function refreshBigCatsNBA1QUnderSystemData(
+  data: SystemsTrackingData,
+  options: SystemRefreshOptions = {},
+): Promise<TrackedSystem> {
+  const system = getTrackedSystem(
+    data,
+    BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
+    () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID)!),
+  );
+  const targetDate = options.date || new Date().toISOString().slice(0, 10);
+  const todayGames = (await getAggregatedOddsForSport("NBA").catch(() => [] as AggregatedOdds[]))
+    .filter((g) => getEventDate(g.commenceTime) === targetDate);
+  const freshRecords: SystemTrackingRecord[] = [];
+  for (const game of todayGames) {
+    const totalLine = getEventTotalLine(game);
+    if (totalLine == null || totalLine < 210 || totalLine > 225) continue;
+    const impliedQ1 = Number((totalLine * 0.28).toFixed(1));
+    freshRecords.push(normalizeRecord({
+      id: `${BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID}:${targetDate}:${game.awayAbbrev}@${game.homeAbbrev}`,
+      gameDate: targetDate,
+      matchup: `${game.awayAbbrev} @ ${game.homeAbbrev}`,
+      roadTeam: game.awayAbbrev,
+      homeTeam: game.homeAbbrev,
+      recordKind: "qualifier",
+      marketType: "first-quarter-total",
+      alertLabel: `NBA 1Q Under candidate — game total ${totalLine}, target 1Q line ~${impliedQ1}`,
+      totalLine: impliedQ1,
+      sourceHealthStatus: "healthy",
+      freshnessSummary: `NBA odds board + totals live for ${targetDate}.`,
+      notes: [
+        `Big Cats NBA 1Q Under candidate — ${game.awayAbbrev} @ ${game.homeAbbrev}.`,
+        `Full-game total ${totalLine} falls inside the validated 210–225 band.`,
+        `Backtest proxy uses 28% of full-game total as the target 1Q threshold (~${impliedQ1}).`,
+        `This is a live qualifier rail pending direct sportsbook 1Q total capture for exact grading.`,
+      ].join(" • "),
+      lastSyncedAt: new Date().toISOString(),
+    }));
+  }
+  system.status = "tracking" as SystemTrackingStatus;
+  system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
+  system.snapshot = freshRecords.length
+    ? `🟢 ${freshRecords.length} Big Cats NBA 1Q Under qualifier(s) today`
+    : `🟡 No Big Cats NBA 1Q Under qualifiers today`;
+  system.records = freshRecords;
+  return system;
+}
+
 async function refreshNFLHomeDogMajorityHandleSystemData(
   data: SystemsTrackingData,
   options: SystemRefreshOptions = {},
