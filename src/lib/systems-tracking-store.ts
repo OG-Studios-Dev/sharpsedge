@@ -1747,6 +1747,18 @@ const ACTIONABLE_SYSTEM_IDS = new Set([
   BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
 ]);
 
+const PARKED_SYSTEM_IDS = new Set([
+  THE_BLOWOUT_SYSTEM_ID,
+  HOT_TEAMS_MATCHUP_SYSTEM_ID,
+  TONYS_HOT_BATS_SYSTEM_ID,
+  BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
+  NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
+  NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
+  NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
+]);
+
 function systemHasActionableTracking(system: TrackedSystem) {
   return ACTIONABLE_SYSTEM_IDS.has(system.id);
 }
@@ -1864,7 +1876,9 @@ function upsertSystemQualificationLog(data: SystemsTrackingData, system: Tracked
   const fresh = system.records
     .filter((record) => {
       if (!systemHasActionableTracking(system)) return true;
-      return Boolean(record.qualifiedTeam) && (record.recordKind === "alert" || record.recordKind === "progression");
+      if (record.recordKind === "progression") return true;
+      if (record.marketType === "total" || record.marketType === "f5-total") return true;
+      return Boolean(record.qualifiedTeam);
     })
     .map((record) => buildQualificationLogEntry(system, record));
   data.qualificationLog = [...retained, ...fresh].sort((left, right) => {
@@ -3033,6 +3047,11 @@ export async function readSystemsTrackingData(): Promise<SystemsTrackingData> {
     applyTonysHotBatsReadiness(getTonysHotBatsSystem(data));
     applyRobbiesRipperFast5Readiness(getRobbiesRipperFast5System(data));
     for (const system of data.systems) {
+      if (PARKED_SYSTEM_IDS.has(system.id)) {
+        system.trackabilityBucket = "parked_definition_only";
+        system.status = "paused";
+        system.snapshot = system.snapshot || "Parked for deeper analysis. Not firing live.";
+      }
       if (system.id === SWAGGY_STRETCH_DRIVE_SYSTEM_ID) {
         const qualifiers = system.records.length;
         const withMoneyline = system.records.filter((record) => record.currentMoneyline != null).length;
@@ -3135,6 +3154,7 @@ export function getSystemSnapshot(system: TrackedSystem) {
 function getTrackableSystems(data: SystemsTrackingData) {
   return data.systems.filter((system) => {
     if (!SYSTEM_TRACKERS[system.id]) return false;
+    if (PARKED_SYSTEM_IDS.has(system.id)) return false;
     const templateBucket = SYSTEM_TEMPLATE_MAP.get(system.id)?.trackabilityBucket;
     return system.trackabilityBucket === "trackable_now" || templateBucket === "trackable_now";
   });
