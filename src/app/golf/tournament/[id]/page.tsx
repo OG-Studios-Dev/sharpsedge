@@ -91,8 +91,8 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
           </div>
         </section>
 
-        {/* Masters Analysis — top of page until tournament begins Thu Apr 10 */}
-        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() < new Date("2026-04-10T04:00:00Z").getTime() ? (
+        {/* Masters Analysis — show throughout Masters week (pre + during tournament through Apr 14) */}
+        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() < new Date("2026-04-14T12:00:00Z").getTime() ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : null}
 
@@ -108,10 +108,7 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
           latestWinner={latestWinner}
         />
 
-        {/* Masters deep-dive analysis — bottom of page after tournament begins (Thu Apr 10+) */}
-        {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() >= new Date("2026-04-10T04:00:00Z").getTime() ? (
-          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
-        ) : null}
+        {/* No duplicate bottom section — Masters analysis handled at top above */}
       </div>
     </main>
   );

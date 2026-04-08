@@ -133,8 +133,8 @@ export default async function GolfPage() {
           </div>
         </section>
 
-        {/* Masters Analysis — top of page until tournament begins Thu Apr 10 */}
-        {mastersLocalOdds && now < new Date("2026-04-10T04:00:00Z").getTime() ? (
+        {/* Masters Analysis — show at top pre-tournament AND during tournament (Apr 10-14), then disappear */}
+        {mastersLocalOdds && now < new Date("2026-04-14T12:00:00Z").getTime() ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : null}
 
@@ -226,10 +226,7 @@ export default async function GolfPage() {
           </div>
         </section>
 
-        {/* Masters Analysis — bottom position after tournament begins (Thu Apr 10+) */}
-        {mastersLocalOdds && now >= new Date("2026-04-10T04:00:00Z").getTime() ? (
-          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
-        ) : null}
+        {/* Masters Analysis — no duplicate bottom position needed; handled by top section above */}
 
         {/* Upcoming Major Spotlight fallback — only when no local odds snapshot */}
         {!mastersLocalOdds && showMajorSpotlight && (

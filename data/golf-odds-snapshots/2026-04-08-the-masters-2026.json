@@ -1,0 +1,981 @@
+[
+  {
+    "snapshotDate": "2026-04-08",
+    "scrapedAt": "2026-04-08T10:50:08.440Z",
+    "source": "odds-api-draftkings",
+    "tournament": "Masters Tournament",
+    "startDate": "2026-04-10",
+    "markets": {
+      "winner": [
+        {
+          "player": "Scottie Scheffler",
+          "odds": 510
+        },
+        {
+          "player": "Jon Rahm",
+          "odds": 900
+        },
+        {
+          "player": "Bryson DeChambeau",
+          "odds": 1050
+        },
+        {
+          "player": "Rory McIlroy",
+          "odds": 1175
+        },
+        {
+          "player": "Ludvig Aberg",
+          "odds": 1650
+        },
+        {
+          "player": "Xander Schauffele",
+          "odds": 1750
+        },
+        {
+          "player": "Cameron Young",
+          "odds": 2200
+        },
+        {
+          "player": "Tommy Fleetwood",
+          "odds": 2250
+        },
+        {
+          "player": "Matthew Fitzpatrick",
+          "odds": 2300
+        },
+        {
+          "player": "Hideki Matsuyama",
+          "odds": 2700
+        },
+        {
+          "player": "Collin Morikawa",
+          "odds": 3100
+        },
+        {
+          "player": "Min Woo Lee",
+          "odds": 3300
+        },
+        {
+          "player": "Robert Macintyre",
+          "odds": 3500
+        },
+        {
+          "player": "Justin Rose",
+          "odds": 3500
+        },
+        {
+          "player": "Brooks Koepka",
+          "odds": 3700
+        },
+        {
+          "player": "Patrick Reed",
+          "odds": 4200
+        },
+        {
+          "player": "Jordan Spieth",
+          "odds": 4200
+        },
+        {
+          "player": "Christopher Gotterup",
+          "odds": 4300
+        },
+        {
+          "player": "Viktor Hovland",
+          "odds": 4500
+        },
+        {
+          "player": "Si Woo Kim",
+          "odds": 5000
+        },
+        {
+          "player": "Akshay Bhatia",
+          "odds": 5100
+        },
+        {
+          "player": "Russell Henley",
+          "odds": 5400
+        },
+        {
+          "player": "Justin Thomas",
+          "odds": 5900
+        },
+        {
+          "player": "Adam Scott",
+          "odds": 6000
+        },
+        {
+          "player": "Patrick Cantlay",
+          "odds": 6400
+        },
+        {
+          "player": "Jake Knapp",
+          "odds": 6400
+        },
+        {
+          "player": "Shane Lowry",
+          "odds": 6600
+        },
+        {
+          "player": "J. J. Spaun",
+          "odds": 6800
+        },
+        {
+          "player": "Jason Day",
+          "odds": 6800
+        },
+        {
+          "player": "Sam Burns",
+          "odds": 7000
+        },
+        {
+          "player": "Nicolai Hojgaard",
+          "odds": 7400
+        },
+        {
+          "player": "Sepp Straka",
+          "odds": 7600
+        },
+        {
+          "player": "Maverick Mcnealy",
+          "odds": 7800
+        },
+        {
+          "player": "Tyrrell Hatton",
+          "odds": 8000
+        },
+        {
+          "player": "Jacob Bridgeman",
+          "odds": 8400
+        },
+        {
+          "player": "Corey Conners",
+          "odds": 8400
+        },
+        {
+          "player": "Harris English",
+          "odds": 10000
+        },
+        {
+          "player": "Kurt Kitayama",
+          "odds": 10000
+        },
+        {
+          "player": "Cameron Smith",
+          "odds": 11000
+        },
+        {
+          "player": "Ben Griffin",
+          "odds": 11000
+        },
+        {
+          "player": "Sungjae Im",
+          "odds": 11500
+        },
+        {
+          "player": "Gary Woodland",
+          "odds": 12000
+        },
+        {
+          "player": "Daniel Berger",
+          "odds": 12000
+        },
+        {
+          "player": "Max Homa",
+          "odds": 12000
+        },
+        {
+          "player": "Rasmus Hojgaard",
+          "odds": 13000
+        },
+        {
+          "player": "Marco Penge",
+          "odds": 14000
+        },
+        {
+          "player": "Keegan Bradley",
+          "odds": 14000
+        },
+        {
+          "player": "Harry Hall",
+          "odds": 15000
+        },
+        {
+          "player": "Ryan Gerard",
+          "odds": 15500
+        },
+        {
+          "player": "Alexander Noren",
+          "odds": 16000
+        },
+        {
+          "player": "Sam Stevens",
+          "odds": 17000
+        },
+        {
+          "player": "Nick Taylor",
+          "odds": 19000
+        },
+        {
+          "player": "Ryan Fox",
+          "odds": 20000
+        },
+        {
+          "player": "Wyndham Clark",
+          "odds": 20000
+        },
+        {
+          "player": "Brian Harman",
+          "odds": 21000
+        },
+        {
+          "player": "Michael Kim",
+          "odds": 21000
+        },
+        {
+          "player": "Max Greyserman",
+          "odds": 21000
+        },
+        {
+          "player": "Kristoffer Reitan",
+          "odds": 22000
+        },
+        {
+          "player": "Carlos Ortiz",
+          "odds": 23000
+        },
+        {
+          "player": "Casey Jarvis",
+          "odds": 23000
+        },
+        {
+          "player": "Aaron Rai",
+          "odds": 25000
+        },
+        {
+          "player": "Sergio Garcia",
+          "odds": 25000
+        },
+        {
+          "player": "Dustin Johnson",
+          "odds": 25000
+        },
+        {
+          "player": "Haotong Li",
+          "odds": 27000
+        },
+        {
+          "player": "Matt McCarty",
+          "odds": 28000
+        },
+        {
+          "player": "Andrew Novak",
+          "odds": 29000
+        },
+        {
+          "player": "Tom McKibbin",
+          "odds": 29000
+        },
+        {
+          "player": "Rasmus Neergaard-Petersen",
+          "odds": 31000
+        },
+        {
+          "player": "Nico Echavarria",
+          "odds": 32500
+        },
+        {
+          "player": "Aldrich Potgieter",
+          "odds": 36000
+        },
+        {
+          "player": "John Keefer",
+          "odds": 36000
+        },
+        {
+          "player": "Sami Välimäki",
+          "odds": 36000
+        },
+        {
+          "player": "Michael Brennan",
+          "odds": 39000
+        },
+        {
+          "player": "Bubba Watson",
+          "odds": 52500
+        },
+        {
+          "player": "Zach Johnson",
+          "odds": 52500
+        },
+        {
+          "player": "Charl Schwartzel",
+          "odds": 62500
+        },
+        {
+          "player": "Davis Riley",
+          "odds": 82500
+        },
+        {
+          "player": "Mason Howell",
+          "odds": 200000
+        },
+        {
+          "player": "Danny Willett",
+          "odds": 225000
+        },
+        {
+          "player": "Angel Cabrera",
+          "odds": 300000
+        },
+        {
+          "player": "Ben Campbell",
+          "odds": 325000
+        },
+        {
+          "player": "Ethan Fang",
+          "odds": 325000
+        },
+        {
+          "player": "Pongsapak Laopakdee",
+          "odds": 350000
+        },
+        {
+          "player": "Naoyuki Kataoka",
+          "odds": 450000
+        },
+        {
+          "player": "Fred Couples",
+          "odds": 500000
+        },
+        {
+          "player": "Jose Maria Olazábal",
+          "odds": 500000
+        },
+        {
+          "player": "Mike Weir",
+          "odds": 500000
+        },
+        {
+          "player": "Brandon Wu",
+          "odds": 500000
+        },
+        {
+          "player": "Jackson Herrington",
+          "odds": 500000
+        },
+        {
+          "player": "Mateo Pulcini",
+          "odds": 500000
+        },
+        {
+          "player": "Vijay Singh",
+          "odds": 500000
+        }
+      ],
+      "top5": [
+        {
+          "player": "Scottie Scheffler",
+          "odds": 106
+        },
+        {
+          "player": "Jon Rahm",
+          "odds": 175
+        },
+        {
+          "player": "Bryson DeChambeau",
+          "odds": 210
+        },
+        {
+          "player": "Rory McIlroy",
+          "odds": 225
+        },
+        {
+          "player": "Ludvig Aberg",
+          "odds": 320
+        },
+        {
+          "player": "Xander Schauffele",
+          "odds": 305
+        },
+        {
+          "player": "Cameron Young",
+          "odds": 390
+        },
+        {
+          "player": "Tommy Fleetwood",
+          "odds": 370
+        },
+        {
+          "player": "Matt Fitzpatrick",
+          "odds": 390
+        },
+        {
+          "player": "Hideki Matsuyama",
+          "odds": 435
+        },
+        {
+          "player": "Collin Morikawa",
+          "odds": 480
+        },
+        {
+          "player": "Robert MacIntyre",
+          "odds": 530
+        },
+        {
+          "player": "Min Woo Lee",
+          "odds": 540
+        },
+        {
+          "player": "Justin Rose",
+          "odds": 580
+        },
+        {
+          "player": "Brooks Koepka",
+          "odds": 630
+        },
+        {
+          "player": "Chris Gotterup",
+          "odds": 670
+        },
+        {
+          "player": "Jordan Spieth",
+          "odds": 650
+        },
+        {
+          "player": "Patrick Reed",
+          "odds": 670
+        },
+        {
+          "player": "Viktor Hovland",
+          "odds": 690
+        },
+        {
+          "player": "Russell Henley",
+          "odds": 660
+        },
+        {
+          "player": "Si Woo Kim",
+          "odds": 680
+        },
+        {
+          "player": "Justin Thomas",
+          "odds": 830
+        },
+        {
+          "player": "Akshay Bhatia",
+          "odds": 820
+        },
+        {
+          "player": "Patrick Cantlay",
+          "odds": 820
+        },
+        {
+          "player": "Adam Scott",
+          "odds": 850
+        },
+        {
+          "player": "Jason Day",
+          "odds": 900
+        },
+        {
+          "player": "Jake Knapp",
+          "odds": 960
+        },
+        {
+          "player": "Shane Lowry",
+          "odds": 920
+        },
+        {
+          "player": "Sam Burns",
+          "odds": 960
+        },
+        {
+          "player": "J.J. Spaun",
+          "odds": 1000
+        },
+        {
+          "player": "Sepp Straka",
+          "odds": 990
+        },
+        {
+          "player": "Tyrrell Hatton",
+          "odds": 1025
+        },
+        {
+          "player": "Nicolai Hojgaard",
+          "odds": 1050
+        },
+        {
+          "player": "Corey Conners",
+          "odds": 1025
+        },
+        {
+          "player": "Maverick McNealy",
+          "odds": 1100
+        },
+        {
+          "player": "Jacob Bridgeman",
+          "odds": 1125
+        },
+        {
+          "player": "Kurt Kitayama",
+          "odds": 1225
+        },
+        {
+          "player": "Harris English",
+          "odds": 1250
+        },
+        {
+          "player": "Gary Woodland",
+          "odds": 1350
+        },
+        {
+          "player": "Daniel Berger",
+          "odds": 1300
+        },
+        {
+          "player": "Ben Griffin",
+          "odds": 1325
+        },
+        {
+          "player": "Cameron Smith",
+          "odds": 1425
+        },
+        {
+          "player": "Sung-Jae Im",
+          "odds": 1425
+        },
+        {
+          "player": "Max Homa",
+          "odds": 1550
+        },
+        {
+          "player": "Rasmus Hojgaard",
+          "odds": 1550
+        },
+        {
+          "player": "Keegan Bradley",
+          "odds": 1600
+        },
+        {
+          "player": "Marco Penge",
+          "odds": 1750
+        },
+        {
+          "player": "Harry Hall",
+          "odds": 1800
+        },
+        {
+          "player": "Ryan Gerard",
+          "odds": 1850
+        },
+        {
+          "player": "Alex Noren",
+          "odds": 1800
+        },
+        {
+          "player": "Sam Stevens",
+          "odds": 2050
+        },
+        {
+          "player": "Nick Taylor",
+          "odds": 2100
+        },
+        {
+          "player": "Ryan Fox",
+          "odds": 2350
+        },
+        {
+          "player": "Wyndham Clark",
+          "odds": 2500
+        },
+        {
+          "player": "Michael Kim",
+          "odds": 2450
+        },
+        {
+          "player": "Max Greyserman",
+          "odds": 2500
+        },
+        {
+          "player": "Brian Harman",
+          "odds": 2400
+        },
+        {
+          "player": "Aaron Rai",
+          "odds": 2500
+        },
+        {
+          "player": "Kristoffer Reitan",
+          "odds": 2500
+        },
+        {
+          "player": "Sergio Garcia",
+          "odds": 2600
+        },
+        {
+          "player": "Casey Jarvis",
+          "odds": 2600
+        },
+        {
+          "player": "Carlos Ortiz",
+          "odds": 2700
+        },
+        {
+          "player": "Dustin Johnson",
+          "odds": 2800
+        },
+        {
+          "player": "Tom McKibbin",
+          "odds": 2700
+        },
+        {
+          "player": "Haotong Li",
+          "odds": 3100
+        },
+        {
+          "player": "Matt McCarty",
+          "odds": 3000
+        },
+        {
+          "player": "Andrew Novak",
+          "odds": 3100
+        },
+        {
+          "player": "Nico Echavarria",
+          "odds": 3400
+        },
+        {
+          "player": "Rasmus Neergaard-Petersen",
+          "odds": 3400
+        },
+        {
+          "player": "Sami Valimaki",
+          "odds": 3800
+        },
+        {
+          "player": "Aldrich Potgieter",
+          "odds": 4000
+        },
+        {
+          "player": "Michael Brennan",
+          "odds": 4000
+        },
+        {
+          "player": "John Keefer",
+          "odds": 3900
+        },
+        {
+          "player": "Bubba Watson",
+          "odds": 5100
+        },
+        {
+          "player": "Zach Johnson",
+          "odds": 4900
+        }
+      ],
+      "top10": [
+        {
+          "player": "Scottie Scheffler",
+          "odds": -192
+        },
+        {
+          "player": "Jon Rahm",
+          "odds": -120
+        },
+        {
+          "player": "Bryson DeChambeau",
+          "odds": 104
+        },
+        {
+          "player": "Rory McIlroy",
+          "odds": 108
+        },
+        {
+          "player": "Ludvig Aberg",
+          "odds": 154
+        },
+        {
+          "player": "Xander Schauffele",
+          "odds": 140
+        },
+        {
+          "player": "Cameron Young",
+          "odds": 182
+        },
+        {
+          "player": "Tommy Fleetwood",
+          "odds": 168
+        },
+        {
+          "player": "Matt Fitzpatrick",
+          "odds": 176
+        },
+        {
+          "player": "Hideki Matsuyama",
+          "odds": 196
+        },
+        {
+          "player": "Collin Morikawa",
+          "odds": 215
+        },
+        {
+          "player": "Robert MacIntyre",
+          "odds": 240
+        },
+        {
+          "player": "Min Woo Lee",
+          "odds": 245
+        },
+        {
+          "player": "Justin Rose",
+          "odds": 270
+        },
+        {
+          "player": "Brooks Koepka",
+          "odds": 290
+        },
+        {
+          "player": "Chris Gotterup",
+          "odds": 300
+        },
+        {
+          "player": "Jordan Spieth",
+          "odds": 290
+        },
+        {
+          "player": "Patrick Reed",
+          "odds": 300
+        },
+        {
+          "player": "Viktor Hovland",
+          "odds": 310
+        },
+        {
+          "player": "Russell Henley",
+          "odds": 280
+        },
+        {
+          "player": "Si Woo Kim",
+          "odds": 290
+        },
+        {
+          "player": "Justin Thomas",
+          "odds": 375
+        },
+        {
+          "player": "Akshay Bhatia",
+          "odds": 355
+        },
+        {
+          "player": "Patrick Cantlay",
+          "odds": 355
+        },
+        {
+          "player": "Adam Scott",
+          "odds": 365
+        },
+        {
+          "player": "Jason Day",
+          "odds": 380
+        },
+        {
+          "player": "Jake Knapp",
+          "odds": 415
+        },
+        {
+          "player": "Shane Lowry",
+          "odds": 385
+        },
+        {
+          "player": "Sam Burns",
+          "odds": 410
+        },
+        {
+          "player": "J.J. Spaun",
+          "odds": 430
+        },
+        {
+          "player": "Sepp Straka",
+          "odds": 420
+        },
+        {
+          "player": "Tyrrell Hatton",
+          "odds": 440
+        },
+        {
+          "player": "Nicolai Hojgaard",
+          "odds": 445
+        },
+        {
+          "player": "Corey Conners",
+          "odds": 435
+        },
+        {
+          "player": "Maverick McNealy",
+          "odds": 460
+        },
+        {
+          "player": "Jacob Bridgeman",
+          "odds": 465
+        },
+        {
+          "player": "Kurt Kitayama",
+          "odds": 510
+        },
+        {
+          "player": "Harris English",
+          "odds": 500
+        },
+        {
+          "player": "Gary Woodland",
+          "odds": 560
+        },
+        {
+          "player": "Daniel Berger",
+          "odds": 530
+        },
+        {
+          "player": "Ben Griffin",
+          "odds": 540
+        },
+        {
+          "player": "Cameron Smith",
+          "odds": 590
+        },
+        {
+          "player": "Sung-Jae Im",
+          "odds": 570
+        },
+        {
+          "player": "Max Homa",
+          "odds": 650
+        },
+        {
+          "player": "Rasmus Hojgaard",
+          "odds": 640
+        },
+        {
+          "player": "Keegan Bradley",
+          "odds": 650
+        },
+        {
+          "player": "Marco Penge",
+          "odds": 700
+        },
+        {
+          "player": "Harry Hall",
+          "odds": 710
+        },
+        {
+          "player": "Ryan Gerard",
+          "odds": 720
+        },
+        {
+          "player": "Alex Noren",
+          "odds": 710
+        },
+        {
+          "player": "Sam Stevens",
+          "odds": 790
+        },
+        {
+          "player": "Nick Taylor",
+          "odds": 800
+        },
+        {
+          "player": "Ryan Fox",
+          "odds": 920
+        },
+        {
+          "player": "Wyndham Clark",
+          "odds": 1000
+        },
+        {
+          "player": "Michael Kim",
+          "odds": 940
+        },
+        {
+          "player": "Max Greyserman",
+          "odds": 970
+        },
+        {
+          "player": "Brian Harman",
+          "odds": 910
+        },
+        {
+          "player": "Aaron Rai",
+          "odds": 950
+        },
+        {
+          "player": "Kristoffer Reitan",
+          "odds": 980
+        },
+        {
+          "player": "Sergio Garcia",
+          "odds": 980
+        },
+        {
+          "player": "Casey Jarvis",
+          "odds": 980
+        },
+        {
+          "player": "Carlos Ortiz",
+          "odds": 1025
+        },
+        {
+          "player": "Dustin Johnson",
+          "odds": 1050
+        },
+        {
+          "player": "Tom McKibbin",
+          "odds": 1025
+        },
+        {
+          "player": "Haotong Li",
+          "odds": 1150
+        },
+        {
+          "player": "Matt McCarty",
+          "odds": 1125
+        },
+        {
+          "player": "Andrew Novak",
+          "odds": 1150
+        },
+        {
+          "player": "Nico Echavarria",
+          "odds": 1250
+        },
+        {
+          "player": "Rasmus Neergaard-Petersen",
+          "odds": 1250
+        },
+        {
+          "player": "Sami Valimaki",
+          "odds": 1350
+        },
+        {
+          "player": "Aldrich Potgieter",
+          "odds": 1475
+        },
+        {
+          "player": "Michael Brennan",
+          "odds": 1450
+        },
+        {
+          "player": "John Keefer",
+          "odds": 1425
+        },
+        {
+          "player": "Bubba Watson",
+          "odds": 1750
+        },
+        {
+          "player": "Zach Johnson",
+          "odds": 1650
+        }
+      ]
+    }
+  }
+]
