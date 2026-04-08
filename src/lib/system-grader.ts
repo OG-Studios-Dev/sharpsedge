@@ -15,6 +15,7 @@
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
 import { getNBAGameSummary, getRecentNBAGames, getNBAQuarterScoresFromApiSports } from "@/lib/nba-api";
+import { getSDVNBAQuarterScores } from "@/lib/sportsdataverse-nba";
 import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
@@ -341,8 +342,22 @@ async function gradeGooseQualifiers(
         gameCompleted = true; // API-Sports only returns completed games
         gradingSourceLabel = "api-sports-quarter-scores";
       } else {
-        // No data available from either source — skip (stay pending)
-        continue;
+        // Tier 3 fallback: sportsdataverse (ESPN via npm adapter)
+        const dateStr = (qualifier.game_date ?? "").replace(/-/g, ""); // YYYY-MM-DD → YYYYMMDD
+        const sdvScores = dateStr.length === 8
+          ? await getSDVNBAQuarterScores(qualifier.home_team, qualifier.road_team, dateStr)
+          : null;
+        if (sdvScores) {
+          firstQuarterRoadScore = sdvScores.awayQ1;
+          firstQuarterHomeScore = sdvScores.homeQ1;
+          thirdQuarterRoadScore = sdvScores.awayQ3;
+          thirdQuarterHomeScore = sdvScores.homeQ3;
+          gameCompleted = true;
+          gradingSourceLabel = "sportsdataverse-espn";
+        } else {
+          // No data available from any source — skip (stay pending)
+          continue;
+        }
       }
     }
 

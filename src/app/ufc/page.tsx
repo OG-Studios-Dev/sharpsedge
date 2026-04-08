@@ -8,6 +8,7 @@ interface UFCFighter {
   name: string;
   logo: string | null;
   winner?: boolean;
+  record?: string | null;
 }
 
 interface UFCFight {
@@ -96,6 +97,7 @@ function FightCard({ fight }: { fight: UFCFight }) {
             <span className={`text-xs font-bold text-gray-400 ${f1.logo ? "hidden" : ""}`}>{f1.name.split(" ").map((n:string)=>n[0]).join("").slice(0,2)}</span>
           </div>
           <div className="text-sm font-semibold leading-tight">{f1.name}</div>
+          {f1.record && <div className="text-[10px] text-gray-500 mt-0.5">{f1.record}</div>}
           {finished && f1.winner && (
             <div className="text-[9px] text-green-400 font-bold uppercase mt-0.5">Winner</div>
           )}
@@ -114,6 +116,7 @@ function FightCard({ fight }: { fight: UFCFight }) {
             <span className={`text-xs font-bold text-gray-400 ${f2.logo ? "hidden" : ""}`}>{f2.name.split(" ").map((n:string)=>n[0]).join("").slice(0,2)}</span>
           </div>
           <div className="text-sm font-semibold leading-tight">{f2.name}</div>
+          {f2.record && <div className="text-[10px] text-gray-500 mt-0.5">{f2.record}</div>}
           {finished && f2.winner && (
             <div className="text-[9px] text-green-400 font-bold uppercase mt-0.5">Winner</div>
           )}

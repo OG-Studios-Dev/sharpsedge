@@ -12,6 +12,8 @@ export interface MMAFighter {
   name: string;
   logo: string | null;
   winner?: boolean;
+  record?: string | null;  // e.g. "29-3-0" from UFCStats
+  weightClass?: string | null;
 }
 
 export interface MMAFight {
