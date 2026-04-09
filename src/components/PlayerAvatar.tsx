@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import TeamLogo from "@/components/TeamLogo";
 import { getPlayerHeadshot } from "@/lib/visual-identity";
 
@@ -24,7 +27,8 @@ export default function PlayerAvatar({
   size = 40,
   className = "",
 }: Props) {
-  const src = getPlayerHeadshot({ league, playerId, playerName: name, headshot });
+  const [imageError, setImageError] = useState(false);
+  const src = imageError ? null : getPlayerHeadshot({ league, playerId, playerName: name, headshot });
 
   return (
     <>
@@ -35,12 +39,7 @@ export default function PlayerAvatar({
           width={size}
           height={size}
           className={`shrink-0 rounded-full object-cover bg-dark-surface ${className}`}
-          onError={(e) => {
-            const target = e.currentTarget;
-            target.style.display = "none";
-            const fallback = target.nextElementSibling as HTMLElement | null;
-            if (fallback) fallback.style.display = "flex";
-          }}
+          onError={() => setImageError(true)}
         />
       ) : null}
       <TeamLogo
