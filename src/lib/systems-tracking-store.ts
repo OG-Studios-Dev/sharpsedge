@@ -2335,7 +2335,7 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   const rows = system.records.length;
   const officialLineups = system.records.filter((record) => record.lineupStatus === "official").length;
   const partialLineups = system.records.filter((record) => record.lineupStatus === "partial").length;
-  const triggeredRows = system.records.filter((record) => record.alertLabel === "Early trigger watchlist").length;
+  const triggeredRows = system.records.filter((record) => record.recordKind === "qualifier").length;
   const weatherReady = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
   const parkReady = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("missing")).length;
   const bullpenReady = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
@@ -3301,7 +3301,7 @@ async function buildFalconsQualifierRecord(input: {
   });
 
   const notes = [
-    `Alert only - not an official pick.`,
+    `System pick qualifier — if this row fires, it is a real tracked system pick.`,
     `Falcons score ${falconsScore.score}/100 (${falconsScore.label}).`,
     `Prior start ${input.priorGameDate}: ${formatPitchingSummary(priorStats)}${pummeledReasons.length ? ` (${pummeledReasons.join(", ")})` : ""}.`,
     input.starterEra != null ? `Listed ERA ${input.starterEra.toFixed(2)}.` : "Listed ERA unavailable from probable-starter feed.",
@@ -3400,7 +3400,7 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       trigger ? `Why now: ${trigger.rationale}` : "Why now: waiting on either official lineup IDs, stronger recent production, or a better run environment.",
       trigger && trigger.topHitters.length ? `Top hitters: ${trigger.topHitters.join(" | ")}` : "Top hitters: official-lineup recent production sample not strong enough yet.",
       `Scope: ${board.scope?.lineups || "Lineup status is conservative."}`,
-      "Label policy: early watchlist only, not an official pick.",
+      "Label policy: when the trigger fires, this becomes a real tracked system pick. Non-trigger rows stay context only.",
     ].join(" • ");
 
     freshRecords.push(normalizeRecord({
@@ -3411,9 +3411,11 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       matchup: `${game?.matchup?.away?.abbreviation || "AWAY"} @ ${game?.matchup?.home?.abbreviation || "HOME"}`,
       roadTeam: game?.matchup?.away?.abbreviation || "AWAY",
       homeTeam: game?.matchup?.home?.abbreviation || "HOME",
-      recordKind: trigger ? "alert" : "qualifier",
-      marketType: totalLine != null ? "context-total-board" : "context-board",
-      alertLabel: trigger ? "Early trigger watchlist" : "Context board / no trigger",
+      recordKind: trigger ? "qualifier" : "alert",
+      marketType: trigger ? (totalLine != null ? "total" : "moneyline") : (totalLine != null ? "context-total-board" : "context-board"),
+      qualifiedTeam: trigger?.teamAbbrev ?? null,
+      opponentTeam: trigger ? ((trigger.teamAbbrev === (game?.matchup?.away?.abbreviation || "AWAY")) ? (game?.matchup?.home?.abbreviation || "HOME") : (game?.matchup?.away?.abbreviation || "AWAY")) : null,
+      alertLabel: trigger ? `Tony's Tight Bats system pick — ${trigger.teamAbbrev}` : "Context board / no trigger",
       currentMoneyline,
       lineupStatus,
       weatherSummary,
@@ -3591,19 +3593,19 @@ async function refreshSwaggyStretchDriveSystemData(data: SystemsTrackingData, op
 }
 
 function applyRobbiesRipperFast5Readiness(system: TrackedSystem) {
-  const alerts = system.records.filter((r) => r.recordKind === "alert").length;
-  const contextBoard = system.records.filter((r) => r.recordKind === "qualifier").length;
+  const actionableQualifiers = system.records.filter((r) => r.recordKind === "qualifier").length;
+  const contextBoard = system.records.filter((r) => r.marketType === "context-board").length;
   const gamesWithF5 = system.records.filter((r) => r.f5Summary && !r.f5Summary.includes("none") && !r.f5Summary.includes("unavailable")).length;
   const total = system.records.length;
 
   system.status = total > 0 ? "tracking" : "awaiting_data";
-  system.automationStatusLabel = alerts > 0
-    ? "Live F5 alert — starter mismatch + F5 market confirmed"
+  system.automationStatusLabel = actionableQualifiers > 0
+    ? "Live F5 system picks — starter mismatch + F5 market confirmed"
     : total > 0
       ? "Context board live — awaiting F5 market posts"
       : "Awaiting MLB board";
   system.automationStatusDetail = total > 0
-    ? `${total} game${total === 1 ? "" : "s"} on board — ${alerts} alert${alerts === 1 ? "" : "s"}, ${contextBoard} context-board, ${gamesWithF5} with F5 market posted.`
+    ? `${total} game${total === 1 ? "" : "s"} on board — ${actionableQualifiers} system pick${actionableQualifiers === 1 ? "" : "s"}, ${contextBoard} context-board, ${gamesWithF5} with F5 market posted.`
     : "Refresh will build a same-day MLB board from probable pitchers, F5 market rail, and enrichment context.";
 }
 
@@ -3855,7 +3857,7 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
       freshRecords.push(normalizeRecord({
         ...sharedProps,
         id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}`,
-        recordKind: "qualifier",
+        recordKind: "alert",
         marketType: "context-board",
         alertLabel: "Context board / no trigger",
         currentMoneyline: null,
@@ -4471,7 +4473,7 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
           `Home ML: +${homeML}. ${totalLine !== null ? `Total: ${totalLine}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Live system pick: back the qualified home dog moneyline when this qualifier fires.`,
+          `System pick: back the qualified home dog moneyline when this qualifier fires. This is tracked, graded, and kept in system history.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4558,7 +4560,7 @@ async function refreshNHLUnderMajorityHandleSystemData(
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Live system pick: play the full-game under when this qualifier fires.`,
+          `System pick: play the full-game under when this qualifier fires. This is tracked, graded, and kept in system history.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4655,7 +4657,7 @@ async function refreshMLBHomeMajorityHandleSystemData(
           homeIsUnderdog ? "Home team is ML underdog — public backing a dog (notable)." : "Home team is ML favourite — public backing expected.",
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Live system pick: back the qualified home team moneyline when this qualifier fires. No inflated historical claim — results will build from tracked grading.`,
+          `System pick: back the qualified home team moneyline when this qualifier fires. This is tracked, graded, and kept in system history. No inflated historical claim — results build from tracked grading.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -4740,7 +4742,7 @@ async function refreshMLBUnderMajorityHandleSystemData(
           `Total line: ${totalLine ?? "—"}.${homeML !== null ? ` Home ML: ${homeML > 0 ? "+" : ""}${homeML}.` : ""}`,
           lineMoveNote,
           `Source: Action Network (${game.effectiveSource}).`,
-          `Live system pick: play the full-game under when this qualifier fires. Starter quality and park context stay attached as supporting context.`,
+          `System pick: play the full-game under when this qualifier fires. This is tracked, graded, and kept in system history. Starter quality and park context stay attached as supporting context.`,
         ].join(" • "),
         lastSyncedAt: new Date().toISOString(),
       }));
@@ -5066,7 +5068,7 @@ async function refreshNBAHomeDogMajorityHandleSystemData(
       `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation} (home). Ticket %: ${mlTicketPct ?? "—"}%.`,
       `Home ML: +${homeML}. Spread: ${splits.spreadAway != null ? `${game.awayTeam.abbreviation} ${splits.spreadAway}` : "—"}.`,
       `Num bets tracked: ${splits.numBets}. Source: Action Network.`,
-      `Live system pick: back the home team moneyline when this qualifier fires. Verify price discipline and context, but this is a real tracked system pick.`,
+      `System pick: back the home team moneyline when this qualifier fires. This is tracked, graded, and kept in system history.`,
     ].join(" • ");
 
     freshRecords.push(
@@ -5182,7 +5184,7 @@ async function refreshNBAHomeSuperMajorityCloseGameSystemData(
       `ML handle: ${mlMoneyPct}% on ${game.homeTeam.abbreviation}. Ticket %: ${mlTicketPct ?? "—"}%.`,
       `Spread: ${homeSpread != null ? `${game.homeTeam.abbreviation} ${homeSpread > 0 ? "+" : ""}${homeSpread}` : "—"}. ML: ${homeML != null ? (homeML > 0 ? "+" : "") + homeML : "—"}.`,
       `Num bets: ${splits.numBets}. Source: Action Network.`,
-      `Live system pick: back the home team moneyline when this qualifier fires in a close spread game with super-majority handle.`,
+      `System pick: back the home team moneyline when this qualifier fires in a close spread game with super-majority handle. This is tracked, graded, and kept in system history.`,
     ].join(" • ");
 
     freshRecords.push(
