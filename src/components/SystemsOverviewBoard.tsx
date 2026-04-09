@@ -281,10 +281,10 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                         {isMLGradeable && hasDbRecord && dbPerf.graded_qualifiers > 0
                           ? `${dbPerf.wins}-${dbPerf.losses}${dbPerf.pushes > 0 ? `-${dbPerf.pushes}` : ""}`
                           : isMLGradeable && hasDbRecord
-                          ? `${dbPerf.qualifiers_logged} qualifiers · ${dbPerf.pending} pending`
+                          ? `${dbPerf.qualifiers_logged} picks tracked · ${dbPerf.pending} pending`
                           : metrics.performance.actionable
                           ? metrics.performance.record
-                          : `${metrics.qualifiedGames} qualifiers logged`}
+                          : `${metrics.qualifiedGames} picks tracked`}
                       </p>
                       <p className="mt-0.5 text-[10px] text-gray-500">
                         {isOfflineSystem
@@ -295,7 +295,7 @@ export default function SystemsOverviewBoard({ systems, updatedAt, activeLeague 
                             : "Grading outcomes as results come in.")
                           : metrics.performance.actionable
                           ? `${metrics.performance.gradedQualifiers} graded games`
-                          : "Tracking qualifiers — grading history will populate as results settle."}
+                          : "Pick history will populate as results settle."}
                       </p>
                     </div>
                     <div className="rounded-xl border border-dark-border/70 bg-dark-bg/60 px-3 py-2">

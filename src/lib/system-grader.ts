@@ -10,7 +10,7 @@
  *   - Robbie's Ripper Fast 5 (MLB F5 side/total): graded from MLB Stats API inning linescore
  *
  * Not gradeable yet (system is off until bet direction is defined honestly):
- *   - The Blowout, Hot Teams Matchup
+ *   - none
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
@@ -49,10 +49,7 @@ export const GRADEABLE_PGA_SYSTEMS = [
   "pga-goose-picks",
 ] as const;
 
-export const OFFLINE_SYSTEMS = [
-  "the-blowout",
-  "hot-teams-matchup",
-] as const;
+export const OFFLINE_SYSTEMS = [] as const;
 
 // ─── PGA pick grading ─────────────────────────────────────────────────────────
 
@@ -1015,7 +1012,7 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
  */
 export function getGradeabilityMap(): Record<string, {
   gradeable: boolean;
-  gradingType: "moneyline" | "quarter_ats" | "totals" | "f5" | "watchlist_only";
+  gradingType: "moneyline" | "quarter_ats" | "totals" | "f5";
   notes: string;
 }> {
   return {
@@ -1080,14 +1077,14 @@ export function getGradeabilityMap(): Record<string, {
       notes: "MLB totals under: grades against final combined score and stored total line.",
     },
     "the-blowout": {
-      gradeable: false,
-      gradingType: "watchlist_only",
-      notes: "Off. Bet direction unresolved, so this system is not gradeable until a real rule is defined.",
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NBA moneyline: backs the qualified bounce-back side when the blowout trigger fires. Graded from ESPN/NBA final scores.",
     },
     "hot-teams-matchup": {
-      gradeable: false,
-      gradingType: "watchlist_only",
-      notes: "Bet direction unresolved. Matchup discovery only — not gradeable until direction is defined.",
+      gradeable: true,
+      gradingType: "totals",
+      notes: "NBA totals: plays the full-game over when both hot-team conditions and posted total gate fire. Graded from final combined score against stored total line.",
     },
     "tonys-hot-bats": {
       gradeable: true,

@@ -456,7 +456,6 @@ function parseLeaderboardPlayers(competitors: any[], tournament: GolfTournament)
     const headshot = firstString(
       athlete?.headshot?.href,
       athlete?.headshot,
-      playerId ? `https://a.espncdn.com/i/headshots/golf/players/full/${playerId}.png` : "",
     );
     if (playerId && headshot) {
       GOLF_PLAYER_IMAGES[playerId] = headshot;

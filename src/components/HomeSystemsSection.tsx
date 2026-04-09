@@ -86,8 +86,8 @@ function getSystemInsightLine(
   if (tier === "gold") return `Firing · ${recordCopy} · ${unitsCopy}`;
   if (tier === "neutral") return `Steady · ${recordCopy} · ${unitsCopy}`;
   if (tier === "weak") return `Slipping · ${recordCopy}`;
-  if (qualifiedGames > 0) return `${qualifiedGames} qualifiers tracked`;
-  return "Watching for setups";
+  if (qualifiedGames > 0) return `${qualifiedGames} picks tracked`;
+  return "Waiting for a valid firing spot";
 }
 
 type Props = {
@@ -192,7 +192,7 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
                   {isOfflineSystem
                     ? "Off — waiting on rules/data to make this a real live system"
                     : liveQualifierCount > 0
-                    ? `${liveQualifierCount} live qualifier${liveQualifierCount === 1 ? "" : "s"} • ${getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}`
+                    ? `${liveQualifierCount} live pick${liveQualifierCount === 1 ? "" : "s"} • ${getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}`
                     : getSystemInsightLine(tier, recordCopy, unitsCopy, metrics.qualifiedGames)}
                 </span>
               </div>

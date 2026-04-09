@@ -52,20 +52,17 @@ function formatUnits(value: number | null) {
   return `${value.toFixed(1)}u`;
 }
 
-// ─── Currently qualified games ───────────────────────────────────────────────
+// ─── Today's stored picks ───────────────────────────────────────────────────
 
-/** Separate qualifier-firing records from monitoring/context-only records */
 function classifyRecords(system: TrackedSystem) {
-  const qualified = system.records.filter((r) => {
+  const picks = system.records.filter((r) => {
     if (!r) return false;
     if (r.recordKind === "progression") return true;
-    if (r.marketType === "total" || r.marketType === "f5-total") {
-      return !r.alertLabel?.toLowerCase().includes("no trigger");
-    }
-    return Boolean(r.qualifiedTeam) && !r.alertLabel?.toLowerCase().includes("no trigger");
+    if (r.recordKind !== "qualifier") return false;
+    if (r.marketType === "total" || r.marketType === "f5-total") return true;
+    return Boolean(r.qualifiedTeam);
   });
-  const monitoring = system.records.filter((r) => !qualified.includes(r));
-  return { qualified, monitoring };
+  return { picks };
 }
 
 function formatSpread(value: number | null | undefined) {
@@ -77,7 +74,7 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
   const [open, setOpen] = React.useState(false);
   if (!record) return null;
   const matchup = record.matchup || "Unknown matchup";
-  const qualifiedTeam = record.qualifiedTeam || record.roadTeam || record.homeTeam || "Qualifier";
+  const qualifiedTeam = record.qualifiedTeam || record.roadTeam || record.homeTeam || "Pick";
   const noteText = typeof record.notes === "string" ? record.notes : null;
   const alertLabel = typeof record.alertLabel === "string" ? record.alertLabel : null;
   const hasQuarterLines = record.firstQuarterSpread != null || record.thirdQuarterSpread != null;
@@ -120,7 +117,7 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
           )}
           {noteText && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Why qualified</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Why this pick fired</p>
               <p className="text-sm leading-relaxed text-gray-300">{noteText}</p>
             </div>
           )}
@@ -134,7 +131,7 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
 }
 
 function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
-  const { qualified, monitoring } = classifyRecords(system);
+  const { picks } = classifyRecords(system);
   const isBlocked =
     system.snapshot?.includes("BLOCKED") ||
     system.snapshot?.startsWith("🔴") ||
@@ -144,55 +141,30 @@ function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
     system.snapshot?.includes("DORMANT") ||
     system.snapshot?.startsWith("🟠");
 
-  if (qualified.length > 0) {
+  if (picks.length > 0) {
     return (
       <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-        <p className="section-heading">Today&apos;s qualifiers</p>
+        <p className="section-heading">Today&apos;s system picks</p>
         <h2 className="mt-2 text-lg font-semibold text-white">
-          {qualified.length} game{qualified.length === 1 ? "" : "s"} fired
+          {picks.length} pick{picks.length === 1 ? "" : "s"} stored
         </h2>
         <div className="mt-4 space-y-3">
-          {qualified.map((r, index) => (
-            <QualifiedGameCard key={r?.id ?? `${system.id}-qualified-${index}`} record={r} />
+          {picks.map((r, index) => (
+            <QualifiedGameCard key={r?.id ?? `${system.id}-pick-${index}`} record={r} />
           ))}
         </div>
       </section>
     );
   }
 
-  if (isBlocked || isParked) {
-    return (
-      <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-        <p className="section-heading">Today&apos;s qualifiers</p>
-        <div className="mt-3 rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4">
-          <p className="text-sm text-gray-400">{system.snapshot ?? "System is not qualifying right now."}</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (monitoring.length > 0) {
-    return (
-      <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-        <p className="section-heading">Today&apos;s context board</p>
-        <h2 className="mt-2 text-lg font-semibold text-white">No live qualified picks yet</h2>
-        <p className="mt-1 text-sm text-gray-400">
-          Monitoring {monitoring.length} game{monitoring.length === 1 ? "" : "s"} — these rows are context only until the system produces a real qualified pick with a bet direction.
-        </p>
-        {system.snapshot && (
-          <p className="mt-2 text-xs text-gray-500 leading-relaxed">{system.snapshot}</p>
-        )}
-      </section>
-    );
-  }
-
-  // No records at all
   return (
     <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-      <p className="section-heading">Today&apos;s qualifiers</p>
+      <p className="section-heading">Today&apos;s system picks</p>
       <div className="mt-3 rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4">
         <p className="text-sm text-gray-400">
-          {system.snapshot ?? "No qualifier data available yet for today."}
+          {isBlocked || isParked
+            ? system.snapshot ?? "System is not active right now."
+            : "No stored picks. This system should either produce a real pick or nothing at all."}
         </p>
       </div>
     </section>
@@ -268,7 +240,7 @@ function PerformanceStrip({
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4">
-        <p className="meta-label">Qualifiers logged</p>
+        <p className="meta-label">Picks tracked</p>
         <p className="mt-2 text-2xl font-bold text-white">{perfView.qualifiers_logged}</p>
         <p className="mt-1 text-xs text-gray-500">
           {perfView.first_qualifier_date ? `Since ${perfView.first_qualifier_date}` : "All time"}
@@ -336,11 +308,11 @@ function RecentHistorySection({
   return (
     <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
       <p className="section-heading">Performance history</p>
-      <h2 className="mt-2 text-lg font-semibold text-white">Qualifier log</h2>
+      <h2 className="mt-2 text-lg font-semibold text-white">Pick history</h2>
       <p className="mt-1 text-sm text-gray-400">
         {isMLGradeable
-          ? "Graded from live final scores. Flat 1u per qualified play."
-          : "Qualifier entries tracked but not yet graded — bet direction not finalized."}
+          ? "Graded from live final scores. Flat 1u per stored system pick."
+          : "No grading until this system has a real live pick rule."}
       </p>
       <div className="mt-4">
         <PerformanceStrip systemId={systemId} dbPerformance={dbPerformance} dbHistory={dbHistory} />
@@ -360,8 +332,8 @@ function QualifierRulesSection({ system }: { system: TrackedSystem }) {
   if (!system.qualifierRules || system.qualifierRules.length === 0) return null;
   return (
     <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
-      <p className="section-heading">Qualifier rules</p>
-      <h2 className="mt-2 text-lg font-semibold text-white">How a game qualifies</h2>
+      <p className="section-heading">Pick rules</p>
+      <h2 className="mt-2 text-lg font-semibold text-white">How a game becomes a pick</h2>
       <ul className="mt-3 space-y-2">
         {system.qualifierRules.map((rule, i) => (
           <li key={i} className="flex items-start gap-2.5 text-sm text-gray-300">

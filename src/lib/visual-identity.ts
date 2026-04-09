@@ -256,7 +256,7 @@ export function getPlayerHeadshot({
   }
 
   if (normalizedLeague === "PGA") {
-    return `https://a.espncdn.com/i/headshots/golf/players/full/${id}.png`;
+    return null;
   }
 
   if (normalizedLeague === "MLB") {

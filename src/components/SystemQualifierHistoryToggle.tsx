@@ -55,7 +55,7 @@ export default function SystemQualifierHistoryToggle({
           <div className="grid grid-cols-[1fr_0.65fr_0.7fr_0.55fr_0.55fr] gap-3 border-b border-dark-border bg-dark-bg/60 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500">
             <span>Matchup</span>
             <span>Date</span>
-            {isMLGradeable ? <span>Qualified</span> : <span>Side</span>}
+            {isMLGradeable ? <span>Pick</span> : <span>Side</span>}
             <span>Odds</span>
             <span>Result</span>
           </div>
@@ -92,7 +92,7 @@ export default function SystemQualifierHistoryToggle({
           onClick={() => setShowAll((v) => !v)}
           className="w-full rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 py-2.5 text-xs font-semibold text-gray-400 transition hover:border-white/20 hover:text-gray-200"
         >
-          {showAll ? `Show fewer` : `Show all ${actionableRows.length} qualifier entries`}
+          {showAll ? `Show fewer` : `Show all ${actionableRows.length} pick entries`}
         </button>
       )}
     </div>
