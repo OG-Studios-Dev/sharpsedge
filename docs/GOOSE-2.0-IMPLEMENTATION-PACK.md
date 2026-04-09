@@ -24,6 +24,8 @@ Specifically, Phase 1 creates:
 
 This lets Goose stop learning only from picks it already chose.
 
+Marco direction, now explicit: Goose 2.0 is a full candidate-universe ML system. That means every sport should eventually archive every supported game market and every supported player prop, then learn from the entire observed market plus final outcomes, not just from the tiny subset of picks we published.
+
 ---
 
 ## 2. Existing tables we are keeping
@@ -220,6 +222,16 @@ Purpose:
 
 First supported source:
 - current aggregated team-market archive
+
+Next required source classes for true ML mode:
+- NBA player props archive
+- NHL player props archive
+- MLB player props archive
+- PGA finishing position and matchup archive
+
+Hard rule:
+- `pick_history` and `goose_model_picks` are comparison rails, not the core training universe
+- the actual training universe must become `all observed candidates + feature rows + outcomes`
 
 ### `src/lib/goose2/feature-mappers.ts`
 Purpose:
