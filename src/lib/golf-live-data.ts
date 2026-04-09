@@ -9,10 +9,40 @@ import { getBDLSeasonStats, getBDLFutures, getBDLTeeTimes, getBDLCurrentTourname
 async function loadHistoryByPlayer(leaderboard: GolfLeaderboard | null) {
   const players = leaderboard?.players ?? [];
   const historyEntries = await Promise.all(
-    players.map(async (player) => [player.id, await getPlayerTournamentHistory(player.id)] as const),
+    players
+      .filter((player) => !player.id.startsWith("dg-field:"))
+      .map(async (player) => [player.id, await getPlayerTournamentHistory(player.id)] as const),
   );
 
   return Object.fromEntries(historyEntries);
+}
+
+function hydrateUpcomingFieldFromDG(
+  leaderboard: GolfLeaderboard | null,
+  dgCache: Awaited<ReturnType<typeof getDGCache>>,
+): GolfLeaderboard | null {
+  if (!leaderboard) return leaderboard;
+  if ((leaderboard.players?.length ?? 0) > 0) return leaderboard;
+  if (leaderboard.tournament.status !== "upcoming") return leaderboard;
+
+  const field = dgCache?.data?.field ?? [];
+  if (!field.length) return leaderboard;
+
+  return {
+    ...leaderboard,
+    players: field.map((entry, index) => ({
+      id: `dg-field:${index}:${entry.name}`,
+      name: entry.name,
+      position: "—",
+      score: "E",
+      todayScore: "E",
+      thru: "—",
+      teeTime: "",
+      status: "scheduled",
+      roundScores: [],
+    })),
+    lastUpdated: dgCache?.lastScrape ?? leaderboard.lastUpdated ?? null,
+  };
 }
 
 export async function getGolfPredictionData(
@@ -24,12 +54,14 @@ export async function getGolfPredictionData(
     typeof oddsOverride === "undefined" ? getGolfOdds() : Promise.resolve(oddsOverride),
   ]);
 
-  const [historyByPlayer, dgCache, bdlSeasonStatsRaw, bdlCurrentTournament] = await Promise.all([
-    loadHistoryByPlayer(resolvedLeaderboard),
+  const [dgCache, bdlSeasonStatsRaw, bdlCurrentTournament] = await Promise.all([
     getDGCache(),
     getBDLSeasonStats(2025),
     getBDLCurrentTournament(),
   ]);
+
+  const hydratedLeaderboard = hydrateUpcomingFieldFromDG(resolvedLeaderboard, dgCache);
+  const historyByPlayer = await loadHistoryByPlayer(hydratedLeaderboard);
 
   // Fetch BDL futures for the current tournament (non-blocking)
   const bdlFuturesRaw = bdlCurrentTournament
@@ -39,7 +71,7 @@ export async function getGolfPredictionData(
   const bdlSeasonStatsMap = buildBDLSeasonStatsMap(bdlSeasonStatsRaw);
   const bdlFuturesMap = buildBDLFuturesMap(bdlFuturesRaw);
 
-  return buildGolfPredictionBoard(resolvedLeaderboard, historyByPlayer, resolvedOdds, dgCache, bdlSeasonStatsMap, bdlFuturesMap);
+  return buildGolfPredictionBoard(hydratedLeaderboard, historyByPlayer, resolvedOdds, dgCache, bdlSeasonStatsMap, bdlFuturesMap);
 }
 
 /**
@@ -60,7 +92,7 @@ export async function getGolfTournamentPicks(date?: string): Promise<{ picks: AI
   const predictions = await getGolfPredictionData();
   const tournamentDateKey = date ?? getTournamentDateKey(predictions.tournament);
 
-  // Attempt to load real Bovada top5/10/20 odds (non-blocking — proxy fallback on null).
+  // Attempt to load real top-finish odds (Bovada snapshots or manual DK seed fallback).
   // When available, picks will use real scraped lines instead of proxy estimates.
   const bovadaTopFinishOdds = await getBovadaTopFinishOdds().catch(() => null);
 

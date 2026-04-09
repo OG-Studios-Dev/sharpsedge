@@ -936,6 +936,17 @@ function hasRealTopFinishLine(
   return false;
 }
 
+function getTopFinishEdge(
+  player: GolfPrediction,
+  market: GolfPredictionMarket,
+  oddsMap: BovadaTopFinishOddsMap | null | undefined,
+): number {
+  if (!hasRealTopFinishLine(oddsMap, player.name, market)) return Number.NEGATIVE_INFINITY;
+  const bookProbability = getRealTopFinishBookProbability(player, market, oddsMap);
+  if (bookProbability === null) return Number.NEGATIVE_INFINITY;
+  return getMarketProbability(player, market) - bookProbability;
+}
+
 export function buildGolfTournamentPicks(
   predictions: GolfPredictionBoard,
   date: string,
@@ -1003,33 +1014,30 @@ export function buildGolfTournamentPicks(
   // top-finish odds exist for the player on that specific market.
   // If bovadaTopFinishOdds is null (no snapshot) or a player has no line for
   // the requested market, the pick is skipped — never fabricated.
-  const lockCandidates = [...players]
-    .filter((player) => {
-      const top5Edge = hasRealTopFinishLine(bovadaTopFinishOdds, player.name, "Top 5 Finish")
-        ? (player.top5Prob - (getRealTopFinishBookProbability(player, "Top 5 Finish", bovadaTopFinishOdds) ?? 0))
-        : Number.NEGATIVE_INFINITY;
-      const top10Edge = hasRealTopFinishLine(bovadaTopFinishOdds, player.name, "Top 10 Finish")
-        ? (player.top10Prob - (getRealTopFinishBookProbability(player, "Top 10 Finish", bovadaTopFinishOdds) ?? 0))
-        : Number.NEGATIVE_INFINITY;
-      const top20Edge = hasRealTopFinishLine(bovadaTopFinishOdds, player.name, "Top 20 Finish")
-        ? (player.top20Prob - (getRealTopFinishBookProbability(player, "Top 20 Finish", bovadaTopFinishOdds) ?? 0))
-        : Number.NEGATIVE_INFINITY;
-      return Math.max(top5Edge, top10Edge, top20Edge) > 0;
-    })
-    .sort((left, right) => (
-      ((right.formScore + right.courseHistoryScore) - (left.formScore + left.courseHistoryScore))
-    ) || (
-      right.combinedScore - left.combinedScore
-    ));
-  const lockSelections = selectUniquePlayers(lockCandidates, 3, usedPlayers);
   const lockMarkets: GolfPredictionMarket[] = ["Top 5 Finish", "Top 10 Finish", "Top 20 Finish"];
 
-  lockSelections.forEach((player, index) => {
-    const market = lockMarkets[index];
-    // Integrity gate: skip pick if no real Bovada top-finish line is available.
-    if (!hasRealTopFinishLine(bovadaTopFinishOdds, player.name, market)) return;
-    picks.push(predictionToPick(player, market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
-  });
+  for (const market of lockMarkets) {
+    const candidates = [...players]
+      .filter((player) => !usedPlayers.has(player.id))
+      .map((player) => ({
+        player,
+        edge: getTopFinishEdge(player, market, bovadaTopFinishOdds),
+      }))
+      .filter((entry) => entry.edge > 0)
+      .sort((left, right) => (
+        right.edge - left.edge
+      ) || (
+        (right.player.formScore + right.player.courseHistoryScore)
+        - (left.player.formScore + left.player.courseHistoryScore)
+      ) || (
+        right.player.combinedScore - left.player.combinedScore
+      ));
+
+    const best = candidates[0];
+    if (!best) continue;
+    usedPlayers.add(best.player.id);
+    picks.push(predictionToPick(best.player, market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
+  }
 
   // ── Top-finish value market picks ────────────────────────────────────────
   // Same integrity rule: candidates are filtered to players with real scraped
