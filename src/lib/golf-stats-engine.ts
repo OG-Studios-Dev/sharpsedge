@@ -961,6 +961,63 @@ type PGAMarketRule = {
   uniquePlayerOnly?: boolean;
 };
 
+type PGAMarketCandidate = ReturnType<typeof buildPGAMarketCandidates>[number];
+
+function candidateLineOdds(candidate: PGAMarketCandidate, oddsMap: BovadaTopFinishOddsMap | null | undefined) {
+  if (candidate.player.bookOdds !== null && candidate.oddsLookupMarket === "Tournament Winner") {
+    return candidate.player.bookOdds;
+  }
+  const line = findBovadaTopFinishOdds(oddsMap ?? null, candidate.player.name);
+  if (!line) return null;
+  if (candidate.oddsLookupMarket === "Top 5 Finish") return line.top5;
+  if (candidate.oddsLookupMarket === "Top 10 Finish") return line.top10;
+  if (candidate.oddsLookupMarket === "Top 20 Finish") return line.top20;
+  return null;
+}
+
+function buildPGAHeadToHeadPick(
+  matchup: GolfHeadToHeadPrediction,
+  date: string,
+  tournamentName: string,
+  tournamentId?: string,
+): AIPick | null {
+  const side = matchup.valueSide ?? matchup.modelPick;
+  if (!side) return null;
+
+  const isPlayerA = side === matchup.playerA;
+  const odds = isPlayerA ? matchup.playerAOdds : matchup.playerBOdds;
+  const edge = isPlayerA
+    ? matchup.modelProbA - matchup.bookProbA
+    : matchup.modelProbB - matchup.bookProbB;
+  const modelProb = isPlayerA ? matchup.modelProbA : matchup.modelProbB;
+  const confidence = Math.round(clamp(35 + (Math.abs(edge) * 220) + (matchup.disagreement ? 8 : 0), 35, 95));
+
+  return {
+    id: `golf-${slugify(side)}-head-to-head-matchup-${date}`,
+    date,
+    type: "player",
+    playerName: side,
+    team: lastNameKey(side),
+    teamColor: GOLF_PICK_COLOR,
+    opponent: tournamentName,
+    isAway: false,
+    propType: "Head-to-Head Matchup",
+    line: 0,
+    direction: "Over",
+    pickLabel: `${side} over ${isPlayerA ? matchup.playerB : matchup.playerA}`,
+    edge: round(edge * 100, 1),
+    hitRate: confidence,
+    confidence,
+    reasoning: `${side} projects ${round(modelProb * 100, 1)}% in this matchup versus book implied ${round((isPlayerA ? matchup.bookProbA : matchup.bookProbB) * 100, 1)}%. ${matchup.playerA} vs ${matchup.playerB} at ${matchup.book}.`,
+    result: "pending",
+    units: 1,
+    gameId: tournamentId,
+    odds,
+    book: matchup.book,
+    league: "PGA",
+  };
+}
+
 function scorePlacementCandidate(player: GolfPrediction, market: GolfPredictionMarket) {
   const probability = getMarketProbability(player, market);
   const dgSupport = getDGSupport(player, market);
@@ -1020,22 +1077,69 @@ export function buildGolfTournamentPicks(
   const tournamentName = predictions.tournament?.name ?? "PGA Tournament";
   const tournamentId = predictions.tournament?.id;
   const picks: AIPick[] = [];
-  const usedPlayers = new Set<string>();
-  const rules: PGAMarketRule[] = [
-    { market: "Tournament Winner", targetCount: 4, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 5 Finish", targetCount: 2, minEdge: 0.01, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 10 Finish", targetCount: 3, minEdge: 0.008, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 20 Finish", targetCount: 4, minEdge: 0.006, minConfidence: 35 },
+  const usedOutrightPlayers = new Set<string>();
+  const usedTopFinishPlayers = new Set<string>();
+  const outrightRules: PGAMarketRule[] = [
+    { market: "Tournament Winner", targetCount: 5, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
+  ];
+  const topFinishRules: PGAMarketRule[] = [
+    { market: "Top 5 Finish", targetCount: 1, minEdge: 0.01, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 10 Finish", targetCount: 1, minEdge: 0.008, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 20 Finish", targetCount: 2, minEdge: 0.006, minConfidence: 35, uniquePlayerOnly: true },
   ];
 
-  for (const rule of rules) {
+  for (const rule of outrightRules) {
     const marketCandidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds);
     const candidates = marketCandidates
       .filter((candidate) => candidate.edge >= rule.minEdge)
       .filter((candidate) => candidate.confidence >= rule.minConfidence)
+      .filter((candidate) => !usedOutrightPlayers.has(candidate.player.id));
+
+    let added = 0;
+    for (const candidate of candidates) {
+      if (added >= rule.targetCount) break;
+      picks.push(predictionToPick(candidate.player, rule.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
+      usedOutrightPlayers.add(candidate.player.id);
+      added += 1;
+    }
+  }
+
+  const headToHeadCandidates = predictions.h2hMatchups
+    .filter((matchup) => {
+      const edgeA = matchup.modelProbA - matchup.bookProbA;
+      const edgeB = matchup.modelProbB - matchup.bookProbB;
+      return Math.max(edgeA, edgeB) >= 0.035;
+    })
+    .sort((left, right) => {
+      const leftEdge = Math.max(left.modelProbA - left.bookProbA, left.modelProbB - left.bookProbB);
+      const rightEdge = Math.max(right.modelProbA - right.bookProbA, right.modelProbB - right.bookProbB);
+      return rightEdge - leftEdge;
+    });
+
+  const usedH2HPlayers = new Set<string>();
+  for (const matchup of headToHeadCandidates) {
+    if (picks.filter((pick) => pick.propType === "Head-to-Head Matchup").length >= 3) break;
+    const side = matchup.valueSide ?? matchup.modelPick;
+    if (!side) continue;
+    const other = side === matchup.playerA ? matchup.playerB : matchup.playerA;
+    if (usedH2HPlayers.has(side) || usedH2HPlayers.has(other)) continue;
+    const pick = buildPGAHeadToHeadPick(matchup, date, tournamentName, tournamentId);
+    if (!pick) continue;
+    picks.push(pick);
+    usedH2HPlayers.add(side);
+    usedH2HPlayers.add(other);
+  }
+
+  for (const rule of topFinishRules) {
+    const marketCandidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds);
+    const candidates = marketCandidates
+      .filter((candidate) => candidate.edge >= rule.minEdge)
+      .filter((candidate) => candidate.confidence >= rule.minConfidence)
+      .filter((candidate) => !usedTopFinishPlayers.has(candidate.player.id))
+      .filter((candidate) => !usedOutrightPlayers.has(candidate.player.id))
       .filter((candidate) => {
-        if (!rule.uniquePlayerOnly) return true;
-        return !usedPlayers.has(candidate.player.id);
+        const odds = candidateLineOdds(candidate, bovadaTopFinishOdds);
+        return typeof odds === "number";
       });
 
     console.log("[golf-stats-engine] market scan", {
@@ -1064,10 +1168,11 @@ export function buildGolfTournamentPicks(
       if (added >= rule.targetCount) break;
       const duplicateMarket = picks.some((pick) => pick.playerName === candidate.player.name && pick.propType === rule.market);
       if (duplicateMarket) continue;
-      if (rule.uniquePlayerOnly && usedPlayers.has(candidate.player.id)) continue;
+      if (usedTopFinishPlayers.has(candidate.player.id)) continue;
+      if (usedOutrightPlayers.has(candidate.player.id)) continue;
 
       picks.push(predictionToPick(candidate.player, rule.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
-      if (rule.uniquePlayerOnly) usedPlayers.add(candidate.player.id);
+      usedTopFinishPlayers.add(candidate.player.id);
       added += 1;
     }
   }
