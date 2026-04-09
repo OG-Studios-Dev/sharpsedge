@@ -20,6 +20,8 @@ type CacheEntry<T> = { data: T; timestamp: number };
 const cache = new Map<string, CacheEntry<unknown>>();
 
 export const GOLF_PLAYER_IMAGES: Record<string, string> = {};
+const PGA_TOUR_PLAYER_HEADSHOTS: Record<string, string> = {};
+const PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME: Record<string, string> = {};
 
 async function cachedFetch<T>(url: string, ttl = CACHE_TTL): Promise<T> {
   const hit = cache.get(url);
@@ -449,21 +451,61 @@ function computePositions(players: GolfPlayer[]) {
   return players;
 }
 
+async function loadPGATourPlayerHeadshots() {
+  if (Object.keys(PGA_TOUR_PLAYER_HEADSHOTS).length > 0) return;
+
+  try {
+    const response = await fetch("https://www.pgatour.com/players", {
+      next: { revalidate: 60 * 60 },
+      headers: {
+        "user-agent": "Mozilla/5.0",
+      },
+    });
+    if (!response.ok) return;
+    const html = await response.text();
+    const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+    if (!match) return;
+    const data = JSON.parse(match[1]);
+    const players = data?.props?.pageProps?.dehydratedState?.queries?.[3]?.state?.data?.players;
+    if (!Array.isArray(players)) return;
+
+    for (const player of players) {
+      const id = firstString(player?.id, player?.playerId, player?.playerBio?.id);
+      const name = firstString(player?.displayName, [player?.firstName, player?.lastName].filter(Boolean).join(" "));
+      const headshot = firstString(player?.headshot);
+      if (id && headshot) PGA_TOUR_PLAYER_HEADSHOTS[id] = headshot;
+      if (name && headshot) PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME[name.toLowerCase()] = headshot;
+    }
+  } catch {
+    // Non-fatal, ESPN/live feed image can still be used.
+  }
+}
+
+function resolveGolfPlayerHeadshot(playerId: string, playerName: string, espnHeadshot?: string) {
+  if (espnHeadshot) return espnHeadshot;
+  if (PGA_TOUR_PLAYER_HEADSHOTS[playerId]) return PGA_TOUR_PLAYER_HEADSHOTS[playerId];
+  const byName = PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME[playerName.toLowerCase()];
+  if (byName) return byName;
+  return undefined;
+}
+
 function parseLeaderboardPlayers(competitors: any[], tournament: GolfTournament) {
   const players = competitors.map((competitor) => {
     const athlete = competitor?.athlete ?? competitor?.player ?? {};
     const playerId = firstString(athlete?.id, competitor?.id);
-    const headshot = firstString(
+    const playerName = firstString(athlete?.displayName, athlete?.fullName, competitor?.displayName, "Unknown Player");
+    const espnHeadshot = firstString(
       athlete?.headshot?.href,
       athlete?.headshot,
     );
+    const headshot = resolveGolfPlayerHeadshot(playerId, playerName, espnHeadshot);
     if (playerId && headshot) {
       GOLF_PLAYER_IMAGES[playerId] = headshot;
     }
 
     const player: GolfPlayer = {
       id: playerId,
-      name: firstString(athlete?.displayName, athlete?.fullName, competitor?.displayName, "Unknown Player"),
+      name: playerName,
       position: normalizePosition(
         competitor?.status?.position?.displayName
           ?? competitor?.status?.position?.shortDisplayName
@@ -816,6 +858,7 @@ async function getGolfPlayerTournamentHistory(playerId: string, tour: GolfTourKe
 }
 
 export async function getPGALeaderboard() {
+  await loadPGATourPlayerHeadshots();
   return getGolfLeaderboard("pga");
 }
 
@@ -843,6 +886,7 @@ export async function getPGASchedule() {
 }
 
 export async function getPGATournamentLeaderboard(eventId: string) {
+  await loadPGATourPlayerHeadshots();
   return getGolfLeaderboardForEvent("pga", eventId);
 }
 
