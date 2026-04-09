@@ -254,16 +254,17 @@ export function findGolfOutright(odds: GolfOddsBoard | null, playerName: string)
 // These are REAL scraped lines from Bovada — not proxy calculations.
 // Used in pick generation to replace proxy estimates when real lines exist.
 
-export interface BovadaTopFinishOddsLine {
+export interface TopFinishOddsLine {
   top5: number | null;
   top10: number | null;
   top20: number | null;
-  book: "Bovada";
+  book: string;
   scrapedAt: string;
   tournament: string;
 }
 
-export type BovadaTopFinishOddsMap = Map<string, BovadaTopFinishOddsLine>;
+export type BovadaTopFinishOddsLine = TopFinishOddsLine;
+export type BovadaTopFinishOddsMap = Map<string, TopFinishOddsLine>;
 
 interface StoredGolfOddsSnapshot {
   tournament: string;
@@ -303,7 +304,7 @@ interface LocalGolfOddsSnapshotFile {
   }>;
 }
 
-function buildTopFinishMap(snapshot: { tournament: string; scrapedAt: string; markets?: { top5?: Array<{ player: string; odds: number }>; top10?: Array<{ player: string; odds: number }>; top20?: Array<{ player: string; odds: number }>; }; }, book: "Bovada" = "Bovada"): BovadaTopFinishOddsMap | null {
+function buildTopFinishMap(snapshot: { tournament: string; scrapedAt: string; markets?: { top5?: Array<{ player: string; odds: number }>; top10?: Array<{ player: string; odds: number }>; top20?: Array<{ player: string; odds: number }>; }; }, book: string = "Bovada"): BovadaTopFinishOddsMap | null {
   const markets = snapshot.markets ?? {};
   const top5Map = new Map<string, number>((markets.top5 ?? []).map((e) => [normalizeName(e.player), e.odds]));
   const top10Map = new Map<string, number>((markets.top10 ?? []).map((e) => [normalizeName(e.player), e.odds]));
@@ -353,12 +354,32 @@ async function readLatestLocalGolfSnapshot(): Promise<LocalGolfOddsSnapshotFile 
 
 async function getLocalTopFinishOddsFallback(): Promise<BovadaTopFinishOddsMap | null> {
   const snap = await readLatestLocalGolfSnapshot();
-  if (!snap?.markets) return null;
+
+  if (snap?.markets) {
+    return buildTopFinishMap({
+      tournament: snap.tournament ?? 'Masters Tournament',
+      scrapedAt: snap.scrapedAt ?? new Date().toISOString(),
+      markets: snap.markets,
+    }, snap.source === 'draftkings-manual' ? 'DraftKings' : 'Bovada');
+  }
+
+  const top5 = Array.isArray((snap as any)?.top5)
+    ? (snap as any).top5.map((entry: any) => ({ player: entry.player, odds: entry.odds }))
+    : [];
+  const top10 = Array.isArray((snap as any)?.top10)
+    ? (snap as any).top10.map((entry: any) => ({ player: entry.player, odds: entry.odds }))
+    : [];
+  const top20 = Array.isArray((snap as any)?.top20)
+    ? (snap as any).top20.map((entry: any) => ({ player: entry.player, odds: entry.odds }))
+    : [];
+
+  if (top5.length === 0 && top10.length === 0 && top20.length === 0) return null;
+
   return buildTopFinishMap({
-    tournament: snap.tournament ?? 'Masters Tournament',
-    scrapedAt: snap.scrapedAt ?? new Date().toISOString(),
-    markets: snap.markets,
-  });
+    tournament: snap?.tournament ?? 'Masters Tournament',
+    scrapedAt: snap?.scrapedAt ?? (snap as any)?.generatedAt ?? new Date().toISOString(),
+    markets: { top5, top10, top20 },
+  }, snap?.source === 'draftkings-manual' ? 'DraftKings' : 'Bovada');
 }
 
 /**
