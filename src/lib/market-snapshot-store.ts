@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AggregatedBookOdds, AggregatedOdds, AggregatedSport } from "@/lib/books/types";
+import { bootstrapGoose2ShadowFromSnapshot } from "@/lib/goose2/shadow-pipeline";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const SNAPSHOT_DIR = path.join(DATA_DIR, "market-snapshots");
@@ -131,6 +132,18 @@ export type MarketSnapshotCaptureResult = {
     };
     supabase: {
       status: MarketSnapshotWriteStatus;
+      error?: string;
+    };
+    goose2Shadow?: {
+      status: MarketSnapshotWriteStatus;
+      counts?: {
+        snapshot_events: number;
+        snapshot_prices: number;
+        goose_events: number;
+        goose_candidates: number;
+        goose_feature_rows: number;
+        goose_decision_logs: number;
+      };
       error?: string;
     };
   };
@@ -722,12 +735,33 @@ export async function captureMarketSnapshot(options: CaptureOptions): Promise<Ma
   const file = await persistDailySnapshotFile(nextFile);
   const supabase = await persistSnapshotToSupabase(snapshot);
 
+  const goose2Shadow = supabase.status === "persisted"
+    ? await (async () => {
+        try {
+          const result = await bootstrapGoose2ShadowFromSnapshot(snapshot, false);
+          return {
+            status: "persisted" as const,
+            counts: result.counts,
+          };
+        } catch (error) {
+          return {
+            status: "error" as const,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      })()
+    : {
+        status: "skipped" as const,
+        error: supabase.status === "error" ? "Skipped Goose 2.0 shadow bootstrap because snapshot Supabase persistence failed." : undefined,
+      };
+
   return {
     snapshot,
     quarterCoverage: summarizeQuarterCoverage(snapshot),
     persistence: {
       file,
       supabase,
+      goose2Shadow,
     },
   };
 }

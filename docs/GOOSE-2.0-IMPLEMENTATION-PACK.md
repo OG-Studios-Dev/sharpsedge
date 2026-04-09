@@ -227,6 +227,7 @@ Next required source classes for true ML mode:
 - NBA player props archive
 - NHL player props archive
 - MLB player props archive
+- NFL game and player props archive
 - PGA finishing position and matchup archive
 
 Hard rule:
