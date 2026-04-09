@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TeamLogo from "@/components/TeamLogo";
 import { getPlayerHeadshot } from "@/lib/visual-identity";
 
@@ -16,6 +16,8 @@ type Props = {
   className?: string;
 };
 
+const headshotCache = new Map<string, string | null>();
+
 export default function PlayerAvatar({
   name,
   team,
@@ -28,7 +30,69 @@ export default function PlayerAvatar({
   className = "",
 }: Props) {
   const [imageError, setImageError] = useState(false);
-  const src = imageError ? null : getPlayerHeadshot({ league, playerId, playerName: name, headshot });
+  const fallbackSrc = useMemo(
+    () => getPlayerHeadshot({ league, playerId, playerName: name, headshot }),
+    [league, playerId, name, headshot],
+  );
+  const cacheKey = league && playerId ? `${String(league).toUpperCase()}:${String(playerId)}` : null;
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(() => {
+    if (headshot) return headshot;
+    if (cacheKey && headshotCache.has(cacheKey)) return headshotCache.get(cacheKey) ?? null;
+    if (!cacheKey) return fallbackSrc;
+    return null;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (headshot) {
+      setResolvedSrc(headshot);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!league || !playerId) {
+      setResolvedSrc(fallbackSrc);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (cacheKey && headshotCache.has(cacheKey)) {
+      setResolvedSrc(headshotCache.get(cacheKey) ?? null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const params = new URLSearchParams({
+      league: String(league),
+      playerId: String(playerId),
+    });
+    if (name) params.set("playerName", name);
+    if (headshot) params.set("headshot", headshot);
+
+    fetch(`/api/assets/player-headshot?${params.toString()}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (cancelled) return;
+        const url = payload?.url || fallbackSrc || null;
+        if (cacheKey) headshotCache.set(cacheKey, url);
+        setResolvedSrc(url);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        if (cacheKey) headshotCache.set(cacheKey, fallbackSrc || null);
+        setResolvedSrc(fallbackSrc || null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, fallbackSrc, headshot, league, name, playerId]);
+
+  const src = imageError ? null : resolvedSrc;
 
   return (
     <>

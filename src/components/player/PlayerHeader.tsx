@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TeamLogo from "@/components/TeamLogo";
 import { getPlayerHeadshot } from "@/lib/visual-identity";
 import { PlayerIdentity, PlayerNextGame } from "@/lib/player-research";
+
+const playerHeaderHeadshotCache = new Map<string, string | null>();
 
 type PlayerHeaderProps = {
   headshot?: string | null;
@@ -34,14 +36,74 @@ export default function PlayerHeader({
   nextGame,
 }: PlayerHeaderProps) {
   const [imageError, setImageError] = useState(false);
-  const resolvedHeadshot = imageError
-    ? null
-    : getPlayerHeadshot({
-        league,
-        playerId: player.playerId,
-        playerName: name,
-        headshot,
+  const fallbackHeadshot = useMemo(
+    () => getPlayerHeadshot({
+      league,
+      playerId: player.playerId,
+      playerName: name,
+      headshot,
+    }),
+    [headshot, league, name, player.playerId],
+  );
+  const cacheKey = league && player.playerId ? `${String(league).toUpperCase()}:${String(player.playerId)}` : null;
+  const [resolvedHeadshot, setResolvedHeadshot] = useState<string | null>(() => {
+    if (headshot) return headshot;
+    if (cacheKey && playerHeaderHeadshotCache.has(cacheKey)) return playerHeaderHeadshotCache.get(cacheKey) ?? null;
+    if (!cacheKey) return fallbackHeadshot;
+    return null;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (headshot) {
+      setResolvedHeadshot(headshot);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!league || !player.playerId) {
+      setResolvedHeadshot(fallbackHeadshot);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (cacheKey && playerHeaderHeadshotCache.has(cacheKey)) {
+      setResolvedHeadshot(playerHeaderHeadshotCache.get(cacheKey) ?? null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const params = new URLSearchParams({
+      league: String(league),
+      playerId: String(player.playerId),
+    });
+    if (name) params.set("playerName", name);
+    if (headshot) params.set("headshot", headshot);
+
+    fetch(`/api/assets/player-headshot?${params.toString()}`, { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => {
+        if (cancelled) return;
+        const url = payload?.url || fallbackHeadshot || null;
+        if (cacheKey) playerHeaderHeadshotCache.set(cacheKey, url);
+        setResolvedHeadshot(url);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        if (cacheKey) playerHeaderHeadshotCache.set(cacheKey, fallbackHeadshot || null);
+        setResolvedHeadshot(fallbackHeadshot || null);
       });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, fallbackHeadshot, headshot, league, name, player.playerId]);
+
+  const displayHeadshot = imageError ? null : resolvedHeadshot;
   const infoLine = [player.positionLabel || player.position, team, player.jerseyNumber ? `#${player.jerseyNumber}` : null]
     .filter(Boolean)
     .join(" • ");
@@ -52,9 +114,9 @@ export default function PlayerHeader({
       <div className="p-5 md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            {resolvedHeadshot ? (
+            {displayHeadshot ? (
               <img
-                src={resolvedHeadshot}
+                src={displayHeadshot}
                 alt={name}
                 className="h-20 w-20 rounded-[24px] border border-white/10 object-cover shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
                 onError={() => setImageError(true)}
