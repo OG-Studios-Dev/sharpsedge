@@ -947,6 +947,12 @@ function getTopFinishEdge(
   return getMarketProbability(player, market) - bookProbability;
 }
 
+function normalizeTopFinishMarket(market: GolfPredictionMarket): GolfPredictionMarket {
+  if (market === "Top 20 Finish") return "Top 10 Finish";
+  if (market === "Top 10 Finish") return "Top 5 Finish";
+  return market;
+}
+
 type PGAMarketRule = {
   market: GolfPredictionMarket;
   targetCount: number;
@@ -979,18 +985,20 @@ function buildPGAMarketCandidates(
   market: GolfPredictionMarket,
   oddsMap: BovadaTopFinishOddsMap | null | undefined,
 ) {
+  const oddsLookupMarket = market === "Tournament Winner" ? market : normalizeTopFinishMarket(market);
   return players
     .filter((player) => market === "Tournament Winner"
       ? isQualifyingOutrightOdds(player.bookOdds)
-      : hasRealTopFinishLine(oddsMap, player.name, market))
+      : hasRealTopFinishLine(oddsMap, player.name, oddsLookupMarket))
     .map((player) => {
       const edge = market === "Tournament Winner"
         ? (player.edge ?? Number.NEGATIVE_INFINITY)
-        : getTopFinishEdge(player, market, oddsMap);
+        : getTopFinishEdge(player, oddsLookupMarket, oddsMap);
       const scoring = scorePlacementCandidate(player, market);
       return {
         player,
         edge,
+        oddsLookupMarket,
         ...scoring,
       };
     })
@@ -1021,13 +1029,35 @@ export function buildGolfTournamentPicks(
   ];
 
   for (const rule of rules) {
-    const candidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds)
+    const marketCandidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds);
+    const candidates = marketCandidates
       .filter((candidate) => candidate.edge >= rule.minEdge)
       .filter((candidate) => candidate.confidence >= rule.minConfidence)
       .filter((candidate) => {
         if (!rule.uniquePlayerOnly) return true;
         return !usedPlayers.has(candidate.player.id);
       });
+
+    console.log("[golf-stats-engine] market scan", {
+      market: rule.market,
+      totalCandidates: marketCandidates.length,
+      qualifiedCandidates: candidates.length,
+      thresholds: { minEdge: rule.minEdge, minConfidence: rule.minConfidence, uniquePlayerOnly: Boolean(rule.uniquePlayerOnly) },
+      topCandidates: marketCandidates.slice(0, 8).map((candidate) => ({
+        player: candidate.player.name,
+        edge: Number.isFinite(candidate.edge) ? Number(candidate.edge.toFixed(4)) : null,
+        confidence: candidate.confidence,
+        odds: rule.market === "Tournament Winner"
+          ? candidate.player.bookOdds
+          : (() => {
+            const line = findBovadaTopFinishOdds(bovadaTopFinishOdds ?? null, candidate.player.name);
+            if (!line) return null;
+            if (candidate.oddsLookupMarket === "Top 5 Finish") return line.top5;
+            if (candidate.oddsLookupMarket === "Top 10 Finish") return line.top10;
+            return line.top20;
+          })(),
+      })),
+    });
 
     let added = 0;
     for (const candidate of candidates) {

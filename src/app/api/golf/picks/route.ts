@@ -64,6 +64,18 @@ export async function GET(req: NextRequest) {
 
     const result = await getGolfTournamentPicks(tournamentDateKey);
 
+    console.log("[api/golf/picks] generated", {
+      date: tournamentDateKey,
+      generatedCount: result.picks.length,
+      generatedPicks: result.picks.map((pick) => ({
+        player: pick.playerName,
+        market: pick.propType,
+        edge: pick.edge,
+        confidence: pick.confidence,
+        odds: pick.odds,
+      })),
+    });
+
     if (result.picks.length === 0) {
       return NextResponse.json({ picks: [], date: tournamentDateKey, source: "no-qualifying" });
     }
@@ -74,6 +86,14 @@ export async function GET(req: NextRequest) {
       const stored = await storeDailyPickSlate(normalizedPicks, {
         date: tournamentDateKey,
         league: "PGA",
+      });
+
+      console.log("[api/golf/picks] stored", {
+        date: tournamentDateKey,
+        source: stored.source,
+        persistedCount: stored.records.length,
+        returnedCount: stored.picks.length,
+        slate: stored.slate,
       });
 
       return NextResponse.json(
