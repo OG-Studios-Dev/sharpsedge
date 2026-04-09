@@ -414,8 +414,8 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "NBA blowout-reaction concept is cataloged but OFF until we define a real bet direction and pricing rule.",
-      snapshot: "🔴 OFF | Bet direction unresolved. Not live until rulebook is defined.",
+      summary: "NBA blowout-reaction system is live: when the trigger fires, it stores the qualified team moneyline as a real pick.",
+      snapshot: "🟡 Live trigger idle. This system stores a real moneyline pick or nothing.",
       definition:
         "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
       qualifierRules: [
@@ -424,32 +424,31 @@ function seededCatalog(): TrackedSystem[] {
         "That most recent game margin must be at least 18 points either for or against the qualified team.",
         "Next-game spread from the qualified team perspective must have absolute value <= 6.5.",
         "Opponent season win percentage must be >= .450.",
-        "Direction is unresolved, so this system stays off until a real picks rule is defined.",
+        "System pick: back the qualified team moneyline when this trigger fires. If no qualified side passes, store nothing.",
       ],
       progressionLogic: [],
       thesis:
-        "Huge recent results can distort the next-game narrative, but without a settled bet-direction rule this system should stay off rather than pretend to be live.",
+        "Huge recent results can distort the next-game narrative. The v1 rule is simple: when the trigger fires, back the qualified team moneyline and let tracked grading prove or kill it.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Cataloged only. Bet direction after a blowout is still unresolved, so this is not a live system yet.",
+          detail: "Live system. When the blowout trigger fires and the spread/opponent gates pass, the qualified team moneyline becomes the stored pick.",
         },
       ],
-      automationStatusLabel: "Off pending rulebook",
-      automationStatusDetail: "NBA data rails exist, but the system remains off until bet direction and grading logic are defined honestly.",
+      automationStatusLabel: "Live pick trigger",
+      automationStatusDetail: "NBA data rails exist. When the blowout trigger fires, the qualified side becomes a stored moneyline pick with grading and history.",
       dataRequirements: [
         { label: "Recent NBA results", status: "ready", detail: "Used to confirm the most recent game margin and recency window." },
         { label: "Current full-game spread", status: "ready", detail: "Used to confirm the next-game spread stays within +/-6.5 from the qualified team perspective." },
-        { label: "Opponent season win percentage", status: "ready", detail: "Available as a guardrail once the live rulebook exists." },
-        { label: "Bet-direction rulebook", status: "pending", detail: "Still unresolved. System stays off until this is defined." },
+        { label: "Opponent season win percentage", status: "ready", detail: "Available as a guardrail for the live rulebook." },
+        { label: "Bet-direction rulebook", status: "ready", detail: "V1 rule is live: back the qualified team moneyline when the blowout trigger fires." },
       ],
       unlockNotes: [
-        "Bet-direction logic must be defined before this can turn on.",
         "Historical close-versus-margin work would strengthen the blowout trigger later.",
       ],
       trackingNotes: [
-        "This concept should not surface as live until it has a directional rule and grading path.",
-        "Spread will be recorded from the qualifying team perspective once the live rulebook exists.",
+        "This system is binary now: real moneyline pick or nothing.",
+        "Spread is recorded from the qualifying team perspective for audit context, while grading follows the stored pick side.",
       ],
       records: [],
     },
@@ -462,8 +461,8 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "NBA hot-teams collision concept is OFF until we define whether the bet is side, total, or pass.",
-      snapshot: "🔴 OFF | Direction unresolved. Not live until the rulebook is defined.",
+      summary: "NBA hot-teams collision system is live: when the trigger fires, it stores a real full-game over pick.",
+      snapshot: "🟡 Live trigger idle. This system stores a real total pick or nothing.",
       definition:
         "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
       qualifierRules: [
@@ -472,31 +471,31 @@ function seededCatalog(): TrackedSystem[] {
         "Both teams must have season win percentages of .550 or better.",
         "Current full-game spread must be within +/-5.5.",
         "A game total must be available.",
-        "Direction is unresolved, so this system stays off until a real picks rule is defined.",
+        "System pick: play the full-game over when this matchup trigger fires. If the trigger does not fire, store nothing.",
       ],
       progressionLogic: [],
       thesis:
-        "When two genuinely hot teams collide, the market can struggle to price whether form carries, cancels out, or spills into the total. Until that direction is proven, this system should stay off.",
+        "When two genuinely hot teams collide, pace and offensive confidence can stay elevated. The v1 rule is to play the full-game over only when the matchup and posted-total gates both exist.",
       sourceNotes: [
         {
           label: "Internal concept",
-          detail: "Cataloged only. The matchup can be detected, but this is not a live system until the direction is solved.",
+          detail: "Live system. When the matchup trigger and posted-total gate fire together, the full-game over becomes the stored pick.",
         },
       ],
-      automationStatusLabel: "Off pending rulebook",
-      automationStatusDetail: "NBA data rails exist, but this system remains off until side/total/pass logic is defined honestly.",
+      automationStatusLabel: "Live pick trigger",
+      automationStatusDetail: "NBA data rails exist. When the matchup trigger fires with a posted total, the full-game over becomes a stored graded pick.",
       dataRequirements: [
         { label: "Recent last-5 results", status: "ready", detail: "Used to confirm both teams are at least 4-1 in their last five completed games." },
         { label: "Season win percentages", status: "ready", detail: "Used to confirm both teams clear the .550 quality threshold." },
         { label: "Current spread and total", status: "ready", detail: "Used to confirm the spread band and that a posted total exists." },
-        { label: "Bet-direction rulebook", status: "pending", detail: "Still unresolved. System stays off until this is defined." },
+        { label: "Bet-direction rulebook", status: "ready", detail: "V1 rule is live: play the full-game over when the matchup trigger fires and a posted total exists." },
       ],
       unlockNotes: [
-        "Need proof on whether this is a side, total, or pass framework before it can turn on.",
+        "Review long-run results after enough settled picks accumulate.",
       ],
       trackingNotes: [
-        "Rows are stored once per game to avoid duplicate qualifiers from both team perspectives.",
-        "The total line is noted in row metadata because totals availability is part of the v1 qualifier.",
+        "Rows are stored once per game to avoid duplicate picks from both team perspectives.",
+        "The total line is stored in row metadata because grading depends on the actual posted number.",
       ],
       records: [],
     },
@@ -828,7 +827,7 @@ function seededCatalog(): TrackedSystem[] {
       owner: "Goosalytics Lab",
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
-      summary: "MLB qualifier tracker for probable starters coming off a recent shelling, filtered by listed ERA and current moneyline. Alerts first, not official picks.",
+      summary: "MLB rebound-starter system. When it passes the gate, it becomes a real stored moneyline pick.",
       snapshot: "Awaiting nightly QA refresh. If Falcons has no qualifiers, admin output must explain the blocker honestly.",
       definition:
         "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
@@ -852,8 +851,8 @@ function seededCatalog(): TrackedSystem[] {
           detail: "Rows are alerts/qualifiers only. Missing probable starters, ERA, prior-start context, or price inputs stay unresolved rather than guessed.",
         },
       ],
-      automationStatusLabel: "Live qualifier tracking + alert rows",
-      automationStatusDetail: "The app can now refresh and store qualified MLB rebound spots from probable starters, prior pitching logs, current moneyline pricing, and day-of enrichment context rails.",
+      automationStatusLabel: "Live pick trigger",
+      automationStatusDetail: "The app refreshes and stores real MLB rebound-starter moneyline picks from probable starters, prior pitching logs, current moneyline pricing, and day-of enrichment context rails.",
       dataRequirements: [
         { label: "Probable pitchers feed", status: "ready", detail: "MLB schedule hydrate exposes day-of probable starters when listed." },
         { label: "Prior-start damage log", status: "ready", detail: "Starter pitching game logs provide earned runs, hits allowed, and innings pitched for the prior outing." },
@@ -1100,10 +1099,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NBA home underdog receiving majority (≥ 55%) of ML handle dollars. Public money contradicts the spread favorite — potential steam on the dog or narrative mis-pricing.",
+        "NBA home underdog receiving majority ML handle. When it passes the gate, it becomes a real stored moneyline pick.",
       snapshot: "🟡 RAIL LIVE | Action Network handle splits ingested. Qualification logic wired. Awaiting first game-day firing.",
       definition:
-        "Flag NBA games where the home team is a moneyline underdog (homeML > 0) AND attracts ≥ 55% of ML handle dollars. The public money contradicts the odds. Either sharp money is pushing the home dog, or the away team is overpriced by narrative. Alert only — not a pick without further context.",
+        "Flag NBA games where the home team is a moneyline underdog (homeML > 0) AND attracts ≥ 55% of ML handle dollars. When that gate passes, the home dog moneyline becomes the real stored system pick.",
       qualifierRules: [
         "Home team must be a moneyline underdog: homeML > 0 in American odds.",
         "Home team must hold ≥ 60% of ML handle dollars (ml_home_money from Action Network). Tightened 2026-03-29 from 55% to reduce noise.",
@@ -1132,7 +1131,7 @@ function seededCatalog(): TrackedSystem[] {
       ],
       automationStatusLabel: "Rail live — qualifying",
       automationStatusDetail:
-        "Action Network handle splits ingested via nba-handle.ts. qualifiesHomeUnderdogMajorityHandle() wired. Fires when home team is dog + ≥ 55% ML handle. Alert only.",
+        "Action Network handle splits ingested via nba-handle.ts. When the home team is a dog with majority ML handle, the moneyline is stored, graded, and shown as a real system pick.",
       dataRequirements: [
         {
           label: "NBA public ML handle %",
@@ -1154,7 +1153,7 @@ function seededCatalog(): TrackedSystem[] {
         "Rail is live. Threshold tightened to 60% (2026-03-29). Monitor firing frequency at new threshold.",
       ],
       trackingNotes: [
-        "Alert only — do not imply a bet direction without separate value gate.",
+        "Binary behavior only: store the moneyline pick or store nothing.",
         "Log qualifier rows once per game per day. Do not re-fire on refreshes unless date changes.",
         "Handle splits may update intra-day — final snapshot near game time is most meaningful.",
       ],
@@ -1170,10 +1169,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NBA games where the home team attracts ≥ 65% of ML handle dollars AND the spread is within ±4 points. Super-majority public money on the home side in a genuinely competitive game.",
+        "NBA close-game super-majority handle system. When it passes the gate, it becomes a real stored moneyline pick.",
       snapshot: "🟡 RAIL LIVE | Action Network handle splits ingested. Qualification logic wired. Awaiting first game-day firing.",
       definition:
-        "Flag NBA games where: (1) the home team holds ≥ 65% of ML handle dollars (super-majority), AND (2) the game spread is ±4 points or tighter. A super-majority handle in a close game suggests either home-field public bias or legitimate sharp support on a tight matchup. Alert only.",
+        "Flag NBA games where: (1) the home team holds ≥ 65% of ML handle dollars (super-majority), AND (2) the game spread is ±4 points or tighter. When both pass, the home-team moneyline becomes the stored system pick.",
       qualifierRules: [
         "Home team must hold ≥ 65% of ML handle dollars (ml_home_money from Action Network).",
         "Spread must be ±4 or tighter: |homeSpread| ≤ 4 (homeSpread = -spreadAway).",
@@ -1226,8 +1225,8 @@ function seededCatalog(): TrackedSystem[] {
         "Consider combining with spread trend context once system accumulates 20+ qualified games.",
       ],
       trackingNotes: [
-        "Alert only — do not imply a bet direction without separate edge verification.",
-        "The spread threshold (±4) is a starting point. Review after 4 weeks of data.",
+        "Binary behavior only: store the moneyline pick or store nothing.",
+        "The spread threshold (±4) is a starting point. Review after enough settled picks.",
         "Close-game definition intentionally conservative to filter out lopsided games.",
       ],
       records: [],
@@ -1243,10 +1242,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NHL home underdog receiving majority (≥ 60%) of ML handle dollars. Public money contradicts the road favorite — potential steam or narrative mis-pricing. Threshold tightened 2026-03-29 from 55%.",
+        "NHL home underdog receiving majority ML handle. When it passes the gate, it becomes a real stored moneyline pick.",
       snapshot: "🟡 RAIL LIVE | Action Network NHL splits ingested. Qualifier logic wired (≥ 60% ML handle). Line-move history rail wired — confirmation note added when ≥ 2 snapshots available.",
       definition:
-        "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 60% of ML handle dollars. When public money flows to a home dog at this level, it either signals genuine sharp action or a market that has over-priced the road team. Alert only — not a directional pick without further context and historical validation.",
+        "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 60% of ML handle dollars. When that gate passes, the home dog moneyline becomes the stored system pick.",
       qualifierRules: [
         "Home team must be a moneyline underdog: bestHome.odds > 0 from aggregated NHL odds.",
         "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 55% to reduce noise.",
@@ -1283,7 +1282,7 @@ function seededCatalog(): TrackedSystem[] {
         "Line-move context now attached to each qualifier. Upgrade to direction-confirmed alert once win-rate history accumulates.",
       ],
       trackingNotes: [
-        "Alert only — do not imply a bet direction without a separate value gate and historical validation.",
+        "Binary behavior only: store the moneyline pick or store nothing.",
         "NHL handle data may be thinner than NBA early in the day; near-game snapshots are most meaningful.",
         "Line-move note is informational only — qualifier fires on splits threshold, not on line-move requirement.",
       ],
@@ -1299,10 +1298,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NHL games where the Under receives ≥ 62% of total handle. Public over-bias reversed at this level — sharper signal threshold. Tightened 2026-03-29 from 58%.",
+        "NHL under handle system. When it passes the gate, it becomes a real stored full-game under pick.",
       snapshot: "🟡 RAIL LIVE | Action Network NHL total splits ingested. Qualifier logic wired (≥ 62% Under handle). Line-move history context attached when available.",
       definition:
-        "Flag NHL games where the Under side attracts ≥ 62% of total (O/U) handle dollars. Public bettors heavily favour Overs across major sports. When handle flows to the Under at this rate, it more reliably indicates sharp money or a structurally under-priced low-scoring scenario. Alert only.",
+        "Flag NHL games where the Under side attracts ≥ 62% of total (O/U) handle dollars. When that gate passes at 5.5, the full-game under becomes the stored system pick.",
       qualifierRules: [
         "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 58% to improve signal quality.",
         "Total splits must be available: totalSplitsAvailable = true on the BettingSplitsSnapshot.",
@@ -1333,7 +1332,7 @@ function seededCatalog(): TrackedSystem[] {
         "Line-move context now wired. Upgrade to direction-confirmed alert once pattern data accumulates.",
       ],
       trackingNotes: [
-        "Alert only. No bet direction claimed. Track qualifier frequency and game context before adding a direction gate.",
+        "Binary behavior only: store the full-game under pick or store nothing.",
         "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
@@ -1349,10 +1348,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "MLB games where the home team receives ≥ 60% of ML handle dollars. Threshold tightened 2026-03-29 from 55% — 55% fires too broadly given home-team bias baseline. Alert only — watchlist until direction is validated.",
+        "MLB home-handle system. When it passes the gate, it becomes a real stored moneyline pick.",
       snapshot: "🟡 RAIL LIVE | Action Network MLB splits ingested. Qualifier logic wired (≥ 60% ML handle). Line-move history context attached when available.",
       definition:
-        "Flag MLB games where the home team holds ≥ 60% of ML handle dollars, regardless of whether they are a favourite or underdog. 60% is a meaningfully elevated signal over the typical home-team bias baseline. When handle majority reaches this level, the away team's price may be inflated by bias or the home side may carry genuine sharp interest. Alert only — watchlist until direction is validated.",
+        "Flag MLB games where the home team holds ≥ 60% of ML handle dollars, regardless of whether they are a favourite or underdog. When that gate passes, the home-team moneyline becomes the stored system pick.",
       qualifierRules: [
         "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Tightened from 55% (2026-03-29) — 55% fires too broadly in MLB where home-team bias is structural.",
         "Splits data must be available: mlSplitsAvailable = true.",
@@ -1361,7 +1360,7 @@ function seededCatalog(): TrackedSystem[] {
       ],
       progressionLogic: [],
       thesis:
-        "Home-team bias in MLB betting is persistent. When home teams attract majority handle, the market may over-price them, creating value on the road side. Alternatively, genuine sharp action on a strong home team could explain the flow. This system tracks the pattern for investigation before any bet direction is claimed.",
+        "Home-team bias in MLB betting is persistent. V1 keeps it simple: when this gate passes, back the home-team moneyline and let tracked results decide if the angle survives.",
       sourceNotes: [
         {
           label: "Action Network (DK primary + FD comparison)",
@@ -1379,7 +1378,7 @@ function seededCatalog(): TrackedSystem[] {
         "Line-move context now wired. Direction still unresolved — do not claim value without validated edge.",
       ],
       trackingNotes: [
-        "Watchlist alert only — no bet direction implied. 60% handle is the minimum for a non-trivial signal in MLB.",
+        "Binary behavior only: store the moneyline pick or store nothing.",
         "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
@@ -1394,10 +1393,10 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "MLB games where the Under receives ≥ 62% of total handle. Threshold tightened 2026-03-29 from 58% — sharper under signal, less noise from borderline splits.",
+        "MLB under handle system. When it passes the gate, it becomes a real stored full-game under pick.",
       snapshot: "🟡 RAIL LIVE | Action Network MLB total splits ingested. Qualifier logic wired (≥ 62% Under handle). Line-move history context attached when available.",
       definition:
-        "Flag MLB games where the Under attracts ≥ 62% of total handle. Public bettors have a strong over-bias in baseball. At 62%+ under handle, the signal more reliably indicates sharp or informed activity rather than casual bettors or variance. Alert only.",
+        "Flag MLB games where the Under attracts ≥ 62% of total handle. When that gate passes, the full-game under becomes the stored system pick.",
       qualifierRules: [
         "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Tightened from 58% (2026-03-29) — 58% fires too broadly in MLB; 62% is a more distinct signal.",
         "Total splits must be available: totalSplitsAvailable = true.",
@@ -1406,7 +1405,7 @@ function seededCatalog(): TrackedSystem[] {
       ],
       progressionLogic: [],
       thesis:
-        "Baseball public bettors tend to favour Overs — pitcher matchups, park factors, and scoring environments make high-scoring games more exciting to bet. When handle flips to the Under at 58%+, the move is more likely to reflect sharp positioning rather than casual bets.",
+        "Baseball public bettors tend to favour Overs. V1 keeps it simple: when this under gate passes, store the full-game under and let grading decide if the angle deserves to live.",
       sourceNotes: [
         {
           label: "Action Network (DK primary + FD comparison)",
@@ -1423,7 +1422,7 @@ function seededCatalog(): TrackedSystem[] {
         "Rail live. Threshold tightened to 62% (2026-03-29). Track frequency at new threshold before adding directional claim.",
       ],
       trackingNotes: [
-        "Alert only. No bet direction claimed. Starter context and park factors are useful overlays before acting.",
+        "Binary behavior only: store the full-game under pick or store nothing.",
         "Line-move note is informational — qualifier does not require line history to fire.",
       ],
       records: [],
@@ -2349,19 +2348,18 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   const officialLineups = system.records.filter((record) => record.lineupStatus === "official").length;
   const partialLineups = system.records.filter((record) => record.lineupStatus === "partial").length;
   const triggeredRows = system.records.filter((record) => record.recordKind === "qualifier").length;
-  const contextRows = system.records.filter((record) => record.recordKind === "alert").length;
   const weatherReady = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
   const parkReady = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("missing")).length;
   const bullpenReady = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
   const marketReady = system.records.filter((record) => record.marketType || record.currentMoneyline != null || record.f5Summary).length;
   const recentOffenseReady = system.records.filter((record) => record.notes?.includes("Recent offense trigger:")).length;
 
-  system.status = rows > 0 ? "tracking" : "awaiting_verification";
-  system.trackabilityBucket = triggeredRows > 0 ? "trackable_now" : "blocked_missing_data";
-  system.automationStatusLabel = triggeredRows > 0 ? "Live system picks" : rows > 0 ? "Context board live" : "Off";
-  system.automationStatusDetail = rows > 0
-    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored. ${triggeredRows} system pick${triggeredRows === 1 ? "" : "s"}, ${contextRows} context row${contextRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
-    : "System is off until official lineup context, price discipline, and validation support a real live picks rule.";
+  system.status = triggeredRows > 0 ? "tracking" : "awaiting_verification";
+  system.trackabilityBucket = "trackable_now";
+  system.automationStatusLabel = triggeredRows > 0 ? "Live system picks" : "Awaiting live pick";
+  system.automationStatusDetail = triggeredRows > 0
+    ? `${triggeredRows} system pick${triggeredRows === 1 ? "" : "s"} stored. ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
+    : "No live Tony's Tight Bats pick stored yet. This system now stays binary: real pick or nothing.";
 
   const lineupRequirement = findRequirement(system, "Official lineup status");
   if (lineupRequirement) {
@@ -2612,7 +2610,7 @@ function buildSwaggyQualifierRecord(input: {
     : null;
 
   const notes = [
-    'Qualifier alert only — not an official pick or backtest claim.',
+    'System pick: back the qualified side moneyline. This is stored, graded, and kept in system history.',
     `${input.qualified.teamAbbrev} urgency ${input.qualified.derived.playoffPressure.urgencyTier} vs ${input.opponent.teamAbbrev} ${input.opponent.derived.playoffPressure.urgencyTier}.`,
     `MoneyPuck xG% ${xg != null ? xg.toFixed(3) : '—'} vs ${oppXg != null ? oppXg.toFixed(3) : '—'}${xgEdge != null ? ` (edge ${xgEdge > 0 ? '+' : ''}${xgEdge.toFixed(3)})` : ''}.`,
     ppEffNote,
@@ -3899,7 +3897,7 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
   system.snapshot = alertRecordCount > 0
     ? `${audit.alerts} Ripper F5 alert game${audit.alerts === 1 ? "" : "s"} today (${alertRecordCount} actionable F5 option${alertRecordCount === 1 ? "" : "s"}) — F5 market posted with meaningful starter mismatch. ${auditSummary}`
     : freshRecords.length > 0
-      ? `Context board loaded (${freshRecords.length} games). No F5 alert qualified today. ${auditSummary}`
+      ? `No F5 pick stored today. ${auditSummary}`
       : `No MLB games found for ${targetDate}. ${auditSummary}`;
   system.automationStatusLabel = alertRecordCount > 0 ? `Live F5 alert — ${alertRecordCount} actionable option${alertRecordCount === 1 ? "" : "s"} (starter mismatch + F5 market confirmed)` : "Context board live — awaiting F5 market posts";
   system.automationStatusDetail = auditSummary;
@@ -4209,9 +4207,9 @@ async function refreshBigCatBonazaPuckLuckSystemData(data: SystemsTrackingData, 
 
   system.status = audit.qualified > 0 ? 'tracking' : 'awaiting_data';
   system.snapshot = audit.qualified > 0
-    ? `${audit.qualified} BigCat qualifier${audit.qualified === 1 ? '' : 's'} for ${targetDate} — underfinishing teams vs process. Partial PDO (offense side only). ${auditSummary}`
-    : `No BigCat qualifiers for ${targetDate} — no teams passed xG process + finishing luck screen. Partial PDO blocker: goalsAgainst not in snapshot. ${auditSummary}`;
-  system.automationStatusLabel = audit.qualified > 0 ? 'Live — BigCat finishing-luck alerts' : 'Awaiting qualifiers';
+    ? `${audit.qualified} BigCat pick${audit.qualified === 1 ? '' : 's'} for ${targetDate} — underfinishing teams vs process. Partial PDO (offense side only). ${auditSummary}`
+    : `No BigCat picks for ${targetDate} — no teams passed xG process + finishing luck screen. Partial PDO blocker: goalsAgainst not in snapshot. ${auditSummary}`;
+  system.automationStatusLabel = audit.qualified > 0 ? 'Live system picks' : 'Awaiting live pick';
   system.automationStatusDetail = `Daily finishing-luck screen: xGoalsPercentage >= 0.505, goalsFor/xGoalsFor <= 0.96, >=25 GP, price -170 to +250. Partial PDO — goalsAgainst missing from MoneyPuck snapshot. ${auditSummary}`;
 
   return system;
@@ -4342,9 +4340,9 @@ async function refreshCoachNoRestSystemData(data: SystemsTrackingData, options: 
 
   system.status = audit.qualified > 0 ? 'tracking' : 'awaiting_data';
   system.snapshot = audit.qualified > 0
-    ? `${audit.qualified} Coach, No Rest? qualifier${audit.qualified === 1 ? '' : 's'} for ${targetDate} — B2B vs rested matchup${audit.qualified === 1 ? '' : 's'} flagged. ${auditSummary}`
-    : `No Coach, No Rest? qualifiers for ${targetDate} — no B2B vs 2+ day rested matchups on today's slate. ${auditSummary}`;
-  system.automationStatusLabel = audit.qualified > 0 ? 'Live — rest-disparity alert active' : 'Awaiting B2B vs rested matchup';
+    ? `${audit.qualified} Coach, No Rest? pick${audit.qualified === 1 ? '' : 's'} for ${targetDate} — B2B vs rested matchup${audit.qualified === 1 ? '' : 's'} fired. ${auditSummary}`
+    : `No Coach, No Rest? picks for ${targetDate} — no B2B vs 2+ day rested matchups on today's slate. ${auditSummary}`;
+  system.automationStatusLabel = audit.qualified > 0 ? 'Live system picks' : 'Awaiting live pick';
   system.automationStatusDetail = `Daily rest-disparity screen: B2B team (0 rest) vs opponent with >=2 days rest, fatigue gap >=15, price -175 to +170. ${auditSummary}`;
 
   return system;
@@ -4502,8 +4500,8 @@ async function refreshNHLHomeDogMajorityHandleSystemData(
   system.status = "tracking" as SystemTrackingStatus;
   system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
   system.snapshot = audit.qualified > 0
-    ? `🟢 ${audit.qualified} NHL Home Dog qualifier(s) today | ${auditNote}`
-    : `🟡 No qualifiers today | ${auditNote}`;
+    ? `🟢 ${audit.qualified} NHL Home Dog pick(s) today | ${auditNote}`
+    : `🟡 No picks today | ${auditNote}`;
   system.records = freshRecords;
   return system;
 }
@@ -4589,8 +4587,8 @@ async function refreshNHLUnderMajorityHandleSystemData(
   system.status = "tracking" as SystemTrackingStatus;
   system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
   system.snapshot = audit.qualified > 0
-    ? `🟢 ${audit.qualified} NHL Under qualifier(s) today | ${auditNote}`
-    : `🟡 No NHL under qualifiers today | ${auditNote}`;
+    ? `🟢 ${audit.qualified} NHL Under pick(s) today | ${auditNote}`
+    : `🟡 No NHL under picks today | ${auditNote}`;
   system.records = freshRecords;
   return system;
 }
@@ -4686,8 +4684,8 @@ async function refreshMLBHomeMajorityHandleSystemData(
   system.status = "tracking" as SystemTrackingStatus;
   system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
   system.snapshot = audit.qualified > 0
-    ? `🟢 ${audit.qualified} MLB Home Handle qualifier(s) today | ${auditNote}`
-    : `🟡 No MLB home handle qualifiers today | ${auditNote}`;
+    ? `🟢 ${audit.qualified} MLB Home Handle pick(s) today | ${auditNote}`
+    : `🟡 No MLB home handle picks today | ${auditNote}`;
   system.records = freshRecords;
   return system;
 }
@@ -4771,8 +4769,8 @@ async function refreshMLBUnderMajorityHandleSystemData(
   system.status = "tracking" as SystemTrackingStatus;
   system.trackabilityBucket = "trackable_now" as SystemTrackabilityBucket;
   system.snapshot = audit.qualified > 0
-    ? `🟢 ${audit.qualified} MLB Under qualifier(s) today | ${auditNote}`
-    : `🟡 No MLB under qualifiers today | ${auditNote}`;
+    ? `🟢 ${audit.qualified} MLB Under pick(s) today | ${auditNote}`
+    : `🟡 No MLB under picks today | ${auditNote}`;
   system.records = freshRecords;
   return system;
 }
@@ -4908,8 +4906,8 @@ async function refreshNFLHomeDogMajorityHandleSystemData(
     ...system,
     status: audit.qualified > 0 ? "tracking" as SystemTrackingStatus : "awaiting_data" as SystemTrackingStatus,
     snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} NFL Home Dog qualifier(s) today | ${auditNote}`
-      : `🟡 No NFL qualifiers today | ${auditNote}`,
+      ? `🟢 ${audit.qualified} NFL Home Dog pick(s) today | ${auditNote}`
+      : `🟡 No NFL picks today | ${auditNote}`,
     records: freshRecords,
   };
 }
@@ -5236,8 +5234,8 @@ async function refreshNBAHomeSuperMajorityCloseGameSystemData(
     status: "tracking" as SystemTrackingStatus,
     trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
     snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} qualifier(s) today | ${auditNote}`
-      : `🟡 No qualifiers today | ${auditNote}`,
+      ? `🟢 ${audit.qualified} pick(s) today | ${auditNote}`
+      : `🟡 No picks today | ${auditNote}`,
     dataRequirements: (system.dataRequirements ?? []).map((req) => ({
       ...req,
       status: "ready" as DataRequirementStatus,
@@ -5382,7 +5380,7 @@ async function refreshFuchsFadeSystemData(
       `Public spread: ${publicTeamAbbrev} ${publicSpreadLine != null ? (publicSpreadLine > 0 ? "+" : "") + publicSpreadLine : ""}. Bets: ${publicBetsPct}%${publicHandlePct != null ? `. Handle: ${publicHandlePct}%` : ""}.`,
       `Line moved ${lineDelta != null ? (lineDelta > 0 ? "+" : "") + lineDelta.toFixed(1) : "?"} pts since opening (${history.capturedSnapshots} snapshot(s), source: ${history.source}).`,
       `Snapshot window: ${history.openingCapturedAt.slice(0, 16)} → ${history.latestCapturedAt.slice(0, 16)}.`,
-      `Alert only — not a pick. No historical win rate claimed. Verify context before acting.`,
+      `System pick: back ${fadeTeam} against the inflated public side. This is stored, graded, and kept in system history.`,
     ].join(" • ");
 
     freshRecords.push(
@@ -5413,8 +5411,8 @@ async function refreshFuchsFadeSystemData(
     status: "tracking" as SystemTrackingStatus,
     trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
     snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} Fuch's Fade qualifier(s) today | ${auditNote}`
-      : `🟡 No Fuch's Fade qualifiers today | ${auditNote}`,
+      ? `🟢 ${audit.qualified} Fuch's Fade pick(s) today | ${auditNote}`
+      : `🟡 No Fuch's Fade picks today | ${auditNote}`,
     dataRequirements: (system.dataRequirements ?? []).map((req) => ({
       ...req,
       status: "ready" as DataRequirementStatus,
