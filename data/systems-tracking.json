@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-04-09T10:07:27.285Z",
+  "updatedAt": "2026-04-09T16:55:24.394Z",
   "systems": [
     {
       "id": "nba-goose-system",
@@ -551,7 +551,7 @@
           "estimatedNetUnits": null,
           "source": "The Odds API + ESPN summary",
           "notes": "FG Pinnacle • 1Q line missing after final • Marked ungradeable until real quarter inputs exist",
-          "lastSyncedAt": "2026-04-09T10:07:26.893Z"
+          "lastSyncedAt": "2026-04-09T16:55:23.726Z"
         },
         {
           "id": "nba-goose:NBA:CHI@WAS:na",
@@ -604,7 +604,7 @@
           "estimatedNetUnits": null,
           "source": "The Odds API + ESPN summary",
           "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
-          "lastSyncedAt": "2026-04-09T10:07:26.892Z"
+          "lastSyncedAt": "2026-04-09T16:55:23.726Z"
         }
       ]
     },
@@ -705,7 +705,7 @@
           "estimatedNetUnits": null,
           "source": "",
           "notes": "Big Cats NBA 1Q Under candidate — BOS @ NYK. • Full-game total 219.5 falls inside the validated 210–225 band. • Backtest proxy uses 28% of full-game total as the target 1Q threshold (~61.5). • This becomes a live pick rail once exact grading support exists. Until then, no fake certainty.",
-          "lastSyncedAt": "2026-04-09T10:07:26.893Z"
+          "lastSyncedAt": "2026-04-09T16:55:23.726Z"
         }
       ]
     },
@@ -1055,7 +1055,7 @@
       "status": "tracking",
       "trackabilityBucket": "trackable_now",
       "summary": "Contrarian NBA fade: public piles one-sided on spread, line inflated in that direction, fade the inflated side. Both rails live — Action Network splits + Supabase-backed line-move history.",
-      "snapshot": "🟡 No Fuch's Fade picks today | Scanned 7 games. No splits: 3. Splits insufficient: 0. No line history: 4. Line too small: 0. Price band fail: 0. Qualified: 0.",
+      "snapshot": "🟡 No Fuch's Fade picks today | Scanned 4 games. No splits: 0. Splits insufficient: 0. No line history: 4. Line too small: 0. Price band fail: 0. Qualified: 0.",
       "definition": "Fade NBA spread sides where public bets >= 60% on one side AND the line has moved in the same direction (market inflated by public action, not sharp counter). Back the contrarian side only when both conditions are confirmed.",
       "qualifierRules": [
         "Spread bets% >= 60% on one side (primary source DK; FD fallback).",
@@ -1190,7 +1190,7 @@
           "alertLabel": "Rest edge — TOR B2B vs 4d rest NYI",
           "starterName": null,
           "starterEra": null,
-          "currentMoneyline": -128,
+          "currentMoneyline": -143,
           "falconsScore": null,
           "falconsScoreLabel": null,
           "falconsScoreComponents": null,
@@ -1208,8 +1208,8 @@
           "urgencyTier": "medium",
           "fatigueScore": 0,
           "opponentFatigueScore": 35,
-          "goalieStatus": null,
-          "opponentGoalieStatus": null,
+          "goalieStatus": "Semyon Varlamov (probable)",
+          "opponentGoalieStatus": "Anthony Stolarz (probable)",
           "totalLine": 6.5,
           "closingSpread": null,
           "firstQuarterSpread": null,
@@ -1223,8 +1223,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "NHL API schedule (rest days, B2B flag) + derived fatigue + goalie status + aggregated NHL odds",
-          "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie status unknown. • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -128 (Kambi) • total 6.5.",
-          "lastSyncedAt": "2026-04-09T10:07:27.086Z"
+          "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie: Anthony Stolarz (probable). • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -143 (Kambi) • total 6.5.",
+          "lastSyncedAt": "2026-04-09T16:55:24.303Z"
         }
       ]
     },
@@ -1238,7 +1238,7 @@
       "status": "awaiting_data",
       "trackabilityBucket": "trackable_now",
       "summary": "Late-season NHL live pick rail now uses explicit urgency, goalie, fatigue, MoneyPuck, and price gates. Conservative rules, not a claimed mature edge.",
-      "snapshot": "No Swaggy qualifiers met the rule-gated screen for 2026-04-09. Audit 14 games / 12 team checks • no odds event 8 • urgency 6 • opp urgency 1 • xG missing 0 • xG floor 3 • xG edge 1 • goalie missing 1 • backup 0 • goalie status 0 • fatigue 0 • fatigue gap 0 • no price 0 • price band 0.",
+      "snapshot": "No Swaggy qualifiers met the rule-gated screen for 2026-04-09. Audit 14 games / 12 team checks • no odds event 8 • urgency 6 • opp urgency 1 • xG missing 0 • xG floor 3 • xG edge 1 • goalie missing 0 • backup 0 • goalie status 0 • fatigue 0 • fatigue gap 0 • no price 0 • price band 1.",
       "definition": "Look for late-season NHL teams with real standings urgency, acceptable goalie/fatigue posture, and enough underlying profile support that a moderate moneyline can still be justified without blindly paying for a 'must-win' story.",
       "qualifierRules": [
         "Urgency is mandatory: target side must carry derived playoff-pressure tier high, while the opponent cannot also rate high urgency.",
@@ -1261,7 +1261,7 @@
         }
       ],
       "automationStatusLabel": "Awaiting fresh qualifiers",
-      "automationStatusDetail": "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. Audit 14 games / 12 team checks • no odds event 8 • urgency 6 • opp urgency 1 • xG missing 0 • xG floor 3 • xG edge 1 • goalie missing 1 • backup 0 • goalie status 0 • fatigue 0 • fatigue gap 0 • no price 0 • price band 0.",
+      "automationStatusDetail": "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. Audit 14 games / 12 team checks • no odds event 8 • urgency 6 • opp urgency 1 • xG missing 0 • xG floor 3 • xG edge 1 • goalie missing 0 • backup 0 • goalie status 0 • fatigue 0 • fatigue gap 0 • no price 0 • price band 1.",
       "dataRequirements": [
         {
           "label": "Standings urgency rules",
@@ -7764,13 +7764,13 @@
           "alertLabel": "Tracked system pick",
           "starterName": "Jack Flaherty",
           "starterEra": null,
-          "currentMoneyline": -129,
+          "currentMoneyline": -134,
           "falconsScore": 67,
           "falconsScoreLabel": "qualified",
           "falconsScoreComponents": [
             "prior-start damage +9 (5 ER, 3 H, 4.0 IP)",
             "listed ERA missing (no score change)",
-            "market band +5 (-129)",
+            "market band +5 (-134)",
             "lineup unconfirmed (no score boost)",
             "bullpen fatigue context +2",
             "F5 market posted +1"
@@ -7778,7 +7778,7 @@
           "priorGameDate": "2026-04-04",
           "priorStartSummary": "4.0 IP, 5 ER, 3 H allowed",
           "lineupStatus": "DET lineup unconfirmed - DET lineup not yet published in MLB live feed..",
-          "weatherSummary": "Target Field: 40.3°F, wind 10.8 mph, precip 0%.",
+          "weatherSummary": "Target Field: 41.5°F, wind 13.2 mph, precip 0%.",
           "parkFactorSummary": "Target Field plays close to neutral (runs index 104).",
           "bullpenSummary": "DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 total available (partial).",
@@ -7804,8 +7804,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB Stats API probable starters + pitching game logs + aggregated odds + MLB enrichment rails",
-          "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -129 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 40.3°F, wind 10.8 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-129); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
-          "lastSyncedAt": "2026-04-09T10:07:27.101Z"
+          "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -134 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 41.5°F, wind 13.2 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-134); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
+          "lastSyncedAt": "2026-04-09T16:55:24.318Z"
         }
       ]
     },
@@ -11345,7 +11345,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "42°F • 16 mph wind",
+          "weatherSummary": "43°F • 16 mph wind",
           "parkFactorSummary": "Citi Field: Runs 96 • HR 104",
           "bullpenSummary": "AZ: Bullpen usage looks manageable: 109 pitches and 7.7 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYM: Bullpen usage looks manageable: 86 pitches and 5.3 innings from relievers across the last 1 reviewed game, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 none.",
@@ -11371,8 +11371,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: Eduardo Rodriguez listed without current ERA context. vs Nolan McLean listed without current ERA context. • F5: F5 none • Weather: 42°F • 16 mph wind • Park: Citi Field: Runs 96 • HR 104 • Bullpen: AZ: Bullpen usage looks manageable: 109 pitches and 7.7 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYM: Bullpen usage looks manageable: 86 pitches and 5.3 innings from relievers across the last 1 reviewed game, with 0 relievers on back-to-back usage. • Waiting on F5 market to post. • Quality gap — pts below 12-pt mismatch threshold.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: Eduardo Rodriguez listed without current ERA context. vs Nolan McLean listed without current ERA context. • F5: F5 none • Weather: 43°F • 16 mph wind • Park: Citi Field: Runs 96 • HR 104 • Bullpen: AZ: Bullpen usage looks manageable: 109 pitches and 7.7 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYM: Bullpen usage looks manageable: 86 pitches and 5.3 innings from relievers across the last 1 reviewed game, with 0 relievers on back-to-back usage. • Waiting on F5 market to post. • Quality gap — pts below 12-pt mismatch threshold.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         },
         {
           "id": "robbies-ripper-fast-5:823884",
@@ -11398,7 +11398,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "76°F • 20 mph wind",
+          "weatherSummary": "75°F • 24 mph wind",
           "parkFactorSummary": "loanDepot park: Runs 102 • HR 90",
           "bullpenSummary": "CIN: Bullpen workload is notable but not extreme: 256 pitches and 15.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIA: Bullpen usage looks manageable: 141 pitches and 7.3 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 partial (total).",
@@ -11424,8 +11424,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: Rhett Lowder listed without current ERA context. vs Max Meyer listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 76°F • 20 mph wind • Park: loanDepot park: Runs 102 • HR 90 • Bullpen: CIN: Bullpen workload is notable but not extreme: 256 pitches and 15.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIA: Bullpen usage looks manageable: 141 pitches and 7.3 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: Rhett Lowder listed without current ERA context. vs Max Meyer listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 75°F • 24 mph wind • Park: loanDepot park: Runs 102 • HR 90 • Bullpen: CIN: Bullpen workload is notable but not extreme: 256 pitches and 15.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIA: Bullpen usage looks manageable: 141 pitches and 7.3 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         },
         {
           "id": "robbies-ripper-fast-5:823319",
@@ -11451,7 +11451,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "68°F • 11 mph wind",
+          "weatherSummary": "68°F • 10 mph wind",
           "parkFactorSummary": "Petco Park: Runs 94 • HR 102",
           "bullpenSummary": "COL: Bullpen workload is notable but not extreme: 142 pitches and 9.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • SD: Bullpen workload is notable but not extreme: 174 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 partial (total).",
@@ -11477,8 +11477,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: at least one probable starter still unlisted. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 68°F • 11 mph wind • Park: Petco Park: Runs 94 • HR 102 • Bullpen: COL: Bullpen workload is notable but not extreme: 142 pitches and 9.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • SD: Bullpen workload is notable but not extreme: 174 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: at least one probable starter still unlisted. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 68°F • 10 mph wind • Park: Petco Park: Runs 94 • HR 102 • Bullpen: COL: Bullpen workload is notable but not extreme: 142 pitches and 9.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • SD: Bullpen workload is notable but not extreme: 174 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         },
         {
           "id": "robbies-ripper-fast-5:824130",
@@ -11504,7 +11504,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "79°F • 27 mph wind",
+          "weatherSummary": "78°F • 27 mph wind",
           "parkFactorSummary": "Kauffman Stadium: Runs 102 • HR 85",
           "bullpenSummary": "CWS: Bullpen workload is notable but not extreme: 313 pitches and 16.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • KC: Bullpen workload is notable but not extreme: 257 pitches and 12.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 partial (total).",
@@ -11530,8 +11530,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: Anthony Kay listed without current ERA context. vs Seth Lugo listed without current ERA context. • F5: F5 partial (total) • total 6 • Posted F5 options: total. • Weather: 79°F • 27 mph wind • Park: Kauffman Stadium: Runs 102 • HR 85 • Bullpen: CWS: Bullpen workload is notable but not extreme: 313 pitches and 16.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • KC: Bullpen workload is notable but not extreme: 257 pitches and 12.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: Anthony Kay listed without current ERA context. vs Seth Lugo listed without current ERA context. • F5: F5 partial (total) • total 6 • Posted F5 options: total. • Weather: 78°F • 27 mph wind • Park: Kauffman Stadium: Runs 102 • HR 85 • Bullpen: CWS: Bullpen workload is notable but not extreme: 313 pitches and 16.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • KC: Bullpen workload is notable but not extreme: 257 pitches and 12.7 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         },
         {
           "id": "robbies-ripper-fast-5:823724",
@@ -11557,7 +11557,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "40°F • 11 mph wind",
+          "weatherSummary": "42°F • 13 mph wind",
           "parkFactorSummary": "Target Field: Runs 104 • HR 102",
           "bullpenSummary": "DET: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIN: Bullpen usage looks manageable: 206 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 partial (total).",
@@ -11583,8 +11583,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: Jack Flaherty listed without current ERA context. vs Mick Abel listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 40°F • 11 mph wind • Park: Target Field: Runs 104 • HR 102 • Bullpen: DET: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIN: Bullpen usage looks manageable: 206 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: Jack Flaherty listed without current ERA context. vs Mick Abel listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 42°F • 13 mph wind • Park: Target Field: Runs 104 • HR 102 • Bullpen: DET: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • MIN: Bullpen usage looks manageable: 206 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         },
         {
           "id": "robbies-ripper-fast-5:823565",
@@ -11610,7 +11610,7 @@
           "priorGameDate": null,
           "priorStartSummary": null,
           "lineupStatus": null,
-          "weatherSummary": "44°F • 15 mph wind",
+          "weatherSummary": "46°F • 19 mph wind",
           "parkFactorSummary": "Yankee Stadium: Runs 100 • HR 119",
           "bullpenSummary": "OAK: Bullpen usage looks manageable: 120 pitches and 7.0 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYY: Bullpen usage looks manageable: 130 pitches and 8.3 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage.",
           "f5Summary": "F5 partial (total).",
@@ -11636,8 +11636,8 @@
           "sequenceResult": null,
           "estimatedNetUnits": null,
           "source": "MLB enrichment board (lineups + weather + park factors + bullpen + posted markets)",
-          "notes": "Context board: Jeffrey Springs listed without current ERA context. vs Ryan Weathers listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 44°F • 15 mph wind • Park: Yankee Stadium: Runs 100 • HR 119 • Bullpen: OAK: Bullpen usage looks manageable: 120 pitches and 7.0 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYY: Bullpen usage looks manageable: 130 pitches and 8.3 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
-          "lastSyncedAt": "2026-04-09T10:07:27.108Z"
+          "notes": "Context board: Jeffrey Springs listed without current ERA context. vs Ryan Weathers listed without current ERA context. • F5: F5 partial (total) • total 5.5 • Posted F5 options: total. • Weather: 46°F • 19 mph wind • Park: Yankee Stadium: Runs 100 • HR 119 • Bullpen: OAK: Bullpen usage looks manageable: 120 pitches and 7.0 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • NYY: Bullpen usage looks manageable: 130 pitches and 8.3 innings from relievers across the last 2 reviewed games, with 0 relievers on back-to-back usage. • Quality gap — pts below 12-pt mismatch threshold.",
+          "lastSyncedAt": "2026-04-09T16:55:24.326Z"
         }
       ]
     },
@@ -19231,7 +19231,7 @@
       "systemSlug": "nba-goose-system",
       "systemName": "Mattys 1Q Chase NBA",
       "gameDate": "2026-04-05",
-      "loggedAt": "2026-04-09T10:07:26.893Z",
+      "loggedAt": "2026-04-09T16:55:23.726Z",
       "qualifierId": "nba-goose:NBA:PHX@CHI:2026-04-05T19",
       "recordKind": "progression",
       "matchup": "Phoenix Suns @ Chicago Bulls",
@@ -19299,10 +19299,10 @@
         "estimatedNetUnits": null,
         "source": "The Odds API + ESPN summary",
         "notes": "FG Pinnacle • 1Q line missing after final • Marked ungradeable until real quarter inputs exist",
-        "lastSyncedAt": "2026-04-09T10:07:26.893Z"
+        "lastSyncedAt": "2026-04-09T16:55:23.726Z"
       },
       "settledAt": null,
-      "lastSyncedAt": "2026-04-09T10:07:26.893Z"
+      "lastSyncedAt": "2026-04-09T16:55:23.726Z"
     },
     {
       "id": "nhl-home-dog-majority-handle:nhl-home-dog-majority-handle:2026-04-05:PHI",
@@ -21922,7 +21922,7 @@
       "systemSlug": "coach-no-rest",
       "systemName": "Coach, No Rest?",
       "gameDate": "2026-04-09",
-      "loggedAt": "2026-04-09T10:07:27.086Z",
+      "loggedAt": "2026-04-09T16:55:24.303Z",
       "qualifierId": "coach-no-rest:2025021252:NYI",
       "recordKind": "qualifier",
       "matchup": "TOR @ NYI",
@@ -21938,7 +21938,7 @@
       "outcome": "pending",
       "netUnits": null,
       "source": "NHL API schedule (rest days, B2B flag) + derived fatigue + goalie status + aggregated NHL odds",
-      "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie status unknown. • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -128 (Kambi) • total 6.5.",
+      "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie: Anthony Stolarz (probable). • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -143 (Kambi) • total 6.5.",
       "recordSnapshot": {
         "id": "coach-no-rest:2025021252:NYI",
         "gameId": "2025021252",
@@ -21956,7 +21956,7 @@
         "alertLabel": "Rest edge — TOR B2B vs 4d rest NYI",
         "starterName": null,
         "starterEra": null,
-        "currentMoneyline": -128,
+        "currentMoneyline": -143,
         "falconsScore": null,
         "falconsScoreLabel": null,
         "falconsScoreComponents": null,
@@ -21974,8 +21974,8 @@
         "urgencyTier": "medium",
         "fatigueScore": 0,
         "opponentFatigueScore": 35,
-        "goalieStatus": null,
-        "opponentGoalieStatus": null,
+        "goalieStatus": "Semyon Varlamov (probable)",
+        "opponentGoalieStatus": "Anthony Stolarz (probable)",
         "totalLine": 6.5,
         "closingSpread": null,
         "firstQuarterSpread": null,
@@ -21989,11 +21989,11 @@
         "sequenceResult": null,
         "estimatedNetUnits": null,
         "source": "NHL API schedule (rest days, B2B flag) + derived fatigue + goalie status + aggregated NHL odds",
-        "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie status unknown. • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -128 (Kambi) • total 6.5.",
-        "lastSyncedAt": "2026-04-09T10:07:27.086Z"
+        "notes": "Coach, No Rest? pick — rest disparity gate cleared. Back rested side. • TOR on B2B (0 rest days). NYI has 4 days rest. • Rest gap: 4 days. Fatigue scores: TOR 35 vs NYI 0. • TOR B2B goalie: Anthony Stolarz (probable). • xG context: NYI 0.480 vs TOR 0.460. • NYI ML -143 (Kambi) • total 6.5.",
+        "lastSyncedAt": "2026-04-09T16:55:24.303Z"
       },
       "settledAt": null,
-      "lastSyncedAt": "2026-04-09T10:07:27.086Z"
+      "lastSyncedAt": "2026-04-09T16:55:24.303Z"
     },
     {
       "id": "nba-goose-system:nba-goose:NBA:CHI@WAS:na",
@@ -22001,7 +22001,7 @@
       "systemSlug": "nba-goose-system",
       "systemName": "Mattys 1Q Chase NBA",
       "gameDate": "2026-04-09",
-      "loggedAt": "2026-04-09T10:07:26.892Z",
+      "loggedAt": "2026-04-09T16:55:23.726Z",
       "qualifierId": "nba-goose:NBA:CHI@WAS:na",
       "recordKind": "progression",
       "matchup": "Chicago Bulls @ Washington Wizards",
@@ -22069,10 +22069,10 @@
         "estimatedNetUnits": null,
         "source": "The Odds API + ESPN summary",
         "notes": "FG Bovada • Awaiting ESPN 1Q score • 1Q line missing",
-        "lastSyncedAt": "2026-04-09T10:07:26.892Z"
+        "lastSyncedAt": "2026-04-09T16:55:23.726Z"
       },
       "settledAt": null,
-      "lastSyncedAt": "2026-04-09T10:07:26.892Z"
+      "lastSyncedAt": "2026-04-09T16:55:23.726Z"
     },
     {
       "id": "tonys-hot-bats:tonys-hot-bats:823645",
@@ -22554,7 +22554,7 @@
       "systemSlug": "falcons-fight-pummeled-pitchers",
       "systemName": "Veal Banged Up Pitchers",
       "gameDate": "2026-04-09",
-      "loggedAt": "2026-04-09T10:07:27.101Z",
+      "loggedAt": "2026-04-09T16:55:24.318Z",
       "qualifierId": "falcons-fight-pummeled-pitchers:823724:jack-flaherty",
       "recordKind": "qualifier",
       "matchup": "DET @ MIN",
@@ -22570,7 +22570,7 @@
       "outcome": "pending",
       "netUnits": null,
       "source": "MLB Stats API probable starters + pitching game logs + aggregated odds + MLB enrichment rails",
-      "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -129 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 40.3°F, wind 10.8 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-129); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
+      "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -134 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 41.5°F, wind 13.2 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-134); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
       "recordSnapshot": {
         "id": "falcons-fight-pummeled-pitchers:823724:jack-flaherty",
         "gameId": "823724",
@@ -22588,13 +22588,13 @@
         "alertLabel": "Tracked system pick",
         "starterName": "Jack Flaherty",
         "starterEra": null,
-        "currentMoneyline": -129,
+        "currentMoneyline": -134,
         "falconsScore": 67,
         "falconsScoreLabel": "qualified",
         "falconsScoreComponents": [
           "prior-start damage +9 (5 ER, 3 H, 4.0 IP)",
           "listed ERA missing (no score change)",
-          "market band +5 (-129)",
+          "market band +5 (-134)",
           "lineup unconfirmed (no score boost)",
           "bullpen fatigue context +2",
           "F5 market posted +1"
@@ -22602,7 +22602,7 @@
         "priorGameDate": "2026-04-04",
         "priorStartSummary": "4.0 IP, 5 ER, 3 H allowed",
         "lineupStatus": "DET lineup unconfirmed - DET lineup not yet published in MLB live feed..",
-        "weatherSummary": "Target Field: 40.3°F, wind 10.8 mph, precip 0%.",
+        "weatherSummary": "Target Field: 41.5°F, wind 13.2 mph, precip 0%.",
         "parkFactorSummary": "Target Field plays close to neutral (runs index 104).",
         "bullpenSummary": "DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage.",
         "f5Summary": "F5 total available (partial).",
@@ -22628,11 +22628,11 @@
         "sequenceResult": null,
         "estimatedNetUnits": null,
         "source": "MLB Stats API probable starters + pitching game logs + aggregated odds + MLB enrichment rails",
-        "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -129 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 40.3°F, wind 10.8 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-129); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
-        "lastSyncedAt": "2026-04-09T10:07:27.101Z"
+        "notes": "System pick — if this row fires, it is a real tracked system pick. • Falcons score 67/100 (qualified). • Prior start 2026-04-04: 4.0 IP, 5 ER, 3 H allowed (5 ER). • Listed ERA unavailable from probable-starter feed. • Current moneyline -134 (Pinnacle). • DET lineup unconfirmed - DET lineup not yet published in MLB live feed.. • Target Field: 41.5°F, wind 13.2 mph, precip 0%. • Target Field plays close to neutral (runs index 104). • DET bullpen moderate fatigue: Bullpen workload is notable but not extreme: 175 pitches and 10.0 innings from relievers across the last 3 reviewed games, with 0 relievers on back-to-back usage. • F5 total available (partial). • Score components: prior-start damage +9 (5 ER, 3 H, 4.0 IP); listed ERA missing (no score change); market band +5 (-134); lineup unconfirmed (no score boost); bullpen fatigue context +2; F5 market posted +1.",
+        "lastSyncedAt": "2026-04-09T16:55:24.318Z"
       },
       "settledAt": null,
-      "lastSyncedAt": "2026-04-09T10:07:27.101Z"
+      "lastSyncedAt": "2026-04-09T16:55:24.318Z"
     }
   ]
 }

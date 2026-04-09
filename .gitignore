@@ -51,3 +51,8 @@ dev.pid
 # local env
 .env.local
 .env*.local
+
+# local browser / scratch artifacts
+.playwright-dk-profile/
+supabase/.temp/
+tmp-*.mjs

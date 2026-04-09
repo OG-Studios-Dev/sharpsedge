@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import TeamLogo from "@/components/TeamLogo";
 import TrendBadge, { computeBadgeLevel } from "@/components/TrendBadge";
+import { getPlayerHeadshot } from "@/lib/visual-identity";
 
 type GameLog = {
   gameId: number;
@@ -114,6 +115,7 @@ export default function PlayerPage() {
   const teamAbbrev = player?.teamAbbrev ?? "";
   const pos = player ? (POS_LABEL[player.positionCode] ?? player.positionCode) : "";
   const ss = player?.seasonStats;
+  const headshotSrc = player ? getPlayerHeadshot({ league: "NHL", playerId: player.playerId, playerName: name, headshot: player.headshot }) : null;
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -139,11 +141,20 @@ export default function PlayerPage() {
           {/* Player Card */}
           <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
             <div className="flex items-center gap-4">
-              {player?.headshot ? (
-                <img src={player.headshot} alt={name} className="w-16 h-16 rounded-full object-cover border-2 border-dark-border" />
-              ) : (
-                <TeamLogo team={teamAbbrev} size={56} sport="NHL" />
-              )}
+              {headshotSrc ? (
+                <img
+                  src={headshotSrc}
+                  alt={name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-dark-border"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    const fallback = target.nextElementSibling as HTMLElement | null;
+                    if (fallback) fallback.style.display = "flex";
+                  }}
+                />
+              ) : null}
+              <TeamLogo team={teamAbbrev} size={56} sport="NHL" className={headshotSrc ? "hidden" : "flex"} />
               <div className="flex-1 min-w-0">
                 <h2 className="text-white text-lg font-bold truncate">{name}</h2>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">

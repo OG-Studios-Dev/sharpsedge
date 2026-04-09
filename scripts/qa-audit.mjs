@@ -6,6 +6,10 @@ const require = createRequire(import.meta.url);
 const ROOT = process.cwd();
 const APP_DIR = path.join(ROOT, ".next", "server", "app");
 
+function readBuildModule(relativePath) {
+  return fs.readFileSync(path.join(APP_DIR, relativePath), "utf8");
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -52,46 +56,46 @@ function checkPageShells() {
     },
     {
       name: "home",
-      file: "index.html",
-      required: ["TODAY'S TOP PICKS", "100% Club", "Quick Hitters", "Same-Game Parlays", "Trending Now"],
+      file: "page.js",
+      required: ["100% Club", "Quick Hitters", "Same-Game Parlays", "Trending Now"],
       forbidden: ["Today's Schedule", "Today’s Schedule", "GOOSE AI PICKS"],
     },
     {
       name: "picks",
-      file: "picks.html",
+      file: path.join("picks", "page.js"),
       required: ["Season Record", "Today's AI Picks", "View History"],
     },
     {
       name: "props",
-      file: "props.html",
+      file: path.join("props", "page.js"),
       required: ["Props", "100% Club", "Players", "Team"],
     },
     {
       name: "trends",
-      file: "trends.html",
+      file: path.join("trends", "page.js"),
       required: ["Trends", "Player", "Team", "Direction"],
     },
     {
       name: "schedule",
-      file: "schedule.html",
+      file: path.join("schedule", "page.js"),
       required: ["Schedule", "Standings"],
     },
     {
       name: "odds",
-      file: "odds.html",
+      file: path.join("odds", "page.js"),
       required: ["Best Lines", "Movement", "Sharp"],
     },
     {
       name: "history",
-      file: path.join("picks", "history.html"),
-      required: ["All-time AI pick performance", "All Sports"],
+      file: path.join("picks", "history", "page.js"),
+      required: ["Pick History", "All Sports"],
     },
   ];
 
   return checks.map((check) => {
     const text = check.sourceFile
       ? readText(check.sourceFile)
-      : readText(path.join(".next", "server", "app", check.file));
+      : readBuildModule(check.file);
 
     assertHasAll(text, check.required, check.name);
     if (check.forbidden) {

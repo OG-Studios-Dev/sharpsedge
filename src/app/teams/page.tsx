@@ -98,7 +98,7 @@ export default function TeamsPage() {
       teamAbbrev: team.teamAbbrev,
       teamName: team.teamName || team.teamAbbrev,
       detail: `${team.wins}-${team.losses} · ${team.league} ${team.division}`,
-      href: "/props",
+      href: `/team/${team.teamAbbrev}`,
     }));
 
     if (sportLeague === "NBA") return nbaRows;
@@ -127,7 +127,7 @@ export default function TeamsPage() {
           <EmptyStateCard
             eyebrow={sportLeague}
             title="Use Schedule for this league"
-            body="NFL, EPL, and Serie A are wired through the schedule and standings views in this build. Team-level directory pages are still limited to NHL and NBA."
+            body="NFL, EPL, and Serie A are wired through the schedule and standings views in this build. Team-level directory pages are currently live for NHL, NBA, and MLB."
             ctaLabel="Open Schedule"
             ctaHref="/schedule"
           />
