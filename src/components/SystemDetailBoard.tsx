@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import type { NHLContextBoardResponse } from "@/lib/nhl-context";
@@ -70,6 +72,11 @@ function formatSpread(value: number | null | undefined) {
 
 function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) {
   const [open, setOpen] = React.useState(false);
+  if (!record) return null;
+  const matchup = record.matchup || "Unknown matchup";
+  const qualifiedTeam = record.qualifiedTeam || record.roadTeam || record.homeTeam || "Qualifier";
+  const noteText = typeof record.notes === "string" ? record.notes : null;
+  const alertLabel = typeof record.alertLabel === "string" ? record.alertLabel : null;
   const hasQuarterLines = record.firstQuarterSpread != null || record.thirdQuarterSpread != null;
 
   return (
@@ -80,16 +87,14 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
       >
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-semibold text-white truncate">{record.matchup}</span>
+          <span className="text-sm font-semibold text-white truncate">{matchup}</span>
           {record.gameDate && (
             <span className="ml-2 text-[11px] text-gray-500">{record.gameDate}</span>
           )}
         </div>
-        {record.qualifiedTeam && (
-          <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-            ✓ {record.qualifiedTeam}
-          </span>
-        )}
+        <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+          ✓ {qualifiedTeam}
+        </span>
         <svg className={`shrink-0 w-4 h-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
@@ -110,14 +115,14 @@ function QualifiedGameCard({ record }: { record: TrackedSystem["records"][0] }) 
               </div>
             </div>
           )}
-          {record.notes && (
+          {noteText && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Why qualified</p>
-              <p className="text-sm leading-relaxed text-gray-300">{record.notes}</p>
+              <p className="text-sm leading-relaxed text-gray-300">{noteText}</p>
             </div>
           )}
-          {record.alertLabel && !record.alertLabel.toLowerCase().includes("no trigger") && (
-            <p className="text-xs text-gray-500">{record.alertLabel}</p>
+          {alertLabel && !alertLabel.toLowerCase().includes("no trigger") && (
+            <p className="text-xs text-gray-500">{alertLabel}</p>
           )}
         </div>
       )}
@@ -144,8 +149,8 @@ function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
           {qualified.length} game{qualified.length === 1 ? "" : "s"} fired
         </h2>
         <div className="mt-4 space-y-3">
-          {qualified.map((r) => (
-            <QualifiedGameCard key={r.id} record={r} />
+          {qualified.map((r, index) => (
+            <QualifiedGameCard key={r?.id ?? `${system.id}-qualified-${index}`} record={r} />
           ))}
         </div>
       </section>
