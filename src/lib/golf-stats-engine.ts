@@ -1023,9 +1023,9 @@ export function buildGolfTournamentPicks(
   const usedPlayers = new Set<string>();
   const rules: PGAMarketRule[] = [
     { market: "Tournament Winner", targetCount: 4, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 5 Finish", targetCount: 2, minEdge: 0.01, minConfidence: 54, uniquePlayerOnly: true },
-    { market: "Top 10 Finish", targetCount: 3, minEdge: 0.008, minConfidence: 54, uniquePlayerOnly: true },
-    { market: "Top 20 Finish", targetCount: 4, minEdge: 0.006, minConfidence: 52 },
+    { market: "Top 5 Finish", targetCount: 2, minEdge: 0.01, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 10 Finish", targetCount: 3, minEdge: 0.008, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 20 Finish", targetCount: 4, minEdge: 0.006, minConfidence: 35 },
   ];
 
   for (const rule of rules) {
