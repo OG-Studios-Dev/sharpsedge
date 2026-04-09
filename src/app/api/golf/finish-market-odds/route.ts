@@ -424,8 +424,13 @@ export async function GET(req: NextRequest) {
   const hasOddschecker = ocLines.length > 0;
 
   // Priority 1: local DK manual seed (repo-side file, highest fidelity for Valero etc.)
+  // Only return it when it actually contains top-finish markets. Some seeds are
+  // matchup/finishing-position support files and should not shadow richer Bovada data.
   const dkSeed = await readLocalDKSeed(tournament);
-  if (dkSeed) {
+  const dkSeedHasTopFinishLines = Boolean(
+    dkSeed && ((dkSeed.top5?.length ?? 0) > 0 || (dkSeed.top10?.length ?? 0) > 0 || (dkSeed.top20?.length ?? 0) > 0),
+  );
+  if (dkSeed && dkSeedHasTopFinishLines) {
     return NextResponse.json({
       ...dkSeed,
       _meta: {
