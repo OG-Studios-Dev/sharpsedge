@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { AIPick } from "@/lib/types";
 import type { PickHistoryProvenance, PickHistoryRecord, PickSlateRecord } from "@/lib/supabase-types";
 import {
@@ -81,6 +82,7 @@ function buildPickHistoryRows(
   mode: "modern" | "legacy" | "legacy_minimal",
 ) {
   return picks.map((pick) => {
+    const modernRowId = randomUUID();
     const resolvedSportsbook = pick.sportsbook || pick.book || null;
 
     const base = {
@@ -129,7 +131,9 @@ function buildPickHistoryRows(
       }
       : {
         ...enriched,
-        id: pick.id,
+        id: modernRowId,
+        pick_id: pick.id,
+        type: pick.type,
         pick_type: pick.type,
         sportsbook: resolvedSportsbook,
       };
@@ -261,7 +265,8 @@ async function insertPickHistory(picks: AIPick[], provenance: PickHistoryProvena
       || isMissingColumnError(message, "updated_at")
       || isMissingColumnError(message, "id")
       || isMissingColumnError(message, "pick_type")
-      || isMissingColumnError(message, "sportsbook");
+      || isMissingColumnError(message, "sportsbook")
+      || (message.includes("invalid input syntax for type uuid") && message.includes("pick_history"));
 
     if (!needsLegacyFallback) throw error;
 
