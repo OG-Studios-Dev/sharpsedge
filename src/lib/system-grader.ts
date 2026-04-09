@@ -10,7 +10,7 @@
  *   - Robbie's Ripper Fast 5 (MLB F5 side/total): graded from MLB Stats API inning linescore
  *
  * Not gradeable yet (system is off until bet direction is defined honestly):
- *   - The Blowout, Hot Teams Matchup, Tony's Tight Bats
+ *   - The Blowout, Hot Teams Matchup
  */
 
 import { getRecentMLBGames, getMLBF5Linescore } from "@/lib/mlb-api";
@@ -33,6 +33,7 @@ export const GRADEABLE_ML_SYSTEMS = [
   "nba-home-super-majority-close-game",
   "nhl-home-dog-majority-handle",
   "mlb-home-majority-handle",
+  "tonys-hot-bats",
 ] as const;
 
 export const GRADEABLE_TOTAL_SYSTEMS = [
@@ -51,7 +52,6 @@ export const GRADEABLE_PGA_SYSTEMS = [
 export const OFFLINE_SYSTEMS = [
   "the-blowout",
   "hot-teams-matchup",
-  "tonys-hot-bats",
 ] as const;
 
 // ─── PGA pick grading ─────────────────────────────────────────────────────────
@@ -1090,9 +1090,9 @@ export function getGradeabilityMap(): Record<string, {
       notes: "Bet direction unresolved. Matchup discovery only — not gradeable until direction is defined.",
     },
     "tonys-hot-bats": {
-      gradeable: false,
-      gradingType: "watchlist_only",
-      notes: "Off. No explicit bet direction yet — not gradeable until the picks rule is defined.",
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "MLB moneyline: backs the qualified Tony's Tight Bats side when the trigger fires. Graded from MLB Stats API final scores.",
     },
     "robbies-ripper-fast-5": {
       gradeable: true,

@@ -772,7 +772,7 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary: "MLB tight-bats concept is OFF until recent-hitter context becomes a real directional picks rule with validation.",
-      snapshot: "🔴 OFF | No bet direction defined. Context board only until a validated picks rule exists.",
+      snapshot: "🟡 Context board live until a qualified Tony's Tight Bats pick fires. When it fires, it must render, persist, and grade as a real system pick.",
       definition:
         "A first-pass hitting-form concept designed to detect offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
       qualifierRules: [
@@ -780,7 +780,8 @@ function seededCatalog(): TrackedSystem[] {
         "Recent-offense trigger is based on the first four confirmed hitters only, using MLB player game logs from the last 10 games.",
         "A live row would need at least three of the top four hitters to have 5+ logged recent games and a lineup-average of at least 1.00 hit/game, 1.60 total bases/game, and 0.55 runs+RBI/game.",
         "Run environment must help rather than fight the offense: hitter-friendly park, warm weather, or a taxed opposing bullpen can support the row.",
-        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them, but price discipline is not finalized yet.",
+        "When the trigger fires, the system pick is the qualified team moneyline and must be logged, surfaced, and graded as a real system play.",
+        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them, and the qualified side must keep an actual posted number.",
       ],
       progressionLogic: [],
       thesis:
@@ -792,18 +793,18 @@ function seededCatalog(): TrackedSystem[] {
         },
         {
           label: "Honesty policy",
-          detail: "Current rows are internal trigger context only. Missing lineups, weak hitter samples, or incomplete market context must keep this system off rather than guessed into picks.",
+          detail: "Non-trigger rows stay context only. Trigger rows become real qualified moneyline picks only when lineups, hitter form, and posted market context are present. No guessed picks.",
         },
       ],
-      automationStatusLabel: "Off pending rulebook",
-      automationStatusDetail: "Daily context rails exist, but Tony's Hot Bats stays off until a validated bet direction and price-discipline rulebook is defined honestly.",
+      automationStatusLabel: "Context board + live pick trigger",
+      automationStatusDetail: "Daily context rails exist. When the trigger fires with a qualified side and posted market, Tony's Tight Bats must surface, persist, and grade it as a live system moneyline pick.",
       dataRequirements: [
         { label: "Official lineup status", status: "partial", detail: "MLB live feed is connected. Only officially published batting orders qualify (conservative - no third-party lineup guesses)." },
         { label: "Top-of-order hitter game logs", status: "ready", detail: "Official lineup player IDs connect to MLB hitter game logs. 10-game sample: H/G, TB/G, R+RBI/G thresholds enforced." },
         { label: "Weather / park context", status: "ready", detail: "Open-Meteo temperature/wind and seeded Statcast park factors attached per game when available." },
         { label: "Bullpen workload context", status: "ready", detail: "Last-three-day bullpen usage context from MLB boxscores. High/moderate/low fatigue label per side." },
         { label: "Market availability context", status: "partial", detail: "Moneyline, total, and F5 availability surfaced only when books are posting them. No synthetic lines created." },
-        { label: "Price discipline / validation layer", status: "pending", detail: "Opening/closing price history, opponent starter context, and outcome validation are not finalized. System stays off until they are." },
+        { label: "Price discipline / validation layer", status: "partial", detail: "Posted moneyline context is required for a live trigger row. Line-history discipline can improve later, but triggered rows must already persist and grade honestly." },
       ],
       unlockNotes: [
         "Primary rails are live, but that is not enough to call this a live system.",
@@ -812,7 +813,7 @@ function seededCatalog(): TrackedSystem[] {
         "Opponent starter quality not yet in the qualifier gate - can be added as next improvement.",
       ],
       trackingNotes: [
-        "Internal trigger rows should not surface as live picks until the full Tony's Tight Bats rule is complete.",
+        "Any trigger row is a live system pick and must surface in qualified picks, record, and history.",
         "Lineup status comes only from MLB's live feed; no third-party lineup scrape is used to fake certainty.",
         "Market availability notes stay tied to posted books/markets. No synthetic F5 or total lines are created.",
       ],
@@ -2414,10 +2415,12 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
 
   const validationRequirement = findRequirement(system, "Price discipline / validation layer");
   if (validationRequirement) {
-    validationRequirement.status = "pending";
+    validationRequirement.status = triggeredRows > 0 ? "ready" : rows > 0 ? "partial" : "pending";
     validationRequirement.detail = triggeredRows > 0
-      ? "Trigger rows now exist, but they still need price-history discipline, opponent starter context, and tracked outcomes before this can become a validated live system."
-      : "No trigger row should be treated as a live picks model until price-history discipline and validation are added.";
+      ? "Triggered rows now count as live moneyline system picks and must persist into qualifier history for grading. Further price-history discipline can still improve the model."
+      : rows > 0
+        ? "Context rows are live, but no qualified side has fired yet. When one does, it must persist and grade as a moneyline system pick."
+        : "No same-day MLB board has been stored yet.";
   }
 }
 
@@ -4955,8 +4958,14 @@ export async function refreshTodayGooseSystem(options: RefreshGooseOptions = {})
 }
 
 export function getSystemDerivedMetrics(system: TrackedSystem, data?: SystemsTrackingData): SystemDerivedMetrics {
-  const qualifiedGames = system.records.length;
-  const trackableRows = system.records.filter((record) => record.firstQuarterSpread != null && record.thirdQuarterSpread != null);
+  const qualifiedRows = system.records.filter((record) => {
+    if (!record) return false;
+    if (record.recordKind === "progression") return true;
+    if (record.marketType === "total" || record.marketType === "f5-total") return true;
+    return Boolean(record.qualifiedTeam);
+  });
+  const qualifiedGames = qualifiedRows.length;
+  const trackableRows = qualifiedRows.filter((record) => record.firstQuarterSpread != null && record.thirdQuarterSpread != null);
   const trackableGames = trackableRows.length;
   const completedRows = system.records.filter((record) => record.sequenceResult && record.sequenceResult !== "pending");
   const ungradeableRows = system.records.filter((record) => isGooseRecordUngradeable(record));

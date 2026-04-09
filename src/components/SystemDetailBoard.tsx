@@ -56,12 +56,15 @@ function formatUnits(value: number | null) {
 
 /** Separate qualifier-firing records from monitoring/context-only records */
 function classifyRecords(system: TrackedSystem) {
-  const qualified = system.records.filter(
-    (r) => r.qualifiedTeam && !r.alertLabel?.toLowerCase().includes("no trigger"),
-  );
-  const monitoring = system.records.filter(
-    (r) => !r.qualifiedTeam || r.alertLabel?.toLowerCase().includes("no trigger"),
-  );
+  const qualified = system.records.filter((r) => {
+    if (!r) return false;
+    if (r.recordKind === "progression") return true;
+    if (r.marketType === "total" || r.marketType === "f5-total") {
+      return !r.alertLabel?.toLowerCase().includes("no trigger");
+    }
+    return Boolean(r.qualifiedTeam) && !r.alertLabel?.toLowerCase().includes("no trigger");
+  });
+  const monitoring = system.records.filter((r) => !qualified.includes(r));
   return { qualified, monitoring };
 }
 
@@ -172,9 +175,9 @@ function CurrentQualifiersSection({ system }: { system: TrackedSystem }) {
     return (
       <section className="rounded-[28px] border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-5 shadow-[0_16px_60px_rgba(0,0,0,0.24)] lg:p-6">
         <p className="section-heading">Today&apos;s context board</p>
-        <h2 className="mt-2 text-lg font-semibold text-white">No live F5 triggers yet</h2>
+        <h2 className="mt-2 text-lg font-semibold text-white">No live qualified picks yet</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Monitoring {monitoring.length} game{monitoring.length === 1 ? "" : "s"} — these are not picks until an explicit F5 market posts and the starter mismatch clears the trigger.
+          Monitoring {monitoring.length} game{monitoring.length === 1 ? "" : "s"} — these rows are context only until the system produces a real qualified pick with a bet direction.
         </p>
         {system.snapshot && (
           <p className="mt-2 text-xs text-gray-500 leading-relaxed">{system.snapshot}</p>
