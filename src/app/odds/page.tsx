@@ -212,7 +212,15 @@ function formatDelta(value: number | null, kind: "odds" | "line") {
 }
 
 function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; movementHistory: Record<string, MarketHistoryRail | null> }) {
-  // Build per-game line comparison cards showing highest/lowest for each market
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const gameCards = games
     .filter((g) => (g.books || []).length >= 2)
     .map((game) => {
@@ -220,8 +228,7 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
       type LineRow = { market: string; high: { odds: string; book: string }; low: { odds: string; book: string }; spread: number };
       const lines: LineRow[] = [];
 
-      // Away ML
-      const awayMLs = books.map(b => ({ ml: b.awayML, book: b.book })).filter(b => b.ml != null) as Array<{ ml: number; book: string }>;
+      const awayMLs = books.map((b) => ({ ml: b.awayML, book: b.book })).filter((b) => b.ml != null) as Array<{ ml: number; book: string }>;
       if (awayMLs.length >= 2) {
         const best = awayMLs.reduce((a, b) => a.ml > b.ml ? a : b);
         const worst = awayMLs.reduce((a, b) => a.ml < b.ml ? a : b);
@@ -235,8 +242,7 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
         }
       }
 
-      // Home ML
-      const homeMLs = books.map(b => ({ ml: b.homeML, book: b.book })).filter(b => b.ml != null) as Array<{ ml: number; book: string }>;
+      const homeMLs = books.map((b) => ({ ml: b.homeML, book: b.book })).filter((b) => b.ml != null) as Array<{ ml: number; book: string }>;
       if (homeMLs.length >= 2) {
         const best = homeMLs.reduce((a, b) => a.ml > b.ml ? a : b);
         const worst = homeMLs.reduce((a, b) => a.ml < b.ml ? a : b);
@@ -250,10 +256,9 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
         }
       }
 
-      // Totals (O/U line)
-      const totals = books.map(b => ({ total: b.total, overOdds: b.overOdds, underOdds: b.underOdds, book: b.book })).filter(b => b.total != null) as Array<{ total: number; overOdds: number | null; underOdds: number | null; book: string }>;
+      const totals = books.map((b) => ({ total: b.total, book: b.book })).filter((b) => b.total != null) as Array<{ total: number; book: string }>;
       if (totals.length >= 2) {
-        const unique = Array.from(new Set(totals.map(t => t.total)));
+        const unique = Array.from(new Set(totals.map((t) => t.total)));
         if (unique.length > 1) {
           const highest = totals.reduce((a, b) => a.total > b.total ? a : b);
           const lowest = totals.reduce((a, b) => a.total < b.total ? a : b);
@@ -266,10 +271,9 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
         }
       }
 
-      // Spreads
-      const spreads = books.map(b => ({ spread: b.homeSpread, odds: b.homeSpreadOdds, book: b.book })).filter(b => b.spread != null) as Array<{ spread: number; odds: number | null; book: string }>;
+      const spreads = books.map((b) => ({ spread: b.homeSpread, book: b.book })).filter((b) => b.spread != null) as Array<{ spread: number; book: string }>;
       if (spreads.length >= 2) {
-        const unique = Array.from(new Set(spreads.map(s => s.spread)));
+        const unique = Array.from(new Set(spreads.map((s) => s.spread)));
         if (unique.length > 1) {
           const highest = spreads.reduce((a, b) => a.spread > b.spread ? a : b);
           const lowest = spreads.reduce((a, b) => a.spread < b.spread ? a : b);
@@ -284,11 +288,12 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
 
       if (lines.length === 0) return null;
 
-      const maxSpread = Math.max(...lines.map(l => l.spread));
-      return { game, lines, maxSpread };
+      const history = movementHistory[game.gameId] ?? null;
+      const maxSpread = Math.max(...lines.map((line) => line.spread));
+      return { game, lines, maxSpread, history };
     })
     .filter(Boolean)
-    .sort((a, b) => b!.maxSpread - a!.maxSpread) as Array<{ game: AggregatedOdds; lines: Array<{ market: string; high: { odds: string; book: string }; low: { odds: string; book: string }; spread: number }>; maxSpread: number }>;
+    .sort((a, b) => b!.maxSpread - a!.maxSpread) as Array<{ game: AggregatedOdds; lines: Array<{ market: string; high: { odds: string; book: string }; low: { odds: string; book: string }; spread: number }>; maxSpread: number; history: MarketHistoryRail | null }>;
 
   if (gameCards.length === 0) {
     return (
@@ -300,86 +305,121 @@ function MovementTab({ games, movementHistory }: { games: AggregatedOdds[]; move
     );
   }
 
-  const historicalCards = gameCards
-    .map(({ game }) => ({ game, history: movementHistory[game.gameId] ?? null }))
-    .filter((entry) => entry.history && entry.history.deltas.length > 0) as Array<{ game: AggregatedOdds; history: MarketHistoryRail }>;
-
   return (
     <div className="space-y-3">
       <div className="rounded-2xl border border-dark-border bg-dark-surface/60 px-4 py-3">
         <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Movement scope</p>
-        <p className="mt-1 text-sm text-gray-300">Cross-book price differences are always live below. Opening vs latest snapshot movement only appears when the same game already has at least two archived captures.</p>
+        <p className="mt-1 text-sm text-gray-300">One line per game. Tap any matchup for cross-book spreads and snapshot movement history.</p>
       </div>
 
-      {historicalCards.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Snapshot history — opening vs latest</p>
-          {historicalCards.map(({ game, history }) => (
-            <div key={`${game.gameId}-history`} className="rounded-xl border border-accent-blue/20 bg-accent-blue/5 overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2.5 border-b border-accent-blue/10">
-                <div>
-                  <span className="text-sm font-bold text-white">{game.awayAbbrev} @ {game.homeAbbrev}</span>
-                  <p className="mt-1 text-[11px] text-gray-400">
-                    Open {formatHistoryTime(history.openingCapturedAt)} · Latest {formatHistoryTime(history.latestCapturedAt)} · {history.capturedSnapshots} snapshots
-                  </p>
+      <div className="divide-y divide-dark-border rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] overflow-hidden shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
+        {gameCards.map(({ game, lines, maxSpread, history }) => {
+          const isOpen = expanded.has(game.gameId);
+          const topLines = lines.slice(0, 2);
+          const historyCount = history?.capturedSnapshots ?? 0;
+
+          return (
+            <div key={game.gameId}>
+              <button
+                onClick={() => toggle(game.gameId)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03] transition-colors"
+              >
+                <div className="flex items-center gap-1 shrink-0">
+                  <TeamLogo team={game.awayAbbrev} size={22} color="#475569" sport={game.sport} />
+                  <span className="text-[9px] text-gray-600 mx-0.5">@</span>
+                  <TeamLogo team={game.homeAbbrev} size={22} color="#475569" sport={game.sport} />
                 </div>
-                <span className="text-[10px] text-accent-blue">{history.booksTracked.length} books tracked</span>
-              </div>
-              <div className="px-4 py-3 space-y-2">
-                <p className="text-xs text-gray-300">{history.freshnessNote}</p>
-                <p className="text-[11px] text-amber-200">{history.limitationNote}</p>
-                <div className="space-y-2">
-                  {history.deltas.map((delta) => (
-                    <div key={`${delta.book}-${delta.marketType}-${delta.outcome}`} className="rounded-xl border border-dark-border/40 bg-dark-bg/40 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-white">{delta.book} · {delta.outcome} {delta.marketType === "moneyline" ? "ML" : delta.marketType === "spread" ? "Spread" : "Total"}</p>
-                        <div className="flex gap-2 text-[11px]">
-                          <span className="text-gray-400">Odds {formatDelta(delta.oddsDelta, "odds")}</span>
-                          {delta.marketType !== "moneyline" && <span className="text-gray-400">Line {formatDelta(delta.lineDelta, "line")}</span>}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{game.awayAbbrev} @ {game.homeAbbrev}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{game.sport} · {formatCommenceTime(game.commenceTime)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="hidden sm:inline text-[11px] font-semibold text-accent-blue bg-accent-blue/10 border border-accent-blue/20 rounded-full px-2 py-0.5">
+                    {Math.round(maxSpread)}¢ max
+                  </span>
+                  {topLines[0] && (
+                    <span className="hidden md:inline text-[11px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-2 py-0.5">
+                      {topLines[0].market} {topLines[0].high.odds}
+                    </span>
+                  )}
+                  {historyCount > 1 && (
+                    <span className="hidden lg:inline text-[11px] font-semibold text-gray-300 bg-dark-bg/70 border border-dark-border rounded-full px-2 py-0.5">
+                      {historyCount} snaps
+                    </span>
+                  )}
+                  <svg className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-4 border-t border-dark-border/50 space-y-4">
+                  <div className="pt-3">
+                    <p className="mb-2 section-heading">Live cross-book differences</p>
+                    <div className="rounded-xl border border-dark-border bg-dark-surface/70 overflow-hidden">
+                      <div className="divide-y divide-dark-border/30">
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-1.5">
+                          <span className="text-[9px] text-gray-600 uppercase">Market</span>
+                          <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▲ Highest</span>
+                          <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▼ Lowest</span>
+                        </div>
+                        {lines.map((line, i) => (
+                          <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-2 items-center">
+                            <span className="text-xs text-gray-300 font-medium">{line.market}</span>
+                            <div className="text-right w-[90px]">
+                              <span className="text-xs font-semibold text-emerald-400">{line.high.odds}</span>
+                              <span className="text-[9px] text-gray-500 ml-1">{line.high.book}</span>
+                            </div>
+                            <div className="text-right w-[90px]">
+                              <span className="text-xs font-semibold text-accent-red">{line.low.odds}</span>
+                              <span className="text-[9px] text-gray-500 ml-1">{line.low.book}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {history && history.deltas.length > 0 && (
+                    <div>
+                      <p className="mb-2 section-heading">Snapshot movement</p>
+                      <div className="rounded-xl border border-accent-blue/20 bg-accent-blue/5 overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 border-b border-accent-blue/10">
+                          <div>
+                            <p className="text-sm font-semibold text-white">Open {formatHistoryTime(history.openingCapturedAt)} · Latest {formatHistoryTime(history.latestCapturedAt)}</p>
+                            <p className="mt-1 text-[11px] text-gray-400">{history.capturedSnapshots} snapshots · {history.booksTracked.length} books tracked</p>
+                          </div>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-xs text-gray-300">{history.freshnessNote}</p>
+                          <p className="text-[11px] text-amber-200">{history.limitationNote}</p>
+                          <div className="space-y-2">
+                            {history.deltas.map((delta) => (
+                              <div key={`${delta.book}-${delta.marketType}-${delta.outcome}`} className="rounded-xl border border-dark-border/40 bg-dark-bg/40 px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold text-white">{delta.book} · {delta.outcome} {delta.marketType === "moneyline" ? "ML" : delta.marketType === "spread" ? "Spread" : "Total"}</p>
+                                  <div className="flex gap-2 text-[11px]">
+                                    <span className="text-gray-400">Odds {formatDelta(delta.oddsDelta, "odds")}</span>
+                                    {delta.marketType !== "moneyline" && <span className="text-gray-400">Line {formatDelta(delta.lineDelta, "line")}</span>}
+                                  </div>
+                                </div>
+                                <p className="mt-1 text-[11px] text-gray-500">
+                                  Opening {delta.marketType === "moneyline" ? formatOdds(delta.openingOdds) : `${delta.openingLine ?? "—"} (${formatOdds(delta.openingOdds)})`} → Latest {delta.marketType === "moneyline" ? formatOdds(delta.latestOdds) : `${delta.latestLine ?? "—"} (${formatOdds(delta.latestOdds)})`}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        Opening {delta.marketType === "moneyline" ? formatOdds(delta.openingOdds) : `${delta.openingLine ?? "—"} (${formatOdds(delta.openingOdds)})`} → Latest {delta.marketType === "moneyline" ? formatOdds(delta.latestOdds) : `${delta.latestLine ?? "—"} (${formatOdds(delta.latestOdds)})`}
-                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
-
-      <p className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Live cross-book comparison — highest vs lowest right now</p>
-      {gameCards.map(({ game, lines }) => (
-        <div key={game.gameId} className="rounded-xl border border-dark-border bg-dark-surface/70 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-dark-border/50">
-            <span className="text-sm font-bold text-white">{game.awayAbbrev} @ {game.homeAbbrev}</span>
-            <span className="text-[10px] text-gray-500">{game.books.length} books</span>
-          </div>
-          <div className="divide-y divide-dark-border/30">
-            {/* Header */}
-            <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-1.5">
-              <span className="text-[9px] text-gray-600 uppercase">Market</span>
-              <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▲ Highest</span>
-              <span className="text-[9px] text-gray-600 uppercase text-right w-[90px]">▼ Lowest</span>
-            </div>
-            {lines.map((line, i) => (
-              <div key={i} className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 py-2 items-center">
-                <span className="text-xs text-gray-300 font-medium">{line.market}</span>
-                <div className="text-right w-[90px]">
-                  <span className="text-xs font-semibold text-emerald-400">{line.high.odds}</span>
-                  <span className="text-[9px] text-gray-500 ml-1">{line.high.book}</span>
-                </div>
-                <div className="text-right w-[90px]">
-                  <span className="text-xs font-semibold text-accent-red">{line.low.odds}</span>
-                  <span className="text-[9px] text-gray-500 ml-1">{line.low.book}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }
