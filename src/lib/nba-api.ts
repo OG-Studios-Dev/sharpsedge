@@ -309,7 +309,7 @@ export async function getNBABoxscore(eventId: string): Promise<{ home: NBABoxsco
             teamAbbrev: abbrev,
             position: a.athlete?.position?.abbreviation ?? "",
             jersey: a.athlete?.jersey ?? "",
-            headshot: a.athlete?.headshot?.href || (a.athlete?.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${a.athlete.id}.png` : null),
+            headshot: a.athlete?.headshot?.href || (a.athlete?.id ? `https://cdn.nba.com/headshots/nba/latest/1040x760/${a.athlete.id}.png` : null),
             minutes: minIdx >= 0 ? stats[minIdx] : "0",
             points: ptIdx >= 0 ? parseInt(stats[ptIdx], 10) || 0 : 0,
             rebounds: rebIdx >= 0 ? parseInt(stats[rebIdx], 10) || 0 : 0,
@@ -457,7 +457,7 @@ export async function getNBATeamRosterEntriesWithSource(teamAbbrev: string): Pro
         name: athlete?.displayName || athlete?.fullName || "",
         position: athlete?.position?.abbreviation || athlete?.position?.name || "",
         jersey: athlete?.jersey || "",
-        headshot: athlete?.headshot?.href || (athlete?.id ? `https://a.espncdn.com/i/headshots/nba/players/full/${athlete.id}.png` : null),
+        headshot: athlete?.headshot?.href || (athlete?.id ? `https://cdn.nba.com/headshots/nba/latest/1040x760/${athlete.id}.png` : null),
         injuryStatus,
       };
     }).filter((player: { id: number; name: string }) => player.id && player.name);

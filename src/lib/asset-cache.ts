@@ -117,7 +117,7 @@ export async function verifyUrl(url: string): Promise<boolean> {
 export function espnHeadshotUrl(sport: string, id: string): string | null {
   const s = sport.toUpperCase();
   if (s === "NHL") return `https://assets.nhle.com/mugs/nhl/latest/${id}.png`;
-  if (s === "NBA") return `https://a.espncdn.com/i/headshots/nba/players/full/${id}.png`;
+  if (s === "NBA") return `https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png`;
   if (s === "MLB") return `https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_auto:best/v1/people/${id}/headshot/67/current`;
   if (s === "PGA") return `https://pga-tour-res.cloudinary.com/image/upload/c_thumb,g_face,w_280,h_350,z_0.7/headshots_${id}.jpg`;
   if (s === "NFL") return `https://a.espncdn.com/i/headshots/nfl/players/full/${id}.png`;
