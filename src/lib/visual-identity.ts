@@ -256,7 +256,8 @@ export function getPlayerHeadshot({
   }
 
   if (normalizedLeague === "PGA") {
-    return null;
+    if (!id) return null;
+    return `https://pga-tour-res.cloudinary.com/image/upload/c_thumb,g_face,w_280,h_350,z_0.7/headshots_${id}.jpg`;
   }
 
   if (normalizedLeague === "MLB") {
