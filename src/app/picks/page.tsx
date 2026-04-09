@@ -12,6 +12,7 @@ import type { PickHistoryRecord } from "@/lib/supabase-types";
 import { Clock, ChevronDown, Flag } from "lucide-react";
 import LeagueDropdown from "@/components/LeagueDropdown";
 import TeamLogo from "@/components/TeamLogo";
+import PlayerAvatar from "@/components/PlayerAvatar";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import BookBadge from "@/components/BookBadge";
 import PageHeader from "@/components/PageHeader";
@@ -114,7 +115,18 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
   const summaryContent = (
     <>
       <div className="flex items-center gap-3">
-        <TeamLogo team={pick.team} size={32} color={pick.teamColor} sport={pick.league ?? undefined} />
+        {pick.type === "player" ? (
+          <PlayerAvatar
+            name={pick.playerName || pick.team}
+            team={pick.team}
+            league={pick.league}
+            playerId={pick.playerId}
+            size={32}
+            teamColor={pick.teamColor}
+          />
+        ) : (
+          <TeamLogo team={pick.team} size={32} color={pick.teamColor} sport={pick.league ?? undefined} />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <p className="text-white font-semibold text-sm truncate">
