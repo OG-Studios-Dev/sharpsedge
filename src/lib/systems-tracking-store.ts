@@ -2336,17 +2336,18 @@ function applyTonysHotBatsReadiness(system: TrackedSystem) {
   const officialLineups = system.records.filter((record) => record.lineupStatus === "official").length;
   const partialLineups = system.records.filter((record) => record.lineupStatus === "partial").length;
   const triggeredRows = system.records.filter((record) => record.recordKind === "qualifier").length;
+  const contextRows = system.records.filter((record) => record.recordKind === "alert").length;
   const weatherReady = system.records.filter((record) => record.weatherSummary && record.weatherSummary !== "Weather context unavailable.").length;
   const parkReady = system.records.filter((record) => record.parkFactorSummary && !record.parkFactorSummary.toLowerCase().includes("missing")).length;
   const bullpenReady = system.records.filter((record) => record.bullpenSummary && !record.bullpenSummary.toLowerCase().includes("unavailable")).length;
   const marketReady = system.records.filter((record) => record.marketType || record.currentMoneyline != null || record.f5Summary).length;
   const recentOffenseReady = system.records.filter((record) => record.notes?.includes("Recent offense trigger:")).length;
 
-  system.status = "awaiting_verification";
-  system.trackabilityBucket = "blocked_missing_data";
-  system.automationStatusLabel = rows > 0 ? "Off pending validation" : "Off";
+  system.status = rows > 0 ? "tracking" : "awaiting_verification";
+  system.trackabilityBucket = triggeredRows > 0 ? "trackable_now" : "blocked_missing_data";
+  system.automationStatusLabel = triggeredRows > 0 ? "Live system picks" : rows > 0 ? "Context board live" : "Off";
   system.automationStatusDetail = rows > 0
-    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored internally. ${triggeredRows} trigger${triggeredRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context. System stays off until validated directional rules exist.`
+    ? `${rows} MLB game row${rows === 1 ? "" : "s"} stored. ${triggeredRows} system pick${triggeredRows === 1 ? "" : "s"}, ${contextRows} context row${contextRows === 1 ? "" : "s"}, ${officialLineups} official lineup${officialLineups === 1 ? "" : "s"}, ${partialLineups} partial lineup${partialLineups === 1 ? "" : "s"}, ${recentOffenseReady} with recent-offense scoring, ${weatherReady} with weather, ${parkReady} with park factor, ${bullpenReady} with bullpen context, ${marketReady} with posted market context.`
     : "System is off until official lineup context, price discipline, and validation support a real live picks rule.";
 
   const lineupRequirement = findRequirement(system, "Official lineup status");
@@ -3825,13 +3826,13 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
           `Bullpen: ${bullpenSummary}`,
         ].filter(Boolean).join(" • ");
 
-        freshRecords.push(normalizeRecord({
-          ...sharedProps,
-          id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}${market.suffix}`,
-          recordKind: "alert",
-          marketType: market.marketType,
-          alertLabel: market.label,
-          currentMoneyline: market.moneyline,
+      freshRecords.push(normalizeRecord({
+        ...sharedProps,
+        id: `${ROBBIES_RIPPER_FAST_5_SYSTEM_ID}:${game.gameId}${market.suffix}`,
+        recordKind: "qualifier",
+        marketType: market.marketType,
+        alertLabel: market.label,
+        currentMoneyline: market.moneyline,
           totalLine: market.recordTotalLine ?? (f5Total?.line ?? null),
           source: "MLB enrichment board (F5 market rail + ERA/WHIP starter quality + weather + park + bullpen)",
           notes: alertNotes,
@@ -3876,8 +3877,8 @@ async function refreshRobbiesRipperFast5SystemData(data: SystemsTrackingData, op
 
   // alertRecordCount = total records emitted for alert-qualifying games (may be 2 per game when both ML+total posted)
   // audit.alerts = number of alert-qualifying games (always 1 per game, regardless of how many markets were posted)
-  const alertRecordCount = freshRecords.filter((r) => r.recordKind === "alert").length;
-  const auditSummary = `Scanned ${audit.gamesScanned} games • ${audit.alerts} alert game${audit.alerts === 1 ? "" : "s"} (${alertRecordCount} alert record${alertRecordCount === 1 ? "" : "s"}) • ${audit.contextBoard} context-board • missing pitchers ${audit.missingBothPitchers} • no F5 market ${audit.missingF5Market} • below mismatch threshold ${audit.belowMismatchThreshold}.`;
+  const alertRecordCount = freshRecords.filter((r) => r.recordKind === "qualifier").length;
+  const auditSummary = `Scanned ${audit.gamesScanned} games • ${audit.alerts} alert game${audit.alerts === 1 ? "" : "s"} (${alertRecordCount} system pick record${alertRecordCount === 1 ? "" : "s"}) • ${audit.contextBoard} context-board • missing pitchers ${audit.missingBothPitchers} • no F5 market ${audit.missingF5Market} • below mismatch threshold ${audit.belowMismatchThreshold}.`;
 
   system.status = freshRecords.length > 0 ? "tracking" : "awaiting_data";
   system.snapshot = alertRecordCount > 0
