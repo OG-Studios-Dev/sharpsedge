@@ -1,13 +1,17 @@
 {
   "tournament": "masters",
-  "generatedAt": "2026-04-09T01:13:00.000Z",
+  "generatedAt": "2026-04-09T01:21:55.440Z",
   "source": "draftkings-manual",
-  "source_label": "DraftKings (browser capture, 2026-04-09)",
+  "source_label": "DraftKings (search payload capture, 2026-04-09)",
   "limitation": null,
-  "_capture_note": "Manually captured DraftKings Masters data including winner/top-finish snapshot fallback, tournament finishing position props, and tournament matchups. Seeded from out/dk-masters-scrape.json.",
+  "_capture_note": "DraftKings search payload capture for The Masters. Parsed from cached search JSON, plus preserved browser-captured matchup and finishing-position rows where search pagination was partial.",
   "top5": [],
   "top10": [],
-  "top20": [],
+  "top20": [
+    { "player": "Scottie Scheffler", "market": "top20", "odds": -440, "impliedProb": 0.8148148148148148, "source": "draftkings-manual", "source_label": "DraftKings (search payload capture, 2026-04-09)", "captured_at": "2026-04-09T01:21:55.440Z", "tournament": "masters", "book": "DraftKings" },
+    { "player": "Jon Rahm", "market": "top20", "odds": -285, "impliedProb": 0.7402597402597403, "source": "draftkings-manual", "source_label": "DraftKings (search payload capture, 2026-04-09)", "captured_at": "2026-04-09T01:21:55.440Z", "tournament": "masters", "book": "DraftKings" },
+    { "player": "Bryson DeChambeau", "market": "top20", "odds": -220, "impliedProb": 0.6875, "source": "draftkings-manual", "source_label": "DraftKings (search payload capture, 2026-04-09)", "captured_at": "2026-04-09T01:21:55.440Z", "tournament": "masters", "book": "DraftKings" }
+  ],
   "finishing_position": [
     { "player": "John Keefer", "line": 52.5, "over_odds": -112, "under_line": 52.5, "under_odds": -114 },
     { "player": "Haotong Li", "line": 50.5, "over_odds": -112, "under_line": 50.5, "under_odds": -114 },
