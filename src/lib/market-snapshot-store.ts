@@ -209,7 +209,20 @@ function isReadonlyFsError(error: unknown) {
 
 function parseIsoTimestamp(value?: string | null) {
   if (!value) return null;
-  const parsed = new Date(value);
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{10,13}$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      const millis = trimmed.length === 10 ? numeric * 1000 : numeric;
+      const parsedEpoch = new Date(millis);
+      return Number.isNaN(parsedEpoch.getTime()) ? null : parsedEpoch;
+    }
+  }
+
+  const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
@@ -506,7 +519,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     sport: event.sport,
     game_id: event.gameId,
     odds_api_event_id: event.oddsApiEventId,
-    commence_time: event.commenceTime,
+    commence_time: parseIsoTimestamp(event.commenceTime)?.toISOString() ?? null,
     matchup: event.matchup,
     home_team: event.homeTeam,
     away_team: event.awayTeam,
@@ -528,7 +541,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     sport: price.sport,
     game_id: price.gameId,
     odds_api_event_id: price.oddsApiEventId,
-    commence_time: price.commenceTime,
+    commence_time: parseIsoTimestamp(price.commenceTime)?.toISOString() ?? null,
     captured_at: price.capturedAt,
     book: price.book,
     market_type: price.marketType,
@@ -536,7 +549,7 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     odds: price.odds,
     line: price.line,
     source: price.source,
-    source_updated_at: price.sourceUpdatedAt,
+    source_updated_at: parseIsoTimestamp(price.sourceUpdatedAt)?.toISOString() ?? null,
     source_age_minutes: price.sourceAgeMinutes,
   }));
 
