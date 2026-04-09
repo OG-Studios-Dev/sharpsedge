@@ -276,6 +276,27 @@ export type GameGoalies = {
   away: GoalieStarter | null;
 };
 
+type DailyFaceoffStartingGoalieRow = {
+  homeTeamName?: string;
+  awayTeamName?: string;
+  homeGoalieId?: number | string | null;
+  awayGoalieId?: number | string | null;
+  homeGoalieName?: string | null;
+  awayGoalieName?: string | null;
+  homeGoalieWins?: number | string | null;
+  awayGoalieWins?: number | string | null;
+  homeGoalieLosses?: number | string | null;
+  awayGoalieLosses?: number | string | null;
+  homeGoalieOvertimeLosses?: number | string | null;
+  awayGoalieOvertimeLosses?: number | string | null;
+  homeGoalieSavePercentage?: number | string | null;
+  awayGoalieSavePercentage?: number | string | null;
+  homeGoalieGoalsAgainstAvg?: number | string | null;
+  awayGoalieGoalsAgainstAvg?: number | string | null;
+  homeNewsStrengthName?: string | null;
+  awayNewsStrengthName?: string | null;
+};
+
 function parseGoalieRecord(record?: string | null) {
   if (!record) return { wins: 0, losses: 0, otLosses: 0 };
   const [winsRaw, lossesRaw, otLossesRaw] = String(record).split("-");
@@ -338,6 +359,105 @@ function parseGoalieFromBoxscore(goalies: any[], team: string): GoalieStarter | 
   };
 }
 
+function toNumber(value: unknown): number {
+  const num = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function mapDailyFaceoffStatus(value?: string | null): GoalieStarter["status"] {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "confirmed") return "confirmed";
+  if (normalized === "likely" || normalized === "expected" || normalized === "probable") return "probable";
+  return "unconfirmed";
+}
+
+async function getDailyFaceoffStartingGoalies(): Promise<DailyFaceoffStartingGoalieRow[]> {
+  const url = "https://www.dailyfaceoff.com/starting-goalies";
+  const cacheKey = `text:${url}`;
+  const cached = cache.get(cacheKey);
+  const ttl = 5 * 60 * 1000;
+  if (cached && Date.now() - cached.timestamp < ttl) {
+    return cached.data as DailyFaceoffStartingGoalieRow[];
+  }
+
+  try {
+    const res = await fetch(url, {
+      headers: { "user-agent": "Mozilla/5.0 Magoo/1.0" },
+      next: { revalidate: Math.round(ttl / 1000) },
+    });
+    if (!res.ok) throw new Error(`Daily Faceoff error: ${res.status}`);
+    const html = await res.text();
+    const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/i);
+    if (!match?.[1]) return [];
+    const payload = JSON.parse(match[1]);
+    const data = Array.isArray(payload?.props?.pageProps?.data) ? payload.props.pageProps.data : [];
+    cache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+function buildGoalieFromDailyFaceoff(
+  row: DailyFaceoffStartingGoalieRow,
+  side: "home" | "away",
+  team: string,
+): GoalieStarter | null {
+  const prefix = side === "home" ? "home" : "away";
+  const name = String(row[`${prefix}GoalieName` as keyof DailyFaceoffStartingGoalieRow] || "").trim();
+  if (!name) return null;
+
+  const wins = toNumber(row[`${prefix}GoalieWins` as keyof DailyFaceoffStartingGoalieRow]);
+  const losses = toNumber(row[`${prefix}GoalieLosses` as keyof DailyFaceoffStartingGoalieRow]);
+  const otLosses = toNumber(row[`${prefix}GoalieOvertimeLosses` as keyof DailyFaceoffStartingGoalieRow]);
+
+  return {
+    playerId: toNumber(row[`${prefix}GoalieId` as keyof DailyFaceoffStartingGoalieRow]),
+    name,
+    status: mapDailyFaceoffStatus(String(row[`${prefix}NewsStrengthName` as keyof DailyFaceoffStartingGoalieRow] || "")),
+    team,
+    wins,
+    losses,
+    otLosses,
+    savePct: toNumber(row[`${prefix}GoalieSavePercentage` as keyof DailyFaceoffStartingGoalieRow]),
+    gaa: toNumber(row[`${prefix}GoalieGoalsAgainstAvg` as keyof DailyFaceoffStartingGoalieRow]),
+    isBackup: wins + losses + otLosses < 10,
+  };
+}
+
+async function getDailyFaceoffGoaliesForMatchup(homeAbbrev: string, awayAbbrev: string): Promise<{ home: GoalieStarter | null; away: GoalieStarter | null }> {
+  const rows = await getDailyFaceoffStartingGoalies();
+  const match = rows.find((row) => {
+    const rowHome = TEAM_FULLNAME_TO_ABBREV[String(row.homeTeamName || "").trim()] || "";
+    const rowAway = TEAM_FULLNAME_TO_ABBREV[String(row.awayTeamName || "").trim()] || "";
+    return rowHome === homeAbbrev && rowAway === awayAbbrev;
+  });
+
+  if (!match) return { home: null, away: null };
+
+  return {
+    home: buildGoalieFromDailyFaceoff(match, "home", homeAbbrev),
+    away: buildGoalieFromDailyFaceoff(match, "away", awayAbbrev),
+  };
+}
+
+function goalieStatusRank(status: GoalieStarter["status"] | null | undefined): number {
+  if (status === "confirmed") return 3;
+  if (status === "probable") return 2;
+  if (status === "unconfirmed") return 1;
+  return 0;
+}
+
+function shouldUseDailyFaceoff(existing: GoalieStarter | null, candidate: GoalieStarter | null): boolean {
+  if (!candidate) return false;
+  if (!existing) return true;
+  if (goalieStatusRank(candidate.status) > goalieStatusRank(existing.status)) return true;
+  if (candidate.playerId && existing.playerId && candidate.playerId !== existing.playerId && goalieStatusRank(candidate.status) >= goalieStatusRank(existing.status)) {
+    return true;
+  }
+  return false;
+}
+
 export async function getGameGoalies(gameId: number): Promise<GameGoalies> {
   const GOALIE_TTL = 5 * 60 * 1000; // 5 minutes
   const empty: GameGoalies = { gameId, home: null, away: null };
@@ -380,6 +500,13 @@ export async function getGameGoalies(gameId: number): Promise<GameGoalies> {
       }
     } catch {
       // Boxscore not available yet (pre-game) — use matchup data
+    }
+
+    const shouldConsultDfo = !home || !away || home.status !== "confirmed" || away.status !== "confirmed";
+    if (shouldConsultDfo) {
+      const dfo = await getDailyFaceoffGoaliesForMatchup(homeAbbrev, awayAbbrev);
+      if (shouldUseDailyFaceoff(home, dfo.home)) home = dfo.home;
+      if (shouldUseDailyFaceoff(away, dfo.away)) away = dfo.away;
     }
 
     return { gameId, home, away };
