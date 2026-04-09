@@ -1,4 +1,6 @@
-import { GolfHeadToHeadOdds, GolfOddsBoard, GolfOutrightOdds } from "@/lib/types";
+import { promises as fs } from "fs";
+import path from "path";
+import { GolfFinishingPositionOdds, GolfHeadToHeadOdds, GolfOddsBoard, GolfOutrightOdds } from "@/lib/types";
 import { getOddsApiKeys } from "@/lib/odds-aggregator";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
@@ -174,6 +176,31 @@ function extractMatchups(events: RawOddsEvent[]): GolfHeadToHeadOdds[] {
     .sort((left, right) => Math.max(right.playerAOdds, right.playerBOdds) - Math.max(left.playerAOdds, left.playerBOdds));
 }
 
+function extractLocalFinishingPositions(snapshot: LocalGolfOddsSnapshotFile | null): GolfFinishingPositionOdds[] {
+  return (snapshot?.finishing_position ?? [])
+    .filter((entry) => typeof entry.line === "number" && typeof entry.over_odds === "number" && typeof entry.under_odds === "number")
+    .map((entry) => ({
+      playerName: entry.player,
+      line: entry.line,
+      overOdds: entry.over_odds,
+      underOdds: entry.under_odds,
+      book: "DraftKings",
+    }));
+}
+
+function extractLocalMatchups(snapshot: LocalGolfOddsSnapshotFile | null): GolfHeadToHeadOdds[] {
+  return (snapshot?.tournament_matchups ?? [])
+    .filter((entry) => entry.player1 && entry.player2 && typeof entry.odds1 === "number" && typeof entry.odds2 === "number")
+    .map((entry) => ({
+      matchup: entry.matchup,
+      playerA: entry.player1,
+      playerB: entry.player2,
+      playerAOdds: entry.odds1,
+      playerBOdds: entry.odds2,
+      book: "DraftKings",
+    }));
+}
+
 export async function getGolfOdds(): Promise<GolfOddsBoard | null> {
   const sportKeys = getGolfSportKeys();
   for (const sportKey of sportKeys) {
@@ -190,6 +217,27 @@ export async function getGolfOdds(): Promise<GolfOddsBoard | null> {
       commenceTime: anchorEvent?.commence_time,
       outrights,
       h2h,
+      finishingPositions: [],
+    };
+  }
+
+  const localSnapshot = await readLatestLocalGolfSnapshot();
+  const localOutrights = (localSnapshot?.markets?.winner ?? []).map((entry) => ({
+    playerName: entry.player,
+    odds: entry.odds,
+    book: 'DraftKings',
+  }));
+  const localMatchups = extractLocalMatchups(localSnapshot);
+  const localFinishingPositions = extractLocalFinishingPositions(localSnapshot);
+
+  if (localOutrights.length > 0 || localMatchups.length > 0 || localFinishingPositions.length > 0) {
+    return {
+      sportKey: 'local_masters_snapshot',
+      tournament: localSnapshot?.tournament ?? 'Masters Tournament',
+      commenceTime: localSnapshot?.startDate,
+      outrights: localOutrights,
+      h2h: localMatchups,
+      finishingPositions: localFinishingPositions,
     };
   }
 
@@ -227,6 +275,92 @@ interface StoredGolfOddsSnapshot {
   };
 }
 
+interface LocalGolfOddsSnapshotFile {
+  snapshotDate?: string;
+  scrapedAt?: string;
+  tournament?: string;
+  startDate?: string;
+  source?: string;
+  markets?: {
+    winner?: Array<{ player: string; odds: number }>;
+    top5?: Array<{ player: string; odds: number }>;
+    top10?: Array<{ player: string; odds: number }>;
+    top20?: Array<{ player: string; odds: number }>;
+  };
+  finishing_position?: Array<{
+    player: string;
+    line: number;
+    over_odds: number;
+    under_line?: number;
+    under_odds: number;
+  }>;
+  tournament_matchups?: Array<{
+    matchup: string;
+    player1: string;
+    odds1: number;
+    player2: string;
+    odds2: number;
+  }>;
+}
+
+function buildTopFinishMap(snapshot: { tournament: string; scrapedAt: string; markets?: { top5?: Array<{ player: string; odds: number }>; top10?: Array<{ player: string; odds: number }>; top20?: Array<{ player: string; odds: number }>; }; }, book: "Bovada" = "Bovada"): BovadaTopFinishOddsMap | null {
+  const markets = snapshot.markets ?? {};
+  const top5Map = new Map<string, number>((markets.top5 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+  const top10Map = new Map<string, number>((markets.top10 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+  const top20Map = new Map<string, number>((markets.top20 ?? []).map((e) => [normalizeName(e.player), e.odds]));
+
+  const allPlayerKeys = new Set<string>([
+    ...Array.from(top5Map.keys()),
+    ...Array.from(top10Map.keys()),
+    ...Array.from(top20Map.keys()),
+  ]);
+
+  const result: BovadaTopFinishOddsMap = new Map();
+  for (const key of Array.from(allPlayerKeys)) {
+    result.set(key, {
+      top5: top5Map.get(key) ?? null,
+      top10: top10Map.get(key) ?? null,
+      top20: top20Map.get(key) ?? null,
+      book,
+      scrapedAt: snapshot.scrapedAt,
+      tournament: snapshot.tournament,
+    });
+  }
+
+  return result.size > 0 ? result : null;
+}
+
+async function readLatestLocalGolfSnapshot(): Promise<LocalGolfOddsSnapshotFile | null> {
+  try {
+    const dir = path.join(process.cwd(), "data", "golf-odds-snapshots");
+    const files = (await fs.readdir(dir))
+      .filter((file) => file.endsWith('.json') && file.includes('masters'))
+      .sort()
+      .reverse();
+
+    for (const file of files) {
+      const raw = await fs.readFile(path.join(dir, file), 'utf8');
+      const parsed = JSON.parse(raw) as LocalGolfOddsSnapshotFile[] | LocalGolfOddsSnapshotFile;
+      const snap = Array.isArray(parsed) ? parsed[0] : parsed;
+      if (snap?.markets) return snap;
+    }
+  } catch {
+    // local snapshot fallback is best-effort only
+  }
+
+  return null;
+}
+
+async function getLocalTopFinishOddsFallback(): Promise<BovadaTopFinishOddsMap | null> {
+  const snap = await readLatestLocalGolfSnapshot();
+  if (!snap?.markets) return null;
+  return buildTopFinishMap({
+    tournament: snap.tournament ?? 'Masters Tournament',
+    scrapedAt: snap.scrapedAt ?? new Date().toISOString(),
+    markets: snap.markets,
+  });
+}
+
 /**
  * Reads the most recent Bovada golf odds snapshot from Supabase and returns
  * a map of normalized player name → real top-finish odds.
@@ -244,7 +378,9 @@ export async function getBovadaTopFinishOdds(): Promise<BovadaTopFinishOddsMap |
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/^"|"$/g, "").trim();
   const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").replace(/^"|"$/g, "").trim();
 
-  if (!supabaseUrl || !supabaseKey) return null;
+  if (!supabaseUrl || !supabaseKey) {
+    return getLocalTopFinishOddsFallback();
+  }
 
   try {
     const res = await fetch(
@@ -269,33 +405,13 @@ export async function getBovadaTopFinishOdds(): Promise<BovadaTopFinishOddsMap |
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
     if (snapshotAge > SEVEN_DAYS_MS) return null;
 
-    const markets = snapshot.markets ?? {};
-    const top5Map = new Map<string, number>((markets.top5 ?? []).map((e) => [normalizeName(e.player), e.odds]));
-    const top10Map = new Map<string, number>((markets.top10 ?? []).map((e) => [normalizeName(e.player), e.odds]));
-    const top20Map = new Map<string, number>((markets.top20 ?? []).map((e) => [normalizeName(e.player), e.odds]));
-
-    // Build unified map from all players mentioned in any top-finish market
-    const allPlayerKeys = new Set<string>([
-      ...Array.from(top5Map.keys()),
-      ...Array.from(top10Map.keys()),
-      ...Array.from(top20Map.keys()),
-    ]);
-    const result: BovadaTopFinishOddsMap = new Map();
-
-    for (const key of Array.from(allPlayerKeys)) {
-      result.set(key, {
-        top5: top5Map.get(key) ?? null,
-        top10: top10Map.get(key) ?? null,
-        top20: top20Map.get(key) ?? null,
-        book: "Bovada",
-        scrapedAt: snapshot.scraped_at,
-        tournament: snapshot.tournament,
-      });
-    }
-
-    return result.size > 0 ? result : null;
+    return buildTopFinishMap({
+      tournament: snapshot.tournament,
+      scrapedAt: snapshot.scraped_at,
+      markets: snapshot.markets,
+    }) ?? await getLocalTopFinishOddsFallback();
   } catch {
-    return null;
+    return getLocalTopFinishOddsFallback();
   }
 }
 

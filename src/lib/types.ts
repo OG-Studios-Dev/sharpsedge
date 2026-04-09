@@ -366,12 +366,21 @@ export type GolfHeadToHeadOdds = {
   book: string;
 };
 
+export type GolfFinishingPositionOdds = {
+  playerName: string;
+  line: number;
+  overOdds: number;
+  underOdds: number;
+  book: string;
+};
+
 export type GolfOddsBoard = {
   sportKey: string;
   tournament: string;
   commenceTime?: string;
   outrights: GolfOutrightOdds[];
   h2h: GolfHeadToHeadOdds[];
+  finishingPositions?: GolfFinishingPositionOdds[];
 };
 
 export type GolfPredictionMarket = "Tournament Winner" | "Top 5 Finish" | "Top 10 Finish" | "Top 20 Finish";
