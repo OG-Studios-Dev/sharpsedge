@@ -947,6 +947,62 @@ function getTopFinishEdge(
   return getMarketProbability(player, market) - bookProbability;
 }
 
+type PGAMarketRule = {
+  market: GolfPredictionMarket;
+  targetCount: number;
+  minEdge: number;
+  minConfidence: number;
+  uniquePlayerOnly?: boolean;
+};
+
+function scorePlacementCandidate(player: GolfPrediction, market: GolfPredictionMarket) {
+  const probability = getMarketProbability(player, market);
+  const dgSupport = getDGSupport(player, market);
+  const confidence = Math.round(clamp((player.combinedScore * 0.5) + (probability * 100 * 0.2) + (dgSupport * 0.3), 35, 95));
+  return {
+    probability,
+    dgSupport,
+    confidence,
+    profileScore: (player.formScore + player.courseHistoryScore + player.combinedScore),
+  };
+}
+
+function getDGSupport(player: GolfPrediction, market: GolfPredictionMarket): number {
+  if (market === "Tournament Winner") return typeof player.dgWinProb === "number" ? player.dgWinProb * 100 : 0;
+  if (market === "Top 5 Finish") return typeof player.dgTop5Prob === "number" ? player.dgTop5Prob * 100 : 0;
+  if (market === "Top 10 Finish") return typeof player.dgTop10Prob === "number" ? player.dgTop10Prob * 100 : 0;
+  return typeof player.dgTop20Prob === "number" ? player.dgTop20Prob * 100 : 0;
+}
+
+function buildPGAMarketCandidates(
+  players: GolfPrediction[],
+  market: GolfPredictionMarket,
+  oddsMap: BovadaTopFinishOddsMap | null | undefined,
+) {
+  return players
+    .filter((player) => market === "Tournament Winner"
+      ? isQualifyingOutrightOdds(player.bookOdds)
+      : hasRealTopFinishLine(oddsMap, player.name, market))
+    .map((player) => {
+      const edge = market === "Tournament Winner"
+        ? (player.edge ?? Number.NEGATIVE_INFINITY)
+        : getTopFinishEdge(player, market, oddsMap);
+      const scoring = scorePlacementCandidate(player, market);
+      return {
+        player,
+        edge,
+        ...scoring,
+      };
+    })
+    .sort((left, right) => (
+      right.edge - left.edge
+    ) || (
+      right.confidence - left.confidence
+    ) || (
+      right.profileScore - left.profileScore
+    ));
+}
+
 export function buildGolfTournamentPicks(
   predictions: GolfPredictionBoard,
   date: string,
@@ -957,149 +1013,36 @@ export function buildGolfTournamentPicks(
   const tournamentId = predictions.tournament?.id;
   const picks: AIPick[] = [];
   const usedPlayers = new Set<string>();
-
-  // ── Outright winner picks (4 per tournament) ─────────────
-  // Hard rules:
-  //   1. Minimum +200 (no chalk favorites)
-  //   2. Must have positive edge vs model
-  //   3. Spread across 4 odds tiers for data collection diversity
-  const winnerCandidates = players
-    .filter((player) => {
-      if (!isQualifyingOutrightOdds(player.bookOdds) || (player.edge ?? 0) <= 0) return false;
-      const hasDGWin = typeof player.dgWinProb === "number" && player.dgWinProb > 0;
-      const eliteDG = typeof player.dgRank === "number" && player.dgRank <= 40;
-      return hasDGWin || eliteDG;
-    })
-    .sort((left, right) => (
-      (right.edge ?? Number.NEGATIVE_INFINITY) - (left.edge ?? Number.NEGATIVE_INFINITY)
-    ) || right.combinedScore - left.combinedScore);
-
-  // Tier 1: shorter-priced value (+200–+1800): established players with edge
-  const tier1Winner = winnerCandidates.find((player) => {
-    const odds = player.bookOdds ?? 0;
-    return odds >= PGA_OUTRIGHT_MIN_ODDS && odds <= 1800;
-  });
-  // Tier 2: mid-range (+1800–+4000): legitimate contenders at real value
-  const tier2Winner = winnerCandidates.find((player) => {
-    const odds = player.bookOdds ?? 0;
-    return odds > 1800 && odds <= 4000;
-  });
-  // Tier 3: long shot (+4000–+8000): high-variance, high-EV candidates
-  const tier3Winner = winnerCandidates.find((player) => {
-    const odds = player.bookOdds ?? 0;
-    return odds > 4000 && odds <= 8000;
-  });
-  // Tier 4: deep long shot (+8000+): maximum upside, minimum implied probability
-  const tier4Winner = winnerCandidates.find((player) => (player.bookOdds ?? 0) > 8000);
-
-  const winnerSelections = [tier1Winner, tier2Winner, tier3Winner, tier4Winner]
-    .filter((player): player is GolfPrediction => player !== undefined)
-    .filter((player, index, array) => array.findIndex((entry) => entry.id === player.id) === index);
-
-  for (const player of winnerSelections) {
-    usedPlayers.add(player.id);
-    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId, bovadaTopFinishOdds));
-  }
-
-  // Back-fill with highest-edge qualifying candidates if any tier was empty
-  for (const player of winnerCandidates) {
-    if (picks.filter((pick) => pick.propType === "Tournament Winner").length >= PGA_OUTRIGHT_WINNER_COUNT) break;
-    if (usedPlayers.has(player.id)) continue;
-    usedPlayers.add(player.id);
-    picks.push(predictionToPick(player, "Tournament Winner", date, tournamentName, tournamentId, bovadaTopFinishOdds));
-  }
-
-  // ── Top-finish lock selections ───────────────────────────────────────────
-  // Integrity rule: lock selections are ONLY generated when real scraped
-  // top-finish odds exist for the player on that specific market.
-  // If bovadaTopFinishOdds is null (no snapshot) or a player has no line for
-  // the requested market, the pick is skipped — never fabricated.
-  const lockMarkets: GolfPredictionMarket[] = ["Top 5 Finish", "Top 10 Finish", "Top 20 Finish"];
-
-  for (const market of lockMarkets) {
-    const candidates = [...players]
-      .filter((player) => !usedPlayers.has(player.id))
-      .map((player) => ({
-        player,
-        edge: getTopFinishEdge(player, market, bovadaTopFinishOdds),
-      }))
-      .filter((entry) => entry.edge > 0)
-      .sort((left, right) => (
-        right.edge - left.edge
-      ) || (
-        (right.player.formScore + right.player.courseHistoryScore)
-        - (left.player.formScore + left.player.courseHistoryScore)
-      ) || (
-        right.player.combinedScore - left.player.combinedScore
-      ));
-
-    const best = candidates[0];
-    if (!best) continue;
-    usedPlayers.add(best.player.id);
-    picks.push(predictionToPick(best.player, market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
-  }
-
-  // ── Top-finish value market picks ────────────────────────────────────────
-  // Same integrity rule: candidates are filtered to players with real scraped
-  // odds for that market before edge is even calculated.
-  const valueMarkets: Array<{ market: GolfPredictionMarket; count: number }> = [
-    { market: "Top 5 Finish", count: 2 },
-    { market: "Top 10 Finish", count: 2 },
-    { market: "Top 20 Finish", count: 2 },
+  const rules: PGAMarketRule[] = [
+    { market: "Tournament Winner", targetCount: 4, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 5 Finish", targetCount: 2, minEdge: 0.01, minConfidence: 54, uniquePlayerOnly: true },
+    { market: "Top 10 Finish", targetCount: 3, minEdge: 0.008, minConfidence: 54, uniquePlayerOnly: true },
+    { market: "Top 20 Finish", targetCount: 4, minEdge: 0.006, minConfidence: 52 },
   ];
 
-  for (const valueMarket of valueMarkets) {
-    // Filter to players with real top-finish odds for this market FIRST.
-    // Players without real odds are excluded — proxy estimates are never used.
-    const candidates = players
-      .filter((player) => hasRealTopFinishLine(bovadaTopFinishOdds, player.name, valueMarket.market))
-      .map((player) => {
-        const modelProbability = getMarketProbability(player, valueMarket.market);
-        const bookProbability = getRealTopFinishBookProbability(player, valueMarket.market, bovadaTopFinishOdds)
-          ?? getProxyBookProbability(player, valueMarket.market);
-        return {
-          player,
-          edge: bookProbability === null ? null : modelProbability - bookProbability,
-        };
-      })
-      .filter((entry) => (entry.edge ?? 0) > 0)
-      .sort((left, right) => (
-        (right.edge ?? Number.NEGATIVE_INFINITY) - (left.edge ?? Number.NEGATIVE_INFINITY)
-      ) || right.player.combinedScore - left.player.combinedScore);
+  for (const rule of rules) {
+    const candidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds)
+      .filter((candidate) => candidate.edge >= rule.minEdge)
+      .filter((candidate) => candidate.confidence >= rule.minConfidence)
+      .filter((candidate) => {
+        if (!rule.uniquePlayerOnly) return true;
+        return !usedPlayers.has(candidate.player.id);
+      });
 
-    let selectedCount = 0;
-
+    let added = 0;
     for (const candidate of candidates) {
-      if (selectedCount >= valueMarket.count) break;
-      if (usedPlayers.has(candidate.player.id)) continue;
-      usedPlayers.add(candidate.player.id);
-      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
-      selectedCount += 1;
-    }
+      if (added >= rule.targetCount) break;
+      const duplicateMarket = picks.some((pick) => pick.playerName === candidate.player.name && pick.propType === rule.market);
+      if (duplicateMarket) continue;
+      if (rule.uniquePlayerOnly && usedPlayers.has(candidate.player.id)) continue;
 
-    if (selectedCount >= valueMarket.count) continue;
-
-    for (const candidate of candidates) {
-      if (selectedCount >= valueMarket.count) break;
-      const alreadyPicked = picks.some((pick) => pick.playerName === candidate.player.name && pick.propType === valueMarket.market);
-      if (alreadyPicked) continue;
-      picks.push(predictionToPick(candidate.player, valueMarket.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
-      selectedCount += 1;
+      picks.push(predictionToPick(candidate.player, rule.market, date, tournamentName, tournamentId, bovadaTopFinishOdds));
+      if (rule.uniquePlayerOnly) usedPlayers.add(candidate.player.id);
+      added += 1;
     }
   }
 
-  // Enforce 60% confidence floor — only surface picks that meet quality bar.
-  // Outright winner picks are exempt from the hitRate floor: the "hitRate" on
-  // winner picks is really a composite confidence score, and low-odds-implied
-  // long shots will always score lower. They're valuable for sandbox learning.
-  const MIN_GOLF_HIT_RATE = 56;
-  const qualifiedPicks = picks.filter((pick) =>
-    (pick.propType === "Tournament Winner" && typeof pick.odds === "number" && pick.odds <= PGA_OUTRIGHT_MAX_ODDS)
-    || pick.hitRate >= MIN_GOLF_HIT_RATE,
-  );
-
-  // Cap: 4 outright winners + up to 12 placement picks = 16 total sandbox picks
-  return qualifiedPicks.slice(0, 16);
+  return picks.slice(0, 16);
 }
 
 // --- DataGolf Integration ---
