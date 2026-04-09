@@ -114,6 +114,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       nextGame: nextGameInfo,
       defenseGrid,
       player: {
+        playerId: logs[0]?.playerId ? Number(logs[0].playerId) : rosterEntry?.id,
         position: playerPosition || "",
         positionLabel: playerPosition || "NBA",
         jerseyNumber: rosterEntry?.jersey || logs[0]?.jersey || null,
@@ -144,6 +145,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       league: "NBA",
       availableStats: getPlayerResearchStats("NBA"),
       player: {
+        playerId: null,
         position: "",
         positionLabel: "NBA",
         jerseyNumber: null,

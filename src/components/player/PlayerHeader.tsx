@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import TeamLogo from "@/components/TeamLogo";
+import { getPlayerHeadshot } from "@/lib/visual-identity";
 import { PlayerIdentity, PlayerNextGame } from "@/lib/player-research";
 
 type PlayerHeaderProps = {
@@ -31,6 +33,15 @@ export default function PlayerHeader({
   player,
   nextGame,
 }: PlayerHeaderProps) {
+  const [imageError, setImageError] = useState(false);
+  const resolvedHeadshot = imageError
+    ? null
+    : getPlayerHeadshot({
+        league,
+        playerId: player.playerId,
+        playerName: name,
+        headshot,
+      });
   const infoLine = [player.positionLabel || player.position, team, player.jerseyNumber ? `#${player.jerseyNumber}` : null]
     .filter(Boolean)
     .join(" • ");
@@ -41,11 +52,12 @@ export default function PlayerHeader({
       <div className="p-5 md:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
-            {headshot ? (
+            {resolvedHeadshot ? (
               <img
-                src={headshot}
+                src={resolvedHeadshot}
                 alt={name}
                 className="h-20 w-20 rounded-[24px] border border-white/10 object-cover shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
+                onError={() => setImageError(true)}
               />
             ) : (
               <TeamLogo team={team || name.slice(0, 3)} color={teamColor} size={80} className="rounded-[24px]" sport={league} />

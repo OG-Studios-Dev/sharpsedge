@@ -17,6 +17,7 @@ export type PlayerNextGame = {
 };
 
 export type PlayerIdentity = {
+  playerId?: string | number | null;
   position: string;
   positionLabel: string;
   jerseyNumber?: string | number | null;
