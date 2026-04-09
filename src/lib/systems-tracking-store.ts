@@ -1547,6 +1547,18 @@ function slugify(value: string) {
 }
 
 function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingRecord {
+  const normalizedMarketType = record.marketType || null;
+  const normalizedRecordKind = (() => {
+    if (record.recordKind === "progression") return "progression";
+    if (record.recordKind === "alert") return "alert";
+    if (record.recordKind === "qualifier") {
+      const isContextBoard = normalizedMarketType === "context-board" || normalizedMarketType === "context-total-board";
+      const hasActionableSide = Boolean(record.qualifiedTeam) || normalizedMarketType === "total" || normalizedMarketType === "f5-total";
+      return !isContextBoard && hasActionableSide ? "qualifier" : "alert";
+    }
+    return null;
+  })();
+
   return {
     id: record.id || `system_row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     gameId: record.gameId || undefined,
@@ -1558,7 +1570,7 @@ function normalizeRecord(record: Partial<SystemTrackingRecord>): SystemTrackingR
     matchup: record.matchup || "",
     roadTeam: record.roadTeam || "",
     homeTeam: record.homeTeam || "",
-    recordKind: record.recordKind || null,
+    recordKind: normalizedRecordKind,
     marketType: record.marketType || null,
     marketAvailability: record.marketAvailability || null,
     alertLabel: record.alertLabel || null,
