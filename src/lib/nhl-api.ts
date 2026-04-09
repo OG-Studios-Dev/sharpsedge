@@ -276,22 +276,45 @@ export type GameGoalies = {
   away: GoalieStarter | null;
 };
 
-function parseGoalieFromMatchup(player: any, team: string): GoalieStarter | null {
-  if (!player) return null;
-  const seasonStats = player.seasonStats || {};
-  const wins = seasonStats.wins ?? 0;
-  const losses = seasonStats.losses ?? 0;
-  const otLosses = seasonStats.otLosses ?? 0;
+function parseGoalieRecord(record?: string | null) {
+  if (!record) return { wins: 0, losses: 0, otLosses: 0 };
+  const [winsRaw, lossesRaw, otLossesRaw] = String(record).split("-");
   return {
-    playerId: player.playerId ?? 0,
-    name: `${player.firstName?.default || ""} ${player.lastName?.default || ""}`.trim(),
+    wins: Number(winsRaw) || 0,
+    losses: Number(lossesRaw) || 0,
+    otLosses: Number(otLossesRaw) || 0,
+  };
+}
+
+function parseGoalieFromMatchup(
+  player: any,
+  team: string,
+  seasonStatsByPlayerId?: Map<number, any>,
+): GoalieStarter | null {
+  if (!player) return null;
+
+  const playerId = Number(player.playerId ?? 0);
+  const statRow = (playerId && seasonStatsByPlayerId?.get(playerId)) || null;
+  const seasonStats = player.seasonStats || statRow || {};
+  const parsedRecord = parseGoalieRecord(player.record ?? statRow?.record);
+  const wins = seasonStats.wins ?? parsedRecord.wins ?? 0;
+  const losses = seasonStats.losses ?? parsedRecord.losses ?? 0;
+  const otLosses = seasonStats.otLosses ?? parsedRecord.otLosses ?? 0;
+  const name =
+    `${player.firstName?.default || ""} ${player.lastName?.default || ""}`.trim() ||
+    player.name?.default ||
+    "";
+
+  return {
+    playerId,
+    name,
     status: "probable",
     team,
     wins,
     losses,
     otLosses,
-    savePct: seasonStats.savePctg ?? 0,
-    gaa: seasonStats.goalsAgainstAvg ?? 0,
+    savePct: seasonStats.savePctg ?? player.savePctg ?? 0,
+    gaa: seasonStats.goalsAgainstAvg ?? player.gaa ?? 0,
     isBackup: wins + losses + otLosses < 10,
   };
 }
@@ -330,11 +353,19 @@ export async function getGameGoalies(gameId: number): Promise<GameGoalies> {
 
     // Try matchup goalie comparison (pre-game)
     const gc = landing.matchup?.goalieComparison;
+    const goalieSeasonStats = Array.isArray(landing.matchup?.goalieSeasonStats?.goalies)
+      ? landing.matchup.goalieSeasonStats.goalies
+      : [];
+    const goalieSeasonStatsByPlayerId = new Map<number, any>(
+      goalieSeasonStats
+        .map((row: any) => [Number(row?.playerId ?? 0), row] as [number, any])
+        .filter((entry: [number, any]) => Number.isFinite(entry[0]) && entry[0] > 0)
+    );
     if (gc) {
-      const homePlayers = gc.homeTeam?.players;
-      const awayPlayers = gc.awayTeam?.players;
-      if (homePlayers?.length) home = parseGoalieFromMatchup(homePlayers[0], homeAbbrev);
-      if (awayPlayers?.length) away = parseGoalieFromMatchup(awayPlayers[0], awayAbbrev);
+      const homePlayers = gc.homeTeam?.players ?? gc.homeTeam?.leaders;
+      const awayPlayers = gc.awayTeam?.players ?? gc.awayTeam?.leaders;
+      if (homePlayers?.length) home = parseGoalieFromMatchup(homePlayers[0], homeAbbrev, goalieSeasonStatsByPlayerId);
+      if (awayPlayers?.length) away = parseGoalieFromMatchup(awayPlayers[0], awayAbbrev, goalieSeasonStatsByPlayerId);
     }
 
     // Try boxscore for live/completed games (overrides matchup data with confirmed info)
