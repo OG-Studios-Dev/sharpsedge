@@ -1,0 +1,234 @@
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
+import { buildGoose2CandidateId, buildGoose2EventId } from "@/lib/goose2/ids";
+import type { Goose2MarketCandidate, Goose2MarketEvent } from "@/lib/goose2/types";
+
+export type SnapshotEventRow = {
+  id: string;
+  snapshot_id: string;
+  sport: string;
+  game_id: string;
+  odds_api_event_id: string | null;
+  commence_time: string | null;
+  matchup: string;
+  home_team: string;
+  away_team: string;
+  home_abbrev: string;
+  away_abbrev: string;
+  captured_at: string;
+  source: string;
+};
+
+export type SnapshotPriceRow = {
+  id: string;
+  snapshot_id: string;
+  event_snapshot_id: string;
+  sport: string;
+  game_id: string;
+  odds_api_event_id: string | null;
+  commence_time: string | null;
+  captured_at: string;
+  book: string;
+  market_type: string;
+  outcome: string;
+  odds: number;
+  line: number | null;
+  source: string;
+  source_updated_at: string | null;
+  source_age_minutes: number | null;
+};
+
+function serviceHeaders(extra?: HeadersInit) {
+  const key = getSupabaseServiceRoleKey();
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+    Prefer: "return=representation",
+    ...extra,
+  };
+}
+
+async function postgrest<T>(path: string, init: RequestInit = {}) {
+  const response = await fetch(`${getSupabaseUrl()}/rest/v1${path}`, {
+    ...init,
+    headers: {
+      ...serviceHeaders(init.headers),
+      ...(init.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Goose2 snapshot backfill error ${response.status}: ${text.slice(0, 300)}`);
+  }
+
+  if (response.status === 204) return null as T;
+  return response.json() as Promise<T>;
+}
+
+function mapSnapshotMarketType(marketType: string): Goose2MarketCandidate["market_type"] {
+  if (marketType === "moneyline") return "moneyline";
+  if (marketType === "spread") return "spread";
+  if (marketType === "total") return "total";
+  if (marketType === "spread_q1") return "first_quarter_spread";
+  if (marketType === "spread_q3") return "third_quarter_spread";
+  return "unknown";
+}
+
+function inferParticipantType(sport: string): Goose2MarketCandidate["participant_type"] {
+  if (sport === "PGA") return "golfer";
+  return "team";
+}
+
+function inferParticipantNames(event: SnapshotEventRow, outcome: string) {
+  const side = outcome.toLowerCase();
+  if (side === "home") {
+    return {
+      participantId: event.home_abbrev,
+      participantName: event.home_team,
+      opponentId: event.away_abbrev,
+      opponentName: event.away_team,
+    };
+  }
+  if (side === "away") {
+    return {
+      participantId: event.away_abbrev,
+      participantName: event.away_team,
+      opponentId: event.home_abbrev,
+      opponentName: event.home_team,
+    };
+  }
+  return {
+    participantId: null,
+    participantName: null,
+    opponentId: null,
+    opponentName: null,
+  };
+}
+
+export function mapSnapshotRowsToGoose2(input: {
+  events: SnapshotEventRow[];
+  prices: SnapshotPriceRow[];
+}) {
+  const eventBySnapshotId = new Map(input.events.map((event) => [event.id, event]));
+
+  const eventRowsById = new Map<string, Goose2MarketEvent>();
+  const candidateRows: Goose2MarketCandidate[] = [];
+
+  for (const price of input.prices) {
+    const event = eventBySnapshotId.get(price.event_snapshot_id);
+    if (!event) continue;
+
+    const eventId = buildGoose2EventId({
+      sport: event.sport,
+      league: event.sport,
+      awayTeam: event.away_team,
+      homeTeam: event.home_team,
+      commenceTime: event.commence_time,
+      source: event.source,
+      sourceEventId: event.odds_api_event_id ?? event.game_id,
+    });
+
+    if (!eventRowsById.has(eventId)) {
+      eventRowsById.set(eventId, {
+        event_id: eventId,
+        sport: event.sport,
+        league: event.sport,
+        event_date: (event.commence_time ?? event.captured_at).slice(0, 10),
+        commence_time: event.commence_time,
+        home_team: event.home_team,
+        away_team: event.away_team,
+        home_team_id: event.home_abbrev,
+        away_team_id: event.away_abbrev,
+        event_label: event.matchup,
+        status: "scheduled",
+        source: event.source,
+        source_event_id: event.game_id,
+        odds_api_event_id: event.odds_api_event_id,
+        venue: null,
+        metadata: {
+          snapshot_id: event.snapshot_id,
+          event_snapshot_id: event.id,
+        },
+      });
+    }
+
+    const inferred = inferParticipantNames(event, price.outcome);
+    const marketType = mapSnapshotMarketType(price.market_type);
+
+    candidateRows.push({
+      candidate_id: buildGoose2CandidateId({
+        eventId,
+        marketType,
+        participantId: inferred.participantId,
+        participantName: inferred.participantName,
+        side: price.outcome,
+        line: price.line,
+        book: price.book,
+        captureTs: price.captured_at,
+      }),
+      event_id: eventId,
+      sport: event.sport,
+      league: event.sport,
+      event_date: (event.commence_time ?? price.captured_at).slice(0, 10),
+      market_type: marketType,
+      submarket_type: null,
+      participant_type: inferParticipantType(event.sport),
+      participant_id: inferred.participantId,
+      participant_name: inferred.participantName,
+      opponent_id: inferred.opponentId,
+      opponent_name: inferred.opponentName,
+      side: price.outcome,
+      line: price.line,
+      odds: price.odds,
+      book: price.book,
+      sportsbook: price.book,
+      capture_ts: price.captured_at,
+      snapshot_id: price.snapshot_id,
+      event_snapshot_id: price.event_snapshot_id,
+      source: price.source,
+      source_market_id: price.id,
+      is_best_price: false,
+      is_opening: false,
+      is_closing: false,
+      raw_payload: {
+        snapshot_price_id: price.id,
+        source_updated_at: price.source_updated_at,
+        source_age_minutes: price.source_age_minutes,
+      },
+      normalized_payload: {
+        original_market_type: price.market_type,
+        original_outcome: price.outcome,
+      },
+    });
+  }
+
+  return {
+    eventRows: Array.from(eventRowsById.values()),
+    candidateRows,
+  };
+}
+
+export async function loadSnapshotRowsForBackfill(input: { limit?: number; sport?: string; dateKey?: string }) {
+  const limit = Math.min(Math.max(input.limit ?? 500, 1), 5000);
+  const sportClause = input.sport ? `&sport=eq.${encodeURIComponent(input.sport)}` : "";
+  const snapshotFilter = input.dateKey ? `snapshot_id=in.(select id from market_snapshots where date_key='${input.dateKey}')` : "";
+
+  const events = await postgrest<SnapshotEventRow[]>(
+    `/market_snapshot_events?select=id,snapshot_id,sport,game_id,odds_api_event_id,commence_time,matchup,home_team,away_team,home_abbrev,away_abbrev,captured_at,source&order=captured_at.desc&limit=${limit}${sportClause}`,
+  );
+
+  const eventIds = Array.from(new Set((events ?? []).map((event) => event.id))).slice(0, limit);
+  if (!eventIds.length) return { events: [], prices: [] };
+
+  const idList = eventIds.map((id) => `"${id}"`).join(",");
+  const prices = await postgrest<SnapshotPriceRow[]>(
+    `/market_snapshot_prices?select=id,snapshot_id,event_snapshot_id,sport,game_id,odds_api_event_id,commence_time,captured_at,book,market_type,outcome,odds,line,source,source_updated_at,source_age_minutes&event_snapshot_id=in.(${encodeURIComponent(idList)})${sportClause}${snapshotFilter ? `&${snapshotFilter}` : ""}&order=captured_at.desc&limit=${Math.min(limit * 12, 20000)}`,
+  );
+
+  return {
+    events: events ?? [],
+    prices: prices ?? [],
+  };
+}
