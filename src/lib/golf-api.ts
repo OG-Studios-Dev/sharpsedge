@@ -8,6 +8,7 @@ import {
   GolfTournament,
   GolfTournamentStatus,
 } from "@/lib/types";
+import playerCrosswalk from "@/../data/pga/player-crosswalk.json";
 
 const ESPN_SITE_BASE = "https://site.api.espn.com/apis/site/v2/sports/golf";
 const ESPN_WEB_BASE = "https://site.web.api.espn.com/apis/site/v2/sports/golf";
@@ -22,6 +23,7 @@ const cache = new Map<string, CacheEntry<unknown>>();
 export const GOLF_PLAYER_IMAGES: Record<string, string> = {};
 const PGA_TOUR_PLAYER_HEADSHOTS: Record<string, string> = {};
 const PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME: Record<string, string> = {};
+const PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID: Record<string, string> = {};
 
 async function cachedFetch<T>(url: string, ttl = CACHE_TTL): Promise<T> {
   const hit = cache.get(url);
@@ -451,8 +453,26 @@ function computePositions(players: GolfPlayer[]) {
   return players;
 }
 
+function loadBundledPGAPlayerHeadshots() {
+  const rows = Array.isArray(playerCrosswalk?.rows) ? playerCrosswalk.rows : [];
+  for (const row of rows) {
+    const espnId = firstString((row as any)?.espnId);
+    const pgaId = firstString((row as any)?.pgaId);
+    const espnName = firstString((row as any)?.espnName);
+    const pgaName = firstString((row as any)?.pgaName);
+    const pgaHeadshot = firstString((row as any)?.pgaHeadshot);
+    if (pgaId && pgaHeadshot) PGA_TOUR_PLAYER_HEADSHOTS[pgaId] = pgaHeadshot;
+    if (espnId && pgaHeadshot) PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID[espnId] = pgaHeadshot;
+    if (espnName && pgaHeadshot) PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME[espnName.toLowerCase()] = pgaHeadshot;
+    if (pgaName && pgaHeadshot) PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME[pgaName.toLowerCase()] = pgaHeadshot;
+  }
+}
+
 async function loadPGATourPlayerHeadshots() {
-  if (Object.keys(PGA_TOUR_PLAYER_HEADSHOTS).length > 0) return;
+  if (Object.keys(PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID).length > 0) return;
+
+  loadBundledPGAPlayerHeadshots();
+  if (Object.keys(PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID).length > 0) return;
 
   try {
     const response = await fetch("https://www.pgatour.com/players", {
@@ -483,6 +503,7 @@ async function loadPGATourPlayerHeadshots() {
 
 function resolveGolfPlayerHeadshot(playerId: string, playerName: string, espnHeadshot?: string) {
   if (espnHeadshot) return espnHeadshot;
+  if (PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID[playerId]) return PGA_TOUR_PLAYER_HEADSHOTS_BY_ESPN_ID[playerId];
   if (PGA_TOUR_PLAYER_HEADSHOTS[playerId]) return PGA_TOUR_PLAYER_HEADSHOTS[playerId];
   const byName = PGA_TOUR_PLAYER_HEADSHOTS_BY_NAME[playerName.toLowerCase()];
   if (byName) return byName;
