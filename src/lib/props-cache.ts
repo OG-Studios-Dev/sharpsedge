@@ -10,8 +10,9 @@ const DATA_DIR = path.join(process.cwd(), "data");
 export const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assists,player_goals";
 export const NBA_PLAYER_PROP_MARKETS = "player_points,player_rebounds,player_assists,player_threes";
 export const MLB_PLAYER_PROP_MARKETS = "pitcher_strikeouts,batter_hits,batter_total_bases,batter_home_runs";
+export const NFL_PLAYER_PROP_MARKETS = "player_pass_yds,player_pass_tds,player_rush_yds,player_rush_attempts,player_reception_yds,player_receptions,player_anytime_td";
 
-type PropsLeague = "NHL" | "NBA" | "MLB";
+type PropsLeague = "NHL" | "NBA" | "MLB" | "NFL";
 type PropOddsSource = "cache" | "fresh" | "quota-blocked";
 
 type QuotaSnapshot = {
@@ -56,6 +57,10 @@ const SPORT_CONFIG: Record<PropsLeague, { sportKey: string; markets: string }> =
     sportKey: "baseball_mlb",
     markets: MLB_PLAYER_PROP_MARKETS,
   },
+  NFL: {
+    sportKey: "americanfootball_nfl",
+    markets: NFL_PLAYER_PROP_MARKETS,
+  },
 };
 
 function emptyLeagueCache(): LeaguePropsCache {
@@ -74,6 +79,7 @@ function buildEmptyCache(date: string): DailyPropsCacheFile {
       NHL: emptyLeagueCache(),
       NBA: emptyLeagueCache(),
       MLB: emptyLeagueCache(),
+      NFL: emptyLeagueCache(),
     },
   };
 }
@@ -118,6 +124,11 @@ function normalizeDailyPropsCache(date: string, parsed?: Partial<DailyPropsCache
         blockedAt: parsed.leagues?.MLB?.blockedAt ?? null,
         fetchedAt: parsed.leagues?.MLB?.fetchedAt ?? null,
         events: parsed.leagues?.MLB?.events ?? {},
+      },
+      NFL: {
+        blockedAt: parsed.leagues?.NFL?.blockedAt ?? null,
+        fetchedAt: parsed.leagues?.NFL?.fetchedAt ?? null,
+        events: parsed.leagues?.NFL?.events ?? {},
       },
     },
   } satisfies DailyPropsCacheFile;

@@ -29,7 +29,14 @@ alter table public.market_snapshot_prices
     'player_prop_total_bases',
     'player_prop_strikeouts',
     'player_prop_home_runs',
-    'player_prop_threes'
+    'player_prop_threes',
+    'player_prop_passing_yards',
+    'player_prop_passing_tds',
+    'player_prop_rushing_yards',
+    'player_prop_rush_attempts',
+    'player_prop_receiving_yards',
+    'player_prop_receptions',
+    'player_prop_anytime_td'
   ));
 
 create index if not exists market_snapshot_prices_participant_idx

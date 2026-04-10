@@ -21,7 +21,7 @@ function toPropMarketType(propType: string): MarketPriceMarketType | null {
 }
 
 function extractPlayerPropRowsFromEvent(input: {
-  sport: "NHL" | "NBA" | "MLB";
+  sport: "NHL" | "NBA" | "MLB" | "NFL";
   snapshotId: string;
   eventSnapshotId: string;
   gameId: string;
@@ -94,7 +94,7 @@ export async function capturePlayerPropSnapshotRows(input: {
   eventSnapshotIdByGameId: Map<string, string>;
   capturedAt: string;
 }) {
-  const supportedSports = ["NHL", "NBA", "MLB"] as const;
+  const supportedSports = ["NHL", "NBA", "MLB", "NFL"] as const;
   const rows: MarketSnapshotPriceRecord[] = [];
 
   for (const sport of supportedSports) {

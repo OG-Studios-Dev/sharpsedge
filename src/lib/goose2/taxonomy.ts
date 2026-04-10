@@ -27,6 +27,13 @@ export function inferGoose2MarketType(input: {
   if (prop.includes("strikeouts")) return "player_prop_strikeouts";
   if (prop.includes("home runs")) return "player_prop_home_runs";
   if (prop.includes("threes") || prop.includes("3-pointers") || prop.includes("3pm")) return "player_prop_threes";
+  if (prop.includes("pass yds") || prop.includes("passing yards") || prop.includes("player pass yds")) return "player_prop_passing_yards";
+  if (prop.includes("pass tds") || prop.includes("passing touchdowns") || prop.includes("player pass tds")) return "player_prop_passing_tds";
+  if (prop.includes("rush yds") || prop.includes("rushing yards") || prop.includes("player rush yds")) return "player_prop_rushing_yards";
+  if (prop.includes("rush attempts") || prop.includes("rushing attempts") || prop.includes("player rush attempts")) return "player_prop_rush_attempts";
+  if (prop.includes("reception yds") || prop.includes("receiving yards") || prop.includes("player reception yds")) return "player_prop_receiving_yards";
+  if (prop.includes("receptions") || prop.includes("player receptions")) return "player_prop_receptions";
+  if (prop.includes("anytime td") || prop.includes("anytime touchdown")) return "player_prop_anytime_td";
   if (prop.includes("top 5")) return "golf_top_5";
   if (prop.includes("top 10")) return "golf_top_10";
   if (prop.includes("top 20")) return "golf_top_20";
