@@ -21,12 +21,27 @@ async function runGoose2Grade(input: { date?: string; sport?: string; limit?: nu
     listGoose2Candidates({ eventDate, sport, limit: Math.min(limit * 20, 2000) }),
   ]);
 
-  const filteredCandidates = candidates.filter((candidate) => events.some((event) => event.event_id === candidate.event_id));
-  const results = await persistGoose2Grades({ candidates: filteredCandidates, events });
+  const eventsById = new Map(events.map((event) => [event.event_id, event]));
+  const filteredCandidates = candidates.filter((candidate) => eventsById.has(candidate.event_id));
+  const gradeableCandidates = filteredCandidates.filter((candidate) => {
+    const event = eventsById.get(candidate.event_id);
+    if (!event) return false;
+    if (event.sport !== "NHL") return true;
+    const ids = [
+      typeof event.metadata?.source_event_id === "string" ? event.metadata.source_event_id : null,
+      typeof event.odds_api_event_id === "string" ? event.odds_api_event_id : null,
+      typeof event.source_event_id === "string" ? event.source_event_id : null,
+    ].filter(Boolean);
+    return ids.some((value) => /^\d+$/.test(String(value).trim()));
+  });
+  const skippedCandidates = filteredCandidates.length - gradeableCandidates.length;
+  const results = await persistGoose2Grades({ candidates: gradeableCandidates, events });
 
   const counts = {
     total_events: events.length,
     total_candidates: filteredCandidates.length,
+    attempted_candidates: gradeableCandidates.length,
+    skipped_ungradeable_upstream: skippedCandidates,
     graded_ok: results.filter((row) => row.integrity_status === "ok").length,
     pending: results.filter((row) => row.result === "pending").length,
     ungradeable: results.filter((row) => row.result === "ungradeable").length,
