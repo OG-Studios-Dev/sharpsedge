@@ -1,7 +1,12 @@
 import type { AggregatedOdds } from "@/lib/books/types";
+import { isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 import { buildGoose2CandidateId, buildGoose2EventId } from "@/lib/goose2/ids";
 import { inferGoose2MarketType, expandBookOddsToCandidateMarkets } from "@/lib/goose2/taxonomy";
 import type { Goose2MarketCandidate, Goose2MarketEvent } from "@/lib/goose2/types";
+
+function isNumericId(value?: string | null) {
+  return /^\d+$/.test(String(value ?? "").trim());
+}
 
 export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
   league?: string | null;
@@ -14,6 +19,9 @@ export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
   const candidateRows: Goose2MarketCandidate[] = [];
 
   for (const event of input.events) {
+    const realGameId = isNumericId(event.gameId) ? event.gameId : null;
+    const truthfulSourceEventId = realGameId ?? (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? event.oddsApiEventId : event.gameId);
+
     const eventId = buildGoose2EventId({
       sport: event.sport,
       league: input.league ?? event.sport,
@@ -21,7 +29,7 @@ export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
       homeTeam: event.homeTeam,
       commenceTime: event.commenceTime,
       source: input.source,
-      sourceEventId: event.oddsApiEventId ?? event.gameId,
+      sourceEventId: truthfulSourceEventId,
     });
 
     eventRows.push({
@@ -37,11 +45,14 @@ export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
       event_label: `${event.awayTeam} @ ${event.homeTeam}`,
       status: "scheduled",
       source: input.source,
-      source_event_id: event.gameId,
+      source_event_id: truthfulSourceEventId,
       odds_api_event_id: event.oddsApiEventId ?? null,
       venue: null,
       metadata: {
         gameId: event.gameId,
+        real_game_id: realGameId,
+        source_event_id_truthful: truthfulSourceEventId,
+        source_event_id_kind: realGameId ? "league_game_id" : (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? "odds_api_event_id" : "synthetic_aggregated_id"),
         homeAbbrev: event.homeAbbrev,
         awayAbbrev: event.awayAbbrev,
       },
