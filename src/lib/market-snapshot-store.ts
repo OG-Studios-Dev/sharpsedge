@@ -14,7 +14,7 @@ const inMemoryDailySnapshots = new Map<string, DailyMarketSnapshotFile>();
 
 export type MarketSnapshotTrigger = "manual" | "cron" | "api";
 export type MarketSnapshotWriteStatus = "persisted" | "memory_fallback" | "skipped" | "error";
-export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total" | "first_five_moneyline" | "first_five_total" | "player_prop_points" | "player_prop_rebounds" | "player_prop_assists" | "player_prop_shots_on_goal" | "player_prop_goals" | "player_prop_hits" | "player_prop_total_bases" | "player_prop_strikeouts";
+export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total" | "first_five_moneyline" | "first_five_total" | "player_prop_points" | "player_prop_rebounds" | "player_prop_assists" | "player_prop_shots_on_goal" | "player_prop_goals" | "player_prop_hits" | "player_prop_total_bases" | "player_prop_strikeouts" | "player_prop_home_runs" | "player_prop_threes";
 
 export type SourceFreshnessSummary = {
   sourceCount: number;

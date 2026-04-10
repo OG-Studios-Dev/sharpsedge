@@ -14,6 +14,8 @@ export const GOOSE2_MARKET_TYPES = [
   "player_prop_hits",
   "player_prop_total_bases",
   "player_prop_strikeouts",
+  "player_prop_home_runs",
+  "player_prop_threes",
   "golf_outright",
   "golf_top_5",
   "golf_top_10",

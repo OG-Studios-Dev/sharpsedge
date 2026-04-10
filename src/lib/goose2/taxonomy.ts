@@ -25,6 +25,8 @@ export function inferGoose2MarketType(input: {
   if (prop.includes("hits")) return "player_prop_hits";
   if (prop.includes("total bases")) return "player_prop_total_bases";
   if (prop.includes("strikeouts")) return "player_prop_strikeouts";
+  if (prop.includes("home runs")) return "player_prop_home_runs";
+  if (prop.includes("threes") || prop.includes("3-pointers") || prop.includes("3pm")) return "player_prop_threes";
   if (prop.includes("top 5")) return "golf_top_5";
   if (prop.includes("top 10")) return "golf_top_10";
   if (prop.includes("top 20")) return "golf_top_20";
