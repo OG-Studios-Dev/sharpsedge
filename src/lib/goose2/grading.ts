@@ -177,9 +177,29 @@ async function fetchMLBScheduleGame(gameId: string, date: string) {
     .find((game: any) => String(game?.gamePk ?? "") === gameId) || null;
 }
 
+function resolveNHLGameId(event: Goose2MarketEvent) {
+  const metadataGameId = typeof event.metadata?.source_event_id === "string" ? event.metadata.source_event_id : null;
+  const oddsApiEventId = typeof event.odds_api_event_id === "string" ? event.odds_api_event_id : null;
+  const directSourceId = typeof event.source_event_id === "string" ? event.source_event_id : null;
+  const candidates = [metadataGameId, oddsApiEventId, directSourceId].filter(Boolean) as string[];
+  for (const value of candidates) {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) return trimmed;
+  }
+  return null;
+}
+
 async function gradeNHL(candidate: Goose2MarketCandidate, event: Goose2MarketEvent): Promise<Goose2MarketResult> {
-  const gameId = String(event.source_event_id ?? "");
-  if (!gameId) return unsupportedResult(candidate, "Missing NHL source_event_id/game id.");
+  const gameId = resolveNHLGameId(event);
+  if (!gameId) {
+    return settledResult({
+      candidate,
+      result: "ungradeable",
+      integrityStatus: "manual_review",
+      notes: `NHL event missing numeric game id. source_event_id=${String(event.source_event_id ?? "")}`,
+      payload: { source_event_id: event.source_event_id, odds_api_event_id: event.odds_api_event_id, metadata: event.metadata },
+    });
+  }
   const boxscore = await fetchJSON<any>(`${NHL_BASE}/gamecenter/${gameId}/boxscore`);
   if (!boxscore || !isFinalNHL(boxscore)) return pendingResult(candidate, "NHL game not final yet.");
 
