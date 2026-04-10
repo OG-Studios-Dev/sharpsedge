@@ -50,9 +50,10 @@ export async function upsertGoose2Events(rows: Goose2MarketEvent[]) {
 
 export async function upsertGoose2Candidates(rows: Goose2MarketCandidate[]) {
   if (!rows.length) return;
+  const sanitizedRows = rows.map(({ sportsbook: _sportsbook, ...row }) => row);
   await goose2Fetch("/goose_market_candidates", {
     method: "POST",
-    body: JSON.stringify(rows),
+    body: JSON.stringify(sanitizedRows),
   });
 }
 

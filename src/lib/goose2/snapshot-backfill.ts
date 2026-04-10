@@ -73,6 +73,8 @@ function mapSnapshotMarketType(marketType: string): Goose2MarketCandidate["marke
   if (marketType === "total") return "total";
   if (marketType === "spread_q1") return "first_quarter_spread";
   if (marketType === "spread_q3") return "third_quarter_spread";
+  if (marketType === "first_five_moneyline") return "first_five_moneyline";
+  if (marketType === "first_five_total") return "first_five_total";
   return "unknown";
 }
 

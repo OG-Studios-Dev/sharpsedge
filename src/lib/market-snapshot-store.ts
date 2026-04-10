@@ -13,7 +13,7 @@ const inMemoryDailySnapshots = new Map<string, DailyMarketSnapshotFile>();
 
 export type MarketSnapshotTrigger = "manual" | "cron" | "api";
 export type MarketSnapshotWriteStatus = "persisted" | "memory_fallback" | "skipped" | "error";
-export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total";
+export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total" | "first_five_moneyline" | "first_five_total";
 
 export type SourceFreshnessSummary = {
   sourceCount: number;
@@ -386,6 +386,18 @@ function buildPriceRecords(snapshotId: string, eventSnapshotId: string, event: A
     }
     if (typeof book.total === "number" && typeof book.underOdds === "number") {
       prices.push(createPriceRecord(snapshotId, eventSnapshotId, event, capturedAt, book, "total", "Under", book.underOdds, book.total));
+    }
+    if (typeof book.firstFiveHomeML === "number") {
+      prices.push(createPriceRecord(snapshotId, eventSnapshotId, event, capturedAt, book, "first_five_moneyline", event.homeTeam, book.firstFiveHomeML, null));
+    }
+    if (typeof book.firstFiveAwayML === "number") {
+      prices.push(createPriceRecord(snapshotId, eventSnapshotId, event, capturedAt, book, "first_five_moneyline", event.awayTeam, book.firstFiveAwayML, null));
+    }
+    if (typeof book.firstFiveTotal === "number" && typeof book.firstFiveOverOdds === "number") {
+      prices.push(createPriceRecord(snapshotId, eventSnapshotId, event, capturedAt, book, "first_five_total", "Over", book.firstFiveOverOdds, book.firstFiveTotal));
+    }
+    if (typeof book.firstFiveTotal === "number" && typeof book.firstFiveUnderOdds === "number") {
+      prices.push(createPriceRecord(snapshotId, eventSnapshotId, event, capturedAt, book, "first_five_total", "Under", book.firstFiveUnderOdds, book.firstFiveTotal));
     }
   }
 

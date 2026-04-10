@@ -48,7 +48,7 @@ create table if not exists public.market_snapshot_prices (
   commence_time timestamptz,
   captured_at timestamptz not null,
   book text not null,
-  market_type text not null check (market_type in ('moneyline', 'spread', 'spread_q1', 'spread_q3', 'total')),
+  market_type text not null check (market_type in ('moneyline', 'spread', 'spread_q1', 'spread_q3', 'total', 'first_five_moneyline', 'first_five_total')),
   outcome text not null,
   odds numeric not null,
   line numeric,
