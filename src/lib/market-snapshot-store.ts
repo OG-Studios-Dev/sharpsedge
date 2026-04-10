@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AggregatedBookOdds, AggregatedOdds, AggregatedSport } from "@/lib/books/types";
 import { bootstrapGoose2ShadowFromSnapshot } from "@/lib/goose2/shadow-pipeline";
+import { capturePlayerPropSnapshotRows } from "@/lib/player-prop-snapshot";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const SNAPSHOT_DIR = path.join(DATA_DIR, "market-snapshots");
@@ -13,7 +14,7 @@ const inMemoryDailySnapshots = new Map<string, DailyMarketSnapshotFile>();
 
 export type MarketSnapshotTrigger = "manual" | "cron" | "api";
 export type MarketSnapshotWriteStatus = "persisted" | "memory_fallback" | "skipped" | "error";
-export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total" | "first_five_moneyline" | "first_five_total";
+export type MarketPriceMarketType = "moneyline" | "spread" | "spread_q1" | "spread_q3" | "total" | "first_five_moneyline" | "first_five_total" | "player_prop_points" | "player_prop_rebounds" | "player_prop_assists" | "player_prop_shots_on_goal" | "player_prop_goals" | "player_prop_hits" | "player_prop_total_bases" | "player_prop_strikeouts";
 
 export type SourceFreshnessSummary = {
   sourceCount: number;
@@ -47,6 +48,13 @@ export type MarketSnapshotPriceRecord = {
   source: string;
   sourceUpdatedAt: string | null;
   sourceAgeMinutes: number | null;
+  participantType?: "team" | "player" | "golfer" | "pairing" | "field" | "unknown" | null;
+  participantId?: string | null;
+  participantName?: string | null;
+  opponentName?: string | null;
+  propType?: string | null;
+  propMarketKey?: string | null;
+  context?: Record<string, unknown>;
 };
 
 export type MarketSnapshotEventRecord = {
@@ -576,6 +584,13 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     source: price.source,
     source_updated_at: parseIsoTimestamp(price.sourceUpdatedAt)?.toISOString() ?? null,
     source_age_minutes: price.sourceAgeMinutes,
+    participant_type: price.participantType ?? null,
+    participant_id: price.participantId ?? null,
+    participant_name: price.participantName ?? null,
+    opponent_name: price.opponentName ?? null,
+    prop_type: price.propType ?? null,
+    prop_market_key: price.propMarketKey ?? null,
+    context: price.context ?? {},
   }));
 
   const parseSupabaseInsertError = async (response: Response, table: string) => {
@@ -703,13 +718,19 @@ export function summarizeQuarterCoverage(snapshot: Pick<MarketSnapshotRecord, "e
   };
 }
 
-export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOString(), trigger = "manual", reason = null }: CaptureOptions, existingSnapshots: MarketSnapshotRecord[] = []): MarketSnapshotRecord {
+export async function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOString(), trigger = "manual", reason = null }: CaptureOptions, existingSnapshots: MarketSnapshotRecord[] = []): Promise<MarketSnapshotRecord> {
   const dateKey = getDateKey(capturedAt);
   const snapshotId = `market-snapshot:${capturedAt}:${randomUUID().slice(0, 8)}`;
   const events = Object.values(board).flatMap((sportEvents) => sportEvents ?? []);
   const eventSnapshots = events.map((event) => buildEventSnapshot(snapshotId, event, capturedAt));
   const eventRecords = eventSnapshots.map((entry) => entry.eventRecord);
-  const priceRecords = eventSnapshots.flatMap((entry) => entry.prices);
+  const playerPropPriceRecords = await capturePlayerPropSnapshotRows({
+    sportsBoard: board,
+    snapshotId,
+    eventSnapshotIdByGameId: new Map(eventRecords.map((event) => [event.gameId, event.id])),
+    capturedAt,
+  });
+  const priceRecords = [...eventSnapshots.flatMap((entry) => entry.prices), ...playerPropPriceRecords];
   const metadata = summarizeMarketSnapshotBoard(board, capturedAt);
   const health = deriveSnapshotHealth(capturedAt, existingSnapshots);
 
@@ -738,7 +759,7 @@ export function normalizeMarketSnapshot({ board, capturedAt = new Date().toISOSt
 export async function captureMarketSnapshot(options: CaptureOptions): Promise<MarketSnapshotCaptureResult> {
   const capturedAt = options.capturedAt ?? new Date().toISOString();
   const dailyFile = await readDailySnapshotFile(getDateKey(capturedAt));
-  const snapshot = normalizeMarketSnapshot({ ...options, capturedAt }, dailyFile.snapshots);
+  const snapshot = await normalizeMarketSnapshot({ ...options, capturedAt }, dailyFile.snapshots);
   const nextFile: DailyMarketSnapshotFile = {
     date: dailyFile.date,
     snapshots: [...dailyFile.snapshots, snapshot],

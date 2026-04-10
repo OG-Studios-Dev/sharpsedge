@@ -35,6 +35,13 @@ export type SnapshotPriceRow = {
   source: string;
   source_updated_at: string | null;
   source_age_minutes: number | null;
+  participant_type?: string | null;
+  participant_id?: string | null;
+  participant_name?: string | null;
+  opponent_name?: string | null;
+  prop_type?: string | null;
+  prop_market_key?: string | null;
+  context?: Record<string, unknown> | null;
 };
 
 function serviceHeaders(extra?: HeadersInit) {
@@ -98,7 +105,9 @@ function mapSnapshotMarketType(marketType: string): Goose2MarketCandidate["marke
   return "unknown";
 }
 
-function inferParticipantType(sport: string): Goose2MarketCandidate["participant_type"] {
+function inferParticipantType(sport: string, explicit?: string | null): Goose2MarketCandidate["participant_type"] {
+  if (explicit === "player") return "player";
+  if (explicit === "golfer") return "golfer";
   if (sport === "PGA") return "golfer";
   return "team";
 }
@@ -184,13 +193,16 @@ export function mapSnapshotRowsToGoose2(input: {
 
     const inferred = inferParticipantNames(event, price.outcome);
     const marketType = mapSnapshotMarketType(price.market_type);
+    const participantId = price.participant_id ?? inferred.participantId;
+    const participantName = price.participant_name ?? inferred.participantName;
+    const opponentName = price.opponent_name ?? inferred.opponentName;
 
     candidateRows.push({
       candidate_id: buildGoose2CandidateId({
         eventId,
         marketType,
-        participantId: inferred.participantId,
-        participantName: inferred.participantName,
+        participantId,
+        participantName,
         side: price.outcome,
         line: price.line,
         book: price.book,
@@ -201,12 +213,12 @@ export function mapSnapshotRowsToGoose2(input: {
       league: event.sport,
       event_date: (normalizedCommenceTime ?? normalizedPriceCapturedAt).slice(0, 10),
       market_type: marketType,
-      submarket_type: null,
-      participant_type: inferParticipantType(event.sport),
-      participant_id: inferred.participantId,
-      participant_name: inferred.participantName,
+      submarket_type: price.prop_market_key ?? null,
+      participant_type: inferParticipantType(event.sport, price.participant_type),
+      participant_id: participantId,
+      participant_name: participantName,
       opponent_id: inferred.opponentId,
-      opponent_name: inferred.opponentName,
+      opponent_name: opponentName,
       side: price.outcome,
       line: price.line,
       odds: price.odds,
@@ -228,6 +240,9 @@ export function mapSnapshotRowsToGoose2(input: {
       normalized_payload: {
         original_market_type: price.market_type,
         original_outcome: price.outcome,
+        prop_type: price.prop_type ?? null,
+        prop_market_key: price.prop_market_key ?? null,
+        context: price.context ?? {},
       },
     });
   }
@@ -252,7 +267,7 @@ export async function loadSnapshotRowsForBackfill(input: { limit?: number; sport
 
   const idList = eventIds.map((id) => `"${id}"`).join(",");
   const prices = await postgrest<SnapshotPriceRow[]>(
-    `/market_snapshot_prices?select=id,snapshot_id,event_snapshot_id,sport,game_id,odds_api_event_id,commence_time,captured_at,book,market_type,outcome,odds,line,source,source_updated_at,source_age_minutes&event_snapshot_id=in.(${encodeURIComponent(idList)})${sportClause}${snapshotFilter ? `&${snapshotFilter}` : ""}&order=captured_at.desc&limit=${Math.min(limit * 12, 20000)}`,
+    `/market_snapshot_prices?select=id,snapshot_id,event_snapshot_id,sport,game_id,odds_api_event_id,commence_time,captured_at,book,market_type,outcome,odds,line,source,source_updated_at,source_age_minutes,participant_type,participant_id,participant_name,opponent_name,prop_type,prop_market_key,context&event_snapshot_id=in.(${encodeURIComponent(idList)})${sportClause}${snapshotFilter ? `&${snapshotFilter}` : ""}&order=captured_at.desc&limit=${Math.min(limit * 20, 40000)}`,
   );
 
   return {
