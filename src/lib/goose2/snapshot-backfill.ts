@@ -67,6 +67,26 @@ async function postgrest<T>(path: string, init: RequestInit = {}) {
   return response.json() as Promise<T>;
 }
 
+function normalizeTimestamp(value: string | null | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{10,13}$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      const millis = trimmed.length === 10 ? numeric * 1000 : numeric;
+      const parsed = new Date(millis);
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+    }
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function normalizeRequiredTimestamp(value: string | null | undefined, fallback: string) {
+  return normalizeTimestamp(value) ?? fallback;
+}
+
 function mapSnapshotMarketType(marketType: string): Goose2MarketCandidate["market_type"] {
   if (marketType === "moneyline") return "moneyline";
   if (marketType === "spread") return "spread";
@@ -122,12 +142,18 @@ export function mapSnapshotRowsToGoose2(input: {
     const event = eventBySnapshotId.get(price.event_snapshot_id);
     if (!event) continue;
 
+    const normalizedCommenceTime = normalizeTimestamp(event.commence_time);
+    const fallbackNow = new Date().toISOString();
+    const normalizedEventCapturedAt = normalizeRequiredTimestamp(event.captured_at, fallbackNow);
+    const normalizedPriceCapturedAt = normalizeRequiredTimestamp(price.captured_at, normalizedEventCapturedAt);
+    const normalizedSourceUpdatedAt = normalizeTimestamp(price.source_updated_at);
+
     const eventId = buildGoose2EventId({
       sport: event.sport,
       league: event.sport,
       awayTeam: event.away_team,
       homeTeam: event.home_team,
-      commenceTime: event.commence_time,
+      commenceTime: normalizedCommenceTime,
       source: event.source,
       sourceEventId: event.odds_api_event_id ?? event.game_id,
     });
@@ -137,8 +163,8 @@ export function mapSnapshotRowsToGoose2(input: {
         event_id: eventId,
         sport: event.sport,
         league: event.sport,
-        event_date: (event.commence_time ?? event.captured_at).slice(0, 10),
-        commence_time: event.commence_time,
+        event_date: (normalizedCommenceTime ?? normalizedEventCapturedAt).slice(0, 10),
+        commence_time: normalizedCommenceTime,
         home_team: event.home_team,
         away_team: event.away_team,
         home_team_id: event.home_abbrev,
@@ -168,12 +194,12 @@ export function mapSnapshotRowsToGoose2(input: {
         side: price.outcome,
         line: price.line,
         book: price.book,
-        captureTs: price.captured_at,
+        captureTs: normalizedPriceCapturedAt,
       }),
       event_id: eventId,
       sport: event.sport,
       league: event.sport,
-      event_date: (event.commence_time ?? price.captured_at).slice(0, 10),
+      event_date: (normalizedCommenceTime ?? normalizedPriceCapturedAt).slice(0, 10),
       market_type: marketType,
       submarket_type: null,
       participant_type: inferParticipantType(event.sport),
@@ -186,7 +212,7 @@ export function mapSnapshotRowsToGoose2(input: {
       odds: price.odds,
       book: price.book,
       sportsbook: price.book,
-      capture_ts: price.captured_at,
+      capture_ts: normalizedPriceCapturedAt,
       snapshot_id: price.snapshot_id,
       event_snapshot_id: price.event_snapshot_id,
       source: price.source,
@@ -196,7 +222,7 @@ export function mapSnapshotRowsToGoose2(input: {
       is_closing: false,
       raw_payload: {
         snapshot_price_id: price.id,
-        source_updated_at: price.source_updated_at,
+        source_updated_at: normalizedSourceUpdatedAt,
         source_age_minutes: price.source_age_minutes,
       },
       normalized_payload: {
