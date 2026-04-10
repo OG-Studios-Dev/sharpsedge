@@ -1,4 +1,5 @@
 import { getMLBF5Linescore } from "@/lib/mlb-api";
+import { getBroadSchedule } from "@/lib/nhl-api";
 import { fetchJSON } from "@/lib/pick-resolver";
 import { upsertGoose2Results } from "@/lib/goose2/repository";
 import type {
@@ -177,7 +178,7 @@ async function fetchMLBScheduleGame(gameId: string, date: string) {
     .find((game: any) => String(game?.gamePk ?? "") === gameId) || null;
 }
 
-function resolveNHLGameId(event: Goose2MarketEvent) {
+function resolveDirectNHLGameId(event: Goose2MarketEvent) {
   const metadataGameId = typeof event.metadata?.source_event_id === "string" ? event.metadata.source_event_id : null;
   const oddsApiEventId = typeof event.odds_api_event_id === "string" ? event.odds_api_event_id : null;
   const directSourceId = typeof event.source_event_id === "string" ? event.source_event_id : null;
@@ -189,15 +190,76 @@ function resolveNHLGameId(event: Goose2MarketEvent) {
   return null;
 }
 
+async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: string | null; resolution: string; payload?: Record<string, unknown> }> {
+  const direct = resolveDirectNHLGameId(event);
+  if (direct) return { gameId: direct, resolution: "direct_numeric_id" };
+
+  const boardDate = String(event.event_date || "").trim();
+  const away = normalizeTeam(event.away_team_id || event.away_team);
+  const home = normalizeTeam(event.home_team_id || event.home_team);
+  const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
+
+  const schedule = await getBroadSchedule(4);
+  const matches = schedule.games.filter((game) => {
+    const gameDate = String(game.startTimeUTC || "").slice(0, 10);
+    return gameDate === boardDate
+      && normalizeTeam(game.awayTeam?.abbrev) === away
+      && normalizeTeam(game.homeTeam?.abbrev) === home;
+  });
+
+  if (matches.length === 1) {
+    return {
+      gameId: String(matches[0].id),
+      resolution: "matched_by_schedule_exact",
+      payload: { matched_start: matches[0].startTimeUTC, board_date: boardDate, away, home },
+    };
+  }
+
+  if (matches.length > 1 && Number.isFinite(eventStartMs)) {
+    const ranked = matches
+      .map((game) => ({ game, diffMs: Math.abs(new Date(game.startTimeUTC).getTime() - eventStartMs) }))
+      .sort((a, b) => a.diffMs - b.diffMs);
+
+    const best = ranked[0];
+    const second = ranked[1];
+    if (best && best.diffMs <= 3 * 60 * 60 * 1000 && (!second || second.diffMs !== best.diffMs)) {
+      return {
+        gameId: String(best.game.id),
+        resolution: "matched_by_schedule_time_proximity",
+        payload: {
+          matched_start: best.game.startTimeUTC,
+          time_diff_minutes: Math.round(best.diffMs / 60000),
+          board_date: boardDate,
+          away,
+          home,
+        },
+      };
+    }
+  }
+
+  return {
+    gameId: null,
+    resolution: "unresolved",
+    payload: {
+      source_event_id: event.source_event_id,
+      odds_api_event_id: event.odds_api_event_id,
+      board_date: boardDate,
+      away,
+      home,
+    },
+  };
+}
+
 async function gradeNHL(candidate: Goose2MarketCandidate, event: Goose2MarketEvent): Promise<Goose2MarketResult> {
-  const gameId = resolveNHLGameId(event);
+  const resolvedId = await resolveNHLGameId(event);
+  const gameId = resolvedId.gameId;
   if (!gameId) {
     return settledResult({
       candidate,
       result: "ungradeable",
       integrityStatus: "manual_review",
-      notes: `NHL event missing numeric game id. source_event_id=${String(event.source_event_id ?? "")}`,
-      payload: { source_event_id: event.source_event_id, odds_api_event_id: event.odds_api_event_id, metadata: event.metadata },
+      notes: `NHL event missing resolvable numeric game id. resolution=${resolvedId.resolution}`,
+      payload: { ...(resolvedId.payload ?? {}), metadata: event.metadata },
     });
   }
   const boxscore = await fetchJSON<any>(`${NHL_BASE}/gamecenter/${gameId}/boxscore`);
@@ -217,7 +279,7 @@ async function gradeNHL(candidate: Goose2MarketCandidate, event: Goose2MarketEve
         result: resolveByLine(total, candidate.line, candidate.side),
         actualStat: total,
         actualStatText: `${awayAbbrev} ${awayScore} @ ${homeAbbrev} ${homeScore}`,
-        notes: "NHL full-game total graded from final boxscore.",
+        notes: `NHL full-game total graded from final boxscore (${resolvedId.resolution}).`,
       });
     }
 
@@ -233,7 +295,7 @@ async function gradeNHL(candidate: Goose2MarketCandidate, event: Goose2MarketEve
         result,
         actualStat: teamScore - oppScore,
         actualStatText: `${awayAbbrev} ${awayScore} @ ${homeAbbrev} ${homeScore}`,
-        notes: "NHL moneyline graded from final boxscore.",
+        notes: `NHL moneyline graded from final boxscore (${resolvedId.resolution}).`,
       });
     }
 
@@ -243,7 +305,7 @@ async function gradeNHL(candidate: Goose2MarketCandidate, event: Goose2MarketEve
       result: resolveSpreadResult(teamScore, oppScore, candidate.line),
       actualStat: teamScore - oppScore,
       actualStatText: `${awayAbbrev} ${awayScore} @ ${homeAbbrev} ${homeScore}`,
-      notes: "NHL spread graded from final boxscore.",
+      notes: `NHL spread graded from final boxscore (${resolvedId.resolution}).`,
     });
   }
 
