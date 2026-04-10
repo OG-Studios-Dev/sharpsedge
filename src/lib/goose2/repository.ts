@@ -80,3 +80,57 @@ export async function upsertGoose2DecisionLogs(rows: Goose2DecisionLog[]) {
     body: JSON.stringify(rows),
   });
 }
+
+export async function listGoose2Candidates(filters: {
+  sport?: string;
+  eventDate?: string;
+  limit?: number;
+}) {
+  const params = new URLSearchParams({
+    select: "*",
+    order: "capture_ts.desc",
+    limit: String(Math.min(Math.max(filters.limit ?? 200, 1), 2000)),
+  });
+
+  if (filters.sport) params.set("sport", `eq.${filters.sport}`);
+  if (filters.eventDate) params.set("event_date", `eq.${filters.eventDate}`);
+
+  const response = await fetch(postgrestUrl(`/goose_market_candidates?${params.toString()}`), {
+    headers: serviceHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Goose2 repository error ${response.status}: ${text.slice(0, 300)}`);
+  }
+
+  return response.json() as Promise<Goose2MarketCandidate[]>;
+}
+
+export async function listGoose2Events(filters: {
+  sport?: string;
+  eventDate?: string;
+  limit?: number;
+}) {
+  const params = new URLSearchParams({
+    select: "*",
+    order: "event_date.desc,commence_time.desc",
+    limit: String(Math.min(Math.max(filters.limit ?? 200, 1), 2000)),
+  });
+
+  if (filters.sport) params.set("sport", `eq.${filters.sport}`);
+  if (filters.eventDate) params.set("event_date", `eq.${filters.eventDate}`);
+
+  const response = await fetch(postgrestUrl(`/goose_market_events?${params.toString()}`), {
+    headers: serviceHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Goose2 repository error ${response.status}: ${text.slice(0, 300)}`);
+  }
+
+  return response.json() as Promise<Goose2MarketEvent[]>;
+}
