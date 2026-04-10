@@ -1,5 +1,6 @@
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { buildGoose2CandidateId, buildGoose2EventId } from "@/lib/goose2/ids";
+import { inferGoose2MarketType } from "@/lib/goose2/taxonomy";
 import type { Goose2MarketCandidate, Goose2MarketEvent } from "@/lib/goose2/types";
 
 export type SnapshotEventRow = {
@@ -94,15 +95,15 @@ function normalizeRequiredTimestamp(value: string | null | undefined, fallback: 
   return normalizeTimestamp(value) ?? fallback;
 }
 
-function mapSnapshotMarketType(marketType: string): Goose2MarketCandidate["market_type"] {
-  if (marketType === "moneyline") return "moneyline";
-  if (marketType === "spread") return "spread";
-  if (marketType === "total") return "total";
-  if (marketType === "spread_q1") return "first_quarter_spread";
-  if (marketType === "spread_q3") return "third_quarter_spread";
-  if (marketType === "first_five_moneyline") return "first_five_moneyline";
-  if (marketType === "first_five_total") return "first_five_total";
-  return "unknown";
+function mapSnapshotMarketType(price: SnapshotPriceRow): Goose2MarketCandidate["market_type"] {
+  if (price.market_type === "moneyline") return "moneyline";
+  if (price.market_type === "spread") return "spread";
+  if (price.market_type === "total") return "total";
+  if (price.market_type === "spread_q1") return "first_quarter_spread";
+  if (price.market_type === "spread_q3") return "third_quarter_spread";
+  if (price.market_type === "first_five_moneyline") return "first_five_moneyline";
+  if (price.market_type === "first_five_total") return "first_five_total";
+  return inferGoose2MarketType({ marketType: price.market_type, sport: price.sport, propType: price.prop_type ?? price.prop_market_key ?? undefined });
 }
 
 function inferParticipantType(sport: string, explicit?: string | null): Goose2MarketCandidate["participant_type"] {
@@ -192,7 +193,7 @@ export function mapSnapshotRowsToGoose2(input: {
     }
 
     const inferred = inferParticipantNames(event, price.outcome);
-    const marketType = mapSnapshotMarketType(price.market_type);
+    const marketType = mapSnapshotMarketType(price);
     const participantId = price.participant_id ?? inferred.participantId;
     const participantName = price.participant_name ?? inferred.participantName;
     const opponentName = price.opponent_name ?? inferred.opponentName;
