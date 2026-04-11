@@ -13,6 +13,7 @@
     "goose2:train-baseline": "node scripts/goose2-train-baseline.mjs",
     "goose2:score-shadow": "node scripts/goose2-score-shadow.mjs",
     "goose2:refresh-feature-qualifiers": "node scripts/goose2-refresh-feature-qualifiers.mjs",
+    "goose2:refresh-trackable-systems": "node scripts/goose2-refresh-trackable-systems.mjs",
     "goose2:canonicalize-nhl": "node scripts/canonicalize-goose2-nhl-duplicates.mjs",
     "goose2:finalize-buf-cbj": "node scripts/finalize-goose2-nhl-buf-cbj-merge.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
