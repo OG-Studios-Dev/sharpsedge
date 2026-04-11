@@ -59,7 +59,7 @@ export async function upsertGoose2Candidates(rows: Goose2MarketCandidate[]) {
 
 export async function upsertGoose2Results(rows: Goose2MarketResult[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_results?on_conflict=result_id", {
+  await goose2Fetch("/goose_market_results?on_conflict=candidate_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
