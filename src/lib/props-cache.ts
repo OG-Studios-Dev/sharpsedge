@@ -6,6 +6,7 @@ import type { OddsEvent } from "@/lib/types";
 
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 const DATA_DIR = path.join(process.cwd(), "data");
+const PROP_ODDS_REFRESH_TTL_MS = 60 * 60 * 1000;
 
 export const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assists,player_goals";
 export const NBA_PLAYER_PROP_MARKETS = "player_points,player_rebounds,player_assists,player_threes";
@@ -192,11 +193,30 @@ async function probeOddsApiQuota() {
   }
 }
 
+function getOddsApiKeys(): string[] {
+  const keys: string[] = [];
+  const candidates = [
+    process.env.ODDS_API_KEY,
+    process.env.ODDS_API_KEY_2,
+    process.env.ODDS_API_KEY_3,
+    process.env.ODDS_API_KEY_4,
+  ];
+
+  for (const key of candidates) {
+    if (!key || key === "your_key_here" || keys.includes(key)) continue;
+    keys.push(key);
+  }
+
+  return keys;
+}
+
+let propOddsApiKeyIndex = 0;
+
 async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
-  const apiKey = process.env.ODDS_API_KEY;
+  const keys = getOddsApiKeys();
   const config = SPORT_CONFIG[league];
 
-  if (!apiKey || apiKey === "your_key_here") {
+  if (!keys.length) {
     return {
       eventId,
       data: null,
@@ -204,7 +224,7 @@ async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
     };
   }
 
-  try {
+  const fetchWithKey = async (apiKey: string) => {
     const url = `${ODDS_API_BASE}/sports/${config.sportKey}/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${config.markets}&oddsFormat=american`;
     const response = await fetch(url, {
       next: { revalidate: 900 },
@@ -216,6 +236,20 @@ async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
       used: parseHeaderNumber(response.headers.get("x-requests-used")),
       lastCost: parseHeaderNumber(response.headers.get("x-requests-last")),
     } satisfies QuotaSnapshot;
+
+    return { response, quota };
+  };
+
+  try {
+    const apiKey = keys[propOddsApiKeyIndex % keys.length];
+    propOddsApiKeyIndex++;
+    let { response, quota } = await fetchWithKey(apiKey);
+
+    if (!response.ok && (response.status === 401 || response.status === 429) && keys.length > 1) {
+      const fallbackKey = keys[propOddsApiKeyIndex % keys.length];
+      propOddsApiKeyIndex++;
+      ({ response, quota } = await fetchWithKey(fallbackKey));
+    }
 
     if (!response.ok) {
       console.warn("[props-cache] event fetch failed", {
@@ -263,6 +297,13 @@ function buildResult(eventIds: string[], source: PropOddsSource, cache: DailyPro
   };
 }
 
+function isLeagueCacheFresh(fetchedAt: string | null) {
+  if (!fetchedAt) return false;
+  const parsed = new Date(fetchedAt);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() < PROP_ODDS_REFRESH_TTL_MS;
+}
+
 export async function getDailyPlayerPropOddsEvents(
   league: PropsLeague,
   eventIds: Array<string | undefined | null>,
@@ -282,17 +323,17 @@ export async function getDailyPlayerPropOddsEvents(
   const cache = await readDailyPropsCache(date);
   const leagueCache = cache.leagues[league];
   const missingIds = normalizedIds.filter((eventId) => !(eventId in leagueCache.events));
+  const cacheFresh = isLeagueCacheFresh(leagueCache.fetchedAt);
+  const idsToFetch = missingIds.length === 0
+    ? (cacheFresh ? [] : normalizedIds)
+    : (cacheFresh ? missingIds : normalizedIds);
 
-  if (missingIds.length === 0) {
+  if (idsToFetch.length === 0) {
     return buildResult(normalizedIds, "cache", cache, league);
   }
 
   if (leagueCache.blockedAt) {
     return buildResult(normalizedIds, "quota-blocked", cache, league);
-  }
-
-  if (leagueCache.fetchedAt) {
-    return buildResult(normalizedIds, "cache", cache, league);
   }
 
   // quota probe disabled — costs 1 req/call; check manually via /api/odds/health if needed
@@ -304,7 +345,7 @@ export async function getDailyPlayerPropOddsEvents(
     return buildResult(normalizedIds, "quota-blocked", cache, league);
   }
 
-  const responses = await Promise.all(missingIds.map((eventId) => fetchPropOddsEvent(league, eventId)));
+  const responses = await Promise.all(idsToFetch.map((eventId) => fetchPropOddsEvent(league, eventId)));
   for (const response of responses) {
     leagueCache.events[response.eventId] = response.data;
     if (response.quota && response.quota.remaining !== null) {
