@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const board = await getAggregatedOddsBoard(sports);
+    const board = await getAggregatedOddsBoard(sports, { forceFresh: true });
     const scopedBoard = Object.fromEntries(sports.map((sport) => [sport, board[sport] || []])) as Partial<Record<AggregatedSport, Awaited<ReturnType<typeof getAggregatedOddsBoard>>[AggregatedSport]>>;
     const result = await captureMarketSnapshot({
       board: scopedBoard,
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const sports = parseSportsParam(typeof body?.sports === "string" ? body.sports : null);
-    const board = await getAggregatedOddsBoard(sports);
+    const board = await getAggregatedOddsBoard(sports, { forceFresh: true });
     const scopedBoard = Object.fromEntries(sports.map((sport) => [sport, board[sport] || []])) as Partial<Record<AggregatedSport, Awaited<ReturnType<typeof getAggregatedOddsBoard>>[AggregatedSport]>>;
     const result = await captureMarketSnapshot({
       board: scopedBoard,

@@ -419,9 +419,9 @@ function getSportFetchers(sport: AggregatedSport) {
   ];
 }
 
-export async function getAggregatedOddsForSport(sport: AggregatedSport): Promise<AggregatedOdds[]> {
+export async function getAggregatedOddsForSport(sport: AggregatedSport, options?: { forceFresh?: boolean }): Promise<AggregatedOdds[]> {
   const cached = sportCache.get(sport);
-  if (shouldUseCached(cached)) {
+  if (!options?.forceFresh && shouldUseCached(cached)) {
     return cached!.data;
   }
 
@@ -437,15 +437,16 @@ export async function getAggregatedOddsForSport(sport: AggregatedSport): Promise
 
 export async function getAggregatedOddsBoard(
   sports: AggregatedSport[] = SUPPORTED_AGGREGATION_SPORTS,
+  options?: { forceFresh?: boolean },
 ): Promise<Record<AggregatedSport, AggregatedOdds[]>> {
   const key = sports.slice().sort().join(",");
   const cached = boardCache.get(key);
-  if (shouldUseCached(cached)) {
+  if (!options?.forceFresh && shouldUseCached(cached)) {
     return cached!.data;
   }
 
   const pairs = await Promise.all(
-    sports.map(async (sport) => [sport, await getAggregatedOddsForSport(sport)] as const),
+    sports.map(async (sport) => [sport, await getAggregatedOddsForSport(sport, options)] as const),
   );
 
   const board = Object.fromEntries(
