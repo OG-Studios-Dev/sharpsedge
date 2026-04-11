@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "goose2:audit": "node scripts/goose2-phase1-audit.mjs",
+    "goose2:canonicalize-nhl": "node scripts/canonicalize-goose2-nhl-duplicates.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
     "qa:assets": "node scripts/qa-asset-fallbacks.mjs"
   },
