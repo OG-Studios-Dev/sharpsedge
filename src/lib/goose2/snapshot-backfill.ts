@@ -1,5 +1,6 @@
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { buildGoose2CandidateId, buildGoose2EventId } from "@/lib/goose2/ids";
+import { isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 import { inferGoose2MarketType } from "@/lib/goose2/taxonomy";
 import type { Goose2MarketCandidate, Goose2MarketEvent } from "@/lib/goose2/types";
 
@@ -158,6 +159,10 @@ export function mapSnapshotRowsToGoose2(input: {
     const normalizedPriceCapturedAt = normalizeRequiredTimestamp(price.captured_at, normalizedEventCapturedAt);
     const normalizedSourceUpdatedAt = normalizeTimestamp(price.source_updated_at);
 
+    const truthfulSourceEventId = event.odds_api_event_id && !isSyntheticAggregatedEventId(event.odds_api_event_id)
+      ? event.odds_api_event_id
+      : event.game_id;
+
     const eventId = buildGoose2EventId({
       sport: event.sport,
       league: event.sport,
@@ -165,7 +170,7 @@ export function mapSnapshotRowsToGoose2(input: {
       homeTeam: event.home_team,
       commenceTime: normalizedCommenceTime,
       source: event.source,
-      sourceEventId: event.odds_api_event_id ?? event.game_id,
+      sourceEventId: truthfulSourceEventId,
     });
 
     if (!eventRowsById.has(eventId)) {
@@ -182,12 +187,16 @@ export function mapSnapshotRowsToGoose2(input: {
         event_label: event.matchup,
         status: "scheduled",
         source: event.source,
-        source_event_id: event.game_id,
+        source_event_id: truthfulSourceEventId,
         odds_api_event_id: event.odds_api_event_id,
         venue: null,
         metadata: {
           snapshot_id: event.snapshot_id,
           event_snapshot_id: event.id,
+          source_event_id_truthful: truthfulSourceEventId,
+          source_event_id_kind: event.odds_api_event_id && !isSyntheticAggregatedEventId(event.odds_api_event_id)
+            ? "odds_api_event_id"
+            : "snapshot_game_id",
         },
       });
     }
