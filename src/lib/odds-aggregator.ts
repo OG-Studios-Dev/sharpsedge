@@ -4,6 +4,7 @@ import * as kambi from "@/lib/books/kambi";
 import * as pinnacle from "@/lib/books/pinnacle";
 import * as pointsbet from "@/lib/books/pointsbet";
 import { buildAggregatedGameId, getCanonicalTeamName, isKnownSportTeam, normalizeTeamName } from "@/lib/books/team-mappings";
+import { getBroadSchedule } from "@/lib/nhl-api";
 import {
   type AggregatedBookOdds,
   type AggregatedOdds,
@@ -213,6 +214,48 @@ function aggregateEntries(sport: AggregatedSport, entries: BookEventOdds[]): Agg
   });
 }
 
+async function reconcileNHLAggregatedGameIds(events: AggregatedOdds[]): Promise<AggregatedOdds[]> {
+  if (!events.length) return events;
+
+  const schedule = await getBroadSchedule(4);
+  if (!schedule.games.length) return events;
+
+  return events.map((event) => {
+    const existingReal = /^\d+$/.test(String(event.gameId || "").trim()) ? String(event.gameId) : null;
+    if (existingReal) return event;
+
+    const boardDate = String(event.commenceTime || "").slice(0, 10);
+    const away = normalizeTeamName(event.awayAbbrev || event.awayTeam, "NHL");
+    const home = normalizeTeamName(event.homeAbbrev || event.homeTeam, "NHL");
+    const eventStartMs = event.commenceTime ? new Date(event.commenceTime).getTime() : NaN;
+
+    const matches = schedule.games.filter((game) => {
+      const gameDate = String(game.startTimeUTC || "").slice(0, 10);
+      return gameDate === boardDate
+        && normalizeTeamName(String(game.awayTeam?.abbrev || game.awayTeam?.name || ""), "NHL") === away
+        && normalizeTeamName(String(game.homeTeam?.abbrev || game.homeTeam?.name || ""), "NHL") === home;
+    });
+
+    if (matches.length === 1) {
+      return { ...event, gameId: String(matches[0].id) };
+    }
+
+    if (matches.length > 1 && Number.isFinite(eventStartMs)) {
+      const ranked = matches
+        .map((game) => ({ game, diffMs: Math.abs(new Date(game.startTimeUTC).getTime() - eventStartMs) }))
+        .sort((a, b) => a.diffMs - b.diffMs);
+
+      const best = ranked[0];
+      const second = ranked[1];
+      if (best && best.diffMs <= 3 * 60 * 60 * 1000 && (!second || second.diffMs !== best.diffMs)) {
+        return { ...event, gameId: String(best.game.id) };
+      }
+    }
+
+    return event;
+  });
+}
+
 function outcomePrice(event: OddsEvent, marketKey: string, outcomeName: string) {
   for (const bookmaker of event.bookmakers || []) {
     const market = bookmaker.markets.find((entry) => entry.key === marketKey);
@@ -384,7 +427,10 @@ export async function getAggregatedOddsForSport(sport: AggregatedSport): Promise
 
   const sourceResults = await Promise.allSettled(getSportFetchers(sport));
   const entries = sourceResults.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  const aggregated = aggregateEntries(sport, entries);
+  let aggregated = aggregateEntries(sport, entries);
+  if (sport === "NHL") {
+    aggregated = await reconcileNHLAggregatedGameIds(aggregated);
+  }
   sportCache.set(sport, { data: aggregated, timestamp: Date.now() });
   return aggregated;
 }
