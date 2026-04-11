@@ -13,12 +13,17 @@ export function buildGoose2EventId(input: {
   const league = normalizeToken(input.league) || sport;
   const away = normalizeToken(input.awayTeam);
   const home = normalizeToken(input.homeTeam);
+  const normalizedSourceEventId = normalizeToken(input.sourceEventId);
+
+  if (normalizedSourceEventId) {
+    return `evt:${sport}:${league}:${normalizedSourceEventId}`;
+  }
 
   if (away && home) {
     return `evt:${sport}:${league}:${away}@${home}:${toHourBucket(input.commenceTime)}`;
   }
 
-  return `evt:${sport}:${league}:${normalizeToken(input.source) || "unknown-source"}:${normalizeToken(input.sourceEventId) || toDateKey(input.commenceTime)}`;
+  return `evt:${sport}:${league}:${normalizeToken(input.source) || "unknown-source"}:${toDateKey(input.commenceTime)}`;
 }
 
 export function buildGoose2CandidateId(input: {
