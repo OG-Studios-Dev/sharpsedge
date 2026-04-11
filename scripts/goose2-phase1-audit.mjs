@@ -73,7 +73,10 @@ function getSuspicionReasons(event) {
   const isCanonicalHashed = /^evt:(nhl|nba|mlb):(nhl|nba|mlb):[a-f0-9]{32}$/i.test(eventId);
   const isCanonicalSlugged = /^evt:(nhl|nba|mlb):(nhl|nba|mlb):.+@.+:\d{4}-\d{2}-\d{2}T\d{2}$/i.test(eventId);
 
-  if (isLegacyPrefixed && !isCanonicalHashed && !isCanonicalSlugged) {
+  const metadataKind = event.metadata?.kind;
+  const isSeasonSummary = metadataKind === 'team_season_summary' && /^evt:(nhl|nba|mlb):(nhl|nba|mlb):team-season:/i.test(eventId);
+
+  if (isLegacyPrefixed && !isCanonicalHashed && !isCanonicalSlugged && !isSeasonSummary) {
     reasons.push('legacy_event_id');
   }
   if (/^[A-Z]+:[A-Z0-9]+@[A-Z0-9]+:na$/.test(sourceEventId)) {
