@@ -20,7 +20,7 @@ export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
 
   for (const event of input.events) {
     const realGameId = isNumericId(event.gameId) ? event.gameId : null;
-    const truthfulSourceEventId = realGameId ?? (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? event.oddsApiEventId : event.gameId);
+    const truthfulSourceEventId = realGameId ?? (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? event.oddsApiEventId : null);
 
     const eventId = buildGoose2EventId({
       sport: event.sport,
@@ -45,14 +45,14 @@ export function mapAggregatedOddsToGoose2EventsAndCandidates(input: {
       event_label: `${event.awayTeam} @ ${event.homeTeam}`,
       status: "scheduled",
       source: input.source,
-      source_event_id: truthfulSourceEventId,
+      source_event_id: truthfulSourceEventId ?? eventId,
       odds_api_event_id: event.oddsApiEventId ?? null,
       venue: null,
       metadata: {
         gameId: event.gameId,
         real_game_id: realGameId,
         source_event_id_truthful: truthfulSourceEventId,
-        source_event_id_kind: realGameId ? "league_game_id" : (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? "odds_api_event_id" : "synthetic_aggregated_id"),
+        source_event_id_kind: realGameId ? "league_game_id" : (event.oddsApiEventId && !isSyntheticAggregatedEventId(event.oddsApiEventId) ? "odds_api_event_id" : "derived_matchup_time"),
         homeAbbrev: event.homeAbbrev,
         awayAbbrev: event.awayAbbrev,
       },
