@@ -222,7 +222,7 @@ export function mapSnapshotRowsToGoose2(input: {
         event_label: event.matchup,
         status: "scheduled",
         source: event.source,
-        source_event_id: truthfulSourceEventId,
+        source_event_id: truthfulSourceEventId ?? eventId,
         odds_api_event_id: event.odds_api_event_id,
         venue: null,
         metadata: {
