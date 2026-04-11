@@ -65,6 +65,13 @@ export async function bootstrapGoose2ShadowFromSnapshot(snapshot: MarketSnapshot
       source: price.source,
       source_updated_at: price.sourceUpdatedAt,
       source_age_minutes: price.sourceAgeMinutes,
+      participant_type: price.participantType ?? null,
+      participant_id: price.participantId ?? null,
+      participant_name: price.participantName ?? null,
+      opponent_name: price.opponentName ?? null,
+      prop_type: price.propType ?? null,
+      prop_market_key: price.propMarketKey ?? null,
+      context: price.context ?? {},
     })),
   });
 

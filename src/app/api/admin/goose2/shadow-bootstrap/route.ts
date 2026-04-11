@@ -4,6 +4,13 @@ import { bootstrapGoose2ShadowFromSnapshot } from "@/lib/goose2/shadow-pipeline"
 
 export const dynamic = "force-dynamic";
 
+function normalizeParticipantType(value?: string | null) {
+  if (value === "team" || value === "player" || value === "golfer" || value === "pairing" || value === "field" || value === "unknown") {
+    return value;
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({})) as {
@@ -109,6 +116,13 @@ export async function POST(req: NextRequest) {
         source: price.source,
         sourceUpdatedAt: price.source_updated_at,
         sourceAgeMinutes: price.source_age_minutes,
+        participantType: normalizeParticipantType(price.participant_type),
+        participantId: price.participant_id ?? null,
+        participantName: price.participant_name ?? null,
+        opponentName: price.opponent_name ?? null,
+        propType: price.prop_type ?? null,
+        propMarketKey: price.prop_market_key ?? null,
+        context: price.context ?? {},
       })),
     }, dryRun);
 
