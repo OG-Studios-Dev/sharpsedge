@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "goose2:audit": "node scripts/goose2-phase1-audit.mjs",
+    "goose2:export-training": "node scripts/goose2-export-training-dataset.mjs",
     "goose2:canonicalize-nhl": "node scripts/canonicalize-goose2-nhl-duplicates.mjs",
     "goose2:finalize-buf-cbj": "node scripts/finalize-goose2-nhl-buf-cbj-merge.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
