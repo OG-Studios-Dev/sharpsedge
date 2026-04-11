@@ -66,8 +66,19 @@ function normalizeEvent(row) {
 
 function getSuspicionReasons(event) {
   const reasons = [];
-  if (/^evt:/.test(event.event_id)) reasons.push('legacy_event_id');
-  if (/^[A-Z]+:[A-Z0-9]+@[A-Z0-9]+:na$/.test(event.source_event_id || '')) reasons.push('legacy_source_event_id');
+  const eventId = event.event_id || '';
+  const sourceEventId = event.source_event_id || '';
+
+  const isLegacyPrefixed = /^evt:(nhl|nba|mlb):(nhl|nba|mlb):/.test(eventId);
+  const isCanonicalHashed = /^evt:(nhl|nba|mlb):(nhl|nba|mlb):[a-f0-9]{32}$/i.test(eventId);
+  const isCanonicalSlugged = /^evt:(nhl|nba|mlb):(nhl|nba|mlb):.+@.+:\d{4}-\d{2}-\d{2}T\d{2}$/i.test(eventId);
+
+  if (isLegacyPrefixed && !isCanonicalHashed && !isCanonicalSlugged) {
+    reasons.push('legacy_event_id');
+  }
+  if (/^[A-Z]+:[A-Z0-9]+@[A-Z0-9]+:na$/.test(sourceEventId)) {
+    reasons.push('legacy_source_event_id');
+  }
   return reasons;
 }
 
