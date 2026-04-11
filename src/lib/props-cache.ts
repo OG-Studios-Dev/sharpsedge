@@ -332,14 +332,18 @@ export async function getDailyPlayerPropOddsEvents(
     return buildResult(normalizedIds, "cache", cache, league);
   }
 
-  if (leagueCache.blockedAt) {
+  const blockedAtMs = leagueCache.blockedAt ? new Date(leagueCache.blockedAt).getTime() : NaN;
+  const blockStillActive = Number.isFinite(blockedAtMs) && (Date.now() - blockedAtMs) < PROP_ODDS_REFRESH_TTL_MS;
+  if (blockStillActive) {
     return buildResult(normalizedIds, "quota-blocked", cache, league);
   }
+  if (leagueCache.blockedAt && !blockStillActive) {
+    leagueCache.blockedAt = null;
+  }
 
-  // quota probe disabled — costs 1 req/call; check manually via /api/odds/health if needed
-  // cache.quota = await probeOddsApiQuota();
   const remainingQuota = cache.quota?.remaining;
-  if (remainingQuota !== null && remainingQuota !== undefined && remainingQuota < 50) {
+  const multipleKeysAvailable = getOddsApiKeys().length > 1;
+  if (!multipleKeysAvailable && remainingQuota !== null && remainingQuota !== undefined && remainingQuota < 50) {
     leagueCache.blockedAt = new Date().toISOString();
     await writeDailyPropsCache(cache);
     return buildResult(normalizedIds, "quota-blocked", cache, league);
