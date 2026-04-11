@@ -4933,10 +4933,18 @@ export async function refreshTrackableSystems(options: SystemRefreshOptions = {}
   for (const system of systems) {
     const tracker = SYSTEM_TRACKERS[system.id];
     if (!tracker) continue;
-    const refreshedSystem = await tracker.refresh(data, options);
-    data.systems = data.systems.map((entry) => entry.id === refreshedSystem.id ? refreshedSystem : entry);
-    upsertSystemQualificationLog(data, refreshedSystem);
-    refreshed.push(refreshedSystem);
+
+    try {
+      const refreshedSystem = await tracker.refresh(data, options);
+      data.systems = data.systems.map((entry) => entry.id === refreshedSystem.id ? refreshedSystem : entry);
+      upsertSystemQualificationLog(data, refreshedSystem);
+      refreshed.push(refreshedSystem);
+    } catch (error) {
+      console.warn(
+        `[systems-tracking] refresh failed for ${system.id} on ${options.date ?? "today"} (skipping):`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   if (refreshed.length > 0) {

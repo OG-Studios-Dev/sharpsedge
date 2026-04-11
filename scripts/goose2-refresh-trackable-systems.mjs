@@ -10,7 +10,6 @@ if (fs.existsSync(envPath)) {
 }
 
 const targetDate = process.argv[2] || new Date().toISOString().slice(0, 10);
-process.env.TS_NODE_COMPILER_OPTIONS = JSON.stringify({ module: 'commonjs' });
 
 const { refreshTrackableSystems } = await import('../src/lib/systems-tracking-store.ts');
 

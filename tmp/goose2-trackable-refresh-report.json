@@ -1,0 +1,55 @@
+{
+  "target_date": "2026-04-11",
+  "refreshed_count": 7,
+  "systems": [
+    {
+      "id": "nba-goose-system",
+      "name": "Mattys 1Q Chase NBA",
+      "record_count": 10,
+      "snapshot": "🟢 FIRING | NBA regular season active. Road favorites qualifying daily.",
+      "status": "tracking"
+    },
+    {
+      "id": "big-cats-nba-1q-under",
+      "name": "Big Cats NBA 1Q Under",
+      "record_count": 0,
+      "snapshot": "🟡 No Big Cats NBA 1Q Under picks today",
+      "status": "tracking"
+    },
+    {
+      "id": "fat-tonys-fade",
+      "name": "Fat Tony's Road Chalk",
+      "record_count": 0,
+      "snapshot": "🟡 No Fuch's Fade picks today | Scanned 0 games. No splits: 0. Splits insufficient: 0. No line history: 0. Line too small: 0. Price band fail: 0. Qualified: 0.",
+      "status": "tracking"
+    },
+    {
+      "id": "falcons-fight-pummeled-pitchers",
+      "name": "Veal Banged Up Pitchers",
+      "record_count": 12,
+      "snapshot": "3 Falcons qualifiers for 2026-04-11. Audit 15 games (14 matched odds events) / 30 starter checks • no matched event 2 • no probable starter 0 • ERA filter 0 • no moneyline 1 • moneyline band 15 • no prior start 0 • prior start not pummeled 9.",
+      "status": "tracking"
+    },
+    {
+      "id": "robbies-ripper-fast-5",
+      "name": "Robbie's Ripper Fast 5",
+      "record_count": 85,
+      "snapshot": "No F5 pick stored today. Scanned 15 games • 0 alert games (0 system pick records) • 15 context-board • missing pitchers 0 • no F5 market 3 • below mismatch threshold 12.",
+      "status": "tracking"
+    },
+    {
+      "id": "nhl-under-majority-handle",
+      "name": "NHL Under — Majority Handle",
+      "record_count": 0,
+      "snapshot": "🟡 No NHL under picks today | Scanned 13 NHL games. No splits: 0. Total unavailable: 0. Below 62% threshold: 13. Qualified: 0.",
+      "status": "tracking"
+    },
+    {
+      "id": "mlb-under-majority-handle",
+      "name": "MLB Under — Majority Handle",
+      "record_count": 1,
+      "snapshot": "🟢 1 MLB Under pick(s) today | Scanned 12 MLB games. No splits: 0. Total unavailable: 0. Below 62% threshold: 11. Qualified: 1.",
+      "status": "tracking"
+    }
+  ]
+}
