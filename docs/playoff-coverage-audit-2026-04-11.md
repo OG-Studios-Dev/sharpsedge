@@ -5,8 +5,8 @@ Quick audit of current NBA and NHL data banking so we know what playoff data is 
 
 ## Summary
 - **NBA:** current live Goose2 rails look structurally clean
-- **NHL:** live rails are working, but legacy event identity duplicates still exist in Goose2 events
-- **Decision log:** direct table counting/querying is currently flaky from PostgREST in this environment, so decision-log coverage is unverified from this audit
+- **NHL:** live rails are working, and the legacy duplicate Goose2 event identities were cleaned up after this audit
+- **Decision log:** storage is healthy, but sport-filtered reads must join through `goose_market_events` because `goose_decision_log` has no `sport` column
 
 ## NBA coverage
 ### Snapshot coverage
@@ -41,29 +41,23 @@ NBA is in decent shape for playoff banking right now.
 - Goose event-date range: **2024-07-01 → 2026-04-12**
 
 ### Identity quality
-Legacy identity pollution is still present in NHL Goose2 events.
-
-Found during audit:
+This audit originally found legacy NHL identity pollution, including:
 - `source_event_id = NHL:TBL@MTL:na`
 - legacy prefixed ids like:
   - `evt:nhl:nhl:nhl-tbl-mtl-na`
   - `evt:nhl:nhl:nhl-nsh-uta-2026-04-10t01`
 
-This means NHL has historical duplicate / stale event identity rows mixed with cleaner current rows.
+That cleanup has now been completed in Supabase.
 
 ### Read
-NHL is still worth running through playoffs, but it needs one cleanup pass so future training data does not inherit duplicate event identities.
+NHL is worth running through playoffs, and the known duplicate legacy event identities from this audit have been removed.
 
 ## Risks / gaps
-1. **Decision-log audit gap**
-   - `goose_decision_log` table count/query returned blank-message errors through PostgREST during this audit
-   - coverage not proven yet
+1. **Decision-log query gotcha**
+   - `goose_decision_log` count/query failures in this audit were caused by filtering on a nonexistent `sport` column
+   - coverage is proven, but reads must join through `goose_market_events`
 
-2. **NHL legacy identity drift**
-   - duplicate or stale event ids are still in `goose_market_events`
-   - likely needs a targeted canonicalization / dedupe pass
-
-3. **Snapshot depth is still shallow**
+2. **Snapshot depth is still shallow**
    - current ranges show recent coverage only, not deep season-long banking yet
    - this is fine for "from now through playoffs" but not enough for full offseason training alone
 
@@ -75,12 +69,12 @@ NHL is still worth running through playoffs, but it needs one cleanup pass so fu
 - Goose2 grading
 
 ### Next cleanup target
-- NHL legacy event-id cleanup before too much more playoff data accumulates
+- keep an eye on new event-id drift, but the specific NHL legacy rows found here have already been cleaned
 
 ### Next audit target
-- investigate `goose_decision_log` access issue and prove whether decisions are being stored reliably
+- update future audit/debug scripts to query decision rows through `goose_market_events` joins
 
 ## Bottom line
 - **NBA playoff banking:** healthy enough to keep running now
-- **NHL playoff banking:** worth running now, but cleanup needed
+- **NHL playoff banking:** healthy enough to keep running now after cleanup
 - **Offseason training:** playoff collection helps a lot, but we will still need broader historical backfill for full model readiness
