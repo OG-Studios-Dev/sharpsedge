@@ -195,6 +195,7 @@ export function mapSnapshotRowsToGoose2(input: {
     const normalizedPriceCapturedAt = normalizeRequiredTimestamp(price.captured_at, normalizedEventCapturedAt);
     const normalizedSourceUpdatedAt = normalizeTimestamp(price.source_updated_at);
 
+    const commenceForIdentity = normalizedCommenceTime ?? normalizedEventCapturedAt;
     const truthfulSourceEvent = resolveTruthfulSourceEvent(event);
     const truthfulSourceEventId = truthfulSourceEvent.sourceEventId;
 
@@ -203,7 +204,7 @@ export function mapSnapshotRowsToGoose2(input: {
       league: event.sport,
       awayTeam: event.away_team,
       homeTeam: event.home_team,
-      commenceTime: truthfulSourceEvent.fallbackCommenceTime ?? normalizedCommenceTime,
+      commenceTime: truthfulSourceEvent.fallbackCommenceTime ?? commenceForIdentity,
       source: event.source,
       sourceEventId: truthfulSourceEventId,
     });
@@ -213,8 +214,8 @@ export function mapSnapshotRowsToGoose2(input: {
         event_id: eventId,
         sport: event.sport,
         league: event.sport,
-        event_date: (normalizedCommenceTime ?? normalizedEventCapturedAt).slice(0, 10),
-        commence_time: normalizedCommenceTime,
+        event_date: commenceForIdentity.slice(0, 10),
+        commence_time: commenceForIdentity,
         home_team: event.home_team,
         away_team: event.away_team,
         home_team_id: event.home_abbrev,
@@ -256,7 +257,7 @@ export function mapSnapshotRowsToGoose2(input: {
       event_id: eventId,
       sport: event.sport,
       league: event.sport,
-      event_date: (normalizedCommenceTime ?? normalizedPriceCapturedAt).slice(0, 10),
+      event_date: (commenceForIdentity ?? normalizedPriceCapturedAt).slice(0, 10),
       market_type: marketType,
       submarket_type: price.prop_market_key ?? null,
       participant_type: inferParticipantType(event.sport, price.participant_type),
