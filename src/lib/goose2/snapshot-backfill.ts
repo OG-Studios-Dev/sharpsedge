@@ -96,6 +96,40 @@ function normalizeRequiredTimestamp(value: string | null | undefined, fallback: 
   return normalizeTimestamp(value) ?? fallback;
 }
 
+function isNumericId(value?: string | null) {
+  return /^\d+$/.test(String(value ?? "").trim());
+}
+
+function resolveTruthfulSourceEvent(event: SnapshotEventRow) {
+  const snapshotGameId = String(event.game_id ?? "").trim() || null;
+  const oddsApiEventId = String(event.odds_api_event_id ?? "").trim() || null;
+
+  if (isNumericId(snapshotGameId)) {
+    return {
+      sourceEventId: snapshotGameId,
+      sourceEventIdKind: "league_game_id",
+      snapshotGameId,
+      realGameId: snapshotGameId,
+    } as const;
+  }
+
+  if (oddsApiEventId && !isSyntheticAggregatedEventId(oddsApiEventId)) {
+    return {
+      sourceEventId: oddsApiEventId,
+      sourceEventIdKind: "odds_api_event_id",
+      snapshotGameId,
+      realGameId: null,
+    } as const;
+  }
+
+  return {
+    sourceEventId: snapshotGameId,
+    sourceEventIdKind: "snapshot_game_id",
+    snapshotGameId,
+    realGameId: null,
+  } as const;
+}
+
 function mapSnapshotMarketType(price: SnapshotPriceRow): Goose2MarketCandidate["market_type"] {
   if (price.market_type === "moneyline") return "moneyline";
   if (price.market_type === "spread") return "spread";
@@ -159,9 +193,8 @@ export function mapSnapshotRowsToGoose2(input: {
     const normalizedPriceCapturedAt = normalizeRequiredTimestamp(price.captured_at, normalizedEventCapturedAt);
     const normalizedSourceUpdatedAt = normalizeTimestamp(price.source_updated_at);
 
-    const truthfulSourceEventId = event.odds_api_event_id && !isSyntheticAggregatedEventId(event.odds_api_event_id)
-      ? event.odds_api_event_id
-      : event.game_id;
+    const truthfulSourceEvent = resolveTruthfulSourceEvent(event);
+    const truthfulSourceEventId = truthfulSourceEvent.sourceEventId;
 
     const eventId = buildGoose2EventId({
       sport: event.sport,
@@ -194,9 +227,9 @@ export function mapSnapshotRowsToGoose2(input: {
           snapshot_id: event.snapshot_id,
           event_snapshot_id: event.id,
           source_event_id_truthful: truthfulSourceEventId,
-          source_event_id_kind: event.odds_api_event_id && !isSyntheticAggregatedEventId(event.odds_api_event_id)
-            ? "odds_api_event_id"
-            : "snapshot_game_id",
+          source_event_id_kind: truthfulSourceEvent.sourceEventIdKind,
+          snapshot_game_id: truthfulSourceEvent.snapshotGameId,
+          real_game_id: truthfulSourceEvent.realGameId,
         },
       });
     }
@@ -266,10 +299,21 @@ export function mapSnapshotRowsToGoose2(input: {
 export async function loadSnapshotRowsForBackfill(input: { limit?: number; sport?: string; dateKey?: string }) {
   const limit = Math.min(Math.max(input.limit ?? 500, 1), 5000);
   const sportClause = input.sport ? `&sport=eq.${encodeURIComponent(input.sport)}` : "";
-  const snapshotFilter = input.dateKey ? `snapshot_id=in.(select id from market_snapshots where date_key='${input.dateKey}')` : "";
+
+  const snapshotIds = input.dateKey
+    ? (await postgrest<Array<{ id: string }>>(
+        `/market_snapshots?select=id&date_key=eq.${encodeURIComponent(input.dateKey)}&order=captured_at.desc&limit=${limit}`,
+      )).map((row) => row.id)
+    : [];
+
+  const snapshotIdClause = snapshotIds.length
+    ? `&snapshot_id=in.(${encodeURIComponent(snapshotIds.map((id) => `"${id}"`).join(","))})`
+    : input.dateKey
+      ? "&snapshot_id=in.(\"__no_snapshot_match__\")"
+      : "";
 
   const events = await postgrest<SnapshotEventRow[]>(
-    `/market_snapshot_events?select=id,snapshot_id,sport,game_id,odds_api_event_id,commence_time,matchup,home_team,away_team,home_abbrev,away_abbrev,captured_at,source&order=captured_at.desc&limit=${limit}${sportClause}`,
+    `/market_snapshot_events?select=id,snapshot_id,sport,game_id,odds_api_event_id,commence_time,matchup,home_team,away_team,home_abbrev,away_abbrev,captured_at,source&order=captured_at.desc&limit=${limit}${sportClause}${snapshotIdClause}`,
   );
 
   const eventIds = Array.from(new Set((events ?? []).map((event) => event.id))).slice(0, limit);
@@ -277,7 +321,7 @@ export async function loadSnapshotRowsForBackfill(input: { limit?: number; sport
 
   const idList = eventIds.map((id) => `"${id}"`).join(",");
   const prices = await postgrest<SnapshotPriceRow[]>(
-    `/market_snapshot_prices?select=id,snapshot_id,event_snapshot_id,sport,game_id,odds_api_event_id,commence_time,captured_at,book,market_type,outcome,odds,line,source,source_updated_at,source_age_minutes,participant_type,participant_id,participant_name,opponent_name,prop_type,prop_market_key,context&event_snapshot_id=in.(${encodeURIComponent(idList)})${sportClause}${snapshotFilter ? `&${snapshotFilter}` : ""}&order=captured_at.desc&limit=${Math.min(limit * 20, 40000)}`,
+    `/market_snapshot_prices?select=id,snapshot_id,event_snapshot_id,sport,game_id,odds_api_event_id,commence_time,captured_at,book,market_type,outcome,odds,line,source,source_updated_at,source_age_minutes,participant_type,participant_id,participant_name,opponent_name,prop_type,prop_market_key,context&event_snapshot_id=in.(${encodeURIComponent(idList)})${sportClause}&order=captured_at.desc&limit=${Math.min(limit * 20, 40000)}`,
   );
 
   return {
