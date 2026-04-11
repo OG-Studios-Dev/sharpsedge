@@ -25,7 +25,7 @@ async function goose2Fetch(path: string, init: RequestInit = {}) {
   const response = await fetch(postgrestUrl(path), {
     ...init,
     headers: {
-      ...serviceHeaders("resolution=merge-duplicates,return=minimal"),
+      ...serviceHeaders(init.method === "POST" ? "resolution=merge-duplicates,return=minimal" : undefined),
       ...(init.headers ?? {}),
     },
     cache: "no-store",
@@ -42,7 +42,7 @@ async function goose2Fetch(path: string, init: RequestInit = {}) {
 
 export async function upsertGoose2Events(rows: Goose2MarketEvent[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_events", {
+  await goose2Fetch("/goose_market_events?on_conflict=event_id,source,source_event_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
@@ -51,7 +51,7 @@ export async function upsertGoose2Events(rows: Goose2MarketEvent[]) {
 export async function upsertGoose2Candidates(rows: Goose2MarketCandidate[]) {
   if (!rows.length) return;
   const sanitizedRows = rows.map(({ sportsbook: _sportsbook, ...row }) => row);
-  await goose2Fetch("/goose_market_candidates", {
+  await goose2Fetch("/goose_market_candidates?on_conflict=candidate_id", {
     method: "POST",
     body: JSON.stringify(sanitizedRows),
   });
@@ -59,7 +59,7 @@ export async function upsertGoose2Candidates(rows: Goose2MarketCandidate[]) {
 
 export async function upsertGoose2Results(rows: Goose2MarketResult[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_results", {
+  await goose2Fetch("/goose_market_results?on_conflict=result_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
@@ -67,7 +67,7 @@ export async function upsertGoose2Results(rows: Goose2MarketResult[]) {
 
 export async function upsertGoose2FeatureRows(rows: Goose2FeatureRow[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_feature_rows", {
+  await goose2Fetch("/goose_feature_rows?on_conflict=feature_row_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
@@ -75,7 +75,7 @@ export async function upsertGoose2FeatureRows(rows: Goose2FeatureRow[]) {
 
 export async function upsertGoose2DecisionLogs(rows: Goose2DecisionLog[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_decision_log", {
+  await goose2Fetch("/goose_decision_log?on_conflict=decision_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
