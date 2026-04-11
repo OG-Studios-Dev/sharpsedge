@@ -1,0 +1,223 @@
+{
+  "generated_at": "2026-04-11T18:20:57.114Z",
+  "dataset_rows": 276,
+  "split": {
+    "train": 193,
+    "validation": 41,
+    "test": 42,
+    "train_range": [
+      "2026-04-09T21:20:47.162+00:00",
+      "2026-04-10T18:09:19.282+00:00"
+    ],
+    "validation_range": [
+      "2026-04-10T18:09:19.282+00:00",
+      "2026-04-10T18:09:19.282+00:00"
+    ],
+    "test_range": [
+      "2026-04-10T18:09:19.282+00:00",
+      "2026-04-11T00:35:33.96+00:00"
+    ]
+  },
+  "metrics": {
+    "train": {
+      "rows": 193,
+      "win_rate": 0.44559585492227977,
+      "model": {
+        "log_loss": 0.6395305393514992,
+        "brier": 0.22829837048181395,
+        "accuracy_50": 0.5906735751295337,
+        "avg_probability": 0.4460105384913319
+      },
+      "implied_baseline": {
+        "log_loss": 0.7243421311397276,
+        "brier": 0.26295506028833715,
+        "accuracy_50": 0.5025906735751295,
+        "avg_probability": 0.5195681249758668
+      }
+    },
+    "validation": {
+      "rows": 41,
+      "win_rate": 0.36585365853658536,
+      "model": {
+        "log_loss": 0.6264027104408011,
+        "brier": 0.21899974843665504,
+        "accuracy_50": 0.6585365853658537,
+        "avg_probability": 0.3636665480759681
+      },
+      "implied_baseline": {
+        "log_loss": 0.6408633792035174,
+        "brier": 0.22595863836630675,
+        "accuracy_50": 0.6097560975609756,
+        "avg_probability": 0.5155678474303255
+      }
+    },
+    "test": {
+      "rows": 42,
+      "win_rate": 0.23809523809523808,
+      "model": {
+        "log_loss": 0.46595388688879247,
+        "brier": 0.15779385409503885,
+        "accuracy_50": 0.7857142857142857,
+        "avg_probability": 0.32618849980305653
+      },
+      "implied_baseline": {
+        "log_loss": 0.7206463941912643,
+        "brier": 0.2629862639543241,
+        "accuracy_50": 0.5,
+        "avg_probability": 0.5243318259884541
+      }
+    }
+  },
+  "sample_predictions": [
+    {
+      "candidate_id": "cand:evt:mlb:mlb:athletics@new-york-mets:2026-04-10T23:total:field:over:7.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5454545454545454,
+      "model_prob": 0.46392146654283606,
+      "result": 0,
+      "edge_vs_implied": -0.08153307891170936
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:boston-red-sox@st-louis-cardinals:2026-04-11T00:moneyline:field:st-louis-cardinals:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.4608294930875576,
+      "model_prob": 0.32396536957057287,
+      "result": 0,
+      "edge_vs_implied": -0.13686412351698474
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:boston-red-sox@st-louis-cardinals:2026-04-11T00:moneyline:field:boston-red-sox:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5833333333333334,
+      "model_prob": 0.3942561518298507,
+      "result": 0,
+      "edge_vs_implied": -0.18907718150348268
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:boston-red-sox@st-louis-cardinals:2026-04-11T00:total:field:under:7.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5454545454545454,
+      "model_prob": 0.46392146654283606,
+      "result": 1,
+      "edge_vs_implied": -0.08153307891170936
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:chicago-white-sox@kansas-city-royals:2026-04-10T23:moneyline:field:kansas-city-royals:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.6428571428571429,
+      "model_prob": 0.3936150635973133,
+      "result": 0,
+      "edge_vs_implied": -0.2492420792598296
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:chicago-white-sox@kansas-city-royals:2026-04-10T23:moneyline:field:chicago-white-sox:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.4032258064516129,
+      "model_prob": 0.32755756330790586,
+      "result": 0,
+      "edge_vs_implied": -0.07566824314370701
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:chicago-white-sox@kansas-city-royals:2026-04-10T23:total:field:over:7.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5348837209302325,
+      "model_prob": 0.4649736971722213,
+      "result": 0,
+      "edge_vs_implied": -0.0699100237580112
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:chicago-white-sox@kansas-city-royals:2026-04-10T23:total:field:under:7.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5121951219512195,
+      "model_prob": 0.4675581935961183,
+      "result": 1,
+      "edge_vs_implied": -0.044636928355101246
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:cleveland-guardians@atlanta-braves:2026-04-10T23:moneyline:field:atlanta-braves:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5867768595041323,
+      "model_prob": 0.3940852423126298,
+      "result": 0,
+      "edge_vs_implied": -0.19269161719150246
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:cleveland-guardians@atlanta-braves:2026-04-10T23:moneyline:field:cleveland-guardians:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.45662100456621,
+      "model_prob": 0.3243306655534157,
+      "result": 0,
+      "edge_vs_implied": -0.1322903390127943
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:cleveland-guardians@atlanta-braves:2026-04-10T23:total:field:over:8.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5348837209302325,
+      "model_prob": 0.469025676647101,
+      "result": 1,
+      "edge_vs_implied": -0.06585804428313152
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:cleveland-guardians@atlanta-braves:2026-04-10T23:total:field:under:8.5:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5121951219512195,
+      "model_prob": 0.47161284251678354,
+      "result": 0,
+      "edge_vs_implied": -0.040582279434435986
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:colorado-rockies@san-diego-padres:2026-04-11T01:moneyline:field:san-diego-padres:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.6503496503496503,
+      "model_prob": 0.39394542943646843,
+      "result": 0,
+      "edge_vs_implied": -0.2564042209131819
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:colorado-rockies@san-diego-padres:2026-04-11T01:moneyline:field:colorado-rockies:na:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "moneyline",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.3937007874015748,
+      "model_prob": 0.3278097831034128,
+      "result": 0,
+      "edge_vs_implied": -0.06589100429816203
+    },
+    {
+      "candidate_id": "cand:evt:mlb:mlb:colorado-rockies@san-diego-padres:2026-04-11T01:total:field:over:8.0:bovada:2026-04-10T18:09",
+      "sport": "MLB",
+      "market_type": "total",
+      "capture_ts": "2026-04-10T18:09:19.282+00:00",
+      "implied_prob": 0.5348837209302325,
+      "model_prob": 0.46699914271323917,
+      "result": 0,
+      "edge_vs_implied": -0.06788457821699334
+    }
+  ]
+}
