@@ -42,7 +42,7 @@ async function goose2Fetch(path: string, init: RequestInit = {}) {
 
 export async function upsertGoose2Events(rows: Goose2MarketEvent[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_events?on_conflict=event_id,source,source_event_id", {
+  await goose2Fetch("/goose_market_events?on_conflict=event_id", {
     method: "POST",
     body: JSON.stringify(rows),
   });
