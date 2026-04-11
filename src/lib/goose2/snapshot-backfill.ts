@@ -103,6 +103,7 @@ function isNumericId(value?: string | null) {
 function resolveTruthfulSourceEvent(event: SnapshotEventRow) {
   const snapshotGameId = String(event.game_id ?? "").trim() || null;
   const oddsApiEventId = String(event.odds_api_event_id ?? "").trim() || null;
+  const normalizedCommenceTime = normalizeTimestamp(event.commence_time);
 
   if (isNumericId(snapshotGameId)) {
     return {
@@ -123,10 +124,11 @@ function resolveTruthfulSourceEvent(event: SnapshotEventRow) {
   }
 
   return {
-    sourceEventId: snapshotGameId,
-    sourceEventIdKind: "snapshot_game_id",
+    sourceEventId: null,
+    sourceEventIdKind: "derived_matchup_time",
     snapshotGameId,
     realGameId: null,
+    fallbackCommenceTime: normalizedCommenceTime,
   } as const;
 }
 
@@ -201,7 +203,7 @@ export function mapSnapshotRowsToGoose2(input: {
       league: event.sport,
       awayTeam: event.away_team,
       homeTeam: event.home_team,
-      commenceTime: normalizedCommenceTime,
+      commenceTime: truthfulSourceEvent.fallbackCommenceTime ?? normalizedCommenceTime,
       source: event.source,
       sourceEventId: truthfulSourceEventId,
     });
