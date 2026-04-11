@@ -11,43 +11,36 @@ function normalizeParticipantType(value?: string | null) {
   return null;
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({})) as {
-      limit?: number;
-      sport?: string;
-      dry_run?: boolean;
+async function runShadowBootstrap(input: { limit?: number; sport?: string; dry_run?: boolean }) {
+  const limit = Math.min(Math.max(Number(input.limit ?? 200), 1), 2000);
+  const sport = typeof input.sport === "string" && input.sport.trim() ? input.sport.trim().toUpperCase() : undefined;
+  const dryRun = Boolean(input.dry_run);
+
+  const snapshotRows = await loadSnapshotRowsForBackfill({ limit, sport });
+  const mapped = mapSnapshotRowsToGoose2(snapshotRows);
+  if (dryRun) {
+    return {
+      ok: true,
+      dry_run: true,
+      sport: sport ?? "ALL",
+      counts: {
+        snapshot_events: snapshotRows.events.length,
+        snapshot_prices: snapshotRows.prices.length,
+        goose_events: mapped.eventRows.length,
+        goose_candidates: mapped.candidateRows.length,
+        goose_feature_rows: mapped.candidateRows.length,
+        goose_decision_logs: mapped.candidateRows.length,
+      },
+      sample: {
+        event: mapped.eventRows[0] ?? null,
+        candidate: mapped.candidateRows[0] ?? null,
+      },
+      audit: {
+        syntheticSourceEventCount: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).length,
+        syntheticSourceEventExamples: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).slice(0, 5),
+      },
     };
-
-    const limit = Math.min(Math.max(Number(body.limit ?? 200), 1), 2000);
-    const sport = typeof body.sport === "string" && body.sport.trim() ? body.sport.trim().toUpperCase() : undefined;
-    const dryRun = Boolean(body.dry_run);
-
-    const snapshotRows = await loadSnapshotRowsForBackfill({ limit, sport });
-    const mapped = mapSnapshotRowsToGoose2(snapshotRows);
-    if (dryRun) {
-      return NextResponse.json({
-        ok: true,
-        dry_run: true,
-        sport: sport ?? "ALL",
-        counts: {
-          snapshot_events: snapshotRows.events.length,
-          snapshot_prices: snapshotRows.prices.length,
-          goose_events: mapped.eventRows.length,
-          goose_candidates: mapped.candidateRows.length,
-          goose_feature_rows: mapped.candidateRows.length,
-          goose_decision_logs: mapped.candidateRows.length,
-        },
-        sample: {
-          event: mapped.eventRows[0] ?? null,
-          candidate: mapped.candidateRows[0] ?? null,
-        },
-        audit: {
-          syntheticSourceEventCount: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).length,
-          syntheticSourceEventExamples: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).slice(0, 5),
-        },
-      });
-    }
+  }
 
     const shadow = await bootstrapGoose2ShadowFromSnapshot({
       id: "backfill-preview",
@@ -150,7 +143,7 @@ export async function POST(req: NextRequest) {
       })),
     }, dryRun);
 
-    return NextResponse.json({
+    return {
       ok: true,
       dry_run: dryRun,
       sport: sport ?? "ALL",
@@ -160,7 +153,44 @@ export async function POST(req: NextRequest) {
         candidate: mapped.candidateRows[0] ?? null,
       },
       audit: undefined,
+    };
+}
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const url = new URL(req.url);
+    const result = await runShadowBootstrap({
+      limit: url.searchParams.get("limit") ? Number(url.searchParams.get("limit")) : undefined,
+      sport: url.searchParams.get("sport") ?? undefined,
+      dry_run: url.searchParams.get("dry_run") === "true",
     });
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json().catch(() => ({})) as {
+      limit?: number;
+      sport?: string;
+      dry_run?: boolean;
+    };
+    const result = await runShadowBootstrap(body);
+    return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(
       {
