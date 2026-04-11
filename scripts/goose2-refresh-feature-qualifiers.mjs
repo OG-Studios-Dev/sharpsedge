@@ -38,7 +38,7 @@ function teamNameVariants(value) {
     variants.add(parts.slice(-2).join(' '));
     variants.add(parts.slice(-2).join(''));
   }
-  return [...variants].filter(Boolean);
+  return Array.from(variants).filter(Boolean);
 }
 function marketCompatible(qualifierMarket, candidateMarket) {
   const qm = String(qualifierMarket ?? '').toLowerCase();

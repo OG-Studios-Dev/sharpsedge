@@ -26,7 +26,7 @@ function teamNameVariants(value?: string | null) {
     variants.add(parts.slice(-2).join(""));
   }
 
-  return [...variants].filter(Boolean);
+  return Array.from(variants).filter(Boolean);
 }
 
 function candidateTeamKeys(candidate: Goose2MarketCandidate) {
