@@ -135,6 +135,10 @@ export async function POST(req: NextRequest) {
         event: mapped.eventRows[0] ?? null,
         candidate: mapped.candidateRows[0] ?? null,
       },
+      audit: dryRun ? {
+        syntheticSourceEventCount: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).length,
+        syntheticSourceEventExamples: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).slice(0, 5),
+      } : undefined,
     });
   } catch (error) {
     return NextResponse.json(
