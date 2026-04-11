@@ -1,0 +1,146 @@
+{
+  "updated_feature_rows": 848,
+  "rows_with_qualifiers": 28,
+  "top_examples": [
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:spread:field:chicago-bulls:-6.0:bovada:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:washington-wizards:na:bovada:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:chicago-bulls:na:bovada:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:spread:field:washington-wizards:6.0:bovada:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:washington-wizards:na:kambi:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:chicago-bulls:na:kambi:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:washington-wizards:na:pinnacle:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:moneyline:field:chicago-bulls:na:pinnacle:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:spread:field:washington-wizards:3.5:pinnacle:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    },
+    {
+      "feature_row_id": "feat:cand:evt:nba:nba:chicago-bulls@washington-wizards:2026-04-09T23:spread:field:chicago-bulls:-3.5:pinnacle:2026-04-11T00:35:phase1-initial",
+      "qualifier_count": 1,
+      "systems": [
+        {
+          "system_id": "nba-goose-system",
+          "system_slug": "nba-goose-system",
+          "system_name": "Mattys 1Q Chase NBA",
+          "action_side": "Chicago Bulls",
+          "market_type": null,
+          "logged_at": "2026-04-09T16:55:23.726+00:00"
+        }
+      ]
+    }
+  ]
+}

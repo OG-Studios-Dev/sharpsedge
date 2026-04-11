@@ -149,14 +149,14 @@ async function rest(pathname, options = {}) {
   return res.json().catch(() => null);
 }
 
-const today = new Date().toISOString().slice(0, 10);
+const targetDate = process.argv[2] || new Date().toISOString().slice(0, 10);
 const select = [
   'candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing',
   'goose_feature_rows!inner(feature_row_id,feature_version,feature_payload,system_flags,generated_ts)',
   'goose_market_events!inner(commence_time,status,home_team,away_team)',
   'goose_decision_log!left(decision_id,policy_version,decision_ts)'
 ].join(',');
-const rows = await rest(`/goose_market_candidates?select=${encodeURIComponent(select)}&event_date=eq.${today}&order=capture_ts.desc&limit=5000`);
+const rows = await rest(`/goose_market_candidates?select=${encodeURIComponent(select)}&event_date=eq.${targetDate}&order=capture_ts.desc&limit=5000`);
 
 const latestByCandidate = new Map();
 for (const row of rows) {
@@ -266,6 +266,7 @@ if (decisionRows.length) {
 
 const report = {
   generated_at: decisionTs,
+  target_date: targetDate,
   model_version: MODEL_VERSION,
   policy_version: POLICY_VERSION,
   philosophy: 'low_volume_high_confidence',
