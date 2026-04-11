@@ -25,6 +25,30 @@ export async function POST(req: NextRequest) {
 
     const snapshotRows = await loadSnapshotRowsForBackfill({ limit, sport });
     const mapped = mapSnapshotRowsToGoose2(snapshotRows);
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dry_run: true,
+        sport: sport ?? "ALL",
+        counts: {
+          snapshot_events: snapshotRows.events.length,
+          snapshot_prices: snapshotRows.prices.length,
+          goose_events: mapped.eventRows.length,
+          goose_candidates: mapped.candidateRows.length,
+          goose_feature_rows: mapped.candidateRows.length,
+          goose_decision_logs: mapped.candidateRows.length,
+        },
+        sample: {
+          event: mapped.eventRows[0] ?? null,
+          candidate: mapped.candidateRows[0] ?? null,
+        },
+        audit: {
+          syntheticSourceEventCount: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).length,
+          syntheticSourceEventExamples: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).slice(0, 5),
+        },
+      });
+    }
+
     const shadow = await bootstrapGoose2ShadowFromSnapshot({
       id: "backfill-preview",
       capturedAt: snapshotRows.events[0]?.captured_at ?? new Date().toISOString(),
@@ -135,10 +159,7 @@ export async function POST(req: NextRequest) {
         event: mapped.eventRows[0] ?? null,
         candidate: mapped.candidateRows[0] ?? null,
       },
-      audit: dryRun ? {
-        syntheticSourceEventCount: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).length,
-        syntheticSourceEventExamples: mapped.eventRows.filter((event) => /:na$/i.test(String(event.source_event_id ?? ""))).slice(0, 5),
-      } : undefined,
+      audit: undefined,
     });
   } catch (error) {
     return NextResponse.json(
