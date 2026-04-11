@@ -8,6 +8,7 @@
     "build:capacitor": "CAPACITOR_BUILD=1 next build",
     "start": "next start",
     "lint": "next lint",
+    "goose2:audit": "node scripts/goose2-phase1-audit.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
     "qa:assets": "node scripts/qa-asset-fallbacks.mjs"
   },
