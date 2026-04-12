@@ -253,17 +253,20 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
   const boards = await Promise.all(
     dateKeys.map((dateKey) => fetchJSON<any>(`${NHL_BASE}/schedule/${dateKey}`)),
   );
-  const matches = boards
-    .flatMap((board, index) =>
-      (board?.gameWeek ?? [])
-        .flatMap((day: any) => (day?.games ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] }))),
-    )
-    .filter(({ game }) => {
-      const gameDate = String(game?.startTimeUTC || "").slice(0, 10);
-      return gameDate === boardDate
-        && normalizeTeam(game?.awayTeam?.abbrev) === away
-        && normalizeTeam(game?.homeTeam?.abbrev) === home;
-    });
+  const matches = Array.from(new Map(
+    boards
+      .flatMap((board, index) =>
+        (board?.gameWeek ?? [])
+          .flatMap((day: any) => (day?.games ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] }))),
+      )
+      .filter(({ game }) => {
+        const gameDate = String(game?.startTimeUTC || "").slice(0, 10);
+        return gameDate === boardDate
+          && normalizeTeam(game?.awayTeam?.abbrev) === away
+          && normalizeTeam(game?.homeTeam?.abbrev) === home;
+      })
+      .map((entry) => [String(entry.game?.id), entry]),
+  ).values());
 
   if (matches.length === 1) {
     const matched = matches[0];
