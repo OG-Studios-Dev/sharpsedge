@@ -95,5 +95,12 @@ export function inferGoose2MarketType({ marketType, propType }) {
   if (prop.includes('strikeouts')) return 'player_prop_strikeouts';
   if (prop.includes('home-runs') || prop.includes('home runs')) return 'player_prop_home_runs';
   if (prop.includes('threes') || prop.includes('3-pointers') || prop.includes('3pm')) return 'player_prop_threes';
+  if (prop.includes('doubledouble') || prop.includes('double-double')) return 'unknown';
+  if (prop.includes('tripledouble') || prop.includes('triple-double')) return 'unknown';
+  if (prop.includes('firstbasket') || prop.includes('first basket')) return 'unknown';
+  if (prop.includes('firstto20') || prop.includes('first to 20')) return 'unknown';
+  if (prop.includes('firstto25') || prop.includes('first to 25')) return 'unknown';
+  if (prop.includes('firstto50') || prop.includes('first to 50')) return 'unknown';
+  if (prop.includes('firstto75') || prop.includes('first to 75')) return 'unknown';
   return 'unknown';
 }

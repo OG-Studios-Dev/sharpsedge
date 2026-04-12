@@ -104,6 +104,8 @@ export function mapSportsGameOddsToGoose2(payload, sport) {
         ? Object.entries(odd.byBookmaker)
         : [['sportsgameodds', { odds: odd?.bookOdds ?? odd?.closeBookOdds ?? odd?.fairOdds ?? null, lastUpdatedAt: event?.status?.startsAt ?? null }]];
 
+      if (marketType === 'unknown') continue;
+
       for (const [bookKey, bookData] of bookEntries) {
         const parsedOdds = Number(bookData?.odds ?? odd?.bookOdds ?? odd?.closeBookOdds ?? odd?.fairOdds ?? null);
         if (!Number.isFinite(parsedOdds)) continue;
