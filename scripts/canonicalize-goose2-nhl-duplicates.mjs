@@ -132,7 +132,11 @@ async function main() {
         if (outcome.conflict) resultConflicts += 1;
       }
 
-      if (candidateMoved + featureMoved + decisionMoved + resultMoved + candidateConflicts + featureConflicts + decisionConflicts + resultConflicts > 0) {
+      const dependentRowsTouched = candidateMoved + featureMoved + decisionMoved + resultMoved + candidateConflicts + featureConflicts + decisionConflicts + resultConflicts;
+      const duplicateStillHasDependents = (candidateRows?.length || 0) + (featureRows?.length || 0) + (decisionRows?.length || 0) + (resultRows?.length || 0) > dependentRowsTouched;
+      const deletedDuplicateEvent = dependentRowsTouched > 0 && !duplicateStillHasDependents;
+
+      if (deletedDuplicateEvent) {
         await del(`/goose_market_events?event_id=eq.${eventId}`);
       }
 
@@ -147,6 +151,8 @@ async function main() {
         decision_conflicts_existing_canonical: decisionConflicts,
         result_rows_moved: resultMoved,
         result_conflicts_existing_canonical: resultConflicts,
+        duplicate_still_has_dependents: duplicateStillHasDependents,
+        duplicate_event_deleted: deletedDuplicateEvent,
       });
     }
   }

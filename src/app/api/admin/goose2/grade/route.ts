@@ -22,14 +22,30 @@ async function runGoose2Grade(input: { date?: string; sport?: string; limit?: nu
   ]);
 
   const eventsById = new Map(events.map((event) => [event.event_id, event]));
-  const filteredCandidates = candidates.filter((candidate) => eventsById.has(candidate.event_id));
-  const results = await persistGoose2Grades({ candidates: filteredCandidates, events });
+  const unresolvedCandidates = candidates.filter((candidate) => {
+    if (!eventsById.has(candidate.event_id)) return false;
+    const result = String(candidate.result ?? "").toLowerCase();
+    const integrity = String(candidate.integrity_status ?? "").toLowerCase();
+    return result !== "win"
+      && result !== "loss"
+      && result !== "push"
+      && result !== "void"
+      && result !== "cancelled"
+      && result !== "ungradeable"
+      && integrity !== "ok"
+      && integrity !== "void"
+      && integrity !== "cancelled"
+      && integrity !== "postponed"
+      && integrity !== "unresolvable"
+      && integrity !== "manual_review";
+  });
+  const results = await persistGoose2Grades({ candidates: unresolvedCandidates, events });
 
   const counts = {
     total_events: events.length,
-    total_candidates: filteredCandidates.length,
-    attempted_candidates: filteredCandidates.length,
-    skipped_ungradeable_upstream: 0,
+    total_candidates: candidates.length,
+    attempted_candidates: unresolvedCandidates.length,
+    skipped_ungradeable_upstream: candidates.length - unresolvedCandidates.length,
     graded_ok: results.filter((row) => row.integrity_status === "ok").length,
     pending: results.filter((row) => row.result === "pending").length,
     ungradeable: results.filter((row) => row.result === "ungradeable").length,
