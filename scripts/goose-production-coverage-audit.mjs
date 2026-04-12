@@ -54,7 +54,16 @@ function groupCounts(rows, key) {
   const out = {};
   for (const row of rows || []) {
     const k = row[key] ?? 'UNKNOWN';
-    out[k] = Number(row.count || 0);
+    out[k] = (out[k] || 0) + 1;
+  }
+  return out;
+}
+
+function groupCountsBy(rows, key) {
+  const out = {};
+  for (const row of rows || []) {
+    const k = row[key] ?? 'UNKNOWN';
+    out[k] = (out[k] || 0) + 1;
   }
   return out;
 }
@@ -92,9 +101,9 @@ async function main() {
     fetchJson('/goose_market_results?select=candidate_id&limit=1', { count: true }),
     fetchJson('/goose_feature_rows?select=feature_row_id&limit=1', { count: true }),
     fetchJson('/goose_decision_log?select=decision_id&limit=1', { count: true }),
-    fetchJson('/market_snapshot_events?select=sport,count:id&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null'),
-    fetchJson('/market_snapshot_prices?select=sport,count:id&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null'),
-    fetchJson('/goose_market_candidates?select=sport,count:candidate_id&capture_ts=gte.' + encodeURIComponent(last7) + '&sport=not.is.null'),
+    fetchJson('/market_snapshot_events?select=id,sport,captured_at&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=5000'),
+    fetchJson('/market_snapshot_prices?select=id,sport,book,market_type,captured_at&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=20000'),
+    fetchJson('/goose_market_candidates?select=candidate_id,sport,book,market_type,capture_ts&capture_ts=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=20000'),
     fetchJson('/goose_market_results?select=candidate_id,settlement_ts,result,integrity_status,event_id&settlement_ts=gte.' + encodeURIComponent(last7) + '&order=settlement_ts.desc&limit=5000'),
     fetchJson('/system_qualifiers?select=id,system_id,game_date,matchup,settlement_status,outcome&settlement_status=eq.pending&order=game_date.asc&limit=500'),
     fetchJson('/system_qualifiers?select=id,system_id,game_date,matchup,settlement_status,outcome,created_at&settlement_status=eq.pending&created_at=lt.' + encodeURIComponent(last24h) + '&order=game_date.asc&limit=500'),
@@ -119,11 +128,16 @@ async function main() {
       goose_decision_log: gooseDecisionsTotal.total,
     },
     last_7_days: {
-      snapshot_events_by_sport: groupCounts(snapshotsBySport.data, 'sport'),
-      snapshot_prices_by_sport: groupCounts(pricesBySport.data, 'sport'),
-      goose_candidates_by_sport: groupCounts(candidatesBySport.data, 'sport'),
+      snapshot_events_by_sport: groupCountsBy(snapshotsBySport.data, 'sport'),
+      snapshot_prices_by_sport: groupCountsBy(pricesBySport.data, 'sport'),
+      snapshot_prices_by_book: groupCountsBy(pricesBySport.data, 'book'),
+      snapshot_prices_by_market: groupCountsBy(pricesBySport.data, 'market_type'),
+      goose_candidates_by_sport: groupCountsBy(candidatesBySport.data, 'sport'),
+      goose_candidates_by_book: groupCountsBy(candidatesBySport.data, 'book'),
+      goose_candidates_by_market: groupCountsBy(candidatesBySport.data, 'market_type'),
       goose_results_total: (resultsBySport.data || []).length,
-      goose_results_by_integrity: groupCounts(resultsBySport.data, 'integrity_status'),
+      goose_results_by_integrity: groupCountsBy(resultsBySport.data, 'integrity_status'),
+      goose_results_by_result: groupCountsBy(resultsBySport.data, 'result'),
     },
     qualifier_health: {
       pending_count: (pendingQualifiers.data || []).length,
