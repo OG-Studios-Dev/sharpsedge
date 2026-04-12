@@ -101,7 +101,7 @@ function resolveSpreadResult(teamScore: number, opponentScore: number, spreadLin
   return "push";
 }
 
-function unsupportedResult(candidate: Goose2MarketCandidate, notes: string): Goose2MarketResult {
+function unsupportedResult(candidate: Goose2MarketCandidate, notes: string, integrityStatus: Goose2IntegrityStatus = "manual_review"): Goose2MarketResult {
   return {
     candidate_id: candidate.candidate_id,
     event_id: candidate.event_id,
@@ -112,7 +112,7 @@ function unsupportedResult(candidate: Goose2MarketCandidate, notes: string): Goo
     closing_odds: null,
     settlement_ts: new Date().toISOString(),
     grade_source: "goose2-grader",
-    integrity_status: "manual_review",
+    integrity_status: integrityStatus,
     grading_notes: notes,
     source_payload: {
       market_type: candidate.market_type,
@@ -216,9 +216,10 @@ function resolveDirectNHLGameId(event: Goose2MarketEvent) {
   return resolveDirectNumericGameId(event, [event.odds_api_event_id]);
 }
 
-function parseSnapshotGameKey(value?: unknown) {
+function parseSnapshotGameKey(value?: unknown, sportPrefix?: string) {
   const raw = String(value ?? '').trim();
-  const timedMatch = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2})T(\d{2})$/);
+  const prefix = sportPrefix ? `${sportPrefix}:` : '[A-Z]+';
+  const timedMatch = raw.match(new RegExp(`^${prefix}([A-Z]{2,4})@([A-Z]{2,4}):(\\d{4}-\\d{2}-\\d{2})T(\\d{2})$`));
   if (timedMatch) {
     return {
       away: timedMatch[1],
@@ -227,7 +228,7 @@ function parseSnapshotGameKey(value?: unknown) {
       hourKey: `${timedMatch[3]}T${timedMatch[4]}`,
     };
   }
-  const dateOnlyMatch = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2}|na)$/);
+  const dateOnlyMatch = raw.match(new RegExp(`^${prefix}([A-Z]{2,4})@([A-Z]{2,4}):(\\d{4}-\\d{2}-\\d{2}|na)$`));
   if (!dateOnlyMatch) return null;
   return {
     away: dateOnlyMatch[1],
@@ -253,7 +254,7 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
   if (direct) return { gameId: direct, resolution: "direct_numeric_id" };
 
   const boardDate = String(event.event_date || "").trim();
-  const snapshotKey = parseSnapshotGameKey(event.metadata?.snapshot_game_id);
+  const snapshotKey = parseSnapshotGameKey(event.metadata?.snapshot_game_id, 'NHL');
   const away = normalizeTeam(snapshotKey?.away || event.away_team_id || event.away_team);
   const home = normalizeTeam(snapshotKey?.home || event.home_team_id || event.home_team);
   const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
@@ -368,21 +369,26 @@ async function resolveNBAGameId(event: Goose2MarketEvent): Promise<{ gameId: str
     if (direct) return { gameId: direct, resolution: "direct_numeric_id" };
 
     const boardDate = String(event.event_date || "").trim();
-    const away = normalizeTeam(event.away_team_id || event.away_team);
-    const home = normalizeTeam(event.home_team_id || event.home_team);
+    const snapshotKey = parseSnapshotGameKey(event.metadata?.snapshot_game_id, 'NBA');
+    const away = normalizeTeam(snapshotKey?.away || event.away_team_id || event.away_team);
+    const home = normalizeTeam(snapshotKey?.home || event.home_team_id || event.home_team);
     const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
-    const dateKeys = getAdjacentDateKeys(boardDate);
+    const eventHourKey = snapshotKey?.hourKey || toTitleDateHourKey(event.commence_time);
+    const dateKeys = getAdjacentDateKeys(snapshotKey?.date || boardDate);
     const boards = await Promise.all(dateKeys.map((dateKey) => fetchJSON<any>(`${NBA_BASE}/scoreboard?dates=${dateKey.replace(/-/g, "")}`)));
-    const matches = boards
-      .flatMap((board, index) => (board?.events ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] })))
-      .filter(({ game }) => {
-        const competition = game?.competitions?.[0] ?? {};
-        const competitors = competition?.competitors ?? [];
-        const homeTeam = competitors.find((entry: any) => entry.homeAway === "home") ?? competitors[0];
-        const awayTeam = competitors.find((entry: any) => entry.homeAway === "away") ?? competitors[1];
-        return normalizeTeam(awayTeam?.team?.abbreviation) === away
-          && normalizeTeam(homeTeam?.team?.abbreviation) === home;
-      });
+    const matches = Array.from(new Map(
+      boards
+        .flatMap((board, index) => (board?.events ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] })))
+        .filter(({ game }) => {
+          const competition = game?.competitions?.[0] ?? {};
+          const competitors = competition?.competitors ?? [];
+          const homeTeam = competitors.find((entry: any) => entry.homeAway === "home") ?? competitors[0];
+          const awayTeam = competitors.find((entry: any) => entry.homeAway === "away") ?? competitors[1];
+          return normalizeTeam(awayTeam?.team?.abbreviation) === away
+            && normalizeTeam(homeTeam?.team?.abbreviation) === home;
+        })
+        .map((entry) => [String(entry.game?.id), entry]),
+    ).values());
 
     if (matches.length === 1) {
       const matched = matches[0];
@@ -391,6 +397,25 @@ async function resolveNBAGameId(event: Goose2MarketEvent): Promise<{ gameId: str
         resolution: "matched_by_scoreboard_exact",
         payload: { matched_start: matched.game?.date ?? null, board_date: boardDate, matched_date: matched.requestDate, away, home },
       };
+    }
+
+    if (matches.length > 1) {
+      const hourMatched = matches.filter(({ game }) => toTitleDateHourKey(game?.date) === eventHourKey);
+      if (hourMatched.length === 1) {
+        const matched = hourMatched[0];
+        return {
+          gameId: String(matched.game.id),
+          resolution: "matched_by_scoreboard_hour_key",
+          payload: {
+            matched_start: matched.game?.date ?? null,
+            matched_date: matched.requestDate,
+            board_date: boardDate,
+            away,
+            home,
+            event_hour_key: eventHourKey,
+          },
+        };
+      }
     }
 
     if (matches.length > 1 && Number.isFinite(eventStartMs)) {
@@ -638,7 +663,7 @@ async function gradeNBA(candidate: Goose2MarketCandidate, event: Goose2MarketEve
     return settledResult({
       candidate,
       result: "ungradeable",
-      integrityStatus: "manual_review",
+      integrityStatus: "unresolvable",
       notes: `NBA event missing resolvable numeric game id. resolution=${resolvedId.resolution}`,
       payload: { ...(resolvedId.payload ?? {}), metadata: event.metadata },
     });
@@ -701,7 +726,7 @@ async function gradeNBA(candidate: Goose2MarketCandidate, event: Goose2MarketEve
   }
 
   if (candidate.market_type === "first_quarter_spread" || candidate.market_type === "third_quarter_spread") {
-    return unsupportedResult(candidate, `${candidate.market_type} retained for storage, but not yet trusted for Goose 2 training settlement.`);
+    return unsupportedResult(candidate, `${candidate.market_type} retained for storage, but not yet trusted for Goose 2 training settlement.`, "unresolvable");
   }
 
   const playerGroups = (summary.boxscore?.players ?? []);
