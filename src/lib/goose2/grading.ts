@@ -216,6 +216,18 @@ function resolveDirectNHLGameId(event: Goose2MarketEvent) {
   return resolveDirectNumericGameId(event, [event.odds_api_event_id]);
 }
 
+function parseSnapshotGameKey(value?: unknown) {
+  const raw = String(value ?? '').trim();
+  const match = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2})T(\d{2})$/);
+  if (!match) return null;
+  return {
+    away: match[1],
+    home: match[2],
+    date: match[3],
+    hourKey: `${match[3]}T${match[4]}`,
+  };
+}
+
 function getAdjacentDateKeys(dateKey: string) {
   const parsed = new Date(`${dateKey}T12:00:00Z`);
   if (Number.isNaN(parsed.getTime())) return [dateKey];
@@ -232,29 +244,58 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
   if (direct) return { gameId: direct, resolution: "direct_numeric_id" };
 
   const boardDate = String(event.event_date || "").trim();
-  const away = normalizeTeam(event.away_team_id || event.away_team);
-  const home = normalizeTeam(event.home_team_id || event.home_team);
+  const snapshotKey = parseSnapshotGameKey(event.metadata?.snapshot_game_id);
+  const away = normalizeTeam(snapshotKey?.away || event.away_team_id || event.away_team);
+  const home = normalizeTeam(snapshotKey?.home || event.home_team_id || event.home_team);
   const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
-
-  const schedule = await getBroadSchedule(4);
-  const matches = schedule.games.filter((game) => {
-    const gameDate = String(game.startTimeUTC || "").slice(0, 10);
-    return gameDate === boardDate
-      && normalizeTeam(game.awayTeam?.abbrev) === away
-      && normalizeTeam(game.homeTeam?.abbrev) === home;
-  });
+  const eventHourKey = snapshotKey?.hourKey || toTitleDateHourKey(event.commence_time);
+  const dateKeys = getAdjacentDateKeys(snapshotKey?.date || boardDate);
+  const boards = await Promise.all(
+    dateKeys.map((dateKey) => fetchJSON<any>(`${NHL_BASE}/schedule/${dateKey}`)),
+  );
+  const matches = boards
+    .flatMap((board, index) =>
+      (board?.gameWeek ?? [])
+        .flatMap((day: any) => (day?.games ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] }))),
+    )
+    .filter(({ game }) => {
+      const gameDate = String(game?.startTimeUTC || "").slice(0, 10);
+      return gameDate === boardDate
+        && normalizeTeam(game?.awayTeam?.abbrev) === away
+        && normalizeTeam(game?.homeTeam?.abbrev) === home;
+    });
 
   if (matches.length === 1) {
+    const matched = matches[0];
     return {
-      gameId: String(matches[0].id),
+      gameId: String(matched.game.id),
       resolution: "matched_by_schedule_exact",
-      payload: { matched_start: matches[0].startTimeUTC, board_date: boardDate, away, home },
+      payload: { matched_start: matched.game.startTimeUTC, board_date: boardDate, matched_date: matched.requestDate, away, home },
     };
+  }
+
+  if (matches.length > 1) {
+    const hourMatched = matches.filter(({ game }) => toTitleDateHourKey(game?.startTimeUTC) === eventHourKey);
+    if (hourMatched.length === 1) {
+      const matched = hourMatched[0];
+      return {
+        gameId: String(matched.game.id),
+        resolution: "matched_by_schedule_hour_key",
+        payload: {
+          matched_start: matched.game.startTimeUTC,
+          matched_date: matched.requestDate,
+          board_date: boardDate,
+          away,
+          home,
+          event_hour_key: eventHourKey,
+        },
+      };
+    }
   }
 
   if (matches.length > 1 && Number.isFinite(eventStartMs)) {
     const ranked = matches
-      .map((game) => ({ game, diffMs: Math.abs(new Date(game.startTimeUTC).getTime() - eventStartMs) }))
+      .map((entry) => ({ ...entry, diffMs: Math.abs(new Date(entry.game.startTimeUTC).getTime() - eventStartMs) }))
       .sort((a, b) => a.diffMs - b.diffMs);
 
     const best = ranked[0];
@@ -265,6 +306,7 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
         resolution: "matched_by_schedule_time_proximity",
         payload: {
           matched_start: best.game.startTimeUTC,
+          matched_date: best.requestDate,
           time_diff_minutes: Math.round(best.diffMs / 60000),
           board_date: boardDate,
           away,
@@ -274,6 +316,22 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
     }
   }
 
+  const broadSchedule = await getBroadSchedule(4);
+  const fallbackMatches = broadSchedule.games.filter((game) => {
+    const gameDate = String(game.startTimeUTC || "").slice(0, 10);
+    return gameDate === boardDate
+      && normalizeTeam(game.awayTeam?.abbrev) === away
+      && normalizeTeam(game.homeTeam?.abbrev) === home;
+  });
+
+  if (fallbackMatches.length === 1) {
+    return {
+      gameId: String(fallbackMatches[0].id),
+      resolution: "matched_by_broad_schedule_exact",
+      payload: { matched_start: fallbackMatches[0].startTimeUTC, board_date: boardDate, away, home },
+    };
+  }
+
   return {
     gameId: null,
     resolution: "unresolved",
@@ -281,6 +339,7 @@ async function resolveNHLGameId(event: Goose2MarketEvent): Promise<{ gameId: str
       source_event_id: event.source_event_id,
       odds_api_event_id: event.odds_api_event_id,
       board_date: boardDate,
+      searched_dates: dateKeys,
       away,
       home,
     },
