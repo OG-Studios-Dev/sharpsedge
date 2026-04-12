@@ -192,6 +192,47 @@ type MLBGameResult = {
 
 let _mlbResultsCache: { data: MLBGameResult[]; fetchedAt: number } | null = null;
 const MLB_RESULTS_TTL_MS = 30 * 60 * 1000; // 30 min
+const MLB_RESULTS_LOOKBACK_DAYS = 180;
+
+function normalizeSystemTeamAbbrev(value: string | null | undefined): string {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isSameMlbMatchup(result: MLBGameResult, homeTeam: string, roadTeam: string): boolean {
+  return normalizeSystemTeamAbbrev(result.homeAbbrev) === normalizeSystemTeamAbbrev(homeTeam)
+    && normalizeSystemTeamAbbrev(result.awayAbbrev) === normalizeSystemTeamAbbrev(roadTeam);
+}
+
+function resolveMlbResultForQualifier(
+  mlbResults: MLBGameResult[],
+  qualifier: Pick<DbSystemQualifier, "home_team" | "road_team" | "game_date" | "logged_at" | "provenance">,
+): MLBGameResult | null {
+  const provenance = qualifier.provenance as Record<string, unknown> | null;
+  const targetHome = qualifier.home_team;
+  const targetRoad = qualifier.road_team;
+  const gameDate = qualifier.game_date;
+  const loggedDate = String(qualifier.logged_at || "").slice(0, 10);
+  const provenanceDateCandidates = [
+    provenance?.gameDate,
+    provenance?.eventDate,
+    provenance?.commenceDate,
+    provenance?.commence_time,
+    provenance?.startTime,
+  ]
+    .map((value) => String(value || "").slice(0, 10))
+    .filter(Boolean);
+  const dateCandidates = Array.from(new Set([gameDate, loggedDate, ...provenanceDateCandidates].filter(Boolean)));
+
+  const exact = mlbResults.find((result) => isSameMlbMatchup(result, targetHome, targetRoad) && dateCandidates.includes(result.gameDate));
+  if (exact) return exact;
+
+  const matchupResults = mlbResults.filter((result) => isSameMlbMatchup(result, targetHome, targetRoad));
+  if (matchupResults.length === 1) return matchupResults[0];
+
+  return dateCandidates.length
+    ? matchupResults.find((result) => result.gameDate >= dateCandidates[0]) ?? matchupResults[0] ?? null
+    : matchupResults[0] ?? null;
+}
 
 async function fetchMLBRecentResults(): Promise<MLBGameResult[]> {
   const now = Date.now();
@@ -199,7 +240,7 @@ async function fetchMLBRecentResults(): Promise<MLBGameResult[]> {
     return _mlbResultsCache.data;
   }
 
-  const games = await getRecentMLBGames(14);
+  const games = await getRecentMLBGames(MLB_RESULTS_LOOKBACK_DAYS);
   const results: MLBGameResult[] = games
     .filter((g) => g.status === "Final" && g.homeScore != null && g.awayScore != null)
     .map((g) => ({
@@ -287,14 +328,23 @@ async function gradeGooseQualifiers(
 
   for (const qualifier of pending) {
     const provenance = qualifier.provenance as Record<string, unknown> | null;
-    const espnEventId = typeof provenance?.espnEventId === "string" && provenance.espnEventId
-      ? provenance.espnEventId
-      : typeof provenance?.oddsEventId === "string" && /^\d+$/.test(provenance.oddsEventId)
-        ? provenance.oddsEventId
-        : null;
+    const espnEventIdCandidates = [
+      provenance?.espnEventId,
+      provenance?.eventId,
+      provenance?.sourceEventId,
+      provenance?.source_event_id,
+      provenance?.gameId,
+      provenance?.oddsEventId,
+      provenance?.odds_api_event_id,
+      provenance?.quarterLineEventId,
+      provenance?.quarter_line_event_id,
+    ]
+      .map((value) => String(value || "").trim())
+      .filter((value) => /^\d+$/.test(value));
+    const espnEventId = espnEventIdCandidates[0] ?? null;
 
     // Primary: ESPN game summary (requires espnEventId)
-    // Fallback: API-Sports Basketball v2 (lookup by date + teams, no eventId needed)
+    // Fallback: API-Sports Basketball v2 / sportsdataverse lookup by date + teams when durable ids are absent
     let firstQuarterRoadScore: number | null = null;
     let firstQuarterHomeScore: number | null = null;
     let thirdQuarterRoadScore: number | null = null;
@@ -486,21 +536,8 @@ async function gradeFalconsQualifiers(
     const qualifiedTeam = qualifier.qualified_team;
     if (!qualifiedTeam) continue;
 
-    const roadTeam = qualifier.road_team;
-    const homeTeam = qualifier.home_team;
-    const gameDate = qualifier.game_date;
-
-    // Match by teams + date
-    const matchResult = mlbResults.find((r) => {
-      const sameTeams = (
-        r.homeAbbrev.toUpperCase() === homeTeam.toUpperCase() &&
-        r.awayAbbrev.toUpperCase() === roadTeam.toUpperCase()
-      );
-      const sameDate = r.gameDate === gameDate;
-      return sameTeams && sameDate;
-    });
-
-    if (!matchResult) continue; // Game not yet final
+    const matchResult = resolveMlbResultForQualifier(mlbResults, qualifier);
+    if (!matchResult) continue; // Game not yet final or still unmatched
 
     const outcome = gradeMLOutcome(
       qualifiedTeam,
