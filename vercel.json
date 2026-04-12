@@ -55,27 +55,15 @@
       "schedule": "0 21 * * *"
     },
     {
-      "path": "/api/admin/goose2/shadow-bootstrap?sport=MLB&limit=250",
-      "schedule": "25 * * * *"
-    },
-    {
-      "path": "/api/admin/goose2/shadow-bootstrap?sport=NBA&limit=250",
-      "schedule": "27 * * * *"
-    },
-    {
-      "path": "/api/admin/goose2/shadow-bootstrap?sport=NHL&limit=250",
-      "schedule": "29 * * * *"
-    },
-    {
-      "path": "/api/admin/goose2/grade?sport=MLB&limit=1000",
+      "path": "/api/admin/goose2/grade?sport=MLB&limit=1000&lookbackDays=3",
       "schedule": "40 7,12,17,22 * * *"
     },
     {
-      "path": "/api/admin/goose2/grade?sport=NBA&limit=1000",
+      "path": "/api/admin/goose2/grade?sport=NBA&limit=1000&lookbackDays=3",
       "schedule": "42 7,12,17,22 * * *"
     },
     {
-      "path": "/api/admin/goose2/grade?sport=NHL&limit=1000",
+      "path": "/api/admin/goose2/grade?sport=NHL&limit=1000&lookbackDays=3",
       "schedule": "44 7,12,17,22 * * *"
     },
     {

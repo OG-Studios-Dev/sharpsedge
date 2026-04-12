@@ -7,6 +7,10 @@ import type {
   Goose2MarketResult,
 } from "@/lib/goose2/types";
 
+export type Goose2CandidateWithResult = Goose2MarketCandidate & {
+  goose_market_results?: Pick<Goose2MarketResult, "result" | "integrity_status"> | Array<Pick<Goose2MarketResult, "result" | "integrity_status">> | null;
+};
+
 function serviceHeaders(prefer?: string) {
   const key = getSupabaseServiceRoleKey();
   return {
@@ -85,9 +89,10 @@ export async function listGoose2Candidates(filters: {
   sport?: string;
   eventDate?: string;
   limit?: number;
+  includeResults?: boolean;
 }) {
   const params = new URLSearchParams({
-    select: "*",
+    select: filters.includeResults ? "*,goose_market_results(result,integrity_status)" : "*",
     order: "capture_ts.desc",
     limit: String(Math.min(Math.max(filters.limit ?? 200, 1), 2000)),
   });
@@ -105,7 +110,7 @@ export async function listGoose2Candidates(filters: {
     throw new Error(`Goose2 repository error ${response.status}: ${text.slice(0, 300)}`);
   }
 
-  return response.json() as Promise<Goose2MarketCandidate[]>;
+  return response.json() as Promise<Goose2CandidateWithResult[]>;
 }
 
 export async function listGoose2Events(filters: {
