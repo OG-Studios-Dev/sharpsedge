@@ -47,6 +47,14 @@ function normalizeMLBTeam(value?: string | null) {
   return normalized === "ATH" ? "OAK" : normalized;
 }
 
+function toTitleDateHourKey(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 13);
+}
+
 function isNumericId(value?: string | null) {
   return /^\d+$/.test(String(value ?? "").trim());
 }
@@ -376,6 +384,9 @@ async function resolveMLBGameId(event: Goose2MarketEvent): Promise<{ gameId: str
     const away = normalizeMLBTeam(event.away_team_id || event.away_team);
     const home = normalizeMLBTeam(event.home_team_id || event.home_team);
     const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
+    const eventHourKey = toTitleDateHourKey(event.commence_time);
+    const sourceHourMatch = String(event.source_event_id || "").match(/:(\d{4}-\d{2}-\d{2}T\d{2})$/);
+    const sourceHourKey = sourceHourMatch?.[1] ?? null;
     const dateKeys = getAdjacentDateKeys(boardDate);
     const boards = await Promise.all(dateKeys.map((dateKey) => fetchJSON<any>(`${MLB_BASE}/schedule?date=${dateKey}&sportId=1`)));
     const matches = boards
@@ -399,6 +410,30 @@ async function resolveMLBGameId(event: Goose2MarketEvent): Promise<{ gameId: str
       };
     }
 
+    if (matches.length > 1) {
+      const hourMatched = matches.filter(({ game }) => {
+        const gameHourKey = toTitleDateHourKey(game?.gameDate);
+        return gameHourKey != null && (gameHourKey === eventHourKey || gameHourKey === sourceHourKey);
+      });
+
+      if (hourMatched.length === 1) {
+        const matched = hourMatched[0];
+        return {
+          gameId: String(matched.game.gamePk),
+          resolution: "matched_by_schedule_hour_key",
+          payload: {
+            matched_start: matched.game?.gameDate ?? null,
+            matched_date: matched.requestDate,
+            board_date: boardDate,
+            away,
+            home,
+            event_hour_key: eventHourKey,
+            source_hour_key: sourceHourKey,
+          },
+        };
+      }
+    }
+
     if (matches.length > 1 && Number.isFinite(eventStartMs)) {
       const ranked = matches
         .map((entry) => ({ ...entry, diffMs: Math.abs(new Date(entry.game?.gameDate ?? 0).getTime() - eventStartMs) }))
@@ -406,7 +441,7 @@ async function resolveMLBGameId(event: Goose2MarketEvent): Promise<{ gameId: str
 
       const best = ranked[0];
       const second = ranked[1];
-      if (best && best.diffMs <= 3 * 60 * 60 * 1000 && (!second || second.diffMs !== best.diffMs)) {
+      if (best && best.diffMs <= 12 * 60 * 60 * 1000 && (!second || second.diffMs !== best.diffMs)) {
         return {
           gameId: String(best.game.gamePk),
           resolution: "matched_by_schedule_time_proximity",
@@ -417,6 +452,8 @@ async function resolveMLBGameId(event: Goose2MarketEvent): Promise<{ gameId: str
             board_date: boardDate,
             away,
             home,
+            event_hour_key: eventHourKey,
+            source_hour_key: sourceHourKey,
           },
         };
       }
