@@ -29,10 +29,19 @@ const LEAGUE_IDS: Record<string, string> = {
   "SERIE A": "18",
 };
 
-function getApiKey(): string {
-  const key = process.env.SPORTSGAMEODDS_API_KEY;
-  if (!key) throw new Error("SPORTSGAMEODDS_API_KEY missing");
-  return key;
+function getApiKeys(): string[] {
+  const raw = [
+    process.env.SPORTSGAMEODDS_API_KEYS,
+    process.env.SPORTSGAMEODDS_API_KEY,
+  ].filter(Boolean).join(",");
+
+  const keys = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (!keys.length) throw new Error("SPORTSGAMEODDS_API_KEY missing");
+  return Array.from(new Set(keys));
 }
 
 function getLeagueId(sport: string): string | null {
@@ -41,44 +50,60 @@ function getLeagueId(sport: string): string | null {
 }
 
 async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
-  const apiKey = getApiKey();
+  const apiKeys = getApiKeys();
   const url = `${SPORTSGAMEODDS_BASE}${path}`;
+  let lastResult: SportsGameOddsFetchResult<T> | null = null;
 
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "x-api-key": apiKey,
-        accept: "application/json",
-      },
-      next: { revalidate: 300 },
-    });
-
-    const text = await res.text();
-    let data: T | null = null;
+  for (const apiKey of apiKeys) {
     try {
-      data = text ? (JSON.parse(text) as T) : null;
-    } catch {
-      data = null;
-    }
+      const res = await fetch(url, {
+        headers: {
+          "x-api-key": apiKey,
+          accept: "application/json",
+        },
+        next: { revalidate: 300 },
+      });
 
-    return {
-      ok: res.ok,
-      status: res.status,
-      url,
-      data,
-      text,
-      error: res.ok ? undefined : `HTTP ${res.status}`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      url,
-      data: null,
-      text: null as unknown as string,
-      error: error instanceof Error ? error.message : String(error),
-    };
+      const text = await res.text();
+      let data: T | null = null;
+      try {
+        data = text ? (JSON.parse(text) as T) : null;
+      } catch {
+        data = null;
+      }
+
+      const result: SportsGameOddsFetchResult<T> = {
+        ok: res.ok,
+        status: res.status,
+        url,
+        data,
+        text,
+        error: res.ok ? undefined : `HTTP ${res.status}`,
+      };
+
+      if (res.ok) return result;
+      lastResult = result;
+      if (res.status !== 429) return result;
+    } catch (error) {
+      lastResult = {
+        ok: false,
+        status: 0,
+        url,
+        data: null,
+        text: null as unknown as string,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
+
+  return lastResult ?? {
+    ok: false,
+    status: 0,
+    url,
+    data: null,
+    text: null as unknown as string,
+    error: "SportsGameOdds request failed before attempt",
+  };
 }
 
 export async function getSportsGameOddsUsage(): Promise<SportsGameOddsFetchResult<SportsGameOddsAccountUsage>> {
