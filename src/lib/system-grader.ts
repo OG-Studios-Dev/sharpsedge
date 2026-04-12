@@ -945,6 +945,9 @@ export async function gradeAllSystemQualifiers(): Promise<GradeAllSystemsResult>
   await gradeAndReport("mlb-home-majority-handle", async () => gradePendingMlQualifiers(pendingBySystem.get("mlb-home-majority-handle") ?? [], "mlb", "mlb-api-final"));
   await gradeAndReport("nhl-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("nhl-under-majority-handle") ?? [], "nhl", "nhl-api-final"));
   await gradeAndReport("mlb-under-majority-handle", async () => gradePendingTotalQualifiers(pendingBySystem.get("mlb-under-majority-handle") ?? [], "mlb", "mlb-api-final"));
+  await gradeAndReport("the-blowout", async () => gradePendingMlQualifiers(pendingBySystem.get("the-blowout") ?? [], "nba", "nba-espn-final"));
+  await gradeAndReport("hot-teams-matchup", async () => gradePendingTotalQualifiers(pendingBySystem.get("hot-teams-matchup") ?? [], "nba", "nba-espn-final"));
+  await gradeAndReport("tonys-hot-bats", async () => gradePendingMlQualifiers(pendingBySystem.get("tonys-hot-bats") ?? [], "mlb", "mlb-api-final"));
 
   // Grade PGA picks via BDL tournament results
   await gradeAndReport("pga-goose-picks", async () => gradePGAQualifiers(pendingBySystem.get("pga-goose-picks") ?? []));
@@ -1007,14 +1010,16 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
       gradedInputs = await gradeRobbiesRipperFast5Qualifiers(allPending);
     } else if (systemId === "coach-no-rest" || systemId === "bigcat-bonaza-puckluck" || systemId === "fat-tonys-fade" || systemId === "nhl-home-dog-majority-handle") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "nhl", "nhl-api-final");
-    } else if (systemId === "mlb-home-majority-handle") {
+    } else if (systemId === "mlb-home-majority-handle" || systemId === "tonys-hot-bats") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "mlb", "mlb-api-final");
     } else if (systemId === "nhl-under-majority-handle") {
       gradedInputs = await gradePendingTotalQualifiers(allPending, "nhl", "nhl-api-final");
     } else if (systemId === "mlb-under-majority-handle") {
       gradedInputs = await gradePendingTotalQualifiers(allPending, "mlb", "mlb-api-final");
-    } else if (systemId === "nba-home-dog-majority-handle" || systemId === "nba-home-super-majority-close-game") {
+    } else if (systemId === "nba-home-dog-majority-handle" || systemId === "nba-home-super-majority-close-game" || systemId === "the-blowout") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "nba", "nba-espn-final");
+    } else if (systemId === "hot-teams-matchup") {
+      gradedInputs = await gradePendingTotalQualifiers(allPending, "nba", "nba-espn-final");
     } else if (systemId === "pga-goose-picks") {
       gradedInputs = await gradePGAQualifiers(allPending);
     }
