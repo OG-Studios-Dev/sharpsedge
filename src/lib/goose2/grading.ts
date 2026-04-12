@@ -218,13 +218,22 @@ function resolveDirectNHLGameId(event: Goose2MarketEvent) {
 
 function parseSnapshotGameKey(value?: unknown) {
   const raw = String(value ?? '').trim();
-  const match = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2})T(\d{2})$/);
-  if (!match) return null;
+  const timedMatch = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2})T(\d{2})$/);
+  if (timedMatch) {
+    return {
+      away: timedMatch[1],
+      home: timedMatch[2],
+      date: timedMatch[3],
+      hourKey: `${timedMatch[3]}T${timedMatch[4]}`,
+    };
+  }
+  const dateOnlyMatch = raw.match(/^NHL:([A-Z]{2,4})@([A-Z]{2,4}):(\d{4}-\d{2}-\d{2}|na)$/);
+  if (!dateOnlyMatch) return null;
   return {
-    away: match[1],
-    home: match[2],
-    date: match[3],
-    hourKey: `${match[3]}T${match[4]}`,
+    away: dateOnlyMatch[1],
+    home: dateOnlyMatch[2],
+    date: /^\d{4}-\d{2}-\d{2}$/.test(dateOnlyMatch[3]) ? dateOnlyMatch[3] : null,
+    hourKey: null,
   };
 }
 
