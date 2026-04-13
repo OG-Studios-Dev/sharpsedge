@@ -240,6 +240,52 @@
       "updatedAt": "2026-04-13T13:28:00.000Z"
     }
   ],
+  "scorecards": [
+    {
+      "id": "score_magoo_2026w15",
+      "weekLabel": "Week of 2026-04-13",
+      "capturedAt": "2026-04-13T13:28:00.000Z",
+      "memberId": "magoo",
+      "status": "yellow",
+      "completions": 4,
+      "partials": 2,
+      "blocked": 0,
+      "summary": "Team board shipped into admin, CEO snapshot added, and launch management now has a real operating surface."
+    },
+    {
+      "id": "score_vega_2026w15",
+      "weekLabel": "Week of 2026-04-13",
+      "capturedAt": "2026-04-13T13:28:00.000Z",
+      "memberId": "vega",
+      "status": "green",
+      "completions": 4,
+      "partials": 1,
+      "blocked": 0,
+      "summary": "Historical data pipeline is now moving from theory into usable infrastructure."
+    },
+    {
+      "id": "score_june_2026w15",
+      "weekLabel": "Week of 2026-04-13",
+      "capturedAt": "2026-04-13T13:28:00.000Z",
+      "memberId": "june",
+      "status": "red",
+      "completions": 0,
+      "partials": 2,
+      "blocked": 1,
+      "summary": "Navigation and onboarding remain launch-critical UX debt."
+    },
+    {
+      "id": "score_quinn_2026w15",
+      "weekLabel": "Week of 2026-04-13",
+      "capturedAt": "2026-04-13T13:28:00.000Z",
+      "memberId": "quinn",
+      "status": "yellow",
+      "completions": 1,
+      "partials": 3,
+      "blocked": 0,
+      "summary": "QA admin rails exist, but the release gate needs to get stricter fast."
+    }
+  ],
   "workstreams": [
     {
       "id": "ws_nav_shell_cleanup",

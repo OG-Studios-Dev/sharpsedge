@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addWorkstream, readAdminTeamBoard, updateTeamMember, updateWorkstream } from "@/lib/admin-team-store";
+import { addWorkstream, captureWeeklyScorecard, readAdminTeamBoard, updateTeamMember, updateWorkstream } from "@/lib/admin-team-store";
 
 export async function GET() {
   const data = await readAdminTeamBoard();
@@ -23,6 +23,11 @@ export async function POST(request: Request) {
         notes: String(body.notes ?? "").trim(),
       });
       return NextResponse.json({ ok: true, item });
+    }
+
+    if (action === "capture_scorecard") {
+      const data = await captureWeeklyScorecard(String(body.weekLabel ?? "").trim() || undefined);
+      return NextResponse.json({ ok: true, data });
     }
 
     return NextResponse.json({ error: "Unsupported action" }, { status: 400 });

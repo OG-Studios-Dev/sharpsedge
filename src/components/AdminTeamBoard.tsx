@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AdminTeamBoardData, SprintStatus, TeamMember, TeamStatus } from "@/lib/admin-team-store";
+import type { AdminTeamBoardData, SprintStatus, TeamMember, TeamStatus, TeamScorecardEntry } from "@/lib/admin-team-store";
 
 const TEAM_STATUSES: TeamStatus[] = ["green", "yellow", "red"];
 const WORKSTREAM_STATUSES: SprintStatus[] = ["done", "partial", "blocked", "unverified"];
@@ -32,7 +32,22 @@ function MetricCard({ label, value, tone = "text-white" }: { label: string; valu
   );
 }
 
-function TeamCard({ member, onSave, saving }: { member: TeamMember; onSave: (id: string, updates: Partial<TeamMember>) => void; saving: boolean }) {
+function TrendDots({ entries }: { entries: TeamScorecardEntry[] }) {
+  const recent = entries.slice(0, 4).reverse();
+  return (
+    <div className="flex items-center gap-2">
+      {recent.length === 0 ? <span className="text-xs text-gray-500">No history yet</span> : recent.map((entry) => (
+        <span
+          key={entry.id}
+          title={`${entry.weekLabel}: ${niceLabel(entry.status)} | Done ${entry.completions} | Blocked ${entry.blocked}`}
+          className={`h-3 w-3 rounded-full ${entry.status === "green" ? "bg-accent-green" : entry.status === "yellow" ? "bg-yellow-300" : "bg-red-400"}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TeamCard({ member, scorecards, onSave, saving }: { member: TeamMember; scorecards: TeamScorecardEntry[]; onSave: (id: string, updates: Partial<TeamMember>) => void; saving: boolean }) {
   const [draft, setDraft] = useState(member);
 
   return (
@@ -43,7 +58,10 @@ function TeamCard({ member, onSave, saving }: { member: TeamMember; onSave: (id:
           <p className="text-sm text-gray-400">{member.role}</p>
           <p className="mt-1 text-xs uppercase tracking-[0.16em] text-gray-500">{member.lane}</p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(draft.status)}`}>{niceLabel(draft.status)}</span>
+        <div className="flex flex-col items-end gap-2">
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(draft.status)}`}>{niceLabel(draft.status)}</span>
+          <TrendDots entries={scorecards} />
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -87,6 +105,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({ title: "", lane: "", ownerId: "", goal: "", proofRequired: "", status: "partial" as SprintStatus, dueDate: "", notes: "" });
+  const [weekLabel, setWeekLabel] = useState("");
 
   const summary = useMemo(() => {
     const green = data.members.filter((m) => m.status === "green").length;
@@ -94,15 +113,24 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
     const red = data.members.filter((m) => m.status === "red").length;
     const done = data.workstreams.filter((w) => w.status === "done").length;
     const blocked = data.workstreams.filter((w) => w.status === "blocked").length;
-    return { green, yellow, red, done, blocked };
+    const snapshots = new Set(data.scorecards.map((entry) => entry.weekLabel)).size;
+    return { green, yellow, red, done, blocked, snapshots };
   }, [data]);
+
+  const memberMap = new Map(data.members.map((member) => [member.id, member]));
+  const scorecardMap = new Map<string, TeamScorecardEntry[]>();
+  for (const entry of data.scorecards) {
+    const current = scorecardMap.get(entry.memberId) ?? [];
+    current.push(entry);
+    scorecardMap.set(entry.memberId, current);
+  }
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setSaving(true);
     setError(null);
     try {
       const response = await fetch("/api/admin/team", {
-        method: "PATCH",
+        method: action === "capture_scorecard" ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...payload }),
       });
@@ -138,16 +166,15 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
     }
   }
 
-  const memberMap = new Map(data.members.map((member) => [member.id, member]));
-
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 md:grid-cols-5">
+      <section className="grid gap-3 md:grid-cols-6">
         <MetricCard label="Green performers" value={String(summary.green)} tone="text-accent-green" />
         <MetricCard label="Yellow watch" value={String(summary.yellow)} tone="text-yellow-300" />
         <MetricCard label="Red risk" value={String(summary.red)} tone="text-red-300" />
         <MetricCard label="Done workstreams" value={String(summary.done)} tone="text-accent-blue" />
         <MetricCard label="Blocked workstreams" value={String(summary.blocked)} tone="text-red-300" />
+        <MetricCard label="Weekly snapshots" value={String(summary.snapshots)} tone="text-gray-200" />
       </section>
 
       {error ? <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
@@ -156,15 +183,21 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-white">CEO reporting view</h2>
-            <p className="mt-1 text-sm text-gray-500">Who owns what, what they shipped, where they are slipping, and whether the sprint is actually moving.</p>
+            <p className="mt-1 text-sm text-gray-500">Who owns what, what they shipped, whether performance is improving, and where the sprint is stalling.</p>
           </div>
-          <div className="text-xs uppercase tracking-[0.18em] text-gray-500">Last reviewed {data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleString() : "—"}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)} placeholder="Week label (optional)" className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
+            <button type="button" onClick={() => patch("capture_scorecard", { weekLabel })} disabled={saving} className="rounded-xl bg-accent-blue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+              Capture weekly scorecard
+            </button>
+          </div>
         </div>
+        <div className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">Last reviewed {data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleString() : "—"}</div>
       </section>
 
       <section className="space-y-4">
         {data.members.map((member) => (
-          <TeamCard key={member.id} member={member} saving={saving} onSave={(id, updates) => patch("update_member", { id, updates })} />
+          <TeamCard key={member.id} member={member} scorecards={scorecardMap.get(member.id) ?? []} saving={saving} onSave={(id, updates) => patch("update_member", { id, updates })} />
         ))}
       </section>
 
