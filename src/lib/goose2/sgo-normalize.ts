@@ -1,7 +1,7 @@
-import { buildGoose2CandidateId, buildGoose2EventId } from './ids.ts';
-import { inferGoose2MarketType } from './taxonomy.ts';
-import { normalizeBook, normalizeDisplayText, normalizeNullableToken, normalizeToken, toDateKey, toIsoDate } from './normalizers.ts';
-import type { Goose2MarketCandidate, Goose2MarketEvent } from './types.ts';
+import { buildGoose2CandidateId, buildGoose2EventId } from './ids';
+import { inferGoose2MarketType } from './taxonomy';
+import { normalizeBook, normalizeDisplayText, normalizeNullableToken, normalizeToken, toDateKey, toIsoDate } from './normalizers';
+import type { Goose2MarketCandidate, Goose2MarketEvent } from './types';
 
 function teamName(teams: Record<string, any> | null | undefined, teamId: string | null | undefined) {
   const team = teamId && teams ? teams[teamId] : null;
@@ -108,13 +108,14 @@ export function mapSportsGameOddsToGoose2(payload: any, sport: string) {
     }
 
     const oddsEntries = event?.odds && typeof event.odds === 'object' ? Object.entries(event.odds) : [];
-    for (const [oddId, odd] of oddsEntries) {
+    for (const [oddId, oddRaw] of oddsEntries) {
+      const odd = (oddRaw ?? {}) as any;
       const marketType = marketTypeForOdd(sport, odd);
       const odds = oddsValue(odd);
       if (odds == null) continue;
       const participant = participantForOdd(odd, homeName, awayName);
-      const bookEntries = odd?.byBookmaker && typeof odd.byBookmaker === 'object'
-        ? Object.entries(odd.byBookmaker)
+      const bookEntries: Array<[string, any]> = odd?.byBookmaker && typeof odd.byBookmaker === 'object'
+        ? Object.entries(odd.byBookmaker as Record<string, any>)
         : [['sportsgameodds', { odds: odd?.bookOdds ?? odd?.closeBookOdds ?? odds, lastUpdatedAt: event?.status?.startsAt ?? null }]];
 
       for (const [bookKey, bookData] of bookEntries) {
@@ -175,7 +176,7 @@ export function mapSportsGameOddsToGoose2(payload: any, sport: string) {
   }
 
   return {
-    eventRows: [...eventRowsById.values()],
+    eventRows: Array.from(eventRowsById.values()),
     candidateRows,
     summary: {
       events: eventRowsById.size,

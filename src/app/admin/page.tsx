@@ -27,6 +27,29 @@ export default async function AdminOverviewPage() {
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
+            <h2 className="text-lg font-semibold text-white">CEO snapshot</h2>
+            <p className="mt-1 text-sm text-gray-500">Fast read on team health, sprint output, and launch risk.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/team" className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue">
+              Open Team Mgmt
+            </Link>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-7">
+          <StatCard label="Team size" value={String(overview.teamSummary.totalMembers)} />
+          <StatCard label="Green" value={String(overview.teamSummary.green)} tone="text-accent-green" />
+          <StatCard label="Yellow" value={String(overview.teamSummary.yellow)} tone="text-yellow-300" />
+          <StatCard label="Red" value={String(overview.teamSummary.red)} tone="text-red-300" />
+          <StatCard label="Done streams" value={String(overview.teamSummary.doneWorkstreams)} tone="text-accent-blue" />
+          <StatCard label="Blocked" value={String(overview.teamSummary.blockedWorkstreams)} tone="text-red-300" />
+          <StatCard label="Unverified" value={String(overview.teamSummary.unverifiedWorkstreams)} tone="text-yellow-300" />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
             <h2 className="text-lg font-semibold text-white">IT leader review</h2>
             <p className="mt-1 text-sm text-gray-500">Bug log, incidents, cron tracking, and daily pick board review.</p>
           </div>

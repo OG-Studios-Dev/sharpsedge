@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createServerClient } from "@/lib/supabase-server";
 import { readAdminOpsData } from "@/lib/admin-ops-store";
+import { readAdminTeamBoard } from "@/lib/admin-team-store";
 import type { PickHistoryRecord, ProfileRecord, SystemHealthCheck } from "@/lib/supabase-types";
 import { getDateKey } from "@/lib/date-utils";
 import { readFile } from "node:fs/promises";
@@ -211,11 +212,12 @@ function getGitSnapshot() {
 
 export async function getAdminOverviewData() {
   const supabase = createServerClient();
-  const [users, picks, healthChecks, opsData, crons] = await Promise.all([
+  const [users, picks, healthChecks, opsData, teamBoard, crons] = await Promise.all([
     supabase.profiles.list(),
     supabase.pickHistory.list(),
     getSystemHealth(),
     readAdminOpsData(),
+    readAdminTeamBoard(),
     getCronDefinitions(),
   ]);
 
@@ -227,6 +229,18 @@ export async function getAdminOverviewData() {
 
   const cronIssues = opsData.cronSchedules.filter((cron) => (cron.consecutiveFailures ?? 0) > 0 || (!cron.lastSuccessAt && Boolean(cron.lastFailureAt))).length;
   const activeIncidents = opsData.incidents.filter((incident) => incident.status !== "resolved").length;
+
+  const teamSummary = {
+    totalMembers: teamBoard.members.length,
+    green: teamBoard.members.filter((member) => member.status === "green").length,
+    yellow: teamBoard.members.filter((member) => member.status === "yellow").length,
+    red: teamBoard.members.filter((member) => member.status === "red").length,
+    doneWorkstreams: teamBoard.workstreams.filter((item) => item.status === "done").length,
+    partialWorkstreams: teamBoard.workstreams.filter((item) => item.status === "partial").length,
+    blockedWorkstreams: teamBoard.workstreams.filter((item) => item.status === "blocked").length,
+    unverifiedWorkstreams: teamBoard.workstreams.filter((item) => item.status === "unverified").length,
+    lastReviewedAt: teamBoard.lastReviewedAt,
+  };
 
   return {
     totalUsers: users.length,
@@ -246,6 +260,7 @@ export async function getAdminOverviewData() {
       activeIncidents,
       lastReviewedAt: opsData.lastReviewedAt,
     },
+    teamSummary,
   };
 }
 
