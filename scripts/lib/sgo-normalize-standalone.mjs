@@ -10,9 +10,12 @@ import {
   toIsoDate,
 } from './goose2-standalone.mjs';
 
-function teamName(teams, teamId) {
-  const team = teamId && teams ? teams[teamId] : null;
-  return normalizeDisplayText(team?.names?.medium ?? team?.names?.short ?? team?.name ?? teamId ?? null);
+function teamName(teams, teamId, fallbackSide = null) {
+  const direct = teamId && teams ? teams[teamId] : null;
+  if (direct) return normalizeDisplayText(direct?.names?.medium ?? direct?.names?.short ?? direct?.name ?? teamId ?? null);
+  const side = String(fallbackSide ?? '').toLowerCase();
+  const sideTeam = side && teams ? teams[side] : null;
+  return normalizeDisplayText(sideTeam?.names?.medium ?? sideTeam?.names?.short ?? sideTeam?.name ?? teamId ?? fallbackSide ?? null);
 }
 
 function eventStatus(status) {
@@ -70,8 +73,8 @@ export function mapSportsGameOddsToGoose2(payload, sport) {
 
   for (const event of events) {
     const league = normalizeDisplayText(event?.leagueID ?? sport) ?? sport;
-    const homeName = teamName(event?.teams, event?.homeTeamID);
-    const awayName = teamName(event?.teams, event?.awayTeamID);
+    const homeName = teamName(event?.teams, event?.homeTeamID, 'home');
+    const awayName = teamName(event?.teams, event?.awayTeamID, 'away');
     const commenceTime = toIsoDate(event?.status?.startsAt ?? event?.startsAt ?? null);
     const eventId = buildGoose2EventId({ sport, league, awayTeam: awayName, homeTeam: homeName, commenceTime, source: 'sportsgameodds', sourceEventId: event?.eventID ?? null });
 
@@ -100,8 +103,9 @@ export function mapSportsGameOddsToGoose2(payload, sport) {
     for (const [oddId, odd] of oddsEntries) {
       const marketType = marketTypeForOdd(sport, odd);
       const participant = participantForOdd(odd, homeName, awayName);
-      const bookEntries = odd?.byBookmaker && typeof odd.byBookmaker === 'object'
-        ? Object.entries(odd.byBookmaker)
+      const bookmakerEntries = odd?.byBookmaker && typeof odd.byBookmaker === 'object' ? Object.entries(odd.byBookmaker) : [];
+      const bookEntries = bookmakerEntries.length > 0
+        ? bookmakerEntries
         : [['sportsgameodds', { odds: odd?.bookOdds ?? odd?.closeBookOdds ?? odd?.fairOdds ?? null, lastUpdatedAt: event?.status?.startsAt ?? null }]];
 
       if (marketType === 'unknown') continue;

@@ -26,6 +26,7 @@ const finalized = flagValue('--finalized', true);
 const includeAltLine = flagValue('--include-alt-line', true);
 const limit = Number(argValue('--limit') || 50);
 const oddID = argValue('--odd-id') || null;
+const chunkDays = Number(argValue('--chunk-days') || 0);
 const outDir = path.join(cwd, 'tmp', 'sgo-cache');
 mkdirSync(outDir, { recursive: true });
 
@@ -119,25 +120,50 @@ function summarize(payload) {
   };
 }
 
-async function main() {
-  if (existsSync(cachePath)) {
-    const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
-    console.log(JSON.stringify({ fromCache: true, cachePath, ...cached.meta }, null, 2));
-    return;
+function splitWindows(startIso, endIso, days) {
+  if (!days || days <= 0) return [{ startsAfter: startIso, startsBefore: endIso }];
+  const out = [];
+  let cursor = new Date(startIso);
+  const end = new Date(endIso);
+  while (cursor <= end) {
+    const chunkStart = new Date(cursor);
+    const chunkEnd = new Date(Math.min(end.getTime(), chunkStart.getTime() + days * 86400000 - 1000));
+    out.push({ startsAfter: chunkStart.toISOString(), startsBefore: chunkEnd.toISOString() });
+    cursor = new Date(chunkEnd.getTime() + 1000);
+  }
+  return out;
+}
+
+async function runSingleWindow(windowStart, windowEnd) {
+  const localParams = new URLSearchParams({
+    leagueID: sport,
+    startsAfter: windowStart,
+    startsBefore: windowEnd,
+    finalized: String(finalized),
+    includeAltLine: String(includeAltLine),
+    limit: String(limit),
+  });
+  if (oddID) localParams.set('oddID', oddID);
+  const localUrl = `${base}?${localParams.toString()}`;
+  const localCacheKey = `${sport}_${windowStart}_${windowEnd}_${finalized}_${includeAltLine}_${limit}_${oddID || 'all'}`.replace(/[^a-zA-Z0-9._-]+/g, '_');
+  const localCachePath = path.join(outDir, `${localCacheKey}.json`);
+
+  if (existsSync(localCachePath)) {
+    const cached = JSON.parse(readFileSync(localCachePath, 'utf8'));
+    return { fromCache: true, cachePath: localCachePath, ...cached.meta };
   }
 
   const beforeUsage = await fetchWithRotation('https://api.sportsgameodds.com/v2/account/usage');
-  const result = await fetchWithRotation(url);
+  const result = await fetchWithRotation(localUrl);
   const afterUsage = await fetchWithRotation('https://api.sportsgameodds.com/v2/account/usage');
-
   const summary = summarize(result.data);
   const meta = {
     ok: result.ok,
     status: result.status,
     usedKeyIndex: result.keyIndex,
     sport,
-    startsAfter,
-    startsBefore,
+    startsAfter: windowStart,
+    startsBefore: windowEnd,
     finalized,
     includeAltLine,
     limit,
@@ -145,13 +171,40 @@ async function main() {
     summary,
     usageBefore: beforeUsage.data?.data?.rateLimits?.['per-month'] ?? null,
     usageAfter: afterUsage.data?.data?.rateLimits?.['per-month'] ?? null,
+    dryRun: DRY_RUN,
   };
+  if (result.ok) writeFileSync(localCachePath, JSON.stringify({ meta, payload: result.data }, null, 2));
+  return { fromCache: false, cachePath: localCachePath, ...meta };
+}
 
-  if (result.ok) {
-    writeFileSync(cachePath, JSON.stringify({ meta: { ...meta, dryRun: DRY_RUN }, payload: result.data }, null, 2));
+async function main() {
+  const windows = splitWindows(startsAfter, startsBefore, chunkDays);
+  if (windows.length === 1 && chunkDays <= 0) {
+    if (existsSync(cachePath)) {
+      const cached = JSON.parse(readFileSync(cachePath, 'utf8'));
+      console.log(JSON.stringify({ fromCache: true, cachePath, ...cached.meta }, null, 2));
+      return;
+    }
   }
 
-  console.log(JSON.stringify({ fromCache: false, cachePath, ...meta }, null, 2));
+  const results = [];
+  for (const window of windows) results.push(await runSingleWindow(window.startsAfter, window.startsBefore));
+
+  if (results.length === 1) {
+    console.log(JSON.stringify(results[0], null, 2));
+    return;
+  }
+
+  console.log(JSON.stringify({
+    sport,
+    startsAfter,
+    startsBefore,
+    chunkDays,
+    windows: results.length,
+    totalEvents: results.reduce((sum, row) => sum + (row.summary?.events || 0), 0),
+    totalOdds: results.reduce((sum, row) => sum + (row.summary?.totalOdds || 0), 0),
+    results,
+  }, null, 2));
 }
 
 main().catch((error) => {
