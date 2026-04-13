@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { getPGALeaderboard, getPGASchedule, getPGATournamentLeaderboard, getLocalMastersOddsSnapshot } from "@/lib/golf-api";
-import MastersAnalysisSection from "@/components/MastersAnalysisSection";
+import { getPGALeaderboard, getPGASchedule, getPGATournamentLeaderboard } from "@/lib/golf-api";
 import { getGolfPredictionData } from "@/lib/golf-live-data";
 import { getGolfOdds } from "@/lib/golf-odds";
 import {
@@ -56,19 +55,19 @@ function heroPreviewPlayers(leaderboard: GolfLeaderboard | null) {
 
 export default async function GolfPage() {
   // Phase 1: parallel fetch of all independent data sources
-  const [activeLeaderboard, schedule, odds, mastersLocalOdds] = await Promise.all([
+  const [activeLeaderboard, schedule, odds] = await Promise.all([
     getPGALeaderboard(),
     getPGASchedule(),
     getGolfOdds(),
-    getLocalMastersOddsSnapshot().catch(() => null),
   ]);
 
   const upcomingMajor = schedule.find((tournament) => tournament.status === "upcoming" && isGolfMajor(tournament.name));
+  const currentTournament = schedule.find((tournament) => tournament.current || tournament.status === "in-progress") ?? null;
+  const nextUpcomingTournament = schedule.find((tournament) => tournament.status === "upcoming") ?? null;
 
-  const heroTournament = activeLeaderboard?.tournament
-    ?? schedule.find((tournament) => tournament.current)
+  const heroTournament = currentTournament
+    ?? nextUpcomingTournament
     ?? upcomingMajor
-    ?? schedule.find((tournament) => tournament.status === "upcoming")
     ?? schedule[0]
     ?? null;
 
@@ -99,23 +98,7 @@ export default async function GolfPage() {
       : "No usable DataGolf cache yet";
   const fullSeasonLabel = `Full ${seasonYear(schedule)} Season`;
 
-  // Detect upcoming major within 14 days to surface a spotlight section
   const now = Date.now();
-  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-  const upcomingMajorSpotlight = schedule.find((t) => {
-    if (t.status !== "upcoming") return false;
-    if (!isGolfMajor(t.name)) return false;
-    const start = t.startDate ? new Date(t.startDate).getTime() : NaN;
-    return Number.isFinite(start) && start > now && start - now <= FOURTEEN_DAYS_MS;
-  }) ?? null;
-
-  // Show Masters spotlight if we have a local odds snapshot and a major within 14 days
-  const showMajorSpotlight = Boolean(upcomingMajorSpotlight || mastersLocalOdds);
-  const spotlightTournament = upcomingMajorSpotlight ?? (
-    mastersLocalOdds ? schedule.find((t) => isGolfMajor(t.name) && t.status === "upcoming") ?? null : null
-  );
-  // Show top 15 favorites from local Bovada snapshot
-  const mastersOddsFavorites = mastersLocalOdds?.winner.slice(0, 15) ?? [];
 
   return (
     <main className="min-h-screen bg-dark-bg px-4 py-6 text-white md:px-6 lg:px-8">
@@ -125,7 +108,7 @@ export default async function GolfPage() {
             <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-300">PGA Tour</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white md:text-4xl">Tournament home</h1>
             <p className="mt-2 max-w-3xl text-sm text-gray-400">
-              Current event first, upcoming stops next, and the full season board underneath when you want the entire calendar.
+              The page rolls to the live event first, then the next tournament as soon as the prior one is over, with upcoming stops and the full season board underneath.
             </p>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-gray-300">
@@ -133,16 +116,12 @@ export default async function GolfPage() {
           </div>
         </section>
 
-        {/* Masters Analysis — show at top pre-tournament AND during tournament (Apr 10-14), then disappear */}
-        {mastersLocalOdds && now < new Date("2026-04-14T12:00:00Z").getTime() ? (
-          <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
-        ) : null}
 
         <section className="grid gap-6 xl:grid-cols-[1.35fr_0.95fr]">
           <section className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_35%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] p-5 shadow-[0_28px_100px_rgba(0,0,0,0.34)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Current Tournament</p>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">{heroTournament?.status === "upcoming" ? "Next Tournament" : "Current Tournament"}</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <h2 className="text-2xl font-semibold text-white md:text-3xl">
                     {heroTournament?.name ?? "Tournament board unavailable"}
@@ -226,76 +205,6 @@ export default async function GolfPage() {
           </div>
         </section>
 
-        {/* Masters Analysis — no duplicate bottom position needed; handled by top section above */}
-
-        {/* Upcoming Major Spotlight fallback — only when no local odds snapshot */}
-        {!mastersLocalOdds && showMajorSpotlight && (
-          <section className="rounded-[32px] border border-amber-500/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.10),transparent_40%),rgba(255,255,255,0.03)] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-amber-400">⭐ Major Preview</p>
-                <h2 className="mt-1 text-2xl font-semibold text-white">
-                  {spotlightTournament?.name ?? "Masters Tournament"}
-                </h2>
-                {spotlightTournament ? (
-                  <p className="mt-1 text-sm text-gray-300">
-                    {spotlightTournament.course}{spotlightTournament.location ? ` · ${spotlightTournament.location}` : ""}
-                    {typeof spotlightTournament.coursePar === "number" ? ` · Par ${spotlightTournament.coursePar}` : ""}
-                  </p>
-                ) : null}
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-400">
-                  {spotlightTournament?.dates ? <span>{spotlightTournament.dates}</span> : null}
-                  {spotlightTournament?.purse && spotlightTournament.purse !== "TBD" ? <span>{spotlightTournament.purse}</span> : null}
-                  {(() => {
-                    const start = spotlightTournament?.startDate;
-                    if (!start) return null;
-                    const daysOut = Math.ceil((new Date(start).getTime() - now) / (24 * 60 * 60 * 1000));
-                    if (daysOut < 0) return null;
-                    return (
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-300">
-                        {daysOut === 0 ? "Today" : daysOut === 1 ? "Tomorrow" : `${daysOut} days out`}
-                      </span>
-                    );
-                  })()}
-                </div>
-              </div>
-              {spotlightTournament ? (
-                <Link
-                  href={`/golf/tournament/${spotlightTournament.id}`}
-                  className="rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-200 transition hover:bg-amber-500/20"
-                >
-                  Full preview →
-                </Link>
-              ) : null}
-            </div>
-
-            {mastersOddsFavorites.length > 0 ? (
-              <div className="mt-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Winner Odds (Bovada)</p>
-                  {null}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {mastersOddsFavorites.map((entry, index) => (
-                    <div
-                      key={entry.player}
-                      className="grid grid-cols-[28px_minmax(0,1fr)_56px] items-center gap-2 rounded-2xl border border-white/8 bg-black/20 px-3 py-2.5"
-                    >
-                      <p className="text-xs font-semibold text-gray-500">{index + 1}</p>
-                      <p className="truncate text-sm font-medium text-white">{entry.player}</p>
-                      <p className="text-right text-sm font-semibold text-emerald-300">{entry.odds > 0 ? `+${entry.odds}` : entry.odds}</p>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-gray-600">Winner market · via Bovada snapshot.</p>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-gray-400">
-                Winner odds and field will appear here once available from the odds API.
-              </div>
-            )}
-          </section>
-        )}
 
         {upcoming.length > 0 && (
           <section className="rounded-[32px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
