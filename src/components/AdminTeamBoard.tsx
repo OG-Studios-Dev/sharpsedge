@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { AdminTeamBoardData, SprintStatus, TeamMember, TeamStatus, TeamScorecardEntry } from "@/lib/admin-team-store";
+import type { AdminTeamBoardData, SprintPhase, SprintStatus, TeamMember, TeamScorecardEntry, TeamStatus } from "@/lib/admin-team-store";
 
 const TEAM_STATUSES: TeamStatus[] = ["green", "yellow", "red"];
 const WORKSTREAM_STATUSES: SprintStatus[] = ["done", "partial", "blocked", "unverified"];
+const SPRINT_PHASES: SprintPhase[] = ["backlog", "active", "qa", "done"];
 
 function niceLabel(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
@@ -21,6 +22,13 @@ function workstreamTone(status: SprintStatus) {
   if (status === "partial") return "bg-accent-blue/10 text-accent-blue";
   if (status === "blocked") return "bg-red-500/10 text-red-300";
   return "bg-yellow-500/10 text-yellow-300";
+}
+
+function roadmapTone(status: "planned" | "active" | "at_risk" | "done") {
+  if (status === "done") return "bg-accent-green/10 text-accent-green border-accent-green/20";
+  if (status === "active") return "bg-accent-blue/10 text-accent-blue border-accent-blue/20";
+  if (status === "at_risk") return "bg-red-500/10 text-red-300 border-red-500/20";
+  return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
 }
 
 function MetricCard({ label, value, tone = "text-white" }: { label: string; value: string; tone?: string }) {
@@ -87,12 +95,7 @@ function TeamCard({ member, scorecards, onSave, saving }: { member: TeamMember; 
 
       <div className="mt-4 flex items-center justify-between gap-3 text-xs text-gray-500">
         <span>Last updated {new Date(member.updatedAt).toLocaleString()}</span>
-        <button
-          type="button"
-          onClick={() => onSave(member.id, draft)}
-          disabled={saving}
-          className="rounded-xl bg-accent-blue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-        >
+        <button type="button" onClick={() => onSave(member.id, draft)} disabled={saving} className="rounded-xl bg-accent-blue px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
           Save member
         </button>
       </div>
@@ -104,7 +107,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
   const [data, setData] = useState(initialData);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ title: "", lane: "", ownerId: "", goal: "", proofRequired: "", status: "partial" as SprintStatus, dueDate: "", notes: "" });
+  const [draft, setDraft] = useState({ title: "", lane: "", ownerId: "", goal: "", proofRequired: "", status: "partial" as SprintStatus, phase: "backlog" as SprintPhase, sprintId: "", assigneeIds: [] as string[], dueDate: "", notes: "" });
   const [weekLabel, setWeekLabel] = useState("");
 
   const summary = useMemo(() => {
@@ -113,8 +116,8 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
     const red = data.members.filter((m) => m.status === "red").length;
     const done = data.workstreams.filter((w) => w.status === "done").length;
     const blocked = data.workstreams.filter((w) => w.status === "blocked").length;
-    const snapshots = new Set(data.scorecards.map((entry) => entry.weekLabel)).size;
-    return { green, yellow, red, done, blocked, snapshots };
+    const activeSprints = data.sprints.filter((s) => s.status === "active").length;
+    return { green, yellow, red, done, blocked, activeSprints };
   }, [data]);
 
   const memberMap = new Map(data.members.map((member) => [member.id, member]));
@@ -151,14 +154,20 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
       const response = await fetch("/api/admin/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_workstream", ...draft, dueDate: draft.dueDate || null }),
+        body: JSON.stringify({
+          action: "add_workstream",
+          ...draft,
+          sprintId: draft.sprintId || null,
+          assigneeIds: draft.assigneeIds.length > 0 ? draft.assigneeIds : [draft.ownerId].filter(Boolean),
+          dueDate: draft.dueDate || null,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error || "Create failed");
       const refreshed = await fetch("/api/admin/team", { cache: "no-store" });
       const refreshedData = await refreshed.json();
       setData(refreshedData as AdminTeamBoardData);
-      setDraft({ title: "", lane: "", ownerId: "", goal: "", proofRequired: "", status: "partial", dueDate: "", notes: "" });
+      setDraft({ title: "", lane: "", ownerId: "", goal: "", proofRequired: "", status: "partial", phase: "backlog", sprintId: "", assigneeIds: [], dueDate: "", notes: "" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -174,7 +183,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
         <MetricCard label="Red risk" value={String(summary.red)} tone="text-red-300" />
         <MetricCard label="Done workstreams" value={String(summary.done)} tone="text-accent-blue" />
         <MetricCard label="Blocked workstreams" value={String(summary.blocked)} tone="text-red-300" />
-        <MetricCard label="Weekly snapshots" value={String(summary.snapshots)} tone="text-gray-200" />
+        <MetricCard label="Active sprints" value={String(summary.activeSprints)} tone="text-gray-200" />
       </section>
 
       {error ? <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
@@ -182,8 +191,8 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-white">CEO reporting view</h2>
-            <p className="mt-1 text-sm text-gray-500">Who owns what, what they shipped, whether performance is improving, and where the sprint is stalling.</p>
+            <h2 className="text-lg font-semibold text-white">Roadmap and sprint command</h2>
+            <p className="mt-1 text-sm text-gray-500">This is the operating layer. New employees should land on an active sprint, not float around as org-chart wallpaper.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)} placeholder="Week label (optional)" className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
@@ -195,6 +204,64 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
         <div className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">Last reviewed {data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleString() : "—"}</div>
       </section>
 
+      <section className="grid gap-4 lg:grid-cols-3">
+        {data.roadmap.map((milestone) => (
+          <div key={milestone.id} className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{milestone.window}</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">{milestone.title}</h2>
+              </div>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${roadmapTone(milestone.status)}`}>{niceLabel(milestone.status)}</span>
+            </div>
+            <p className="mt-3 text-sm text-gray-300">{milestone.outcome}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Owner</p>
+            <p className="text-sm text-white">{memberMap.get(milestone.ownerId)?.name ?? milestone.ownerId}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Proof required</p>
+            <p className="text-sm text-gray-300">{milestone.proofRequired}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Workstreams</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {milestone.workstreamIds.map((id) => {
+                const item = data.workstreams.find((workstream) => workstream.id === id);
+                if (!item) return null;
+                return <span key={id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{item.title}</span>;
+              })}
+            </div>
+            <p className="mt-3 text-sm text-gray-500">{milestone.notes}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        {data.sprints.map((sprint) => (
+          <div key={sprint.id} className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-500">{sprint.startDate} to {sprint.endDate}</p>
+                <h2 className="mt-1 text-lg font-semibold text-white">{sprint.name}</h2>
+              </div>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${roadmapTone(sprint.status === "completed" ? "done" : sprint.status === "active" ? "active" : "planned")}`}>{niceLabel(sprint.status)}</span>
+            </div>
+            <p className="mt-3 text-sm text-gray-300">{sprint.goal}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Sprint owner</p>
+            <p className="text-sm text-white">{memberMap.get(sprint.ownerId)?.name ?? sprint.ownerId}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Assigned team</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {sprint.memberIds.map((id) => <span key={id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{memberMap.get(id)?.name ?? id}</span>)}
+            </div>
+            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Sprint workload</p>
+            <div className="mt-2 space-y-2">
+              {sprint.workstreamIds.map((id) => {
+                const item = data.workstreams.find((workstream) => workstream.id === id);
+                if (!item) return null;
+                return <div key={id} className="rounded-xl border border-dark-border/70 bg-dark-bg/40 px-3 py-2 text-sm text-gray-300">{item.title}</div>;
+              })}
+            </div>
+            <p className="mt-3 text-sm text-gray-500">{sprint.notes}</p>
+          </div>
+        ))}
+      </section>
+
       <section className="space-y-4">
         {data.members.map((member) => (
           <TeamCard key={member.id} member={member} scorecards={scorecardMap.get(member.id) ?? []} saving={saving} onSave={(id, updates) => patch("update_member", { id, updates })} />
@@ -203,7 +270,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
 
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <h2 className="text-lg font-semibold text-white">Sprint workstreams</h2>
-        <p className="mt-1 text-sm text-gray-500">Every meaningful stream needs owner, goal, proof, and terminal state. This is the launch truth board.</p>
+        <p className="mt-1 text-sm text-gray-500">Every stream needs owner, assignees, sprint placement, proof, and a real terminal state.</p>
         <div className="mt-4 space-y-3">
           {data.workstreams.map((item) => (
             <div key={item.id} className="rounded-2xl border border-dark-border/70 bg-dark-bg/40 p-4">
@@ -211,8 +278,12 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
                 <div>
                   <h3 className="text-base font-semibold text-white">{item.title}</h3>
                   <p className="text-sm text-gray-400">{item.lane} • Owner: {memberMap.get(item.ownerId)?.name ?? item.ownerId}</p>
+                  <p className="mt-1 text-xs text-gray-500">Sprint: {data.sprints.find((sprint) => sprint.id === item.sprintId)?.name ?? "Unassigned"}</p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${workstreamTone(item.status)}`}>{niceLabel(item.status)}</span>
+                <div className="flex gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${workstreamTone(item.status)}`}>{niceLabel(item.status)}</span>
+                  <span className="rounded-full border border-dark-border px-3 py-1 text-xs font-semibold text-gray-300">{niceLabel(item.phase)}</span>
+                </div>
               </div>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <textarea defaultValue={item.goal} onBlur={(e) => patch("update_workstream", { id: item.id, updates: { goal: e.target.value } })} className="min-h-[80px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
@@ -220,7 +291,15 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
                 <select defaultValue={item.status} onChange={(e) => patch("update_workstream", { id: item.id, updates: { status: e.target.value as SprintStatus } })} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
                   {WORKSTREAM_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
                 </select>
+                <select defaultValue={item.phase} onChange={(e) => patch("update_workstream", { id: item.id, updates: { phase: e.target.value as SprintPhase } })} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+                  {SPRINT_PHASES.map((phase) => <option key={phase} value={phase}>{niceLabel(phase)}</option>)}
+                </select>
+                <select defaultValue={item.sprintId ?? ""} onChange={(e) => patch("update_workstream", { id: item.id, updates: { sprintId: e.target.value || null } })} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+                  <option value="">Unassigned sprint</option>
+                  {data.sprints.map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}
+                </select>
                 <input type="date" defaultValue={item.dueDate ?? ""} onBlur={(e) => patch("update_workstream", { id: item.id, updates: { dueDate: e.target.value || null } })} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
+                <textarea defaultValue={item.assigneeIds.join(", ")} onBlur={(e) => patch("update_workstream", { id: item.id, updates: { assigneeIds: e.target.value.split(",").map((value) => value.trim()).filter(Boolean) } })} className="min-h-[80px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Assignee ids, comma separated" />
                 <textarea defaultValue={item.notes} onBlur={(e) => patch("update_workstream", { id: item.id, updates: { notes: e.target.value } })} className="min-h-[80px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" />
               </div>
             </div>
@@ -230,18 +309,27 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
 
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <h2 className="text-lg font-semibold text-white">Add workstream</h2>
+        <p className="mt-1 text-sm text-gray-500">Assign the work to a sprint now. If a new hire joins with no sprint, that is a management bug.</p>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <input value={draft.title} onChange={(e) => setDraft((prev) => ({ ...prev, title: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Workstream title" />
           <input value={draft.lane} onChange={(e) => setDraft((prev) => ({ ...prev, lane: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Lane" />
-          <select value={draft.ownerId} onChange={(e) => setDraft((prev) => ({ ...prev, ownerId: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+          <select value={draft.ownerId} onChange={(e) => setDraft((prev) => ({ ...prev, ownerId: e.target.value, assigneeIds: e.target.value ? [e.target.value] : [] }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
             <option value="">Select owner</option>
             {data.members.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+          </select>
+          <select value={draft.sprintId} onChange={(e) => setDraft((prev) => ({ ...prev, sprintId: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+            <option value="">Assign sprint</option>
+            {data.sprints.map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}
           </select>
           <select value={draft.status} onChange={(e) => setDraft((prev) => ({ ...prev, status: e.target.value as SprintStatus }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
             {WORKSTREAM_STATUSES.map((status) => <option key={status} value={status}>{niceLabel(status)}</option>)}
           </select>
+          <select value={draft.phase} onChange={(e) => setDraft((prev) => ({ ...prev, phase: e.target.value as SprintPhase }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white">
+            {SPRINT_PHASES.map((phase) => <option key={phase} value={phase}>{niceLabel(phase)}</option>)}
+          </select>
           <textarea value={draft.goal} onChange={(e) => setDraft((prev) => ({ ...prev, goal: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Goal" />
           <textarea value={draft.proofRequired} onChange={(e) => setDraft((prev) => ({ ...prev, proofRequired: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Proof required" />
+          <textarea value={draft.assigneeIds.join(", ")} onChange={(e) => setDraft((prev) => ({ ...prev, assigneeIds: e.target.value.split(",").map((value) => value.trim()).filter(Boolean) }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Assignee ids, comma separated" />
           <input type="date" value={draft.dueDate} onChange={(e) => setDraft((prev) => ({ ...prev, dueDate: e.target.value }))} className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
           <div className="hidden md:block" />
           <textarea value={draft.notes} onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Notes / blockers / context" />

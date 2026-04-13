@@ -19,6 +19,9 @@ export async function POST(request: Request) {
         goal: String(body.goal ?? "").trim(),
         proofRequired: String(body.proofRequired ?? "").trim(),
         status: body.status,
+        phase: body.phase,
+        sprintId: body.sprintId ? String(body.sprintId) : null,
+        assigneeIds: Array.isArray(body.assigneeIds) ? body.assigneeIds.map(String) : [String(body.ownerId ?? "").trim()].filter(Boolean),
         dueDate: body.dueDate ? String(body.dueDate) : null,
         notes: String(body.notes ?? "").trim(),
       });
