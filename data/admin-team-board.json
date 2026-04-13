@@ -1,5 +1,5 @@
 {
-  "lastReviewedAt": "2026-04-13T13:28:00.000Z",
+  "lastReviewedAt": "2026-04-13T15:49:00.000Z",
   "members": [
     {
       "id": "magoo",
@@ -295,9 +295,12 @@
       "goal": "Make app navigation, menu logic, and shell behavior feel obvious and premium across core routes.",
       "proofRequired": "Clean route-to-route walkthrough with no broken paths and visibly stronger hierarchy.",
       "status": "partial",
+      "phase": "active",
+      "sprintId": "sprint_2026_04_13",
+      "assigneeIds": ["june", "rory", "ive"],
       "dueDate": "2026-04-20",
-      "notes": "High urgency. This affects how premium the product feels immediately.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "High urgency. June leads UX flow, Rory owns scope decisions, Ive handles hierarchy and premium shell polish.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_onboarding_profile",
@@ -306,10 +309,13 @@
       "ownerId": "rory",
       "goal": "Make signup, first-run onboarding, and user profile setup soft-launch ready.",
       "proofRequired": "Full happy-path walkthrough with no embarrassing friction or confusion.",
-      "status": "blocked",
-      "dueDate": "2026-04-22",
-      "notes": "Needs explicit flow pass plus frontend polish.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "status": "partial",
+      "phase": "active",
+      "sprintId": "sprint_2026_04_13",
+      "assigneeIds": ["rory", "june", "halo", "finch"],
+      "dueDate": "2026-04-20",
+      "notes": "Rory sets acceptance criteria, June owns UX flow, Halo cleans product copy, Finch handles implementation follow-through.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_dashboard_trust",
@@ -319,9 +325,12 @@
       "goal": "Make the home experience clearly explain value, confidence, and what the user should do next.",
       "proofRequired": "Homepage reviewed with clean hierarchy, trust language, and obvious next actions.",
       "status": "partial",
+      "phase": "active",
+      "sprintId": "sprint_2026_04_13",
+      "assigneeIds": ["halo", "ive", "rory", "finch", "ghost"],
       "dueDate": "2026-04-21",
-      "notes": "Critical for first impression.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Halo owns narrative, Ive drives premium presentation, Rory decides product priority, Finch executes, Ghost pressure-tests versus competitors.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_design_system",
@@ -331,9 +340,12 @@
       "goal": "Standardize cards, filters, buttons, tabs, modals, tables, and state patterns across launch-critical surfaces.",
       "proofRequired": "Shared component set actively used across the admin and user-facing core pages.",
       "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["slate", "ive", "finch"],
       "dueDate": "2026-04-25",
-      "notes": "This is what stops visual drift and frontend chaos.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Slate owns systemization, Ive protects visual quality, Finch ensures real adoption in the app.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_core_page_polish",
@@ -343,9 +355,12 @@
       "goal": "Bring core product pages to a soft-launch visual and functional standard.",
       "proofRequired": "Before/after QA pass with no obvious broken states or low-rent presentation gaps.",
       "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["finch", "ive", "quinn"],
       "dueDate": "2026-04-24",
-      "notes": "Must be visibly better, not theoretically better.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Finch executes the pass, Ive sharpens hierarchy, Quinn validates that polish actually holds up.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_loading_error_empty",
@@ -355,9 +370,12 @@
       "goal": "Eliminate embarrassing blank, broken, or abrupt states across key product flows.",
       "proofRequired": "Known loading/error/empty states documented and visually cleaned up.",
       "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["slate", "finch", "quinn"],
       "dueDate": "2026-04-23",
-      "notes": "This is easy to ignore and deadly at launch.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "This gets sprinted next, but the owner/assignees are now explicit instead of hand-wavy.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_data_trust",
@@ -367,9 +385,12 @@
       "goal": "Ensure grading outputs, pick records, and key product data are trustworthy enough for launch.",
       "proofRequired": "No unresolved known trust issues on launch-critical data surfaces.",
       "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["atlas", "quinn", "forge"],
       "dueDate": "2026-04-24",
-      "notes": "Trust is product quality here, not backend trivia.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Atlas owns data truth, Quinn verifies, Forge makes sure unresolved blockers cannot hide.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_goose2_history",
@@ -379,9 +400,12 @@
       "goal": "Finish automated historical ingestion so Goose 2.0 can move into honest testing and training.",
       "proofRequired": "Backfill current, logs clean, alerting in place, and system ready for evaluation.",
       "status": "partial",
+      "phase": "active",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["vega", "atlas"],
       "dueDate": "2026-04-18",
-      "notes": "Strong progress already, close the loop fully.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Already moving. Vega closes the loop, Atlas supports data contract reliability.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_launch_qa_gate",
@@ -391,9 +415,12 @@
       "goal": "Establish a true launch gate with tracked blockers, mobile coverage, and proof-based QA signoff.",
       "proofRequired": "Release gate actively used to determine go/no-go on launch-critical work.",
       "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["quinn", "forge", "finch"],
       "dueDate": "2026-04-21",
-      "notes": "Board exists. The discipline now has to match.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Quinn owns QA discipline, Forge owns enforcement, Finch closes frontend failures.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_soft_launch_testers",
@@ -402,10 +429,13 @@
       "ownerId": "pulse",
       "goal": "Create a controlled tester feedback loop before June 1.",
       "proofRequired": "Named tester intake, feedback capture path, and weekly synthesis loop in place.",
-      "status": "blocked",
+      "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["pulse", "cash", "halo"],
       "dueDate": "2026-04-28",
-      "notes": "This cannot stay theoretical much longer.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Pulse owns the loop, Cash turns it into conversion insight, Halo keeps tester messaging sharp.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
     },
     {
       "id": "ws_conversion_flow",
@@ -414,10 +444,74 @@
       "ownerId": "cash",
       "goal": "Make the upgrade path clear, credible, and non-janky before soft launch.",
       "proofRequired": "Complete reviewed conversion flow from value discovery through upgrade CTA.",
-      "status": "blocked",
+      "status": "partial",
+      "phase": "backlog",
+      "sprintId": "sprint_2026_04_20",
+      "assigneeIds": ["cash", "halo", "rory", "pulse"],
       "dueDate": "2026-04-29",
-      "notes": "Major commercial gap right now.",
-      "updatedAt": "2026-04-13T13:28:00.000Z"
+      "notes": "Cash owns the money path, Halo sharpens copy, Rory prevents product nonsense, Pulse closes the feedback loop.",
+      "updatedAt": "2026-04-13T15:49:00.000Z"
+    }
+  ],
+  "roadmap": [
+    {
+      "id": "rm_soft_launch_foundation",
+      "title": "Sprint 1: Product foundation",
+      "window": "Apr 13 to Apr 20",
+      "ownerId": "rory",
+      "status": "active",
+      "outcome": "Navigation, dashboard clarity, and onboarding are solid enough that new users do not get lost.",
+      "proofRequired": "Core user flow walkthrough passes with premium UX and clear next actions.",
+      "workstreamIds": ["ws_nav_shell_cleanup", "ws_onboarding_profile", "ws_dashboard_trust"],
+      "notes": "This is the first impression sprint. If this looks sloppy, nothing else matters."
+    },
+    {
+      "id": "rm_execution_system",
+      "title": "Sprint 2: Execution system and polish rails",
+      "window": "Apr 20 to Apr 27",
+      "ownerId": "finch",
+      "status": "active",
+      "outcome": "Design system, page polish, and state handling stop drifting across the app.",
+      "proofRequired": "Shared patterns are visibly used across launch-critical surfaces and ugly states are cleaned up.",
+      "workstreamIds": ["ws_design_system", "ws_core_page_polish", "ws_loading_error_empty"],
+      "notes": "This is where the app stops feeling patched together."
+    },
+    {
+      "id": "rm_launch_trust",
+      "title": "Sprint 3: Data trust and launch gate",
+      "window": "Apr 20 to Apr 28",
+      "ownerId": "atlas",
+      "status": "active",
+      "outcome": "Data trust, QA gating, and tester feedback loop are real and usable before soft launch.",
+      "proofRequired": "Critical data surfaces verified, QA gate enforced, tester loop active.",
+      "workstreamIds": ["ws_data_trust", "ws_goose2_history", "ws_launch_qa_gate", "ws_soft_launch_testers", "ws_conversion_flow"],
+      "notes": "Trust dies fast if bad data or broken flows hit testers."
+    }
+  ],
+  "sprints": [
+    {
+      "id": "sprint_2026_04_13",
+      "name": "Sprint Apr 13 to Apr 20",
+      "goal": "Get product foundation and roadmap discipline in place fast enough for new hires to execute immediately.",
+      "startDate": "2026-04-13",
+      "endDate": "2026-04-20",
+      "status": "active",
+      "ownerId": "magoo",
+      "memberIds": ["rory", "june", "halo", "ive", "finch", "ghost"],
+      "workstreamIds": ["ws_nav_shell_cleanup", "ws_onboarding_profile", "ws_dashboard_trust"],
+      "notes": "This sprint now explicitly carries the new product and design hires on concrete deliverables instead of leaving them floating."
+    },
+    {
+      "id": "sprint_2026_04_20",
+      "name": "Sprint Apr 20 to Apr 27",
+      "goal": "Tighten execution quality, design consistency, and launch readiness across the core app.",
+      "startDate": "2026-04-20",
+      "endDate": "2026-04-27",
+      "status": "planned",
+      "ownerId": "forge",
+      "memberIds": ["finch", "slate", "quinn", "atlas", "vega", "cash", "pulse", "halo"],
+      "workstreamIds": ["ws_design_system", "ws_core_page_polish", "ws_loading_error_empty", "ws_data_trust", "ws_goose2_history", "ws_launch_qa_gate", "ws_soft_launch_testers", "ws_conversion_flow"],
+      "notes": "This sprint is now pre-staffed so the next wave of execution starts immediately instead of waiting for assignment cleanup."
     }
   ]
 }
