@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const links = [
   { href: "/admin", label: "Overview" },
-  { href: "/admin/team", label: "👥 Team Mgmt" },
+  { href: "/admin/team", label: "📈 Sprint Progress" },
   { href: "/admin/ops", label: "IT Review" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/picks", label: "Picks" },
@@ -19,7 +19,6 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Beta mode: no auth check — admin is open during beta
   return (
     <main className="min-h-screen bg-dark-bg px-4 py-6">
       <div className="mx-auto max-w-5xl space-y-5">

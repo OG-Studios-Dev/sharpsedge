@@ -79,7 +79,7 @@ function TeamCard({ member, scorecards, onSave, saving }: { member: TeamMember; 
         </select>
         <textarea value={draft.focus} onChange={(e) => setDraft((prev) => ({ ...prev, focus: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="Core focus" />
         <textarea value={draft.kpi} onChange={(e) => setDraft((prev) => ({ ...prev, kpi: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" placeholder="KPI / accountability measure" />
-        <textarea value={draft.outputSummary} onChange={(e) => setDraft((prev) => ({ ...prev, outputSummary: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Output summary" />
+        <textarea value={draft.outputSummary} onChange={(e) => setDraft((prev) => ({ ...prev, outputSummary: e.target.value }))} className="min-h-[88px] rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white md:col-span-2" placeholder="Output summary / daily work done" />
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -127,6 +127,14 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
     current.push(entry);
     scorecardMap.set(entry.memberId, current);
   }
+
+  const activeSprint = data.sprints.find((sprint) => sprint.status === "active") ?? null;
+  const dailyWorkRows = data.members
+    .map((member) => {
+      const assigned = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && (!activeSprint || item.sprintId === activeSprint.id));
+      return { member, assigned };
+    })
+    .filter((row) => row.assigned.length > 0 || row.member.outputSummary.trim().length > 0);
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setSaving(true);
@@ -191,8 +199,8 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-white">Roadmap and sprint command</h2>
-            <p className="mt-1 text-sm text-gray-500">This is the operating layer. New employees should land on an active sprint, not float around as org-chart wallpaper.</p>
+            <h2 className="text-lg font-semibold text-white">Current sprint progress</h2>
+            <p className="mt-1 text-sm text-gray-500">This is the page for live sprint progress and employee daily work done. If you are looking for current execution, you are in the right place.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input value={weekLabel} onChange={(e) => setWeekLabel(e.target.value)} placeholder="Week label (optional)" className="rounded-xl border border-dark-border bg-dark-bg px-3 py-2 text-sm text-white" />
@@ -202,6 +210,59 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
           </div>
         </div>
         <div className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">Last reviewed {data.lastReviewedAt ? new Date(data.lastReviewedAt).toLocaleString() : "—"}</div>
+      </section>
+
+      {activeSprint ? (
+        <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Active sprint</p>
+              <h2 className="mt-1 text-xl font-semibold text-white">{activeSprint.name}</h2>
+              <p className="mt-2 text-sm text-gray-300">{activeSprint.goal}</p>
+            </div>
+            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${roadmapTone("active")}`}>{activeSprint.startDate} to {activeSprint.endDate}</span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <MetricCard label="Sprint team" value={String(activeSprint.memberIds.length)} tone="text-white" />
+            <MetricCard label="Sprint workstreams" value={String(activeSprint.workstreamIds.length)} tone="text-accent-blue" />
+            <MetricCard label="In progress" value={String(data.workstreams.filter((item) => item.sprintId === activeSprint.id && item.phase === "active").length)} tone="text-yellow-300" />
+            <MetricCard label="Done in sprint" value={String(data.workstreams.filter((item) => item.sprintId === activeSprint.id && item.status === "done").length)} tone="text-accent-green" />
+          </div>
+        </section>
+      ) : null}
+
+      <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Employee daily work done</h2>
+            <p className="mt-1 text-sm text-gray-500">Per-person snapshot of current sprint assignments plus the latest work summary you can edit on each employee card.</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {dailyWorkRows.map(({ member, assigned }) => (
+            <div key={member.id} className="rounded-2xl border border-dark-border/70 bg-dark-bg/40 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-white">{member.name}</h3>
+                  <p className="text-sm text-gray-400">{member.role}</p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(member.status)}`}>{niceLabel(member.status)}</span>
+              </div>
+              <div className="mt-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Daily work done</p>
+                <p className="mt-2 text-sm leading-6 text-gray-200">{member.outputSummary || "No daily work summary logged yet."}</p>
+              </div>
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Current sprint assignments</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {assigned.length > 0 ? assigned.map((item) => (
+                    <span key={item.id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{item.title}</span>
+                  )) : <span className="text-sm text-gray-500">No active sprint assignment.</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -219,15 +280,6 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
             <p className="text-sm text-white">{memberMap.get(milestone.ownerId)?.name ?? milestone.ownerId}</p>
             <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Proof required</p>
             <p className="text-sm text-gray-300">{milestone.proofRequired}</p>
-            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Workstreams</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {milestone.workstreamIds.map((id) => {
-                const item = data.workstreams.find((workstream) => workstream.id === id);
-                if (!item) return null;
-                return <span key={id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{item.title}</span>;
-              })}
-            </div>
-            <p className="mt-3 text-sm text-gray-500">{milestone.notes}</p>
           </div>
         ))}
       </section>
@@ -243,21 +295,10 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
               <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${roadmapTone(sprint.status === "completed" ? "done" : sprint.status === "active" ? "active" : "planned")}`}>{niceLabel(sprint.status)}</span>
             </div>
             <p className="mt-3 text-sm text-gray-300">{sprint.goal}</p>
-            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Sprint owner</p>
-            <p className="text-sm text-white">{memberMap.get(sprint.ownerId)?.name ?? sprint.ownerId}</p>
             <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Assigned team</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {sprint.memberIds.map((id) => <span key={id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{memberMap.get(id)?.name ?? id}</span>)}
             </div>
-            <p className="mt-3 text-xs uppercase tracking-[0.16em] text-gray-500">Sprint workload</p>
-            <div className="mt-2 space-y-2">
-              {sprint.workstreamIds.map((id) => {
-                const item = data.workstreams.find((workstream) => workstream.id === id);
-                if (!item) return null;
-                return <div key={id} className="rounded-xl border border-dark-border/70 bg-dark-bg/40 px-3 py-2 text-sm text-gray-300">{item.title}</div>;
-              })}
-            </div>
-            <p className="mt-3 text-sm text-gray-500">{sprint.notes}</p>
           </div>
         ))}
       </section>

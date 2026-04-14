@@ -32,7 +32,7 @@ export default async function AdminOverviewPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/admin/team" className="rounded-full border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue">
-              Open Team Mgmt
+              Open Sprint Progress
             </Link>
           </div>
         </div>
@@ -44,6 +44,12 @@ export default async function AdminOverviewPage() {
           <StatCard label="Done streams" value={String(overview.teamSummary.doneWorkstreams)} tone="text-accent-blue" />
           <StatCard label="Blocked" value={String(overview.teamSummary.blockedWorkstreams)} tone="text-red-300" />
           <StatCard label="Unverified" value={String(overview.teamSummary.unverifiedWorkstreams)} tone="text-yellow-300" />
+        </div>
+        <div className="mt-4 rounded-2xl border border-dark-border/70 bg-dark-bg/40 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Where to find sprint progress</p>
+          <p className="mt-2 text-sm text-gray-300">
+            Go to <span className="font-semibold text-white">Admin → 📈 Sprint Progress</span>. That page now shows current sprint progress, employee daily work done, workload assignment, and full workstream tracking.
+          </p>
         </div>
       </section>
 
