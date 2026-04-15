@@ -24,6 +24,12 @@ function workstreamTone(status: SprintStatus) {
   return "bg-yellow-500/10 text-yellow-300";
 }
 
+function priorityTone(priority?: "p0" | "p1" | "p2") {
+  if (priority === "p0") return "bg-red-500/10 text-red-300 border-red-500/20";
+  if (priority === "p1") return "bg-yellow-500/10 text-yellow-300 border-yellow-500/20";
+  return "bg-white/5 text-gray-300 border-dark-border";
+}
+
 function roadmapTone(status: "planned" | "active" | "at_risk" | "done") {
   if (status === "done") return "bg-accent-green/10 text-accent-green border-accent-green/20";
   if (status === "active") return "bg-accent-blue/10 text-accent-blue border-accent-blue/20";
@@ -129,12 +135,14 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
   }
 
   const activeSprint = data.sprints.find((sprint) => sprint.status === "active") ?? null;
+  const nextSprint = data.sprints.find((sprint) => sprint.status === "planned") ?? null;
   const dailyWorkRows = data.members
     .map((member) => {
       const assigned = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && (!activeSprint || item.sprintId === activeSprint.id));
-      return { member, assigned };
+      const nextUp = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && item.sprintId === nextSprint?.id);
+      return { member, assigned, nextUp };
     })
-    .filter((row) => row.assigned.length > 0 || row.member.outputSummary.trim().length > 0);
+    .filter((row) => row.assigned.length > 0 || row.nextUp.length > 0 || row.member.outputSummary.trim().length > 0);
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setSaving(true);
@@ -239,7 +247,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
           </div>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {dailyWorkRows.map(({ member, assigned }) => (
+          {dailyWorkRows.map(({ member, assigned, nextUp }) => (
             <div key={member.id} className="rounded-2xl border border-dark-border/70 bg-dark-bg/40 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -258,6 +266,14 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
                   {assigned.length > 0 ? assigned.map((item) => (
                     <span key={item.id} className="rounded-full border border-dark-border bg-dark-bg px-3 py-1 text-xs text-gray-300">{item.title}</span>
                   )) : <span className="text-sm text-gray-500">No active sprint assignment.</span>}
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Next up when current work closes</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {nextUp.length > 0 ? nextUp.map((item) => (
+                    <span key={item.id} className={`rounded-full border px-3 py-1 text-xs ${priorityTone(item.priority)}`}>{item.priority?.toUpperCase() ?? "P1"} · {item.title}</span>
+                  )) : <span className="text-sm text-gray-500">No follow-on assignment queued yet.</span>}
                 </div>
               </div>
             </div>
@@ -322,6 +338,7 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
                   <p className="mt-1 text-xs text-gray-500">Sprint: {data.sprints.find((sprint) => sprint.id === item.sprintId)?.name ?? "Unassigned"}</p>
                 </div>
                 <div className="flex gap-2">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${priorityTone(item.priority)}`}>{item.priority?.toUpperCase() ?? "P1"}</span>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${workstreamTone(item.status)}`}>{niceLabel(item.status)}</span>
                   <span className="rounded-full border border-dark-border px-3 py-1 text-xs font-semibold text-gray-300">{niceLabel(item.phase)}</span>
                 </div>

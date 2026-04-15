@@ -23,6 +23,7 @@ export async function POST(request: Request) {
         sprintId: body.sprintId ? String(body.sprintId) : null,
         assigneeIds: Array.isArray(body.assigneeIds) ? body.assigneeIds.map(String) : [String(body.ownerId ?? "").trim()].filter(Boolean),
         dueDate: body.dueDate ? String(body.dueDate) : null,
+        priority: body.priority === "p0" || body.priority === "p1" || body.priority === "p2" ? body.priority : "p1",
         notes: String(body.notes ?? "").trim(),
       });
       return NextResponse.json({ ok: true, item });

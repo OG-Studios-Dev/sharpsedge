@@ -36,6 +36,7 @@ export type SprintWorkItem = {
   sprintId: string | null;
   assigneeIds: string[];
   dueDate: string | null;
+  priority?: "p0" | "p1" | "p2";
   notes: string;
   updatedAt: string;
 };
@@ -226,6 +227,7 @@ function normalizeWorkstream(item: any): SprintWorkItem {
     sprintId: item?.sprintId ? String(item.sprintId) : null,
     assigneeIds: Array.isArray(item?.assigneeIds) ? item.assigneeIds.map(String) : (item?.ownerId ? [String(item.ownerId)] : []),
     dueDate: item?.dueDate ? String(item.dueDate) : null,
+    priority: (["p0", "p1", "p2"] as const).includes(item?.priority) ? item.priority : "p1",
     notes: String(item?.notes ?? ""),
     updatedAt: String(item?.updatedAt ?? nowIso()),
   };
