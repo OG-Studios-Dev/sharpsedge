@@ -19,6 +19,10 @@
       "schedule": "0 6 * * 1"
     },
     {
+      "path": "/api/admin/pga-final-results-refresh?cron=true",
+      "schedule": "0 8 * * 1"
+    },
+    {
       "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,NBA,MLB",
       "schedule": "17 * * * *"
     },
