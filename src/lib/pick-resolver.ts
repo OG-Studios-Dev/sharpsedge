@@ -12,6 +12,8 @@
  * ─────────────────────────────────────────────────────────────
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { findBestFuzzyNameMatch } from "@/lib/name-match";
 import type { AIPick } from "@/lib/types";
 import { parsePropLine } from "@/lib/goose-model/prop-parser";
@@ -23,6 +25,7 @@ const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const PGA_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard";
+const PGA_FINAL_RESULTS_SNAPSHOT = join(process.cwd(), "data/pga/final-results.snapshot.json");
 
 // ── normalizers ──────────────────────────────────────────────
 
@@ -574,6 +577,16 @@ function parseRelativeGolfScore(score: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function readHistoricalPGAPlacements(eventDate: string): Record<string, number> | null {
+  try {
+    const raw = readFileSync(PGA_FINAL_RESULTS_SNAPSHOT, "utf8");
+    const parsed = JSON.parse(raw) as { events?: Record<string, { placements?: Record<string, number> }> };
+    return parsed?.events?.[eventDate]?.placements ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Enriched PGA pick resolution result — includes finish position and near-miss metadata.
  * Official result (win/loss/pending) is unchanged; near_miss is learning metadata only.
@@ -598,25 +611,39 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
     return { result: "pending", actual_place: null, near_miss: null };
   }
 
-  const scoreboard = await fetchJSON<any>(PGA_SCOREBOARD);
-  const event = Array.isArray(scoreboard?.events) ? scoreboard.events.find((candidate: any) => {
-    const startDate = String(candidate?.date ?? "").slice(0, 10);
-    return startDate === pick.date;
-  }) ?? scoreboard?.events?.[0] : null;
-  const competition = event?.competitions?.[0];
-  const statusType = competition?.status?.type ?? event?.status?.type ?? {};
-  if (!event || statusType?.completed !== true) {
-    return { result: "pending", actual_place: null, near_miss: null };
+  const historicalPlacements = readHistoricalPGAPlacements(pick.date);
+  let place: number | null = null;
+  let opponentPlace: number | null = null;
+
+  if (historicalPlacements) {
+    place = historicalPlacements[pick.playerName] ?? null;
+    opponentPlace = pick.opponent ? (historicalPlacements[pick.opponent] ?? null) : null;
+  } else {
+    const scoreboard = await fetchJSON<any>(PGA_SCOREBOARD);
+    const event = Array.isArray(scoreboard?.events) ? scoreboard.events.find((candidate: any) => {
+      const startDate = String(candidate?.date ?? "").slice(0, 10);
+      return startDate === pick.date;
+    }) ?? scoreboard?.events?.[0] : null;
+    const competition = event?.competitions?.[0];
+    const statusType = competition?.status?.type ?? event?.status?.type ?? {};
+    if (!event || statusType?.completed !== true) {
+      return { result: "pending", actual_place: null, near_miss: null };
+    }
+
+    const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+    const player = findBestFuzzyNameMatch(competitors, pick.playerName, (entry: any) => entry?.athlete?.displayName || "");
+    if (!player) {
+      logResolverIssue(pick, "pga_player_not_found", { playerName: pick.playerName });
+      return { result: "pending", actual_place: null, near_miss: null };
+    }
+
+    place = parseGolfPlacement(player, competitors);
+    if (pick.opponent) {
+      const opponent = findBestFuzzyNameMatch(competitors, pick.opponent, (entry: any) => entry?.athlete?.displayName || "");
+      opponentPlace = opponent ? parseGolfPlacement(opponent, competitors) : null;
+    }
   }
 
-  const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
-  const player = findBestFuzzyNameMatch(competitors, pick.playerName, (entry: any) => entry?.athlete?.displayName || "");
-  if (!player) {
-    logResolverIssue(pick, "pga_player_not_found", { playerName: pick.playerName });
-    return { result: "pending", actual_place: null, near_miss: null };
-  }
-
-  const place = parseGolfPlacement(player, competitors);
   const lowerLabel = String(pick.pickLabel || "").toLowerCase();
   const lowerBetType = String(pick.betType || "").toLowerCase();
   const threshold = parseGolfFinishThreshold(pick.pickLabel);
@@ -627,17 +654,6 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
   }
 
   if (lowerLabel.includes(" over ") || lowerBetType.includes("tournament matchup")) {
-    const opponentName = pick.opponent || "";
-    const opponent = opponentName
-      ? findBestFuzzyNameMatch(competitors, opponentName, (entry: any) => entry?.athlete?.displayName || "")
-      : null;
-
-    if (!opponent) {
-      logResolverIssue(pick, "pga_matchup_opponent_not_found", { pickLabel: pick.pickLabel, opponent: opponentName });
-      return { result: "pending", actual_place: place, near_miss: null };
-    }
-
-    const opponentPlace = parseGolfPlacement(opponent, competitors);
     if (!place || !opponentPlace) {
       return { result: "pending", actual_place: place, near_miss: null };
     }
