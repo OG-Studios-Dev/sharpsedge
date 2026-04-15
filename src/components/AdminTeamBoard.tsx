@@ -136,13 +136,14 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
 
   const activeSprint = data.sprints.find((sprint) => sprint.status === "active") ?? null;
   const nextSprint = data.sprints.find((sprint) => sprint.status === "planned") ?? null;
-  const dailyWorkRows = data.members
-    .map((member) => {
-      const assigned = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && (!activeSprint || item.sprintId === activeSprint.id));
-      const nextUp = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && item.sprintId === nextSprint?.id);
-      return { member, assigned, nextUp };
-    })
-    .filter((row) => row.assigned.length > 0 || row.nextUp.length > 0 || row.member.outputSummary.trim().length > 0);
+  const memberWorkRows = data.members.map((member) => {
+    const assigned = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && (!activeSprint || item.sprintId === activeSprint.id));
+    const nextUp = data.workstreams.filter((item) => item.assigneeIds.includes(member.id) && item.sprintId === nextSprint?.id);
+    const isIdleRisk = assigned.length === 0 && nextUp.length === 0;
+    return { member, assigned, nextUp, isIdleRisk };
+  });
+  const dailyWorkRows = memberWorkRows.filter((row) => row.assigned.length > 0 || row.nextUp.length > 0 || row.member.outputSummary.trim().length > 0);
+  const idleRiskRows = memberWorkRows.filter((row) => row.isIdleRisk);
 
   async function patch(action: string, payload: Record<string, unknown>) {
     setSaving(true);
@@ -193,13 +194,14 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
 
   return (
     <div className="space-y-5">
-      <section className="grid gap-3 md:grid-cols-6">
+      <section className="grid gap-3 md:grid-cols-7">
         <MetricCard label="Green performers" value={String(summary.green)} tone="text-accent-green" />
         <MetricCard label="Yellow watch" value={String(summary.yellow)} tone="text-yellow-300" />
         <MetricCard label="Red risk" value={String(summary.red)} tone="text-red-300" />
         <MetricCard label="Done workstreams" value={String(summary.done)} tone="text-accent-blue" />
         <MetricCard label="Blocked workstreams" value={String(summary.blocked)} tone="text-red-300" />
         <MetricCard label="Active sprints" value={String(summary.activeSprints)} tone="text-gray-200" />
+        <MetricCard label="Idle risk" value={String(idleRiskRows.length)} tone={idleRiskRows.length === 0 ? "text-accent-green" : "text-red-300"} />
       </section>
 
       {error ? <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
@@ -239,6 +241,28 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
         </section>
       ) : null}
 
+      {idleRiskRows.length > 0 ? (
+        <section className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-red-100">Idle risk alert</h2>
+              <p className="mt-1 text-sm text-red-100/80">These team members have no active assignment and no queued next-up assignment. That is a management failure until fixed.</p>
+            </div>
+            <span className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-200">{idleRiskRows.length} at risk</span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {idleRiskRows.map(({ member }) => (
+              <span key={member.id} className="rounded-full border border-red-400/30 bg-black/10 px-3 py-1 text-sm text-red-100">{member.name}</span>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-accent-green/30 bg-accent-green/10 p-4">
+          <h2 className="text-lg font-semibold text-accent-green">No idle-risk team members</h2>
+          <p className="mt-1 text-sm text-green-100/80">Everyone has active work, queued follow-on work, or both.</p>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -247,14 +271,17 @@ export default function AdminTeamBoard({ initialData }: { initialData: AdminTeam
           </div>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {dailyWorkRows.map(({ member, assigned, nextUp }) => (
+          {dailyWorkRows.map(({ member, assigned, nextUp, isIdleRisk }) => (
             <div key={member.id} className="rounded-2xl border border-dark-border/70 bg-dark-bg/40 p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="text-base font-semibold text-white">{member.name}</h3>
                   <p className="text-sm text-gray-400">{member.role}</p>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(member.status)}`}>{niceLabel(member.status)}</span>
+                <div className="flex flex-wrap gap-2">
+                  {isIdleRisk ? <span className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-200">Idle risk</span> : null}
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(member.status)}`}>{niceLabel(member.status)}</span>
+                </div>
               </div>
               <div className="mt-3">
                 <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Daily work done</p>
