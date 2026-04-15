@@ -593,8 +593,7 @@ export interface PGAResolveResult {
  * The outer `resolvePGAPick` wrapper is kept for backward compat with the main pick pipeline.
  */
 export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveResult> {
-  const threshold = parseGolfFinishThreshold(pick.pickLabel);
-  if (!threshold || !pick.playerName) {
+  if (!pick.playerName) {
     logResolverIssue(pick, "pga_pick_unparseable", { pickLabel: pick.pickLabel, playerName: pick.playerName ?? "" });
     return { result: "pending", actual_place: null, near_miss: null };
   }
@@ -618,9 +617,42 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
   }
 
   const place = parseGolfPlacement(player, competitors);
+  const lowerLabel = String(pick.pickLabel || "").toLowerCase();
+  const lowerBetType = String(pick.betType || "").toLowerCase();
+  const threshold = parseGolfFinishThreshold(pick.pickLabel);
+
+  if (lowerLabel.includes("to win") || lowerBetType.includes("tournament winner") || lowerBetType.includes("outright")) {
+    const result: AIPick["result"] = place === 1 ? "win" : "loss";
+    return { result, actual_place: place, near_miss: null };
+  }
+
+  if (lowerLabel.includes(" over ") || lowerBetType.includes("tournament matchup")) {
+    const opponentName = pick.opponent || "";
+    const opponent = opponentName
+      ? findBestFuzzyNameMatch(competitors, opponentName, (entry: any) => entry?.athlete?.displayName || "")
+      : null;
+
+    if (!opponent) {
+      logResolverIssue(pick, "pga_matchup_opponent_not_found", { pickLabel: pick.pickLabel, opponent: opponentName });
+      return { result: "pending", actual_place: place, near_miss: null };
+    }
+
+    const opponentPlace = parseGolfPlacement(opponent, competitors);
+    if (!place || !opponentPlace) {
+      return { result: "pending", actual_place: place, near_miss: null };
+    }
+
+    const result: AIPick["result"] = place < opponentPlace ? "win" : place > opponentPlace ? "loss" : "push";
+    return { result, actual_place: place, near_miss: null };
+  }
+
+  if (!threshold) {
+    logResolverIssue(pick, "pga_pick_unparseable", { pickLabel: pick.pickLabel, playerName: pick.playerName ?? "" });
+    return { result: "pending", actual_place: place, near_miss: null };
+  }
+
   const result: AIPick["result"] = !place ? "loss" : place <= threshold ? "win" : "loss";
 
-  // Near-miss detection: only on losses (winners are never near misses)
   const marketType = detectPGAMarketType(pick.pickLabel);
   const nearMiss = result === "loss"
     ? detectPGANearMiss(marketType, place)
