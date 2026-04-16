@@ -1,0 +1,35 @@
+[Thu Apr 16 06:58:41 EDT 2026] Starting SportsGameOdds historical catch-up backfill
+[Thu Apr 16 06:58:41 EDT 2026] Using node at /opt/homebrew/bin/node
+{
+  "league": "NBA",
+  "month": "2026-04",
+  "startsAfter": "2026-04-15T00:00:00.000Z",
+  "startsBefore": "2026-04-16T10:58:41.000Z",
+  "status": "done",
+  "events": 3,
+  "candidates": 6506
+}
+{
+  "league": "NHL",
+  "month": "2026-04",
+  "startsAfter": "2026-04-15T00:00:00.000Z",
+  "startsBefore": "2026-04-16T10:58:41.000Z",
+  "status": "done",
+  "events": 10,
+  "candidates": 10151
+}
+{
+  "league": "MLB",
+  "month": "2026-04",
+  "startsAfter": "2026-04-15T00:00:00.000Z",
+  "startsBefore": "2026-04-16T10:58:41.000Z",
+  "status": "done",
+  "events": 19,
+  "candidates": 40519
+}
+{
+  "ok": true,
+  "ledgerPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-ledger/historical-backfill-ledger.json",
+  "rows": 591
+}
+[Thu Apr 16 06:58:54 EDT 2026] Finished SportsGameOdds historical catch-up backfill

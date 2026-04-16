@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import path from 'node:path';
 
 const cwd = process.cwd();
+const nodeBin = process.env.NODE_BIN || process.execPath || 'node';
 const startIso = process.argv[2] || '2024-02-01T00:00:00Z';
 const endIso = process.argv[3] || new Date().toISOString();
 const leagues = (process.argv[4] || 'NBA,NHL,MLB').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -81,22 +82,22 @@ for (const monthRow of plan) {
     let error = null;
 
     try {
-      const pullRaw = execFileSync('node', [
+      const pullRaw = execFileSync(nodeBin, [
         'scripts/sgo-historical-backfill.mjs',
         '--sport', monthRow.league,
         '--starts-after', chunk.startsAfter,
         '--starts-before', chunk.startsBefore,
         '--limit', String(limit),
-      ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
       pullMeta = JSON.parse(pullRaw);
 
       const cachePath = cacheFileFor(monthRow.league, chunk.startsAfter, chunk.startsBefore);
       if (existsSync(cachePath)) {
-        const normRaw = execFileSync('node', [
+        const normRaw = execFileSync(nodeBin, [
           'scripts/sgo-normalize-cache.mjs',
           path.relative(cwd, cachePath),
           monthRow.league,
-        ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
         normalizeMeta = JSON.parse(normRaw);
       }
       seen.add(id);
