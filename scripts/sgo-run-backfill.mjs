@@ -137,7 +137,7 @@ for (const monthRow of plan) {
         ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
         rowIngestMeta = JSON.parse(ingestRaw);
 
-        if (monthRow.league === 'NHL') {
+        if (['NHL', 'NBA', 'MLB', 'NFL'].includes(monthRow.league)) {
           const enrichRaw = execFileSync(nodeBin, [
             'scripts/enrich-historical-league-ids.mjs',
             chunk.startsAfter.slice(0, 10),
