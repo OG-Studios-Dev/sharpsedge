@@ -7,7 +7,7 @@ const cwd = process.cwd();
 const nodeBin = process.env.NODE_BIN || process.execPath || 'node';
 const startIso = process.argv[2] || '2024-02-01T00:00:00Z';
 const endIso = process.argv[3] || new Date().toISOString();
-const leagues = (process.argv[4] || 'NBA,NHL,MLB').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+const leagues = (process.argv[4] || 'NBA,NHL,MLB,NFL').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 const chunkDays = Number(process.argv[5] || 7);
 const limit = Number(process.argv[6] || 250);
 const mode = (process.argv[7] || 'append').trim().toLowerCase();

@@ -39,6 +39,8 @@ const apiKeys = Array.from(new Set(
     .filter(Boolean)
 ));
 
+let rankedKeyOrder = apiKeys.map((_, index) => index);
+
 if (!apiKeys.length) throw new Error('Missing SPORTSGAMEODDS_API_KEY(S)');
 if (!startsAfter || !startsBefore) throw new Error('Use --starts-after and --starts-before');
 
@@ -70,9 +72,31 @@ function flagValue(name, fallback = false) {
   return fallback;
 }
 
+async function usageForKey(index) {
+  const key = apiKeys[index];
+  const res = await fetch('https://api.sportsgameodds.com/v2/account/usage', {
+    headers: { accept: 'application/json', 'x-api-key': key },
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  const usage = data?.data?.rateLimits?.['per-month'] ?? null;
+  const remainingApprox = usage ? Number(usage['max-entities'] ?? 0) - Number(usage['current-entities'] ?? 0) : -Infinity;
+  return { index, ok: res.ok, status: res.status, usage, remainingApprox };
+}
+
+async function refreshKeyRanking() {
+  const usageRows = [];
+  for (const index of apiKeys.map((_, i) => i)) usageRows.push(await usageForKey(index));
+  rankedKeyOrder = usageRows
+    .sort((a, b) => (b.remainingApprox ?? -Infinity) - (a.remainingApprox ?? -Infinity))
+    .map((row) => row.index);
+  return usageRows;
+}
+
 async function fetchWithRotation(targetUrl) {
   let last = null;
-  for (let index = 0; index < apiKeys.length; index += 1) {
+  for (const index of rankedKeyOrder) {
     const key = apiKeys[index];
     const res = await fetch(targetUrl, {
       headers: {
@@ -153,8 +177,10 @@ async function runSingleWindow(windowStart, windowEnd) {
     return { fromCache: true, cachePath: localCachePath, ...cached.meta };
   }
 
+  const usageRowsBefore = await refreshKeyRanking();
   const beforeUsage = await fetchWithRotation('https://api.sportsgameodds.com/v2/account/usage');
   const result = await fetchWithRotation(localUrl);
+  const usageRowsAfter = await refreshKeyRanking();
   const afterUsage = await fetchWithRotation('https://api.sportsgameodds.com/v2/account/usage');
   const summary = summarize(result.data);
   const meta = {
@@ -171,6 +197,8 @@ async function runSingleWindow(windowStart, windowEnd) {
     summary,
     usageBefore: beforeUsage.data?.data?.rateLimits?.['per-month'] ?? null,
     usageAfter: afterUsage.data?.data?.rateLimits?.['per-month'] ?? null,
+    keyRankingBefore: usageRowsBefore.map((row) => ({ keyIndex: row.index + 1, status: row.status, remainingApprox: row.remainingApprox })),
+    keyRankingAfter: usageRowsAfter.map((row) => ({ keyIndex: row.index + 1, status: row.status, remainingApprox: row.remainingApprox })),
     dryRun: DRY_RUN,
   };
   if (result.ok) writeFileSync(localCachePath, JSON.stringify({ meta, payload: result.data }, null, 2));
