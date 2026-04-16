@@ -10,6 +10,7 @@ const endIso = process.argv[3] || new Date().toISOString();
 const leagues = (process.argv[4] || 'NBA,NHL,MLB').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 const chunkDays = Number(process.argv[5] || 7);
 const limit = Number(process.argv[6] || 250);
+const mode = (process.argv[7] || 'append').trim().toLowerCase();
 const cacheDir = path.join(cwd, 'tmp', 'sgo-cache');
 const ledgerDir = path.join(cwd, 'tmp', 'sgo-ledger');
 const ledgerPath = path.join(ledgerDir, 'historical-backfill-ledger.json');
@@ -56,6 +57,26 @@ function saveLedger(rows) {
   writeFileSync(ledgerPath, JSON.stringify(rows, null, 2));
 }
 
+function rowKey(row) {
+  return `${row.league}|${row.startsAfter}|${row.startsBefore}`;
+}
+
+function dedupeLedger(rows) {
+  const latest = new Map();
+  for (const row of rows) {
+    const key = rowKey(row);
+    const prev = latest.get(key);
+    if (!prev || new Date(row.runAt) >= new Date(prev.runAt)) {
+      latest.set(key, row);
+    }
+  }
+  return [...latest.values()].sort((a, b) => {
+    if (a.league !== b.league) return a.league.localeCompare(b.league);
+    if (a.startsAfter !== b.startsAfter) return a.startsAfter.localeCompare(b.startsAfter);
+    return a.startsBefore.localeCompare(b.startsBefore);
+  });
+}
+
 function cacheFileFor(league, startsAfter, startsBefore) {
   const key = `${league}_${startsAfter}_${startsBefore}_true_true_${limit}_all`.replace(/[^a-zA-Z0-9._-]+/g, '_');
   return path.join(cacheDir, `${key}.json`);
@@ -66,15 +87,23 @@ function normalizeOutFor(league, startsAfter, startsBefore) {
   return path.join(cacheDir, `${key}.goose2.${league}.json`);
 }
 
-const ledger = loadLedger();
-const seen = new Set(ledger.filter((r) => r.status === 'done').map((r) => `${r.league}|${r.startsAfter}|${r.startsBefore}`));
+let ledger = dedupeLedger(loadLedger());
+const latestByKey = new Map(ledger.map((r) => [rowKey(r), r]));
+const seen = new Set(
+  [...latestByKey.values()]
+    .filter((r) => r.status === 'done')
+    .map((r) => rowKey(r))
+);
 const plan = buildPlan(startIso, endIso, leagues);
 
 for (const monthRow of plan) {
   const chunks = splitWindows(monthRow.startsAfter, monthRow.startsBefore, chunkDays);
   for (const chunk of chunks) {
     const id = `${monthRow.league}|${chunk.startsAfter}|${chunk.startsBefore}`;
-    if (seen.has(id)) continue;
+    if (mode !== 'retry-errors' && seen.has(id)) continue;
+
+    const existing = latestByKey.get(id);
+    if (mode === 'retry-errors' && (!existing || existing.status === 'done')) continue;
 
     let pullMeta = null;
     let normalizeMeta = null;
@@ -106,7 +135,7 @@ for (const monthRow of plan) {
       error = err?.stderr?.toString?.() || err?.message || String(err);
     }
 
-    ledger.push({
+    const row = {
       runAt: new Date().toISOString(),
       league: monthRow.league,
       month: monthRow.month,
@@ -118,10 +147,14 @@ for (const monthRow of plan) {
       normalize: normalizeMeta,
       status,
       error,
-    });
+    };
+
+    latestByKey.set(id, row);
+    ledger = dedupeLedger([...latestByKey.values()]);
+    if (status === 'done') seen.add(id);
     saveLedger(ledger);
     console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null }, null, 2));
   }
 }
 
-console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length }, null, 2));
+console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode }, null, 2));
