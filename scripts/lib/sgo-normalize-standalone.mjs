@@ -10,6 +10,10 @@ import {
   toIsoDate,
 } from './goose2-standalone.mjs';
 
+function isNumericId(value) {
+  return /^\d+$/.test(String(value ?? '').trim());
+}
+
 function teamName(teams, teamId, fallbackSide = null) {
   const direct = teamId && teams ? teams[teamId] : null;
   if (direct) return normalizeDisplayText(direct?.names?.medium ?? direct?.names?.short ?? direct?.name ?? teamId ?? null);
@@ -28,6 +32,11 @@ function eventStatus(status) {
 function participantTypeForOdd(odd) {
   if (odd?.playerID || String(odd?.statEntityID ?? '').includes('_')) return 'player';
   return 'team';
+}
+
+function isPseudoEvent(event) {
+  const id = String(event?.eventID ?? '');
+  return id.startsWith('team:') || id.startsWith('team-season:');
 }
 
 function marketTypeForOdd(sport, odd) {
@@ -72,11 +81,14 @@ export function mapSportsGameOddsToGoose2(payload, sport) {
   const events = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
 
   for (const event of events) {
+    if (isPseudoEvent(event)) continue;
     const league = normalizeDisplayText(event?.leagueID ?? sport) ?? sport;
     const homeName = teamName(event?.teams, event?.homeTeamID, 'home');
     const awayName = teamName(event?.teams, event?.awayTeamID, 'away');
     const commenceTime = toIsoDate(event?.status?.startsAt ?? event?.startsAt ?? null);
-    const eventId = buildGoose2EventId({ sport, league, awayTeam: awayName, homeTeam: homeName, commenceTime, source: 'sportsgameodds', sourceEventId: event?.eventID ?? null });
+    const realGameId = isNumericId(event?.eventID) ? String(event.eventID) : null;
+    const truthfulSourceEventId = realGameId;
+    const eventId = buildGoose2EventId({ sport, league, awayTeam: awayName, homeTeam: homeName, commenceTime, source: 'sportsgameodds_historical', sourceEventId: truthfulSourceEventId });
 
     if (!eventRowsById.has(eventId)) {
       eventRowsById.set(eventId, {
@@ -91,11 +103,19 @@ export function mapSportsGameOddsToGoose2(payload, sport) {
         away_team_id: normalizeNullableToken(event?.awayTeamID),
         event_label: [awayName, homeName].filter(Boolean).join(' @ ') || String(event?.eventID ?? 'Unknown Event'),
         status: eventStatus(event?.status),
-        source: 'sportsgameodds',
-        source_event_id: String(event?.eventID ?? ''),
+        source: 'sportsgameodds_historical',
+        source_event_id: truthfulSourceEventId ?? eventId,
         odds_api_event_id: null,
         venue: normalizeDisplayText(event?.venue ?? null),
-        metadata: { rawLeagueID: event?.leagueID ?? null, status: event?.status ?? null, teams: event?.teams ?? null },
+        metadata: {
+          rawLeagueID: event?.leagueID ?? null,
+          status: event?.status ?? null,
+          teams: event?.teams ?? null,
+          raw_event_id: event?.eventID ?? null,
+          real_game_id: realGameId,
+          source_event_id_truthful: truthfulSourceEventId,
+          source_event_id_kind: realGameId ? 'league_game_id' : 'derived_matchup_time',
+        },
       });
     }
 

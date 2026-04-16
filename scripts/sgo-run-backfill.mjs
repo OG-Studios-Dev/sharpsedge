@@ -109,6 +109,7 @@ for (const monthRow of plan) {
     let normalizeMeta = null;
     let status = 'done';
     let error = null;
+    let rowIngestMeta = null;
 
     try {
       const pullRaw = execFileSync(nodeBin, [
@@ -128,6 +129,13 @@ for (const monthRow of plan) {
           monthRow.league,
         ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
         normalizeMeta = JSON.parse(normRaw);
+
+        const ingestRaw = execFileSync(nodeBin, [
+          'scripts/ingest-sgo-goose2-window.mjs',
+          '--sport', monthRow.league,
+          '--cache', path.relative(cwd, cachePath),
+        ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
+        rowIngestMeta = JSON.parse(ingestRaw);
       }
       seen.add(id);
     } catch (err) {
@@ -145,6 +153,7 @@ for (const monthRow of plan) {
       limit,
       pull: pullMeta,
       normalize: normalizeMeta,
+      ingest: rowIngestMeta,
       status,
       error,
     };
@@ -153,7 +162,7 @@ for (const monthRow of plan) {
     ledger = dedupeLedger([...latestByKey.values()]);
     if (status === 'done') seen.add(id);
     saveLedger(ledger);
-    console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null }, null, 2));
+    console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null, ingestedCandidates: rowIngestMeta?.inserted?.candidates ?? null }, null, 2));
   }
 }
 
