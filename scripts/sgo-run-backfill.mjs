@@ -9,6 +9,12 @@ const startIso = process.argv[2] || '2024-02-01T00:00:00Z';
 const endIso = process.argv[3] || new Date().toISOString();
 const leagues = (process.argv[4] || 'NBA,NHL,MLB,NFL').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 const chunkDays = Number(process.argv[5] || 7);
+const leagueChunkDays = {
+  NFL: Number(process.env.SGO_CHUNK_DAYS_NFL || 3),
+  MLB: Number(process.env.SGO_CHUNK_DAYS_MLB || chunkDays),
+  NBA: Number(process.env.SGO_CHUNK_DAYS_NBA || chunkDays),
+  NHL: Number(process.env.SGO_CHUNK_DAYS_NHL || chunkDays),
+};
 const limit = Number(process.argv[6] || 250);
 const mode = (process.argv[7] || 'append').trim().toLowerCase();
 const cacheDir = path.join(cwd, 'tmp', 'sgo-cache');
@@ -97,7 +103,8 @@ const seen = new Set(
 const plan = buildPlan(startIso, endIso, leagues);
 
 for (const monthRow of plan) {
-  const chunks = splitWindows(monthRow.startsAfter, monthRow.startsBefore, chunkDays);
+  const effectiveChunkDays = leagueChunkDays[monthRow.league] || chunkDays;
+  const chunks = splitWindows(monthRow.startsAfter, monthRow.startsBefore, effectiveChunkDays);
   for (const chunk of chunks) {
     const id = `${monthRow.league}|${chunk.startsAfter}|${chunk.startsBefore}`;
     if (mode !== 'retry-errors' && seen.has(id)) continue;
@@ -118,6 +125,7 @@ for (const monthRow of plan) {
         '--starts-after', chunk.startsAfter,
         '--starts-before', chunk.startsBefore,
         '--limit', String(limit),
+        '--chunk-days', String(effectiveChunkDays),
       ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
       pullMeta = JSON.parse(pullRaw);
 
@@ -159,7 +167,7 @@ for (const monthRow of plan) {
       month: monthRow.month,
       startsAfter: chunk.startsAfter,
       startsBefore: chunk.startsBefore,
-      chunkDays,
+      chunkDays: effectiveChunkDays,
       limit,
       pull: pullMeta,
       normalize: normalizeMeta,
