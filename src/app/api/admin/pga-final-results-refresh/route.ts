@@ -21,7 +21,8 @@ function isAuthorized(request: NextRequest): boolean {
 function parsePlacementsFromHtml(html: string) {
   const rows: Record<string, number> = {};
   const pattern = /(?:^|>)(T?\d+|CUT)\s*<a[^>]*\/player\/[^>]*>([^<]+)<\/a>/g;
-  for (const match of html.matchAll(pattern)) {
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html)) !== null) {
     const rawPos = match[1];
     const name = match[2].replace(/\s+/g, " ").trim();
     if (!name) continue;

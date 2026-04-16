@@ -27,6 +27,10 @@
       "schedule": "17 * * * *"
     },
     {
+      "path": "/api/admin/goose2/verify-daily?cron=true",
+      "schedule": "25 17 * * *"
+    },
+    {
       "path": "/api/odds/aggregated/snapshot?cron=true&sports=NBA&reason=nba-q1-q3-daily-archive",
       "schedule": "55 17 * * *"
     },
