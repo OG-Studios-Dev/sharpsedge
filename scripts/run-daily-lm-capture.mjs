@@ -28,8 +28,8 @@ for (const sport of sports) {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, NODE_BIN: nodeBin },
   });
-  const lines = raw.trim().split(/\n+/).filter(Boolean);
-  const lastJson = [...lines].reverse().find((line) => line.trim().startsWith('{'));
+  const matches = raw.match(/\{[\s\S]*?\}/g) || [];
+  const lastJson = matches.at(-1);
   results.push({ sport, result: lastJson ? JSON.parse(lastJson) : { raw } });
 }
 
