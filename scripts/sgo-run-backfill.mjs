@@ -24,6 +24,23 @@ const ledgerPath = path.join(ledgerDir, 'historical-backfill-ledger.json');
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
 
+function loadEnvFile() {
+  const envPath = path.join(cwd, '.env.local');
+  if (!existsSync(envPath)) return;
+  const raw = readFileSync(envPath, 'utf8');
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line || line.trim().startsWith('#')) continue;
+    const idx = line.indexOf('=');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+loadEnvFile();
+
 function monthStart(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0)); }
 function nextMonth(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0)); }
 function iso(d) { return d.toISOString(); }
@@ -93,6 +110,23 @@ function normalizeOutFor(league, startsAfter, startsBefore) {
   return path.join(cacheDir, `${key}.goose2.${league}.json`);
 }
 
+async function checkSupabaseHealth() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return { ok: false, status: 'missing_env', endpoint: null, body: 'Missing Supabase env' };
+  const endpoints = [`${supabaseUrl}/rest/v1/`, `${supabaseUrl}/auth/v1/health`];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint, { headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` } });
+      const text = await res.text();
+      if (!res.ok) return { ok: false, status: res.status, endpoint, body: text.slice(0, 300) };
+    } catch (error) {
+      return { ok: false, status: 'fetch_error', endpoint, body: String(error?.message || error) };
+    }
+  }
+  return { ok: true, status: 200, endpoint: `${supabaseUrl}/rest/v1/`, body: 'healthy' };
+}
+
 let ledger = dedupeLedger(loadLedger());
 const latestByKey = new Map(ledger.map((r) => [rowKey(r), r]));
 const seen = new Set(
@@ -101,6 +135,7 @@ const seen = new Set(
     .map((r) => rowKey(r))
 );
 const plan = buildPlan(startIso, endIso, leagues);
+const supabaseHealth = await checkSupabaseHealth();
 
 for (const monthRow of plan) {
   const effectiveChunkDays = leagueChunkDays[monthRow.league] || chunkDays;
@@ -119,6 +154,9 @@ for (const monthRow of plan) {
     let rowIngestMeta = null;
 
     try {
+      if (!supabaseHealth.ok) {
+        throw new Error(`SUPABASE_UNHEALTHY ${supabaseHealth.status} ${supabaseHealth.endpoint || ''} ${supabaseHealth.body || ''}`);
+      }
       const pullRaw = execFileSync(nodeBin, [
         'scripts/sgo-historical-backfill.mjs',
         '--sport', monthRow.league,
@@ -184,4 +222,4 @@ for (const monthRow of plan) {
   }
 }
 
-console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode }, null, 2));
+console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode, supabaseHealth }, null, 2));
