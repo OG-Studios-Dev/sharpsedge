@@ -185,13 +185,16 @@ function isPickableOdds(odds?: number): boolean {
   return odds >= -200 && odds <= 300;
 }
 
-function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
+function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick | null {
   const direction = prop.direction || prop.overUnder;
   const bestBookOdds = resolveSelectedBookOdds(prop.bookOdds || [], {
     book: prop.book,
     odds: prop.odds,
     line: prop.line,
   });
+  const resolvedOdds = bestBookOdds?.odds ?? prop.odds;
+
+  if (!isPickableOdds(resolvedOdds)) return null;
 
   return {
     id: `pick-${btoa(`${prop.gameId || 'no-game'}-${prop.playerName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${prop.propType}-${prop.line}-${date}`).slice(0, 36)}`,
@@ -215,7 +218,7 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
     units: 1,
     gameId: prop.gameId,
     oddsEventId: prop.oddsEventId,
-    odds: bestBookOdds?.odds ?? prop.odds,
+    odds: resolvedOdds,
     // Fall back to "Model Line" so the sportsbook field is never null in UI
     book: bestBookOdds?.book ?? prop.book ?? "Model Line",
     bookOdds: prop.bookOdds,
@@ -223,11 +226,14 @@ function playerPickToAIPick(prop: ScoredPlayerProp, date: string): AIPick {
   };
 }
 
-function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
+function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick | null {
   const bestBookOdds = resolveSelectedBookOdds(trend.bookOdds || [], {
     book: trend.book,
     odds: trend.odds,
   });
+  const resolvedOdds = bestBookOdds?.odds ?? trend.odds;
+
+  if (!isPickableOdds(resolvedOdds)) return null;
 
   return {
     id: `pick-${btoa(`${trend.gameId || 'no-game'}-${trend.team.toLowerCase().replace(/[^a-z0-9]/g, '') || trend.team.toLowerCase().replace(/[^a-z0-9]/g, '')}-${trend.betType || 'unknown'}-${trend.line || 0}-${date}`).slice(0, 36)}`,
@@ -247,7 +253,7 @@ function teamTrendToAIPick(trend: ScoredTeamTrend, date: string): AIPick {
     result: "pending",
     units: 1,
     gameId: trend.gameId,
-    odds: bestBookOdds?.odds ?? trend.odds,
+    odds: resolvedOdds,
     // Fall back to "Model Line" so the sportsbook field is never null in UI
     book: bestBookOdds?.book ?? trend.book ?? "Model Line",
     bookOdds: trend.bookOdds,
@@ -399,8 +405,16 @@ export function selectTopPicks(
   const teamPicks = selectDistinctTeamPicks(scoredTrends, PROD_MAX_TEAM);
 
   const picks: AIPick[] = [];
-  for (const p of playerPicks) picks.push(playerPickToAIPick(p, date));
-  for (const t of teamPicks) picks.push(teamTrendToAIPick(t, date));
+  for (const p of playerPicks) {
+    const pick = playerPickToAIPick(p, date);
+    if (!pick) continue;
+    picks.push(pick);
+  }
+  for (const t of teamPicks) {
+    const pick = teamTrendToAIPick(t, date);
+    if (!pick) continue;
+    picks.push(pick);
+  }
 
   // Belt-and-suspenders: never exceed the hard max, regardless of split logic above.
   return picks.slice(0, PROD_MAX_PICKS_PER_SPORT);
@@ -441,11 +455,13 @@ export function selectNBATopPicks(
   const picks: AIPick[] = [];
   for (const p of playerPicks) {
     const pick = playerPickToAIPick(p, date);
+    if (!pick) continue;
     pick.teamColor = p.teamColor || NBA_TEAM_COLORS[p.team] || "#4a9eff";
     picks.push(pick);
   }
   for (const t of teamPicks) {
     const pick = teamTrendToAIPick(t, date);
+    if (!pick) continue;
     pick.teamColor = t.teamColor || NBA_TEAM_COLORS[t.team] || "#4a9eff";
     picks.push(pick);
   }
@@ -497,11 +513,13 @@ export function selectMLBTopPicks(
   const picks: AIPick[] = [];
   for (const prop of playerPicks) {
     const pick = playerPickToAIPick(prop, date);
+    if (!pick) continue;
     pick.teamColor = prop.teamColor || MLB_TEAM_COLORS[prop.team] || "#4a9eff";
     picks.push(pick);
   }
   for (const trend of teamPicks) {
     const pick = teamTrendToAIPick(trend, date);
+    if (!pick) continue;
     pick.teamColor = trend.teamColor || MLB_TEAM_COLORS[trend.team] || "#4a9eff";
     picks.push(pick);
   }
