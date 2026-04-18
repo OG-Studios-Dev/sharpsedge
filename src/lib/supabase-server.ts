@@ -306,6 +306,7 @@ async function ensureProfileForUser(user: AuthUser, overrides: Partial<ProfileUp
 
 export function createServerClient() {
   return {
+    postgrest,
     auth: {
       getSession: getCurrentSession,
       getUser: async () => {

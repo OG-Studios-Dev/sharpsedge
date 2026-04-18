@@ -69,6 +69,132 @@ export type PickSlateRecord = {
   updated_at: string | null;
 };
 
+export type UserPickSourceType = "ai_pick" | "prop" | "team_trend" | "manual" | "parlay";
+export type UserPickKind = "single" | "parlay_leg" | "parlay";
+export type UserPickStatus = "pending" | "win" | "loss" | "push" | "void" | "cancelled";
+
+export type UserPickRecord = {
+  id: string;
+  user_id: string;
+  source_type: UserPickSourceType;
+  source_id: string | null;
+  parent_pick_id: string | null;
+  kind: UserPickKind;
+  status: UserPickStatus;
+  league: string;
+  game_date: string | null;
+  game_id: string | null;
+  team: string | null;
+  opponent: string | null;
+  player_name: string | null;
+  pick_label: string;
+  detail: string | null;
+  bet_type: string | null;
+  market_type: string | null;
+  line: number | null;
+  odds: number | null;
+  book: string | null;
+  units: number;
+  risk_amount: number | null;
+  to_win_amount: number | null;
+  profit_units: number;
+  result_settled_at: string | null;
+  placed_at: string;
+  updated_at: string;
+  metadata: Record<string, unknown> | null;
+  locked_snapshot: Record<string, unknown> | null;
+};
+
+export type UserPickStatsRecord = {
+  user_id: string;
+  total_picks: number;
+  settled_picks: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  pending: number;
+  win_rate: number;
+  profit_units: number;
+  roi: number;
+  current_streak: number;
+  best_win_streak: number;
+  updated_at: string;
+};
+
+export type MarketEventRecord = {
+  id: string;
+  league: string;
+  event_date: string | null;
+  game_id: string | null;
+  commence_time: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  event_label: string | null;
+  status: string | null;
+  result_payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarketPickRecord = {
+  id: string;
+  event_id: string | null;
+  source_type: "model" | "user" | "manual" | "imported";
+  source_system: string;
+  source_pick_id: string | null;
+  league: string;
+  game_date: string | null;
+  game_id: string | null;
+  pick_type: string;
+  market_type: string | null;
+  bet_type: string | null;
+  player_name: string | null;
+  team: string | null;
+  opponent: string | null;
+  pick_label: string;
+  line: number | null;
+  direction: string | null;
+  book: string | null;
+  odds: number | null;
+  confidence: number | null;
+  hit_rate: number | null;
+  edge: number | null;
+  reasoning: string | null;
+  status: "pending" | "win" | "loss" | "push" | "void" | "cancelled" | "ungraded";
+  grading_status: "pending" | "graded" | "manual_review" | "ungradeable";
+  graded_at: string | null;
+  grading_source: string | null;
+  grading_notes: string | null;
+  result_value: number | null;
+  result_text: string | null;
+  settled_at: string | null;
+  snapshot: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserPickEntryRecord = {
+  id: string;
+  user_id: string;
+  user_pick_id: string | null;
+  market_pick_id: string | null;
+  entry_kind: "single" | "parlay" | "parlay_leg";
+  entry_status: "pending" | "win" | "loss" | "push" | "void" | "cancelled";
+  display_order: number;
+  placed_at: string;
+  settled_at: string | null;
+  profit_units: number;
+  locked_odds: number | null;
+  locked_line: number | null;
+  locked_book: string | null;
+  locked_snapshot: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AuthUser = {
   id: string;
   email: string | null;
