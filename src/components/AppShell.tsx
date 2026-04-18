@@ -16,7 +16,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-[100dvh] bg-dark-bg">
       <DesktopSidebar />
       <div className="min-h-[100dvh] lg:ml-[240px]">
-        <div className="page-enter mx-auto min-w-0 max-w-7xl px-0 pb-20 lg:px-8 lg:pb-8 lg:pt-8 overflow-x-hidden">
+        <div className="mx-auto min-w-0 max-w-7xl px-0 pb-20 lg:px-8 lg:pb-8 lg:pt-8 overflow-x-hidden">
           {children}
         </div>
       </div>
