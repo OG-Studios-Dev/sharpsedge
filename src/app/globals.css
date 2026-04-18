@@ -16,14 +16,18 @@ body {
   background: var(--background);
   font-family: "SF Pro Display", "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
   max-width: 100vw;
+  min-height: 100%;
 }
 
 html {
   background: var(--background);
+  height: 100%;
 }
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
 }
 
 @layer components {

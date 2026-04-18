@@ -30,15 +30,15 @@ export default function AddPickModal() {
   if (!pickDraft || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[110] flex items-end justify-center overflow-y-auto overscroll-contain p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[130] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 [padding-bottom:calc(env(safe-area-inset-bottom)+4rem)] sm:items-center sm:p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/60"
+        className="absolute inset-0"
         onClick={closeAddPickModal}
         aria-label="Close add pick modal"
       />
 
-      <div className="relative z-[111] flex max-h-[85vh] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
+      <div className="relative z-[131] mb-0 flex max-h-[min(82dvh,700px)] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
         <div className="mx-auto flex w-full min-h-0 flex-col px-4 pt-4">
           <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-dark-border" />
 
