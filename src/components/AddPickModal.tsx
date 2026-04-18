@@ -53,7 +53,7 @@ export default function AddPickModal() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 px-3 pb-6 pt-[max(0.35rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0"
@@ -61,12 +61,12 @@ export default function AddPickModal() {
         aria-label="Close add pick modal"
       />
 
-      <div className="relative z-[131] mb-0 flex w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.45)] max-h-[calc(100dvh-max(0.75rem,env(safe-area-inset-top))-0.5rem)] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-[28px]">
-        <div className="mx-auto flex h-full w-full min-h-0 flex-col px-4 pt-2.5">
-          <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-dark-border" />
+      <div className="relative z-[131] mb-0 mt-1 flex w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.45)] max-h-[calc(100dvh-env(safe-area-inset-top)-6.25rem-env(safe-area-inset-bottom))] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-[28px]">
+        <div className="mx-auto flex h-full w-full min-h-0 flex-col px-4 pt-2">
+          <div className="mx-auto mb-2.5 h-1.5 w-16 rounded-full bg-dark-border" />
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
-            <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
+            <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-3.5">
               {error && (
                 <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200">
                   {error}
@@ -78,30 +78,30 @@ export default function AddPickModal() {
                 </div>
               )}
               <p className="section-heading">Add To My Picks</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">{pickDraft.summary}</h3>
-              <p className="mt-2 text-sm text-gray-400">{pickDraft.detail}</p>
+              <h3 className="mt-1.5 text-base font-semibold text-white">{pickDraft.summary}</h3>
+              <p className="mt-1.5 line-clamp-2 text-xs text-gray-400">{pickDraft.detail}</p>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/70 p-3">
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/70 p-2.5">
                   <p className="meta-label">League</p>
                   <p className="mt-1 text-sm font-semibold text-white">{pickDraft.league}</p>
                 </div>
-                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/70 p-3">
+                <div className="rounded-2xl border border-dark-border/70 bg-dark-bg/70 p-2.5">
                   <p className="meta-label">Odds</p>
                   <p className="mt-1 text-sm font-semibold text-white">{formatAmericanOdds(pickDraft.odds)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
+            <div className="mt-3 rounded-3xl border border-dark-border bg-dark-surface/70 p-3.5">
               <p className="section-heading">Units</p>
-              <div className="mt-3 grid grid-cols-5 gap-2">
+              <div className="mt-2.5 grid grid-cols-5 gap-2">
                 {UNIT_OPTIONS.map((option) => (
                   <button
                     key={option}
                     type="button"
                     onClick={() => setUnits(option)}
-                    className={`tap-button min-h-[48px] rounded-2xl border text-sm font-semibold ${
+                    className={`tap-button min-h-[44px] rounded-2xl border text-sm font-semibold ${
                       units === option
                         ? "border-accent-blue/40 bg-accent-blue/10 text-accent-blue"
                         : "border-dark-border bg-dark-bg/70 text-gray-400"
@@ -114,7 +114,7 @@ export default function AddPickModal() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 shrink-0 border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0.08)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+          <div className="sticky bottom-0 shrink-0 border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0.08)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-2">
             <div className="flex gap-3">
               <button
                 type="button"
