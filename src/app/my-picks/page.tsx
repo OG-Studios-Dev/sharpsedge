@@ -7,6 +7,7 @@ import LockedFeature from "@/components/LockedFeature";
 import TeamLogo from "@/components/TeamLogo";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { usePickHistory } from "@/hooks/usePickHistory";
+import { useUserPicks } from "@/hooks/useUserPicks";
 import { useUserPickAnalytics } from "@/hooks/useUserPickAnalytics";
 import { computePickHistorySummary } from "@/lib/pick-history";
 import type { UserPickHistoryBucket } from "@/lib/user-picks-analytics";
@@ -129,6 +130,7 @@ function mapUserPickToHistoryItem(record: UserPickRecord): UserHistoryItem {
 export default function MyPicksPage() {
   const { viewer } = useAppChrome();
   const { loading, picks: historyPicks, error } = usePickHistory();
+  const userPicksState = useUserPicks(Boolean(viewer.user?.id));
   const userAnalyticsState = useUserPickAnalytics(Boolean(viewer.user?.id));
   const [pastFilter, setPastFilter] = useState<PastFilter>("all");
   const [historyMode, setHistoryMode] = useState<HistoryMode>("house");
@@ -168,6 +170,11 @@ export default function MyPicksPage() {
   const userAnalytics = userAnalyticsState.analytics;
   const userOverall = userAnalytics?.overall ?? null;
   const userBuckets = userBucketMode === "sport" ? (userAnalytics?.bySport ?? []) : (userAnalytics?.byDay ?? []);
+  const openUserPicks = useMemo(() => (
+    userPicksState.picks
+      .filter((pick) => pick.status === "pending")
+      .map(mapUserPickToHistoryItem)
+  ), [userPicksState.picks]);
 
   function filterHistoryPicks(picks: HistoryItem[]) {
     if (pastFilter === "all") return picks;
@@ -523,61 +530,95 @@ export default function MyPicksPage() {
             <p className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-500">
               Sign in to unlock your daily and sport-based My Picks history.
             </p>
-          ) : userAnalyticsState.loading ? (
-            <p className="text-gray-400 text-sm">Loading your user pick history...</p>
-          ) : userAnalyticsState.error ? (
-            <p className="text-red-300 text-sm">{userAnalyticsState.error}</p>
-          ) : !userBuckets.length ? (
-            <p className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-500">
-              No saved user picks yet.
-            </p>
           ) : (
             <>
-              <div className="flex items-center justify-between mb-3 mt-1 gap-3">
-                <p className="section-heading">User Pick History</p>
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex rounded-2xl border border-dark-border bg-dark-bg/60 p-1">
-                    <button
-                      type="button"
-                      onClick={() => setUserBucketMode("day")}
-                      className={`tap-button rounded-xl px-3 py-1.5 text-xs font-semibold ${userBucketMode === "day" ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30" : "text-gray-400"}`}
-                    >
-                      By Day
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setUserBucketMode("sport")}
-                      className={`tap-button rounded-xl px-3 py-1.5 text-xs font-semibold ${userBucketMode === "sport" ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30" : "text-gray-400"}`}
-                    >
-                      By Sport
-                    </button>
-                  </div>
-                  <div className="flex gap-1">
-                    {(["all", "win", "loss", "push"] as PastFilter[]).map((f) => (
-                      <button
-                        key={`user-${f}`}
-                        onClick={() => setPastFilter(f)}
-                        className={`tap-button text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full border transition-colors ${
-                          pastFilter === f
-                            ? f === "win"
-                              ? "bg-accent-green/20 border-accent-green text-accent-green"
-                              : f === "loss"
-                                ? "bg-accent-red/20 border-accent-red text-accent-red"
-                                : f === "push"
-                                  ? "bg-accent-yellow/20 border-accent-yellow text-accent-yellow"
-                                  : "bg-dark-surface border-accent-blue text-accent-blue"
-                            : "border-dark-border text-gray-500"
-                        }`}
-                      >
-                        {f === "all" ? "All" : f === "win" ? "Won" : f === "loss" ? "Lost" : "Push"}
-                      </button>
+              <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="section-heading">Open Picks</p>
+                  <span className="text-[10px] uppercase text-gray-500">DB-backed</span>
+                </div>
+                {userPicksState.loading ? (
+                  <p className="text-sm text-gray-400">Loading your open picks...</p>
+                ) : userPicksState.error ? (
+                  <p className="text-sm text-red-300">{userPicksState.error}</p>
+                ) : openUserPicks.length === 0 ? (
+                  <p className="text-sm text-gray-500">No open picks saved right now.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-2xl border border-dark-border/70 bg-dark-surface/40 divide-y divide-dark-border/30">
+                    {openUserPicks.map((pick) => (
+                      <div key={pick.id} className="flex items-center gap-2 px-4 py-2.5 border-l-2 border-l-gray-600">
+                        <TeamLogo team={pick.team} size={20} color={pick.teamColor} sport={pick.league || undefined} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-medium text-white">{pick.pickLabel}</p>
+                        </div>
+                        {typeof pick.odds === "number" && Number.isFinite(pick.odds) && pick.odds !== 0 && (
+                          <span className="shrink-0 text-[10px] text-gray-500">{formatAmericanOdds(pick.odds)}</span>
+                        )}
+                        <span className="shrink-0 text-[10px] text-gray-500">{pick.units}u</span>
+                        <span className="shrink-0 rounded-md bg-dark-bg/60 px-2 py-0.5 text-[10px] font-bold text-gray-400">PD</span>
+                      </div>
                     ))}
                   </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {userBuckets.map(renderUserBucket)}
-              </div>
+                )}
+              </section>
+
+              {userAnalyticsState.loading ? (
+                <p className="text-gray-400 text-sm">Loading your user pick history...</p>
+              ) : userAnalyticsState.error ? (
+                <p className="text-red-300 text-sm">{userAnalyticsState.error}</p>
+              ) : !userBuckets.length ? (
+                <p className="rounded-2xl border border-dashed border-dark-border bg-dark-bg/50 p-4 text-sm text-gray-500">
+                  No saved user picks yet.
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-3 mt-1 gap-3">
+                    <p className="section-heading">User Pick History</p>
+                    <div className="flex items-center gap-2">
+                      <div className="inline-flex rounded-2xl border border-dark-border bg-dark-bg/60 p-1">
+                        <button
+                          type="button"
+                          onClick={() => setUserBucketMode("day")}
+                          className={`tap-button rounded-xl px-3 py-1.5 text-xs font-semibold ${userBucketMode === "day" ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30" : "text-gray-400"}`}
+                        >
+                          By Day
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUserBucketMode("sport")}
+                          className={`tap-button rounded-xl px-3 py-1.5 text-xs font-semibold ${userBucketMode === "sport" ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30" : "text-gray-400"}`}
+                        >
+                          By Sport
+                        </button>
+                      </div>
+                      <div className="flex gap-1">
+                        {(["all", "win", "loss", "push"] as PastFilter[]).map((f) => (
+                          <button
+                            key={`user-${f}`}
+                            onClick={() => setPastFilter(f)}
+                            className={`tap-button text-[10px] font-semibold uppercase px-2.5 py-1 rounded-full border transition-colors ${
+                              pastFilter === f
+                                ? f === "win"
+                                  ? "bg-accent-green/20 border-accent-green text-accent-green"
+                                  : f === "loss"
+                                    ? "bg-accent-red/20 border-accent-red text-accent-red"
+                                    : f === "push"
+                                      ? "bg-accent-yellow/20 border-accent-yellow text-accent-yellow"
+                                      : "bg-dark-surface border-accent-blue text-accent-blue"
+                                : "border-dark-border text-gray-500"
+                            }`}
+                          >
+                            {f === "all" ? "All" : f === "win" ? "Won" : f === "loss" ? "Lost" : "Push"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {userBuckets.map(renderUserBucket)}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>

@@ -183,9 +183,9 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!viewer.user?.id) return;
-    if (!userPicksState.picks.length) return;
+    if (userPicksState.loading) return;
     setMyPicks(userPicksState.picks.map(mapUserPickToMyPickEntry));
-  }, [userPicksState.picks, viewer.user?.id]);
+  }, [userPicksState.loading, userPicksState.picks, viewer.user?.id]);
 
   const value = useMemo<AppChromeContextValue>(() => ({
     viewer,
