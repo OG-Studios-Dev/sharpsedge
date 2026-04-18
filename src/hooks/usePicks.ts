@@ -174,8 +174,18 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
       const data = await res.json();
       if (data.picks?.length) {
         const date = data.date || key;
-        store[date] = data.picks.map(normalizePick);
-        saveStore(storageKey, store);
+        const incomingPicks = data.picks.map(normalizePick);
+        const existingPicks = Array.isArray(store[date]) ? store[date] : [];
+        const source = typeof data.source === "string" ? data.source : "";
+
+        const canReplaceExistingSlate = existingPicks.length === 0
+          || source === "generated_locked"
+          || source === "history_locked";
+
+        if (canReplaceExistingSlate) {
+          store[date] = incomingPicks;
+          saveStore(storageKey, store);
+        }
       }
 
       setAllPicks({ ...store });
