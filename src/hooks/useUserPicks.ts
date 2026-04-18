@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { computeUserPickStats } from "@/lib/user-picks-analytics";
 import type { UserPickRecord, UserPickStatsRecord } from "@/lib/supabase-types";
 
 type UserPicksState = {
@@ -59,8 +60,23 @@ export function useUserPicks(enabled: boolean) {
     });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload?.error || "Failed to create user pick");
-    await reload();
-    return payload?.pick as UserPickRecord | null;
+
+    const createdPick = (payload?.pick as UserPickRecord | null) ?? null;
+    if (createdPick) {
+      setState((current) => {
+        const nextPicks = [createdPick, ...current.picks.filter((pick) => pick.id !== createdPick.id)];
+        return {
+          loading: false,
+          picks: nextPicks,
+          stats: computeUserPickStats(nextPicks),
+          error: null,
+        };
+      });
+    } else {
+      await reload();
+    }
+
+    return createdPick;
   }, [reload]);
 
   return {

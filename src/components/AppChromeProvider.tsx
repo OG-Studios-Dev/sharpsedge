@@ -210,7 +210,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     addPickFromDraft: async (draft, units) => {
       if (viewer.user?.id) {
         try {
-          await userPicksState.createPick({
+          const createdPick = await userPicksState.createPick({
             source_type: draft.sourceKind === "team_trend" ? "team_trend" : draft.sourceKind === "prop" ? "prop" : "ai_pick",
             kind: "single",
             status: "pending",
@@ -230,6 +230,9 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
             metadata: { is_away: !!draft.isAway, type: draft.type },
             locked_snapshot: draft,
           });
+          if (createdPick) {
+            setMyPicks((current) => [mapUserPickToMyPickEntry(createdPick), ...current.filter((pick) => pick.id !== createdPick.id)]);
+          }
           setPickDraft(null);
           return { ok: true };
         } catch (error) {
