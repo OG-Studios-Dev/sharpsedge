@@ -209,32 +209,28 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     myPicks,
     addPickFromDraft: async (draft, units) => {
       if (viewer.user?.id) {
-        try {
-          await userPicksState.createPick({
-            source_type: draft.sourceKind === "team_trend" ? "team_trend" : draft.sourceKind === "prop" ? "prop" : "ai_pick",
-            kind: "single",
-            status: "pending",
-            source_id: draft.sourceId,
-            league: draft.league,
-            game_date: draft.gameDate,
-            game_id: draft.gameId,
-            team: draft.team,
-            opponent: draft.opponent,
-            player_name: draft.playerName,
-            pick_label: draft.summary,
-            detail: draft.detail,
-            line: draft.line,
-            odds: draft.odds,
-            book: draft.book,
-            units,
-            metadata: { is_away: !!draft.isAway, type: draft.type },
-            locked_snapshot: draft,
-          });
-          setPickDraft(null);
-          return;
-        } catch {
-          // fall through to local backup
-        }
+        await userPicksState.createPick({
+          source_type: draft.sourceKind === "team_trend" ? "team_trend" : draft.sourceKind === "prop" ? "prop" : "ai_pick",
+          kind: "single",
+          status: "pending",
+          source_id: draft.sourceId,
+          league: draft.league,
+          game_date: draft.gameDate,
+          game_id: draft.gameId,
+          team: draft.team,
+          opponent: draft.opponent,
+          player_name: draft.playerName,
+          pick_label: draft.summary,
+          detail: draft.detail,
+          line: draft.line,
+          odds: draft.odds,
+          book: draft.book,
+          units,
+          metadata: { is_away: !!draft.isAway, type: draft.type },
+          locked_snapshot: draft,
+        });
+        setPickDraft(null);
+        return;
       }
 
       setMyPicks((current) => {
@@ -250,15 +246,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         return syncMyPicks([createParlayPick(selected, units), ...current]);
       });
     },
-    setMyPickResult: async (id, result) => {
-      if (viewer.user?.id) {
-        try {
-          await userPicksState.updateStatus(id, result);
-          return;
-        } catch {
-          // fall back to local update
-        }
-      }
+    setMyPickResult: (id, result) => {
+      if (viewer.user?.id) return;
 
       setMyPicks((current) => {
         const next = current.map((pick) => {
@@ -278,15 +267,8 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         return syncMyPicks(next);
       });
     },
-    removeMyPick: async (id) => {
-      if (viewer.user?.id) {
-        try {
-          await userPicksState.deletePick(id);
-          return;
-        } catch {
-          // fall back to local delete
-        }
-      }
+    removeMyPick: (id) => {
+      if (viewer.user?.id) return;
       setMyPicks((current) => syncMyPicks(current.filter((pick) => pick.id !== id)));
     },
   }), [isMenuOpen, myPicks, pickDraft, shortcuts, userPicksState, viewer]);

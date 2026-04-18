@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCurrentUserPick, deleteCurrentUserPick, listCurrentUserPicks, updateCurrentUserPickStatus } from "@/lib/user-picks-store";
+import { createCurrentUserPick, listCurrentUserPicks } from "@/lib/user-picks-store";
 
 export const dynamic = "force-dynamic";
 
@@ -33,33 +33,16 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
-  try {
-    const body = await req.json();
-    if (!body?.id || !body?.status) {
-      return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
-    }
-
-    const pick = await updateCurrentUserPickStatus(body.id, body.status);
-    return NextResponse.json({ ok: true, pick });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update user pick" },
-      { status: String(error).includes("Unauthorized") ? 401 : 500 },
-    );
-  }
+export async function PATCH() {
+  return NextResponse.json(
+    { error: "User picks are locked after save. Status changes must come from verified grading, not client edits." },
+    { status: 405 },
+  );
 }
 
-export async function DELETE(req: NextRequest) {
-  try {
-    const id = req.nextUrl.searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-    await deleteCurrentUserPick(id);
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to delete user pick" },
-      { status: String(error).includes("Unauthorized") ? 401 : 500 },
-    );
-  }
+export async function DELETE() {
+  return NextResponse.json(
+    { error: "User picks cannot be deleted from the client once saved." },
+    { status: 405 },
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { UserPickRecord, UserPickStatsRecord, UserPickStatus } from "@/lib/supabase-types";
+import type { UserPickRecord, UserPickStatsRecord } from "@/lib/supabase-types";
 
 type UserPicksState = {
   loading: boolean;
@@ -63,32 +63,9 @@ export function useUserPicks(enabled: boolean) {
     return payload?.pick as UserPickRecord | null;
   }, [reload]);
 
-  const updateStatus = useCallback(async (id: string, status: UserPickStatus) => {
-    const response = await fetch("/api/user-picks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error || "Failed to update user pick");
-    await reload();
-    return payload?.pick as UserPickRecord | null;
-  }, [reload]);
-
-  const deletePick = useCallback(async (id: string) => {
-    const response = await fetch(`/api/user-picks?id=${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload?.error || "Failed to delete user pick");
-    await reload();
-  }, [reload]);
-
   return {
     ...state,
     reload,
     createPick,
-    updateStatus,
-    deletePick,
   };
 }
