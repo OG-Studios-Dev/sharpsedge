@@ -23,7 +23,7 @@ export default function AddPickModal() {
   if (!pickDraft) return null;
 
   return (
-    <div className="fixed inset-0 z-[90]">
+    <div className="fixed inset-0 z-[110] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/60"
@@ -31,11 +31,11 @@ export default function AddPickModal() {
         aria-label="Close add pick modal"
       />
 
-      <div className="absolute inset-x-0 bottom-0 animate-slide-up rounded-t-[28px] border-t border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] max-h-[92vh] overflow-hidden">
-        <div className="mx-auto flex max-w-lg flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+      <div className="relative z-[111] flex max-h-[100dvh] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
+        <div className="mx-auto flex w-full min-h-0 flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
           <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-dark-border" />
 
-          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
             <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
               <p className="section-heading">Add To My Picks</p>
               <h3 className="mt-2 text-lg font-semibold text-white">{pickDraft.summary}</h3>
