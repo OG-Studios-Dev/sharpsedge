@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import PlayerAvatar from "./PlayerAvatar";
 import TrendIndicatorDots from "./TrendIndicatorDots";
@@ -5,8 +7,12 @@ import TrendSplitBars from "./TrendSplitBars";
 import { PlayerProp } from "@/lib/types";
 import { formatTrendOdds, getPlayerTrendHrefFromProp } from "@/lib/player-trend";
 import { getTeamHref } from "@/lib/drill-down";
+import { useAppChrome } from "@/components/AppChromeProvider";
+import { createDraftFromProp } from "@/lib/my-picks";
 
 export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
+  const { openAddPickModal } = useAppChrome();
+
   return (
     <Link
       href={getPlayerTrendHrefFromProp(prop)}
@@ -36,7 +42,21 @@ export default function TrendPropCard({ prop }: { prop: PlayerProp }) {
                   )}
                 </div>
               </div>
-              <TrendIndicatorDots indicators={prop.indicators} size="sm" />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openAddPickModal(createDraftFromProp(prop));
+                  }}
+                  className="tap-button inline-flex h-9 w-9 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
+                  aria-label={`Add ${prop.playerName} to My Picks`}
+                >
+                  +
+                </button>
+                <TrendIndicatorDots indicators={prop.indicators} size="sm" />
+              </div>
             </div>
           </div>
         </div>
