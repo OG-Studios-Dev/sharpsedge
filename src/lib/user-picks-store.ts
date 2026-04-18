@@ -1,6 +1,7 @@
 import type { UserPickRecord, UserPickStatsRecord, UserPickStatus } from "@/lib/supabase-types";
 import { createServerClient } from "@/lib/supabase-server";
 import { buildCanonicalInputFromUserPick, createUserPickEntry } from "@/lib/canonical-picks-store";
+import { computeUserPickStats } from "@/lib/user-picks-analytics";
 
 export type CreateUserPickInput = {
   source_type: UserPickRecord["source_type"];
@@ -184,5 +185,8 @@ export async function getCurrentUserPickStats() {
   const userId = await requireUserId();
   const supabase = createServerClient();
   const rows = await supabase.postgrest<any[]>(`/rest/v1/user_pick_stats?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
-  return rows[0] ? normalizeUserPickStatsRow(rows[0]) : null;
+  if (rows[0]) return normalizeUserPickStatsRow(rows[0]);
+
+  const picks = await listCurrentUserPicks(1000);
+  return computeUserPickStats(picks, userId);
 }
