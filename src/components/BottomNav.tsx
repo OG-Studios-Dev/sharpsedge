@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BOTTOM_NAV_ITEM_IDS, getNavItemById } from "@/lib/app-nav";
@@ -11,15 +13,20 @@ function isActivePath(pathname: string, href: string) {
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const isHidden = pathname === "/login" || pathname === "/signup" || pathname.startsWith("/admin");
 
-  if (isHidden) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (isHidden || !mounted || typeof document === "undefined") {
     return null;
   }
 
   const gridColsClass = BOTTOM_NAV_ITEM_IDS.length === 6 ? "grid-cols-6" : "grid-cols-5";
 
-  return (
+  return createPortal(
     <nav className="fixed inset-x-0 bottom-0 z-[100] h-16 w-full translate-y-0 transform-gpu safe-bottom border-t border-dark-border bg-dark-bg/95 backdrop-blur-sm [will-change:transform] [backface-visibility:hidden] lg:hidden">
       <div className={`mx-auto grid h-16 w-full max-w-lg ${gridColsClass}`}>
         {BOTTOM_NAV_ITEM_IDS.map((itemId) => {
@@ -39,6 +46,7 @@ export default function BottomNav() {
           );
         })}
       </div>
-    </nav>
+    </nav>,
+    document.body,
   );
 }
