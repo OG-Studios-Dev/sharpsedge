@@ -23,7 +23,7 @@ export default function AddPickModal() {
   if (!pickDraft) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-end justify-center p-0 sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[110] flex items-end justify-center overflow-y-auto overscroll-contain p-0 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/60"
@@ -31,8 +31,8 @@ export default function AddPickModal() {
         aria-label="Close add pick modal"
       />
 
-      <div className="relative z-[111] flex max-h-[100dvh] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
-        <div className="mx-auto flex w-full min-h-0 flex-col px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+      <div className="relative z-[111] flex max-h-[85vh] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
+        <div className="mx-auto flex w-full min-h-0 flex-col px-4 pt-4">
           <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-dark-border" />
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
@@ -74,7 +74,7 @@ export default function AddPickModal() {
             </div>
           </div>
 
-          <div className="border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pt-3">
+          <div className="sticky bottom-0 border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <div className="flex gap-3">
               <button
                 type="button"
