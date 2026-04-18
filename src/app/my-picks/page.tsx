@@ -134,6 +134,7 @@ export default function MyPicksPage() {
   const [historyMode, setHistoryMode] = useState<HistoryMode>("house");
   const [userBucketMode, setUserBucketMode] = useState<UserBucketMode>("day");
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [expandedPickId, setExpandedPickId] = useState<string | null>(null);
 
   const historyItems = useMemo(() => historyPicks.map(mapRecordToHistoryItem), [historyPicks]);
   const summary = computePickHistorySummary(historyPicks);
@@ -211,42 +212,51 @@ export default function MyPicksPage() {
 
         {expandedDate === bucket.key && (
           <div className="divide-y divide-dark-border/30 border-t border-dark-border/40">
-            {picks.map((pick) => (
-              <div
-                key={pick.id}
-                className={`px-4 py-3 flex items-center gap-3 ${
-                  pick.result === "win" ? "border-l-2 border-l-emerald-500" :
-                  pick.result === "loss" ? "border-l-2 border-l-red-500" :
-                  pick.result === "push" || pick.result === "void" || pick.result === "cancelled" ? "border-l-2 border-l-yellow-500" :
-                  "border-l-2 border-l-gray-600"
-                }`}
-              >
-                <TeamLogo team={pick.team} size={24} color={pick.teamColor} sport={pick.league || undefined} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-white text-xs font-medium truncate">{pick.pickLabel}</p>
-                    {pick.league && <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent}</p>
+            {picks.map((pick) => {
+              const isExpanded = expandedPickId === pick.id;
+              return (
+                <div key={pick.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedPickId(isExpanded ? null : pick.id)}
+                    className={`tap-button flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+                      pick.result === "win" ? "border-l-2 border-l-emerald-500" :
+                      pick.result === "loss" ? "border-l-2 border-l-red-500" :
+                      pick.result === "push" || pick.result === "void" || pick.result === "cancelled" ? "border-l-2 border-l-yellow-500" :
+                      "border-l-2 border-l-gray-600"
+                    }`}
+                  >
+                    <TeamLogo team={pick.team} size={20} color={pick.teamColor} sport={pick.league || undefined} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-white">{pick.pickLabel}</p>
+                    </div>
                     {typeof pick.odds === "number" && Number.isFinite(pick.odds) && pick.odds !== 0 && (
-                      <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">{formatAmericanOdds(pick.odds)}</span>
+                      <span className="shrink-0 text-[10px] text-gray-500">{formatAmericanOdds(pick.odds)}</span>
                     )}
-                    <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">{pick.units}u</span>
-                    {pick.detail && <span className="text-[9px] text-gray-600 truncate max-w-[220px]">{pick.detail}</span>}
-                  </div>
+                    <span className="shrink-0 text-[10px] text-gray-500">{pick.units}u</span>
+                    <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                      pick.result === "win" ? "bg-emerald-500/10 text-emerald-400" :
+                      pick.result === "loss" ? "bg-red-500/10 text-red-400" :
+                      pick.result === "push" || pick.result === "void" || pick.result === "cancelled" ? "bg-yellow-500/10 text-yellow-400" :
+                      "bg-dark-bg/60 text-gray-400"
+                    }`}>
+                      {pick.result === "win" ? "W" : pick.result === "loss" ? "L" : pick.result === "push" || pick.result === "void" || pick.result === "cancelled" ? "P" : "PD"}
+                    </span>
+                    <ChevronDown size={12} className={`shrink-0 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                  </button>
+                  {isExpanded && (
+                    <div className="border-t border-dark-border/20 bg-dark-bg/30 px-4 py-2 text-[11px] text-gray-400">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>{pick.team} vs {pick.opponent}</span>
+                        {pick.league && <span className="uppercase text-gray-500">{pick.league}</span>}
+                        {pick.playerName && <span>{pick.playerName}</span>}
+                        {pick.detail && <span className="text-gray-500">{pick.detail}</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {pick.result === "win" ? (
-                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>
-                ) : pick.result === "loss" ? (
-                  <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✕</span>
-                ) : pick.result === "push" || pick.result === "void" || pick.result === "cancelled" ? (
-                  <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
-                ) : (
-                  <span className="text-xs font-bold text-gray-400 bg-dark-bg/60 rounded-lg px-2.5 py-1">Pending</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -457,44 +467,51 @@ export default function MyPicksPage() {
 
                       {expandedDate === date && (
                         <div className="divide-y divide-dark-border/30 border-t border-dark-border/40">
-                          {filtered.map((pick) => (
-                            <div
-                              key={pick.id}
-                              className={`px-4 py-3 flex items-center gap-3 ${
-                                pick.result === "win" ? "border-l-2 border-l-emerald-500" :
-                                pick.result === "loss" ? "border-l-2 border-l-red-500" :
-                                pick.result === "push" ? "border-l-2 border-l-yellow-500" :
-                                "border-l-2 border-l-gray-600"
-                              }`}
-                            >
-                              <TeamLogo team={pick.team} size={24} color={pick.teamColor} sport={pick.league || undefined} />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-white text-xs font-medium truncate">{pick.pickLabel}</p>
-                                  {pick.league && (
-                                    <span className="text-[9px] text-gray-600 uppercase shrink-0">{pick.league}</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <p className="text-gray-500 text-[10px]">{pick.team} vs {pick.opponent}</p>
-                                  <span className="text-[9px] text-gray-600">{displayHitRate(pick.hitRate)} hit · {displayEdge(pick.edge)} edge</span>
+                          {filtered.map((pick) => {
+                            const isExpanded = expandedPickId === pick.id;
+                            return (
+                              <div key={pick.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedPickId(isExpanded ? null : pick.id)}
+                                  className={`tap-button flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+                                    pick.result === "win" ? "border-l-2 border-l-emerald-500" :
+                                    pick.result === "loss" ? "border-l-2 border-l-red-500" :
+                                    pick.result === "push" ? "border-l-2 border-l-yellow-500" :
+                                    "border-l-2 border-l-gray-600"
+                                  }`}
+                                >
+                                  <TeamLogo team={pick.team} size={20} color={pick.teamColor} sport={pick.league || undefined} />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-medium text-white">{pick.pickLabel}</p>
+                                  </div>
                                   {typeof pick.odds === "number" && Number.isFinite(pick.odds) && pick.odds !== 0 && (
-                                    <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">{formatAmericanOdds(pick.odds)}</span>
+                                    <span className="shrink-0 text-[10px] text-gray-500">{formatAmericanOdds(pick.odds)}</span>
                                   )}
-                                  <span className="text-[9px] text-gray-500 bg-dark-bg/60 rounded px-1.5 py-0.5">{pick.units}u</span>
-                                </div>
+                                  <span className="shrink-0 text-[10px] text-gray-500">{pick.units}u</span>
+                                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                                    pick.result === "win" ? "bg-emerald-500/10 text-emerald-400" :
+                                    pick.result === "loss" ? "bg-red-500/10 text-red-400" :
+                                    pick.result === "push" ? "bg-yellow-500/10 text-yellow-400" :
+                                    "bg-dark-bg/60 text-gray-400"
+                                  }`}>
+                                    {pick.result === "win" ? "W" : pick.result === "loss" ? "L" : pick.result === "push" ? "P" : "PD"}
+                                  </span>
+                                  <ChevronDown size={12} className={`shrink-0 text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                </button>
+                                {isExpanded && (
+                                  <div className="border-t border-dark-border/20 bg-dark-bg/30 px-4 py-2 text-[11px] text-gray-400">
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                      <span>{pick.team} vs {pick.opponent}</span>
+                                      <span className="uppercase text-gray-500">{pick.league}</span>
+                                      <span>{displayHitRate(pick.hitRate)} hit</span>
+                                      <span>{displayEdge(pick.edge)} edge</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                              {pick.result === "win" ? (
-                                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 rounded-lg px-2.5 py-1">W ✓</span>
-                              ) : pick.result === "loss" ? (
-                                <span className="text-xs font-bold text-red-400 bg-red-500/10 rounded-lg px-2.5 py-1">L ✕</span>
-                              ) : pick.result === "push" ? (
-                                <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 rounded-lg px-2.5 py-1">P</span>
-                              ) : (
-                                <span className="text-xs font-bold text-gray-400 bg-dark-bg/60 rounded-lg px-2.5 py-1">Pending</span>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
