@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBDashboardData } from "@/lib/mlb-live-data";
+import { isWithinOddsCap } from "@/lib/goose-model/generator";
 import { selectMLBTopPicks } from "@/lib/picks-engine";
 import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
@@ -52,10 +53,11 @@ function buildEphemeralIntegrity(
   };
 }
 
-function pickMeetsCurrentMLBGate(pick: { hitRate?: number; edge?: number }) {
+function pickMeetsCurrentMLBGate(pick: { hitRate?: number; edge?: number; odds?: number | null }) {
   const hitRate = typeof pick.hitRate === "number" ? pick.hitRate : 0;
   const edge = typeof pick.edge === "number" ? pick.edge : 0;
-  return hitRate >= 72 && edge >= 12;
+  const odds = typeof pick.odds === "number" ? pick.odds : null;
+  return hitRate >= 72 && edge >= 12 && isWithinOddsCap(odds);
 }
 
 async function repairStoredMLBSlate(date: string, keepPicks: any[], removeIds: string[]) {
@@ -124,9 +126,9 @@ export async function GET(req: NextRequest) {
     const picks = selectMLBTopPicks(props, teamTrends, date);
 
     if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
-      const staleRows = lockedSlate.records.filter((row) => !pickMeetsCurrentMLBGate({ hitRate: row.hit_rate ?? undefined, edge: row.edge ?? undefined }));
+      const staleRows = lockedSlate.records.filter((row) => !pickMeetsCurrentMLBGate({ hitRate: row.hit_rate ?? undefined, edge: row.edge ?? undefined, odds: row.odds ?? undefined }));
       if (staleRows.length > 0) {
-        const keepPicks = lockedSlate.picks.filter((pick) => pickMeetsCurrentMLBGate({ hitRate: pick.hitRate, edge: pick.edge }));
+        const keepPicks = lockedSlate.picks.filter((pick) => pickMeetsCurrentMLBGate({ hitRate: pick.hitRate, edge: pick.edge, odds: pick.odds }));
         await repairStoredMLBSlate(date, keepPicks, staleRows.map((row) => row.id));
         const repaired = await getStoredPickSlate(date, "MLB");
         return NextResponse.json(
