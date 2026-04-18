@@ -15,6 +15,9 @@ export default function AddPickModal() {
   } = useAppChrome();
   const [units, setUnits] = useState(1);
   const [mounted, setMounted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -24,17 +27,37 @@ export default function AddPickModal() {
   useEffect(() => {
     if (pickDraft) {
       setUnits(1);
+      setSaving(false);
+      setError(null);
+      setSaved(false);
     }
   }, [pickDraft]);
 
   if (!pickDraft || !mounted) return null;
+
+  async function handleSave() {
+    if (saving || !pickDraft) return;
+    const draft = pickDraft;
+    setSaving(true);
+    setError(null);
+
+    const result = await addPickFromDraft(draft, units);
+    if (!result.ok) {
+      setSaving(false);
+      setError(result.error || "Failed to save pick");
+      return;
+    }
+
+    setSaved(true);
+    setSaving(false);
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0"
-        onClick={closeAddPickModal}
+        onClick={saving ? undefined : closeAddPickModal}
         aria-label="Close add pick modal"
       />
 
@@ -44,6 +67,16 @@ export default function AddPickModal() {
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
             <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
+              {error && (
+                <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200">
+                  {error}
+                </div>
+              )}
+              {saved && (
+                <div className="mb-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200">
+                  Pick saved.
+                </div>
+              )}
               <p className="section-heading">Add To My Picks</p>
               <h3 className="mt-2 text-lg font-semibold text-white">{pickDraft.summary}</h3>
               <p className="mt-2 text-sm text-gray-400">{pickDraft.detail}</p>
@@ -86,16 +119,18 @@ export default function AddPickModal() {
               <button
                 type="button"
                 onClick={closeAddPickModal}
-                className="tap-button inline-flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-dark-border bg-dark-surface px-4 text-sm font-semibold text-white"
+                disabled={saving}
+                className="tap-button inline-flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-dark-border bg-dark-surface px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => addPickFromDraft(pickDraft, units)}
-                className="tap-button inline-flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-accent-blue/30 bg-accent-blue/10 px-4 text-sm font-semibold text-accent-blue"
+                onClick={handleSave}
+                disabled={saving}
+                className="tap-button inline-flex min-h-[48px] flex-1 items-center justify-center rounded-2xl border border-accent-blue/30 bg-accent-blue/10 px-4 text-sm font-semibold text-accent-blue disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Save Pick
+                {saving ? "Saving..." : "Save Pick"}
               </button>
             </div>
           </div>

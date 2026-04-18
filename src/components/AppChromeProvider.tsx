@@ -50,7 +50,7 @@ type AppChromeContextValue = {
   openAddPickModal: (draft: MyPickDraft) => void;
   closeAddPickModal: () => void;
   myPicks: MyPickEntry[];
-  addPickFromDraft: (draft: MyPickDraft, units: number) => void;
+  addPickFromDraft: (draft: MyPickDraft, units: number) => Promise<{ ok: boolean; error?: string }>;
   buildParlay: (pickIds: string[], units?: number) => void;
   setMyPickResult: (id: string, result: MyPickResult) => void;
   removeMyPick: (id: string) => void;
@@ -209,28 +209,35 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
     myPicks,
     addPickFromDraft: async (draft, units) => {
       if (viewer.user?.id) {
-        await userPicksState.createPick({
-          source_type: draft.sourceKind === "team_trend" ? "team_trend" : draft.sourceKind === "prop" ? "prop" : "ai_pick",
-          kind: "single",
-          status: "pending",
-          source_id: draft.sourceId,
-          league: draft.league,
-          game_date: draft.gameDate,
-          game_id: draft.gameId,
-          team: draft.team,
-          opponent: draft.opponent,
-          player_name: draft.playerName,
-          pick_label: draft.summary,
-          detail: draft.detail,
-          line: draft.line,
-          odds: draft.odds,
-          book: draft.book,
-          units,
-          metadata: { is_away: !!draft.isAway, type: draft.type },
-          locked_snapshot: draft,
-        });
-        setPickDraft(null);
-        return;
+        try {
+          await userPicksState.createPick({
+            source_type: draft.sourceKind === "team_trend" ? "team_trend" : draft.sourceKind === "prop" ? "prop" : "ai_pick",
+            kind: "single",
+            status: "pending",
+            source_id: draft.sourceId,
+            league: draft.league,
+            game_date: draft.gameDate,
+            game_id: draft.gameId,
+            team: draft.team,
+            opponent: draft.opponent,
+            player_name: draft.playerName,
+            pick_label: draft.summary,
+            detail: draft.detail,
+            line: draft.line,
+            odds: draft.odds,
+            book: draft.book,
+            units,
+            metadata: { is_away: !!draft.isAway, type: draft.type },
+            locked_snapshot: draft,
+          });
+          setPickDraft(null);
+          return { ok: true };
+        } catch (error) {
+          return {
+            ok: false,
+            error: error instanceof Error ? error.message : "Failed to save pick",
+          };
+        }
       }
 
       setMyPicks((current) => {
@@ -238,6 +245,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
         return next;
       });
       setPickDraft(null);
+      return { ok: true };
     },
     buildParlay: (pickIds, units = 1) => {
       setMyPicks((current) => {
