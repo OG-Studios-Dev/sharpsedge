@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppChrome } from "@/components/AppChromeProvider";
 import { formatAmericanOdds } from "@/lib/my-picks";
 
@@ -13,6 +14,12 @@ export default function AddPickModal() {
     addPickFromDraft,
   } = useAppChrome();
   const [units, setUnits] = useState(1);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     if (pickDraft) {
@@ -20,9 +27,9 @@ export default function AddPickModal() {
     }
   }, [pickDraft]);
 
-  if (!pickDraft) return null;
+  if (!pickDraft || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[110] flex items-end justify-center overflow-y-auto overscroll-contain p-0 sm:items-center sm:p-4">
       <button
         type="button"
@@ -94,6 +101,7 @@ export default function AddPickModal() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
