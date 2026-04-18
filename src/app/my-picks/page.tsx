@@ -257,7 +257,7 @@ export default function MyPicksPage() {
     <main className="mx-auto min-h-screen max-w-6xl bg-dark-bg pb-24 lg:px-0">
       <PageHeader title="My Picks" subtitle="Daily summary, results, units, and every settled pick." />
 
-      <LockedFeature feature="my_picks">
+      <>
         <div className="space-y-4 px-4 py-4 lg:px-0">
           <section className="rounded-2xl border border-dark-border bg-dark-surface p-4 transition-colors hover:border-accent-blue/30">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -564,7 +564,7 @@ export default function MyPicksPage() {
             </>
           )}
         </div>
-      </LockedFeature>
+      </>
     </main>
   );
 }

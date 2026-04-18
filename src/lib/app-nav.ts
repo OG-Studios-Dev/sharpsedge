@@ -124,8 +124,6 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     emoji: "📝",
     group: "tools",
     shortcutEligible: true,
-    tierFeature: "my_picks",
-    badge: "sharp",
   },
   {
     id: "search",

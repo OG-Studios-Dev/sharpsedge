@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBDashboardData } from "@/lib/mlb-live-data";
-import { isWithinOddsCap } from "@/lib/goose-model/generator";
 import { selectMLBTopPicks } from "@/lib/picks-engine";
 import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
@@ -53,11 +52,16 @@ function buildEphemeralIntegrity(
   };
 }
 
+function isPickableMLBOdds(odds?: number | null) {
+  if (typeof odds !== "number") return true;
+  return odds >= -200 && odds <= 300;
+}
+
 function pickMeetsCurrentMLBGate(pick: { hitRate?: number; edge?: number; odds?: number | null }) {
   const hitRate = typeof pick.hitRate === "number" ? pick.hitRate : 0;
   const edge = typeof pick.edge === "number" ? pick.edge : 0;
   const odds = typeof pick.odds === "number" ? pick.odds : null;
-  return hitRate >= 72 && edge >= 12 && isWithinOddsCap(odds);
+  return hitRate >= 72 && edge >= 12 && isPickableMLBOdds(odds);
 }
 
 async function repairStoredMLBSlate(date: string, keepPicks: any[], removeIds: string[]) {
