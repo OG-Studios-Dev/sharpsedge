@@ -30,6 +30,7 @@ type StoreDailyPickSlateOptions = {
   provenance?: PickHistoryProvenance;
   provenanceNote?: string | null;
   mode?: PickHistoryWriteMode;
+  allowRecovery?: boolean;
 };
 
 function serviceHeaders(extra?: HeadersInit) {
@@ -435,6 +436,7 @@ export async function storeDailyPickSlate(
   const mode = options.mode ?? "original";
   const provenance = options.provenance ?? (mode === "manual_repair" ? "manual_repair" : "original");
   const provenanceNote = options.provenanceNote ?? null;
+  const allowRecovery = options.allowRecovery ?? mode === "manual_repair";
 
   try {
     await insertPickSlate(options.date, options.league, provenance, provenanceNote);
@@ -443,7 +445,7 @@ export async function storeDailyPickSlate(
     if (!isConflictError(message)) throw error;
 
     const existing = await getStoredPickSlate(options.date, options.league);
-    if (shouldRecoverStoredSlate(existing.slate, existing.records)) {
+    if (allowRecovery && shouldRecoverStoredSlate(existing.slate, existing.records)) {
       return hydrateRecoverableSlate(existing, picks, options);
     }
 

@@ -3,7 +3,6 @@ import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBDashboardData } from "@/lib/mlb-live-data";
 import { selectMLBTopPicks } from "@/lib/picks-engine";
 import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
-import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { shouldRecoverStoredSlate } from "@/lib/pick-history-integrity";
 
 export const dynamic = "force-dynamic";
@@ -64,55 +63,6 @@ function pickMeetsCurrentMLBGate(pick: { hitRate?: number; edge?: number; odds?:
   return hitRate >= 72 && edge >= 12 && isPickableMLBOdds(odds);
 }
 
-async function repairStoredMLBSlate(date: string, keepPicks: any[], removeIds: string[]) {
-  const supabaseUrl = getSupabaseUrl();
-  const serviceKey = getSupabaseServiceRoleKey();
-
-  if (removeIds.length > 0) {
-    const filters = removeIds.map((id) => `id.eq.${encodeURIComponent(id)}`).join(",");
-    const deleteResponse = await fetch(`${supabaseUrl}/rest/v1/pick_history?or=(${filters})`, {
-      method: "DELETE",
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        Prefer: "return=minimal",
-      },
-      cache: "no-store",
-    });
-
-    if (!deleteResponse.ok) {
-      const detail = await deleteResponse.text();
-      throw new Error(`Failed to delete stale MLB picks: ${detail}`);
-    }
-  }
-
-  const patchResponse = await fetch(`${supabaseUrl}/rest/v1/pick_slates?date=eq.${encodeURIComponent(date)}&league=eq.MLB`, {
-    method: "PATCH",
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      pick_count: keepPicks.length,
-      status: keepPicks.length > 0 ? "locked" : "incomplete",
-      provenance: "manual_repair",
-      provenance_note: "Auto-rewritten same day after tightened MLB production gate removed stale picks.",
-      status_note: keepPicks.length > 0
-        ? `Auto-rewrite removed ${removeIds.length} MLB pick(s) that failed the current production gate.`
-        : "Auto-rewrite removed all MLB picks because none passed the current production gate.",
-      updated_at: new Date().toISOString(),
-    }),
-    cache: "no-store",
-  });
-
-  if (!patchResponse.ok) {
-    const detail = await patchResponse.text();
-    throw new Error(`Failed to patch MLB slate metadata: ${detail}`);
-  }
-}
-
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), MLB_TIME_ZONE);
 
@@ -130,28 +80,6 @@ export async function GET(req: NextRequest) {
     const picks = selectMLBTopPicks(props, teamTrends, date);
 
     if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
-      const staleRows = lockedSlate.records.filter((row) => !pickMeetsCurrentMLBGate({ hitRate: row.hit_rate ?? undefined, edge: row.edge ?? undefined, odds: row.odds ?? undefined }));
-      if (staleRows.length > 0) {
-        const keepPicks = lockedSlate.picks.filter((pick) => pickMeetsCurrentMLBGate({ hitRate: pick.hitRate, edge: pick.edge, odds: pick.odds }));
-        await repairStoredMLBSlate(date, keepPicks, staleRows.map((row) => row.id));
-        const repaired = await getStoredPickSlate(date, "MLB");
-        return NextResponse.json(
-          {
-            picks: repaired.picks,
-            date,
-            source: "history_rewritten",
-            integrity: repaired.slate,
-            meta: {
-              propsConsidered: props.length,
-              trendsConsidered: teamTrends.length,
-              gamesActive: todayIds.size,
-              removedStalePickCount: staleRows.length,
-            },
-          },
-          { status: repaired.slate?.integrity_status === "incomplete" ? 409 : 200 },
-        );
-      }
-
       return NextResponse.json(
         {
           picks: lockedSlate.picks,
@@ -187,6 +115,7 @@ export async function GET(req: NextRequest) {
       const stored = await storeDailyPickSlate(normalizedPicks, {
         date,
         league: "MLB",
+        allowRecovery: false,
       });
 
       return NextResponse.json(

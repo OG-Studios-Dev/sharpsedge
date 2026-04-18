@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
       const stored = await storeDailyPickSlate(normalizedPicks, {
         date: tournamentDateKey,
         league: "PGA",
+        allowRecovery: false,
       });
 
       console.log("[api/golf/picks] stored", {

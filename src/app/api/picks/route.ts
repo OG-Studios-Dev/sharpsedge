@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
       const stored = await storeDailyPickSlate(normalizedPicks, {
         date,
         league: "NHL",
+        allowRecovery: false,
       });
 
       return NextResponse.json(
