@@ -30,7 +30,7 @@ export default function AddPickModal() {
   if (!pickDraft || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 [padding-bottom:calc(env(safe-area-inset-bottom)+4rem)] sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[130] flex items-end justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 [padding-bottom:max(env(safe-area-inset-bottom),0.75rem)] sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0"
@@ -38,11 +38,11 @@ export default function AddPickModal() {
         aria-label="Close add pick modal"
       />
 
-      <div className="relative z-[131] mb-0 flex max-h-[min(82dvh,700px)] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
-        <div className="mx-auto flex w-full min-h-0 flex-col px-4 pt-4">
+      <div className="relative z-[131] mb-0 flex h-[min(72dvh,640px)] w-full max-w-lg animate-slide-up flex-col rounded-t-[28px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_-20px_70px_rgba(0,0,0,0.45)] sm:my-4 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-[28px] overflow-hidden">
+        <div className="mx-auto flex h-full w-full min-h-0 flex-col px-4 pt-4">
           <div className="mx-auto mb-4 h-1.5 w-16 rounded-full bg-dark-border" />
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-3">
             <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
               <p className="section-heading">Add To My Picks</p>
               <h3 className="mt-2 text-lg font-semibold text-white">{pickDraft.summary}</h3>
@@ -81,7 +81,7 @@ export default function AddPickModal() {
             </div>
           </div>
 
-          <div className="sticky bottom-0 border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="shrink-0 border-t border-dark-border/60 bg-[linear-gradient(180deg,rgba(13,17,24,0)_0%,rgba(13,17,24,0.96)_18%,rgba(13,17,24,1)_100%)] pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <div className="flex gap-3">
               <button
                 type="button"
