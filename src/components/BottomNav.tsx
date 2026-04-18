@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BOTTOM_NAV_ITEM_IDS, getNavItemById } from "@/lib/app-nav";
 import { NavIcon } from "@/components/NavIcon";
+import { useAppChrome } from "@/components/AppChromeProvider";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -14,13 +15,14 @@ function isActivePath(pathname: string, href: string) {
 export default function BottomNav() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
+  const { isAddPickModalOpen } = useAppChrome();
   const isHidden = pathname === "/login" || pathname === "/signup" || pathname.startsWith("/admin");
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (isHidden || !mounted || typeof document === "undefined") {
+  if (isHidden || isAddPickModalOpen || !mounted || typeof document === "undefined") {
     return null;
   }
 

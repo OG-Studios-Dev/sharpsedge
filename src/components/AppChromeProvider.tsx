@@ -47,6 +47,7 @@ type AppChromeContextValue = {
   isShortcutPinned: (id: AppNavItemId) => boolean;
   toggleShortcut: (id: AppNavItemId) => void;
   pickDraft: MyPickDraft | null;
+  isAddPickModalOpen: boolean;
   openAddPickModal: (draft: MyPickDraft) => void;
   closeAddPickModal: () => void;
   myPicks: MyPickEntry[];
@@ -204,6 +205,7 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       });
     },
     pickDraft,
+    isAddPickModalOpen: Boolean(pickDraft),
     openAddPickModal: (draft) => setPickDraft(draft),
     closeAddPickModal: () => setPickDraft(null),
     myPicks,
