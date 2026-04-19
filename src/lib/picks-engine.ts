@@ -347,10 +347,14 @@ function selectVariedPlayerPicks(props: ScoredPlayerProp[], count: number): Scor
 }
 
 // ── Production quality floors (V1 user-facing picks) ─────────────────────────
-// hitRate floor: 65% hard minimum. Below 65 never reaches production — no exceptions.
-// edge floor: 10% minimum model edge over implied odds.
-// These gates apply to NHL, NBA, and MLB picks equally.
-const V1_HIT_RATE_FLOOR = 65;
+// Marco directive (2026-04-18 tightening):
+// - Player props: 70% hard minimum
+// - Team picks: 65% hard minimum
+// - Edge floor: 10% minimum model edge over implied odds
+// This is intentionally tighter for props because weak props were degrading
+// public win rate and trust before the learning model is mature enough.
+const V1_PLAYER_PROP_HIT_RATE_FLOOR = 70;
+const V1_TEAM_HIT_RATE_FLOOR = 65;
 const V1_EDGE_FLOOR = 10;
 
 // ── Volume policy (Marco 2026-04-01, production tightening) ──────────────────
@@ -374,26 +378,33 @@ export function selectTopPicks(
   date: string,
 ): AIPick[] {
   // Pick quality filter:
-  // - 65%+ hit rate AND 10%+ edge: pickable
+  // - Player props: 70%+ hit rate AND 10%+ edge
+  // - Team picks: 65%+ hit rate AND 10%+ edge
   // - Anything below either floor: never pick
   // NOTE: The 60-64% streak exception was removed 2026-03-29 because 60% picks
   // were qualifying daily via the streak path, failing QA gate consistently.
-  function meetsQualityThreshold(hitRate: number, edge?: number): boolean {
+  function meetsPlayerQualityThreshold(hitRate: number, edge?: number): boolean {
     const hr = normalizePercentValue(hitRate);
     const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
-    return hr >= V1_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
+    return hr >= V1_PLAYER_PROP_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
+  }
+
+  function meetsTeamQualityThreshold(hitRate: number, edge?: number): boolean {
+    const hr = normalizePercentValue(hitRate);
+    const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
+    return hr >= V1_TEAM_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
   }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
+    .filter((p) => meetsPlayerQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
     .filter((t) => isVerifiedTeamTrend(t))
-    .filter((t) => meetsQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
+    .filter((t) => meetsTeamQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
@@ -425,23 +436,31 @@ export function selectNBATopPicks(
   teamTrends: TeamTrend[],
   date: string,
 ): AIPick[] {
-  // Apply same V1 quality floors as NHL: 65% hitRate + 10% edge minimum
-  function meetsQualityThreshold(hitRate: number, edge?: number): boolean {
+  // NBA production quality floors:
+  // - Player props: 70%+ hit rate + 10% edge minimum
+  // - Team picks: 65%+ hit rate + 10% edge minimum
+  function meetsPlayerQualityThreshold(hitRate: number, edge?: number): boolean {
     const hr = normalizePercentValue(hitRate);
     const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
-    return hr >= V1_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
+    return hr >= V1_PLAYER_PROP_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
+  }
+
+  function meetsTeamQualityThreshold(hitRate: number, edge?: number): boolean {
+    const hr = normalizePercentValue(hitRate);
+    const e = typeof edge === "number" ? normalizePercentValue(edge) : 0;
+    return hr >= V1_TEAM_HIT_RATE_FLOOR && e >= V1_EDGE_FLOOR;
   }
 
   const scoredProps: ScoredPlayerProp[] = props
     .filter((p) => isPickableOdds(p.odds))
-    .filter((p) => meetsQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
+    .filter((p) => meetsPlayerQualityThreshold(normalizePercentValue(p.hitRate), p.edge))
     .map((p) => ({ ...p, _score: scoreItem(p.hitRate, p.edge) }))
     .sort((a, b) => b._score - a._score);
 
   const scoredTrends: ScoredTeamTrend[] = teamTrends
     .filter((t) => isPickableOdds(t.odds))
     .filter((t) => isVerifiedTeamTrend(t))
-    .filter((t) => meetsQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
+    .filter((t) => meetsTeamQualityThreshold(normalizePercentValue(t.hitRate), t.edge))
     .map((t) => ({ ...t, _score: scoreItem(t.hitRate, t.edge) }))
     .sort((a, b) => b._score - a._score);
 
