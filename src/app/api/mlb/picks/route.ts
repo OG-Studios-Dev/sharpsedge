@@ -88,17 +88,16 @@ export async function GET(req: NextRequest) {
       ? (data.teamTrends || []).filter((trend: any) => !trend.gameId || todayIds.has(trend.gameId))
       : (data.teamTrends || []);
     const picks = selectMLBTopPicks(props, teamTrends, date);
-    const expectedPickCount = picks.length;
-
     if (lockedSlate.slate) {
       const reconciled = await reconcilePickSlateMetrics(date, "MLB", {
         pickCount: lockedSlate.records.length,
-        expectedPickCount,
       });
       if (reconciled) {
         lockedSlate.slate = reconciled;
       }
     }
+
+    const expectedPickCount = picks.length;
 
     if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
       return NextResponse.json(
