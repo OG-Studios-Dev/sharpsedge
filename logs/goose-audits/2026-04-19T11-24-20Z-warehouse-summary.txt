@@ -1,0 +1,15 @@
+Goose warehouse completeness audit
+Checked: 2026-04-19T11:24:19.672Z
+Status: FAIL
+Snapshots last 24h: 0
+Candidates last 24h: 0
+Player prop rows last 24h: 0
+Audited pregame events: 0
+Events missing core markets: 0
+Audited settleable candidates: 1000
+Settleable candidates missing terminal result: 5
+Stale pending qualifiers: 4
+Core coverage by sport: {}
+Supplemental market leaders: []
+Missing terminal by sport: [{"key":"MLB","count":5}]
+Notes: No snapshot rows landed in the last 24h. | No candidate rows landed in the last 24h. | No player-prop candidate rows landed in the last 24h. | 5 settleable candidate row(s) still lack a terminal result. | 4 system qualifier row(s) are still pending after 24h.

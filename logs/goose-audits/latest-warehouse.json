@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-04-19T11:24:20.267Z",
+  "owner": "Magoo",
+  "goal": "daily warehouse completeness proof for future learning models",
+  "audit": {
+    "checkedAt": "2026-04-19T11:24:19.672Z",
+    "ok": false,
+    "summary": "Goose2 warehouse verification failed. snapshots=0, candidates=0, missing_core_events=0, settleable_missing_terminal=5, stale_pending=4.",
+    "counts": {
+      "snapshotsLast24h": 0,
+      "candidatesLast24h": 0,
+      "resultsLast36h": 1000,
+      "stalePendingQualifiers": 4,
+      "auditedPregameEvents": 0,
+      "eventsMissingCoreMarkets": 0,
+      "playerPropRowsLast24h": 0,
+      "auditedSettleableCandidates": 1000,
+      "settleableCandidatesMissingTerminalResult": 5
+    },
+    "capture": {
+      "coreMarkets": [
+        "moneyline",
+        "spread",
+        "total"
+      ],
+      "auditedEventCount": 0,
+      "coreMarketCoverageBySport": {},
+      "supplementalMarketCounts": {},
+      "playerPropRowsLast24h": 0,
+      "playerPropSportsCovered": [],
+      "eventsMissingCoreMarkets": []
+    },
+    "settlement": {
+      "auditedCandidateCount": 1000,
+      "missingTerminalCount": 5,
+      "missingTerminalBySport": {
+        "MLB": 5
+      },
+      "explicitManualReviewCount": 995,
+      "explicitUnresolvableCount": 0,
+      "eventsWithMissingTerminalResults": [
+        {
+          "eventId": "evt:mlb:mlb:mets@cubs:2026-04-17T18",
+          "sport": "MLB",
+          "eventDate": "2026-04-17",
+          "matchup": "Mets @ Cubs",
+          "missingCandidateCount": 5,
+          "sampleMarkets": [
+            "total"
+          ]
+        }
+      ]
+    },
+    "notes": [
+      "No snapshot rows landed in the last 24h.",
+      "No candidate rows landed in the last 24h.",
+      "No player-prop candidate rows landed in the last 24h.",
+      "5 settleable candidate row(s) still lack a terminal result.",
+      "4 system qualifier row(s) are still pending after 24h."
+    ]
+  },
+  "proof": {
+    "missing_core_event_samples": [],
+    "missing_terminal_event_samples": [
+      {
+        "eventId": "evt:mlb:mlb:mets@cubs:2026-04-17T18",
+        "sport": "MLB",
+        "eventDate": "2026-04-17",
+        "matchup": "Mets @ Cubs",
+        "missingCandidateCount": 5,
+        "sampleMarkets": [
+          "total"
+        ]
+      }
+    ],
+    "player_prop_sports_covered": []
+  }
+}

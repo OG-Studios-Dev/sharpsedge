@@ -16,6 +16,7 @@
     "goose2:refresh-trackable-systems": "tsx scripts/goose2-refresh-trackable-systems.mjs",
     "goose2:canonicalize-nhl": "node scripts/canonicalize-goose2-nhl-duplicates.mjs",
     "goose2:finalize-buf-cbj": "node scripts/finalize-goose2-nhl-buf-cbj-merge.mjs",
+    "goose:warehouse-audit": "node scripts/goose-warehouse-completeness-audit.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
     "qa:assets": "node scripts/qa-asset-fallbacks.mjs"
   },
