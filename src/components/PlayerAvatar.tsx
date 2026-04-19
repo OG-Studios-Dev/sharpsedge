@@ -30,15 +30,15 @@ export default function PlayerAvatar({
   const [imageError, setImageError] = useState(false);
 
   const src = useMemo(() => {
-    if (!league || !playerId) {
+    if (!league) {
       return getPlayerHeadshot({ league, playerId, playerName: name, headshot }) || null;
     }
 
     const params = new URLSearchParams({
       league: String(league),
-      playerId: String(playerId),
       proxy: "1",
     });
+    if (playerId != null && String(playerId).trim()) params.set("playerId", String(playerId));
     if (name) params.set("playerName", name);
     if (headshot) params.set("headshot", headshot);
     return `/api/assets/player-headshot?${params.toString()}`;
