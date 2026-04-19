@@ -242,14 +242,13 @@ export function getPlayerHeadshot({
   const normalizedLeague = league?.toUpperCase();
 
   if (normalizedLeague === "NBA") {
-    const mappedEspnId = playerName ? NBA_NAME_TO_ESPN_ID[playerName] : null;
-
-    if (mappedEspnId) {
-      return `https://a.espncdn.com/i/headshots/nba/players/full/${mappedEspnId}.png`;
-    }
-
     if (playerId) {
       return `https://cdn.nba.com/headshots/nba/latest/1040x760/${String(playerId)}.png`;
+    }
+
+    const mappedEspnId = playerName ? NBA_NAME_TO_ESPN_ID[playerName] : null;
+    if (mappedEspnId) {
+      return `https://a.espncdn.com/i/headshots/nba/players/full/${mappedEspnId}.png`;
     }
 
     return null;
