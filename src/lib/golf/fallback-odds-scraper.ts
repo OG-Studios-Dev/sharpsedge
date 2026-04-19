@@ -113,6 +113,8 @@ export async function captureFromOddsApi(): Promise<FallbackCaptureResult[]> {
     normalizeEnv("ODDS_API_KEY"),
     normalizeEnv("ODDS_API_KEY_2"),
     normalizeEnv("ODDS_API_KEY_3"),
+    normalizeEnv("ODDS_API_KEY_4"),
+    normalizeEnv("ODDS_API_KEY_5"),
   ].filter((k) => k && k !== "your_key_here");
   const apiKey = keyPool[0];
   if (!apiKey) {
