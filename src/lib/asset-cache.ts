@@ -53,18 +53,35 @@ async function pgUpsert(rows: object[]): Promise<number> {
 // ─── In-memory per-deploy cache ───────────────────────────────────────────────
 const _memCache = new Map<string, string | null>();
 
+async function firstReachableUrl(urls: Array<string | null | undefined>): Promise<string | null> {
+  for (const candidate of urls) {
+    if (!candidate) continue;
+    if (await verifyUrl(candidate)) return candidate;
+  }
+  return null;
+}
+
+function nbaEspnHeadshotUrl(id: string | number) {
+  return `https://a.espncdn.com/i/headshots/nba/players/full/${id}.png`;
+}
+
 export async function getPlayerHeadshotCached(
   sport: string,
   playerId: string | number,
   cdnFallback: string | null
 ): Promise<string | null> {
-  const key = `${sport.toUpperCase()}:${playerId}`;
+  const normalizedSport = sport.toUpperCase();
+  const key = `${normalizedSport}:${playerId}`;
   if (_memCache.has(key)) return _memCache.get(key)!;
 
   const row = await pgGet<{ headshot_url?: string }>(
     `/rest/v1/player_assets?id=eq.${encodeURIComponent(key)}&select=headshot_url&limit=1`
   );
-  const url = row?.headshot_url || cdnFallback;
+
+  const dbUrl = row?.headshot_url || null;
+  const espnFallback = normalizedSport === "NBA" ? nbaEspnHeadshotUrl(playerId) : null;
+  const url = await firstReachableUrl([dbUrl, cdnFallback, espnFallback]);
+
   _memCache.set(key, url ?? null);
   return url ?? null;
 }
