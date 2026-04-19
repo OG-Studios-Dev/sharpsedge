@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { MLB_TIME_ZONE, getDateKey } from "@/lib/date-utils";
 import { getMLBDashboardData } from "@/lib/mlb-live-data";
 import { selectMLBTopPicks } from "@/lib/picks-engine";
-import { getStoredPickSlate, storeDailyPickSlate } from "@/lib/pick-history-store";
+import { getStoredPickSlate, reconcilePickSlateMetrics, storeDailyPickSlate } from "@/lib/pick-history-store";
 import { shouldRecoverStoredSlate } from "@/lib/pick-history-integrity";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +88,17 @@ export async function GET(req: NextRequest) {
       ? (data.teamTrends || []).filter((trend: any) => !trend.gameId || todayIds.has(trend.gameId))
       : (data.teamTrends || []);
     const picks = selectMLBTopPicks(props, teamTrends, date);
+    const expectedPickCount = picks.length;
+
+    if (lockedSlate.slate) {
+      const reconciled = await reconcilePickSlateMetrics(date, "MLB", {
+        pickCount: lockedSlate.records.length,
+        expectedPickCount,
+      });
+      if (reconciled) {
+        lockedSlate.slate = reconciled;
+      }
+    }
 
     if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
       return NextResponse.json(
@@ -127,6 +138,7 @@ export async function GET(req: NextRequest) {
         date,
         league: "MLB",
         allowRecovery: false,
+        expectedPickCount,
       });
 
       return NextResponse.json(

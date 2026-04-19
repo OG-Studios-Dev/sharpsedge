@@ -31,7 +31,18 @@ type StoreDailyPickSlateOptions = {
   provenanceNote?: string | null;
   mode?: PickHistoryWriteMode;
   allowRecovery?: boolean;
+  expectedPickCount?: number;
 };
+
+function resolveExpectedPickCount(options: StoreDailyPickSlateOptions, picks: AIPick[], existingSlate?: PickSlateRecord | null) {
+  if (typeof options.expectedPickCount === "number" && Number.isFinite(options.expectedPickCount)) {
+    return Math.max(0, options.expectedPickCount);
+  }
+  if (typeof existingSlate?.expected_pick_count === "number" && Number.isFinite(existingSlate.expected_pick_count)) {
+    return Math.max(0, existingSlate.expected_pick_count);
+  }
+  return picks.length;
+}
 
 function serviceHeaders(extra?: HeadersInit) {
   const key = getSupabaseServiceRoleKey();
@@ -209,7 +220,13 @@ async function tryPatchPickSlate(date: string, league: string, patch: Record<str
   }
 }
 
-async function insertPickSlate(date: string, league: string, provenance: PickHistoryProvenance, provenanceNote: string | null) {
+async function insertPickSlate(
+  date: string,
+  league: string,
+  provenance: PickHistoryProvenance,
+  provenanceNote: string | null,
+  expectedPickCount: number,
+) {
   try {
     const rows = await postgrest<any[]>(
       "/rest/v1/pick_slates",
@@ -224,7 +241,7 @@ async function insertPickSlate(date: string, league: string, provenance: PickHis
           status: "incomplete",
           provenance,
           provenance_note: provenanceNote,
-          expected_pick_count: EXPECTED_DAILY_PICK_COUNT,
+          expected_pick_count: expectedPickCount,
           pick_count: 0,
           status_note: "Slate lock created before pick rows were persisted.",
           locked_at: new Date().toISOString(),
@@ -450,6 +467,42 @@ export async function getStoredPickSlate(date: string, league: string): Promise<
   return toFetchResult(reconciledSlate, records);
 }
 
+export async function reconcilePickSlateMetrics(
+  date: string,
+  league: string,
+  metrics: { pickCount?: number; expectedPickCount?: number },
+): Promise<PickSlateRecord | null> {
+  const slate = await readPickSlate(date, league);
+  if (!slate) return null;
+
+  const pickCount = typeof metrics.pickCount === "number" && Number.isFinite(metrics.pickCount)
+    ? metrics.pickCount
+    : slate.pick_count;
+  const expectedPickCount = typeof metrics.expectedPickCount === "number" && Number.isFinite(metrics.expectedPickCount)
+    ? metrics.expectedPickCount
+    : slate.expected_pick_count;
+  const nextStatus = pickCount >= expectedPickCount ? "locked" : "incomplete";
+  const nextStatusNote = pickCount >= expectedPickCount
+    ? null
+    : `Only ${pickCount} of ${expectedPickCount} picks recorded.`;
+
+  if (
+    slate.pick_count === pickCount
+    && slate.expected_pick_count === expectedPickCount
+    && slate.status === nextStatus
+    && slate.status_note === nextStatusNote
+  ) {
+    return slate;
+  }
+
+  return await tryPatchPickSlate(date, league, {
+    pick_count: pickCount,
+    expected_pick_count: expectedPickCount,
+    status: nextStatus,
+    status_note: nextStatusNote,
+  }) ?? slate;
+}
+
 export async function storeDailyPickSlate(
   picks: AIPick[],
   options: StoreDailyPickSlateOptions,
@@ -462,9 +515,10 @@ export async function storeDailyPickSlate(
   const provenance = options.provenance ?? (mode === "manual_repair" ? "manual_repair" : "original");
   const provenanceNote = options.provenanceNote ?? null;
   const allowRecovery = options.allowRecovery ?? mode === "manual_repair";
+  const expectedPickCount = resolveExpectedPickCount(options, picks);
 
   try {
-    await insertPickSlate(options.date, options.league, provenance, provenanceNote);
+    await insertPickSlate(options.date, options.league, provenance, provenanceNote, expectedPickCount);
   } catch (error) {
     const message = toErrorMessage(error);
     if (!isConflictError(message)) throw error;
@@ -483,11 +537,12 @@ export async function storeDailyPickSlate(
   try {
     const records = await insertPickHistory(picks, provenance, provenanceNote);
     const slate = await patchPickSlate(options.date, options.league, {
-      status: records.length >= EXPECTED_DAILY_PICK_COUNT ? "locked" : "incomplete",
+      status: records.length >= expectedPickCount ? "locked" : "incomplete",
+      expected_pick_count: expectedPickCount,
       pick_count: records.length,
-      status_note: records.length >= EXPECTED_DAILY_PICK_COUNT
+      status_note: records.length >= expectedPickCount
         ? null
-        : `Only ${records.length} of ${EXPECTED_DAILY_PICK_COUNT} picks were persisted.`,
+        : `Only ${records.length} of ${expectedPickCount} picks were persisted.`,
     });
 
     return {
@@ -503,11 +558,12 @@ export async function storeDailyPickSlate(
       const refreshed = await getStoredPickSlate(options.date, options.league);
       if (refreshed.records.length > 0) {
         await tryPatchPickSlate(options.date, options.league, {
-          status: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT ? "locked" : "incomplete",
+          status: refreshed.records.length >= expectedPickCount ? "locked" : "incomplete",
+          expected_pick_count: expectedPickCount,
           pick_count: refreshed.records.length,
-          status_note: refreshed.records.length >= EXPECTED_DAILY_PICK_COUNT
+          status_note: refreshed.records.length >= expectedPickCount
             ? null
-            : `Only ${refreshed.records.length} of ${EXPECTED_DAILY_PICK_COUNT} picks recorded (race condition resolved).`,
+            : `Only ${refreshed.records.length} of ${expectedPickCount} picks recorded (race condition resolved).`,
         });
         return {
           source: "existing",
