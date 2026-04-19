@@ -63,11 +63,12 @@ async function checkEndpoint(name: string, url: string, enabled = true): Promise
 }
 
 export function getEnvironmentStatus() {
+  const oddsApiKeysPresent = getOddsApiKeys().length;
   return [
     { name: "NEXT_PUBLIC_SUPABASE_URL", present: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) },
     { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", present: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) },
     { name: "SUPABASE_SERVICE_ROLE_KEY", present: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) },
-    { name: "ODDS_API_KEY", present: Boolean(process.env.ODDS_API_KEY) },
+    { name: "ODDS_API_KEY_POOL", present: oddsApiKeysPresent > 0, detail: `${oddsApiKeysPresent} key(s) detected` },
   ];
 }
 

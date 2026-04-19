@@ -5,7 +5,7 @@
  *
  * FALLBACK RAIL: When Bovada returns empty or <5 winner lines, this route
  * automatically triggers the PGA fallback capture from secondary sources
- * (The Odds API ODDS_API_KEY_2). Results stored in pga_fallback_odds table.
+ * (the configured Odds API key pool). Results stored in pga_fallback_odds table.
  */
 
 import { NextRequest, NextResponse } from "next/server";
