@@ -73,13 +73,18 @@ export default function PlayerAvatar({
     if (name) params.set("playerName", name);
     if (headshot) params.set("headshot", headshot);
 
+    params.set("proxy", "1");
+
     fetch(`/api/assets/player-headshot?${params.toString()}`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((payload) => {
+      .then((response) => {
+        if (!response.ok) return null;
+        return response.blob().then((blob) => URL.createObjectURL(blob));
+      })
+      .then((url) => {
         if (cancelled) return;
-        const url = payload?.url || fallbackSrc || null;
-        if (cacheKey) headshotCache.set(cacheKey, url);
-        setResolvedSrc(url);
+        const resolvedUrl = url || fallbackSrc || null;
+        if (cacheKey) headshotCache.set(cacheKey, resolvedUrl);
+        setResolvedSrc(resolvedUrl);
       })
       .catch(() => {
         if (cancelled) return;

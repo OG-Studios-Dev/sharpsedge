@@ -84,13 +84,18 @@ export default function PlayerHeader({
     if (name) params.set("playerName", name);
     if (headshot) params.set("headshot", headshot);
 
+    params.set("proxy", "1");
+
     fetch(`/api/assets/player-headshot?${params.toString()}`, { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((payload) => {
+      .then((response) => {
+        if (!response.ok) return null;
+        return response.blob().then((blob) => URL.createObjectURL(blob));
+      })
+      .then((url) => {
         if (cancelled) return;
-        const url = payload?.url || fallbackHeadshot || null;
-        if (cacheKey) playerHeaderHeadshotCache.set(cacheKey, url);
-        setResolvedHeadshot(url);
+        const resolvedUrl = url || fallbackHeadshot || null;
+        if (cacheKey) playerHeaderHeadshotCache.set(cacheKey, resolvedUrl);
+        setResolvedHeadshot(resolvedUrl);
       })
       .catch(() => {
         if (cancelled) return;
