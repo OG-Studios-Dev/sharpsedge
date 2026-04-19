@@ -5,6 +5,7 @@ import * as pinnacle from "@/lib/books/pinnacle";
 import * as pointsbet from "@/lib/books/pointsbet";
 import { buildAggregatedGameId, getCanonicalTeamName, isKnownSportTeam, normalizeTeamName } from "@/lib/books/team-mappings";
 import { getBroadSchedule } from "@/lib/nhl-api";
+import { fetchWithOddsApiKeys, getOddsApiKeys as getPooledOddsApiKeys } from "@/lib/odds-api-pool";
 import {
   type AggregatedBookOdds,
   type AggregatedOdds,
@@ -21,6 +22,8 @@ import type { OddsEvent } from "@/lib/types";
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
 const AGGREGATED_EVENT_ID_PREFIX = "agg:";
+
+export { getOddsApiKeys } from "@/lib/odds-api-pool";
 
 type CacheEntry<T> = {
   data: T;
@@ -339,31 +342,9 @@ function normalizeOddsApiEvents(sport: AggregatedSport, events: OddsEvent[]): Bo
   return entries;
 }
 
-/** Rotate between available Odds API keys to double quota */
-export function getOddsApiKeys(): string[] {
-  const keys: string[] = [];
-  const candidates = [
-    process.env.ODDS_API_KEY,
-    process.env.ODDS_API_KEY_2,
-    process.env.ODDS_API_KEY_3,
-    process.env.ODDS_API_KEY_4,
-    process.env.ODDS_API_KEY_5,
-  ];
-
-  for (const key of candidates) {
-    if (!key || key === "your_key_here" || keys.includes(key)) continue;
-    keys.push(key);
-  }
-
-  return keys;
-}
-
-let oddsApiKeyIndex = 0;
-
 async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds[]> {
   const sportKey = ODDS_API_SPORT_KEYS[sport];
-  const keys = getOddsApiKeys();
-  if (!sportKey || keys.length === 0) return [];
+  if (!sportKey || getPooledOddsApiKeys().length === 0) return [];
 
   const marketKeys = ["h2h", "spreads", "totals"];
   if (sport === "NBA") {
@@ -378,29 +359,15 @@ async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds
   }
   const marketsParam = marketKeys.join(",");
 
-  const startingIndex = oddsApiKeyIndex % keys.length;
-  oddsApiKeyIndex = (oddsApiKeyIndex + 1) % keys.length;
-
   try {
-    for (let attempt = 0; attempt < keys.length; attempt += 1) {
-      const apiKey = keys[(startingIndex + attempt) % keys.length];
-      const res = await fetch(
-        `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
-        { next: { revalidate: 900 } },
-      );
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
+      { next: { revalidate: 900 } },
+    );
+    if (!result?.response.ok) return [];
 
-      if (!res.ok) {
-        if ((res.status === 401 || res.status === 429) && attempt < keys.length - 1) {
-          continue;
-        }
-        return [];
-      }
-
-      const events = await res.json() as OddsEvent[];
-      return normalizeOddsApiEvents(sport, Array.isArray(events) ? events : []);
-    }
-
-    return [];
+    const events = await result.response.json() as OddsEvent[];
+    return normalizeOddsApiEvents(sport, Array.isArray(events) ? events : []);
   } catch {
     return [];
   }

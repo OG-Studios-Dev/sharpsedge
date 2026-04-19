@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getDateKey } from "@/lib/date-utils";
+import { getOddsApiKeys, fetchWithOddsApiKeys, readOddsApiQuotaHeaders } from "@/lib/odds-api-pool";
 import { isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
 import type { OddsEvent } from "@/lib/types";
 
@@ -89,12 +90,6 @@ function getCachePath(date: string) {
   return path.join(DATA_DIR, `daily-props-${date}.json`);
 }
 
-function parseHeaderNumber(value: string | null) {
-  if (!value) return null;
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
 function normalizeEventIds(eventIds: Array<string | undefined | null>) {
   return Array.from(new Set(
     eventIds
@@ -169,8 +164,9 @@ async function writeDailyPropsCache(cache: DailyPropsCacheFile) {
 }
 
 async function probeOddsApiQuota() {
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") {
+  const keys = getOddsApiKeys();
+  const apiKey = keys[0];
+  if (!apiKey) {
     return null;
   }
 
@@ -178,13 +174,7 @@ async function probeOddsApiQuota() {
     const response = await fetch(`${ODDS_API_BASE}/sports/?apiKey=${apiKey}`, {
       cache: "no-store",
     });
-
-    return {
-      checkedAt: new Date().toISOString(),
-      remaining: parseHeaderNumber(response.headers.get("x-requests-remaining")),
-      used: parseHeaderNumber(response.headers.get("x-requests-used")),
-      lastCost: parseHeaderNumber(response.headers.get("x-requests-last")),
-    } satisfies QuotaSnapshot;
+    return readOddsApiQuotaHeaders(response.headers) satisfies QuotaSnapshot;
   } catch (error) {
     console.warn("[props-cache] quota probe failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -193,25 +183,6 @@ async function probeOddsApiQuota() {
   }
 }
 
-function getOddsApiKeys(): string[] {
-  const keys: string[] = [];
-  const candidates = [
-    process.env.ODDS_API_KEY,
-    process.env.ODDS_API_KEY_2,
-    process.env.ODDS_API_KEY_3,
-    process.env.ODDS_API_KEY_4,
-    process.env.ODDS_API_KEY_5,
-  ];
-
-  for (const key of candidates) {
-    if (!key || key === "your_key_here" || keys.includes(key)) continue;
-    keys.push(key);
-  }
-
-  return keys;
-}
-
-let propOddsApiKeyIndex = 0;
 
 async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
   const keys = getOddsApiKeys();
@@ -225,57 +196,34 @@ async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
     };
   }
 
-  const fetchWithKey = async (apiKey: string) => {
-    const url = `${ODDS_API_BASE}/sports/${config.sportKey}/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${config.markets}&oddsFormat=american`;
-    const response = await fetch(url, {
-      next: { revalidate: 900 },
-    });
-
-    const quota = {
-      checkedAt: new Date().toISOString(),
-      remaining: parseHeaderNumber(response.headers.get("x-requests-remaining")),
-      used: parseHeaderNumber(response.headers.get("x-requests-used")),
-      lastCost: parseHeaderNumber(response.headers.get("x-requests-last")),
-    } satisfies QuotaSnapshot;
-
-    return { response, quota };
-  };
-
   try {
-    const startingIndex = propOddsApiKeyIndex % keys.length;
-    propOddsApiKeyIndex = (propOddsApiKeyIndex + 1) % keys.length;
-    let lastQuota: QuotaSnapshot | null = null;
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_API_BASE}/sports/${config.sportKey}/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${config.markets}&oddsFormat=american`,
+      { next: { revalidate: 900 } },
+    );
 
-    for (let attempt = 0; attempt < keys.length; attempt += 1) {
-      const apiKey = keys[(startingIndex + attempt) % keys.length];
-      const { response, quota } = await fetchWithKey(apiKey);
-      lastQuota = quota;
-
-      if (!response.ok) {
-        if ((response.status === 401 || response.status === 429) && attempt < keys.length - 1) {
-          continue;
-        }
-
-        console.warn("[props-cache] event fetch failed", {
-          league,
-          eventId,
-          status: response.status,
-        });
-        return { eventId, data: null, quota };
-      }
-
-      const data = await response.json() as OddsEvent;
+    if (!result) {
       return {
         eventId,
-        data: Array.isArray(data?.bookmakers) && data.bookmakers.length > 0 ? data : null,
-        quota,
+        data: null,
+        quota: null,
       };
     }
 
+    if (!result.response.ok) {
+      console.warn("[props-cache] event fetch failed", {
+        league,
+        eventId,
+        status: result.response.status,
+      });
+      return { eventId, data: null, quota: result.quota };
+    }
+
+    const data = await result.response.json() as OddsEvent;
     return {
       eventId,
-      data: null,
-      quota: lastQuota,
+      data: Array.isArray(data?.bookmakers) && data.bookmakers.length > 0 ? data : null,
+      quota: result.quota,
     };
   } catch (error) {
     console.warn("[props-cache] event fetch error", {

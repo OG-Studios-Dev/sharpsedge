@@ -1,6 +1,7 @@
 import { OddsEvent } from "@/lib/types";
 import { findMLBTeamAbbreviationByName, findMLBTeamAliases, normalizeMLBTeamAbbrev } from "@/lib/mlb-mappings";
 import { getAggregatedOddsEvents, isSyntheticAggregatedEventId } from "@/lib/odds-aggregator";
+import { fetchWithOddsApiKeys } from "@/lib/odds-api-pool";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 15 * 60 * 1000;
@@ -37,16 +38,16 @@ export async function getMLBEventOdds(eventId?: string): Promise<OddsEvent | nul
     return cached.data;
   }
 
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey || apiKey === "your_key_here") {
-    return null;
-  }
-
   try {
-    const url = `${ODDS_BASE}/sports/baseball_mlb/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${MLB_PLAYER_PROP_MARKETS}&oddsFormat=american`;
-    const res = await fetch(url, { next: { revalidate: 900 } });
-    if (!res.ok) throw new Error(`Odds API error: ${res.status}`);
-    const data: OddsEvent = await res.json();
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_BASE}/sports/baseball_mlb/events/${eventId}/odds?apiKey=${apiKey}&regions=us&markets=${MLB_PLAYER_PROP_MARKETS}&oddsFormat=american`,
+      { next: { revalidate: 900 } },
+    );
+    if (!result?.response.ok) {
+      eventOddsCache.set(eventId, { data: null, timestamp: Date.now() });
+      return null;
+    }
+    const data: OddsEvent = await result.response.json();
     eventOddsCache.set(eventId, { data, timestamp: Date.now() });
     return data;
   } catch {
