@@ -6,7 +6,7 @@
  *
  * GET  — Status check + last capture summary
  * POST — Trigger capture from all available fallback sources:
- *        1. The Odds API (ODDS_API_KEY_2) → outright winner lines
+ *        1. The Odds API pool → outright winner lines
  *        2. BettingPros stub (scaffolded; returns [] with limitation note)
  *        3. Manual injection: POST a body with `lines` array to ingest
  *           externally captured lines (e.g. from a Playwright script)
@@ -184,7 +184,7 @@ export async function GET() {
       theoddsapi: {
         status: "live",
         markets: ["winner"],
-        note: "Uses ODDS_API_KEY_2. Covers major tournaments only.",
+        note: "Uses the configured Odds API key pool. Covers major tournaments only.",
       },
       bettingpros: {
         status: "scaffolded",

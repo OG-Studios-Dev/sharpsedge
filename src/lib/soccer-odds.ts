@@ -1,6 +1,6 @@
 import { getDateKeyWithOffset } from "@/lib/date-utils";
 import { americanOddsToImpliedProbability } from "@/lib/odds-api";
-import { getOddsApiKeys } from "@/lib/odds-aggregator";
+import { fetchWithOddsApiKeys, getOddsApiKeys } from "@/lib/odds-api-pool";
 import type { OddsEvent, OddsMarket } from "@/lib/types";
 import type { SoccerLeague, SoccerMatch } from "@/lib/soccer-api";
 
@@ -143,16 +143,17 @@ async function getESPNOdds(league: SoccerLeague): Promise<OddsEvent[]> {
 }
 
 async function getOddsApiOdds(league: SoccerLeague): Promise<OddsEvent[]> {
-  const keys = getOddsApiKeys();
-  const apiKey = keys[0];
-  if (!apiKey) return [];
+  if (getOddsApiKeys().length === 0) return [];
 
   const config = LEAGUE_CONFIG[league];
 
   try {
-    const payload = await cachedFetch<OddsEvent[]>(
-      `${ODDS_API_BASE}/sports/${config.oddsApiKey}/odds?apiKey=${apiKey}&regions=us,uk&markets=h2h,totals&oddsFormat=american`,
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_API_BASE}/sports/${config.oddsApiKey}/odds?apiKey=${apiKey}&regions=us,uk&markets=h2h,totals&oddsFormat=american`,
+      { next: { revalidate: Math.round(CACHE_TTL / 1000) } },
     );
+    if (!result?.response.ok) return [];
+    const payload = await result.response.json() as OddsEvent[];
 
     return Array.isArray(payload) ? payload : [];
   } catch {

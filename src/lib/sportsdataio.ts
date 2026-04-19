@@ -5,8 +5,22 @@ const SPORTS_DATA_IO_BASES: Record<string, string> = {
   NHL: "https://api.sportsdata.io/v3/nhl",
 };
 
-function getSportsDataIoKey() {
-  return process.env.SPORTSGAMEODDS_API_KEY?.trim() || null;
+function getSportsDataIoKeys() {
+  const raw = [
+    process.env.SPORTSDATAIO_API_KEYS,
+    process.env.SPORTSDATAIO_API_KEY,
+    process.env.SPORTS_DATA_IO_API_KEYS,
+    process.env.SPORTS_DATA_IO_API_KEY,
+  ]
+    .filter(Boolean)
+    .join(",");
+
+  return Array.from(new Set(
+    raw
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  ));
 }
 
 export function getSportsDataIoBaseUrl(sport: string) {
@@ -14,23 +28,33 @@ export function getSportsDataIoBaseUrl(sport: string) {
 }
 
 export async function fetchSportsDataIoJson<T>(sport: string, path: string): Promise<T> {
-  const key = getSportsDataIoKey();
+  const keys = getSportsDataIoKeys();
   const baseUrl = getSportsDataIoBaseUrl(sport);
-  if (!key) throw new Error("Missing SPORTSGAMEODDS_API_KEY for SportsData.io");
+  if (!keys.length) throw new Error("Missing SportsData.io API key env for SportsData.io");
   if (!baseUrl) throw new Error(`Unsupported SportsData.io sport: ${sport}`);
 
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const response = await fetch(`${baseUrl}${normalizedPath}`, {
-    headers: {
-      "Ocp-Apim-Subscription-Key": key,
-    },
-    cache: "no-store",
-  });
 
-  if (!response.ok) {
+  let lastError = "SportsData.io request failed before attempt";
+
+  for (const key of keys) {
+    const response = await fetch(`${baseUrl}${normalizedPath}`, {
+      headers: {
+        "Ocp-Apim-Subscription-Key": key,
+      },
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      return response.json() as Promise<T>;
+    }
+
     const text = await response.text().catch(() => "");
-    throw new Error(`SportsData.io error ${response.status}: ${text.slice(0, 300)}`);
+    lastError = `SportsData.io error ${response.status}: ${text.slice(0, 300)}`;
+    if (![401, 403, 429].includes(response.status)) {
+      throw new Error(lastError);
+    }
   }
 
-  return response.json() as Promise<T>;
+  throw new Error(lastError);
 }

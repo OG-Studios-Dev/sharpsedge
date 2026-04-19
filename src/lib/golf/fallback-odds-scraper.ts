@@ -5,7 +5,7 @@
  * when the primary Bovada scraper fails or returns partial data.
  *
  * SOURCES (in priority order):
- * 1. The Odds API (ODDS_API_KEY_2) — real outright winner lines from
+ * 1. The Odds API key pool — real outright winner lines from
  *    BetRivers, BetMGM, BetOnline, etc. for major tournaments.
  *    Coverage: winner (outrights) only; no Top 5/10/20 via this API.
  *
@@ -53,11 +53,9 @@ export interface FallbackCaptureResult {
   limitation: string | null;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+import { fetchWithOddsApiKeys, getOddsApiKeys } from "@/lib/odds-api-pool";
 
-function normalizeEnv(key: string): string {
-  return (process.env[key] ?? "").replace(/^"|"$/g, "").trim();
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 // Golf sport keys for The Odds API (major tournaments only)
 const ODDS_API_GOLF_SPORT_KEYS = [
@@ -69,7 +67,7 @@ const ODDS_API_GOLF_SPORT_KEYS = [
 
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 
-// ─── Source 1: The Odds API (key 2) ──────────────────────────────────────────
+// ─── Source 1: The Odds API pool ─────────────────────────────────────────────
 
 interface OddsApiOutcome {
   name?: string;
@@ -95,29 +93,21 @@ interface OddsApiEvent {
 
 async function fetchOddsApiGolfOutrights(
   sportKey: string,
-  apiKey: string,
 ): Promise<OddsApiEvent[]> {
-  const url = `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=outrights&oddsFormat=american`;
   try {
-    const res = await fetch(url, { next: { revalidate: 900 } });
-    if (!res.ok) return [];
-    return (await res.json()) as OddsApiEvent[];
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=outrights&oddsFormat=american`,
+      { next: { revalidate: 900 } },
+    );
+    if (!result?.response.ok) return [];
+    return (await result.response.json()) as OddsApiEvent[];
   } catch {
     return [];
   }
 }
 
 export async function captureFromOddsApi(): Promise<FallbackCaptureResult[]> {
-  // Use rotating key pool instead of hardcoded key 2
-  const keyPool = [
-    normalizeEnv("ODDS_API_KEY"),
-    normalizeEnv("ODDS_API_KEY_2"),
-    normalizeEnv("ODDS_API_KEY_3"),
-    normalizeEnv("ODDS_API_KEY_4"),
-    normalizeEnv("ODDS_API_KEY_5"),
-  ].filter((k) => k && k !== "your_key_here");
-  const apiKey = keyPool[0];
-  if (!apiKey) {
+  if (getOddsApiKeys().length === 0) {
     return [];
   }
 
@@ -125,7 +115,7 @@ export async function captureFromOddsApi(): Promise<FallbackCaptureResult[]> {
   const now = new Date().toISOString();
 
   for (const sportKey of ODDS_API_GOLF_SPORT_KEYS) {
-    const events = await fetchOddsApiGolfOutrights(sportKey, apiKey);
+    const events = await fetchOddsApiGolfOutrights(sportKey);
     if (events.length === 0) continue;
 
     const event = events[0]; // One event per sport key

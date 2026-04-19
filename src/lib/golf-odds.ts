@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { GolfFinishingPositionOdds, GolfHeadToHeadOdds, GolfOddsBoard, GolfOutrightOdds } from "@/lib/types";
-import { getOddsApiKeys } from "@/lib/odds-aggregator";
+import { fetchWithOddsApiKeys, getOddsApiKeys } from "@/lib/odds-api-pool";
 
 const ODDS_BASE = "https://api.the-odds-api.com/v4";
 const CACHE_TTL = 4 * 60 * 60 * 1000; // 4h — golf odds don't move fast enough to justify 15min burns
@@ -75,21 +75,19 @@ async function fetchOddsForSportKey(sportKey: string): Promise<RawOddsEvent[]> {
     return hit.data;
   }
 
-  const keys = getOddsApiKeys();
-  const apiKey = keys[0];
-  if (!apiKey) {
+  if (getOddsApiKeys().length === 0) {
     return [];
   }
 
   try {
-    const response = await fetch(
-      `${ODDS_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${GOLF_MARKETS}&oddsFormat=american`,
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `${ODDS_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${GOLF_MARKETS}&oddsFormat=american`,
       { next: { revalidate: 900 } },
     );
-    if (!response.ok) {
+    if (!result?.response.ok) {
       return [];
     }
-    const data = await response.json() as RawOddsEvent[];
+    const data = await result.response.json() as RawOddsEvent[];
     oddsCache.set(sportKey, { data, timestamp: Date.now() });
     return data;
   } catch {

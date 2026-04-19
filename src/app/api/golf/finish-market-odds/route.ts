@@ -23,6 +23,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { fetchWithOddsApiKeys, getOddsApiKeys } from "@/lib/odds-api-pool";
 import {
   scrapeOddscheckerFinishMarkets,
   deriveProvisionalFinishOdds,
@@ -41,7 +42,6 @@ function getEnv(key: string): string {
 
 const SUPABASE_URL = () => getEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SUPABASE_KEY = () => getEnv("SUPABASE_SERVICE_ROLE_KEY");
-const ODDS_API_KEY = () => getEnv("ODDS_API_KEY");
 
 // Masters sport key for The Odds API (majors only — Valero and regular PGA events are NOT covered)
 const MASTERS_SPORT_KEY = "golf_masters_tournament_winner";
@@ -275,17 +275,15 @@ async function readLocalBovadaSnapshot(tournament: string): Promise<FinishOddsSn
 // ─── Provisional derivation from The Odds API ─────────────────────────────────
 
 async function buildProvisionalFromOddsApi(tournament: string): Promise<FinishOddsSnapshot> {
-  const apiKey = ODDS_API_KEY();
-
-  if (!apiKey || apiKey === "your_key_here") {
+  if (getOddsApiKeys().length === 0) {
     return {
       tournament,
       generatedAt: new Date().toISOString(),
       source: "provisional",
       source_label: "Provisional / Reference Market Odds",
       limitation:
-        "ODDS_API_KEY not configured — cannot derive provisional finish odds. " +
-        "Set ODDS_API_KEY in .env.local or Vercel env vars.",
+        "Odds API key pool not configured — cannot derive provisional finish odds. " +
+        "Set one or more ODDS_API_KEY env vars in local or hosted env.",
       top5: [],
       top10: [],
       top20: [],
@@ -313,16 +311,16 @@ async function buildProvisionalFromOddsApi(tournament: string): Promise<FinishOd
   }
 
   try {
-    const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us,uk,eu,au&markets=outrights&oddsFormat=american`,
+    const result = await fetchWithOddsApiKeys(
+      (apiKey) => `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us,uk,eu,au&markets=outrights&oddsFormat=american`,
       { next: { revalidate: 1800 } }, // 30-min cache
     );
 
-    if (!res.ok) {
-      throw new Error(`Odds API returned ${res.status}`);
+    if (!result?.response.ok) {
+      throw new Error(`Odds API returned ${result?.response.status ?? "unknown"}`);
     }
 
-    const events = await res.json() as Array<{
+    const events = await result.response.json() as Array<{
       sport_title?: string;
       bookmakers?: Array<{
         title?: string;

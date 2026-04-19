@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       generatedAt: new Date().toISOString(),
       sport: String(sport).toUpperCase(),
       status,
-      envConfigured: Boolean(process.env.SPORTSGAMEODDS_API_KEY),
+      envConfigured: Boolean(process.env.SPORTSGAMEODDS_API_KEY || process.env.SPORTSGAMEODDS_API_KEYS),
       usage: {
         ok: usage.ok,
         status: usage.status,

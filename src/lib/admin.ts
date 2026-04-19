@@ -9,6 +9,7 @@ import { getDateKey } from "@/lib/date-utils";
 import { readFile } from "node:fs/promises";
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
 import { getTodayNHLContextBoard } from "@/lib/nhl-context";
+import { getOddsApiKeys } from "@/lib/odds-api-pool";
 
 type PickSummary = {
   wins: number;
@@ -174,13 +175,14 @@ async function getNHLAvailabilityHealth(): Promise<SystemHealthCheck> {
 }
 
 export async function getSystemHealth() {
+  const oddsApiKey = getOddsApiKeys()[0] ?? null;
   return Promise.all([
     checkEndpoint("NHL API", "https://api-web.nhle.com/v1/standings/now"),
     checkEndpoint("ESPN API", "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"),
     checkEndpoint(
       "Odds API",
-      `https://api.the-odds-api.com/v4/sports/?apiKey=${process.env.ODDS_API_KEY ?? ""}`,
-      Boolean(process.env.ODDS_API_KEY),
+      `https://api.the-odds-api.com/v4/sports/?apiKey=${oddsApiKey ?? ""}`,
+      Boolean(oddsApiKey),
     ),
     getMarketSnapshotHealth(),
     getMLBEnrichmentHealth(),

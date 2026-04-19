@@ -5,7 +5,7 @@
  * a compact coverage summary for display on the golf page.
  *
  * Coverage facts (honest):
- *   - winner:         live via The Odds API (ODDS_API_KEY_2), major tournaments only
+ *   - winner:         live via The Odds API key pool, major tournaments only
  *   - top5/10/20:     scaffolded only — require manual injection or headless browser
  *   - make_cut:       scaffolded only
  */
