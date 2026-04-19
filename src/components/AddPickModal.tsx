@@ -53,7 +53,7 @@ export default function AddPickModal() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
+    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0"
@@ -61,7 +61,7 @@ export default function AddPickModal() {
         aria-label="Close add pick modal"
       />
 
-      <div className="relative z-[131] mb-0 mt-1 flex w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.45)] max-h-[calc(100dvh-env(safe-area-inset-top)-6.25rem-env(safe-area-inset-bottom))] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-[28px]">
+      <div className="relative z-[131] mb-0 mt-1 flex w-full max-w-md animate-slide-up flex-col overflow-hidden rounded-[24px] border border-dark-border bg-[linear-gradient(180deg,#141b25_0%,#0d1118_100%)] shadow-[0_20px_70px_rgba(0,0,0,0.45)] max-h-[calc(100dvh-env(safe-area-inset-top)-0.85rem-env(safe-area-inset-bottom))] sm:my-4 sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-[28px]">
         <div className="mx-auto flex h-full w-full min-h-0 flex-col px-4 pt-2">
           <div className="mx-auto mb-2.5 h-1.5 w-16 rounded-full bg-dark-border" />
 
