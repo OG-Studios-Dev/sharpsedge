@@ -63,6 +63,16 @@ function pickMeetsCurrentMLBGate(pick: { hitRate?: number; edge?: number; odds?:
   return hitRate >= 72 && edge >= 12 && isPickableMLBOdds(odds);
 }
 
+function shouldReturnIntegrityConflict(req: NextRequest, integrityStatus?: string | null) {
+  return integrityStatus === "incomplete" && req.headers.get("x-goose-model-agent") === "1";
+}
+
+function integrityWarning(integrity?: { integrity_status?: string | null; status_note?: string | null } | null) {
+  return integrity?.integrity_status === "incomplete"
+    ? integrity.status_note ?? "Stored authoritative slate is incomplete."
+    : undefined;
+}
+
 export async function GET(req: NextRequest) {
   const date = req.nextUrl.searchParams.get("date") || getDateKey(new Date(), MLB_TIME_ZONE);
 
@@ -86,13 +96,14 @@ export async function GET(req: NextRequest) {
           date,
           source: "history_locked",
           integrity: lockedSlate.slate,
+          warning: integrityWarning(lockedSlate.slate),
           meta: {
             propsConsidered: props.length,
             trendsConsidered: teamTrends.length,
             gamesActive: todayIds.size,
           },
         },
-        { status: lockedSlate.slate.integrity_status === "incomplete" ? 409 : 200 },
+        { status: shouldReturnIntegrityConflict(req, lockedSlate.slate.integrity_status) ? 409 : 200 },
       );
     }
 
@@ -124,13 +135,14 @@ export async function GET(req: NextRequest) {
           date,
           source: stored.source === "existing" ? "history_locked" : stored.source === "repaired" ? "generated_repaired" : "generated_locked",
           integrity: stored.slate,
+          warning: integrityWarning(stored.slate),
           meta: {
             propsConsidered: props.length,
             trendsConsidered: teamTrends.length,
             gamesActive: todayIds.size,
           },
         },
-        { status: stored.slate?.integrity_status === "incomplete" ? 409 : 200 },
+        { status: shouldReturnIntegrityConflict(req, stored.slate?.integrity_status) ? 409 : 200 },
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to persist authoritative picks";
