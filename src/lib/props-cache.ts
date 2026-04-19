@@ -242,30 +242,40 @@ async function fetchPropOddsEvent(league: PropsLeague, eventId: string) {
   };
 
   try {
-    const apiKey = keys[propOddsApiKeyIndex % keys.length];
-    propOddsApiKeyIndex++;
-    let { response, quota } = await fetchWithKey(apiKey);
+    const startingIndex = propOddsApiKeyIndex % keys.length;
+    propOddsApiKeyIndex = (propOddsApiKeyIndex + 1) % keys.length;
+    let lastQuota: QuotaSnapshot | null = null;
 
-    if (!response.ok && (response.status === 401 || response.status === 429) && keys.length > 1) {
-      const fallbackKey = keys[propOddsApiKeyIndex % keys.length];
-      propOddsApiKeyIndex++;
-      ({ response, quota } = await fetchWithKey(fallbackKey));
-    }
+    for (let attempt = 0; attempt < keys.length; attempt += 1) {
+      const apiKey = keys[(startingIndex + attempt) % keys.length];
+      const { response, quota } = await fetchWithKey(apiKey);
+      lastQuota = quota;
 
-    if (!response.ok) {
-      console.warn("[props-cache] event fetch failed", {
-        league,
+      if (!response.ok) {
+        if ((response.status === 401 || response.status === 429) && attempt < keys.length - 1) {
+          continue;
+        }
+
+        console.warn("[props-cache] event fetch failed", {
+          league,
+          eventId,
+          status: response.status,
+        });
+        return { eventId, data: null, quota };
+      }
+
+      const data = await response.json() as OddsEvent;
+      return {
         eventId,
-        status: response.status,
-      });
-      return { eventId, data: null, quota };
+        data: Array.isArray(data?.bookmakers) && data.bookmakers.length > 0 ? data : null,
+        quota,
+      };
     }
 
-    const data = await response.json() as OddsEvent;
     return {
       eventId,
-      data: Array.isArray(data?.bookmakers) && data.bookmakers.length > 0 ? data : null,
-      quota,
+      data: null,
+      quota: lastQuota,
     };
   } catch (error) {
     console.warn("[props-cache] event fetch error", {

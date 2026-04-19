@@ -378,32 +378,29 @@ async function fetchOddsApiSource(sport: AggregatedSport): Promise<BookEventOdds
   }
   const marketsParam = marketKeys.join(",");
 
-  // Round-robin across available keys
-  const apiKey = keys[oddsApiKeyIndex % keys.length];
-  oddsApiKeyIndex++;
+  const startingIndex = oddsApiKeyIndex % keys.length;
+  oddsApiKeyIndex = (oddsApiKeyIndex + 1) % keys.length;
 
   try {
-    const res = await fetch(
-      `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
-      { next: { revalidate: 900 } },
-    );
-    if (!res.ok) {
-      // If quota exhausted (401/429), try the other key
-      if ((res.status === 401 || res.status === 429) && keys.length > 1) {
-        const fallbackKey = keys[(oddsApiKeyIndex) % keys.length];
-        oddsApiKeyIndex++;
-        const res2 = await fetch(
-          `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${fallbackKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
-          { next: { revalidate: 900 } },
-        );
-        if (!res2.ok) return [];
-        const events2 = await res2.json() as OddsEvent[];
-        return normalizeOddsApiEvents(sport, Array.isArray(events2) ? events2 : []);
+    for (let attempt = 0; attempt < keys.length; attempt += 1) {
+      const apiKey = keys[(startingIndex + attempt) % keys.length];
+      const res = await fetch(
+        `${ODDS_API_BASE}/sports/${sportKey}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`,
+        { next: { revalidate: 900 } },
+      );
+
+      if (!res.ok) {
+        if ((res.status === 401 || res.status === 429) && attempt < keys.length - 1) {
+          continue;
+        }
+        return [];
       }
-      return [];
+
+      const events = await res.json() as OddsEvent[];
+      return normalizeOddsApiEvents(sport, Array.isArray(events) ? events : []);
     }
-    const events = await res.json() as OddsEvent[];
-    return normalizeOddsApiEvents(sport, Array.isArray(events) ? events : []);
+
+    return [];
   } catch {
     return [];
   }
