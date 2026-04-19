@@ -34,11 +34,19 @@ export default function PlayerAvatar({
       return getPlayerHeadshot({ league, playerId, playerName: name, headshot }) || null;
     }
 
+    const normalizedLeague = String(league).toUpperCase();
+    const hasPlayerId = playerId != null && String(playerId).trim().length > 0;
+
+    if (!hasPlayerId) {
+      if (normalizedLeague === "NBA") return null;
+      return getPlayerHeadshot({ league, playerId, playerName: name, headshot }) || null;
+    }
+
     const params = new URLSearchParams({
       league: String(league),
+      playerId: String(playerId),
       proxy: "1",
     });
-    if (playerId != null && String(playerId).trim()) params.set("playerId", String(playerId));
     if (name) params.set("playerName", name);
     if (headshot) params.set("headshot", headshot);
     return `/api/assets/player-headshot?${params.toString()}`;

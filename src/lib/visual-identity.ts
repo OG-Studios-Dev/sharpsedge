@@ -64,7 +64,7 @@ const NBA_ESPN_ABBREV: Record<string, string> = {
   NOP: "no", NOH: "no", BKN: "bkn", CHA: "cha",
 };
 const MLB_ESPN_ABBREV: Record<string, string> = {
-  TBR: "tb", TBL: "tb", KCR: "kc", CWS: "chw", SDP: "sd", SFG: "sf",
+  TBR: "tb", TBL: "tb", KCR: "kc", CWS: "chw", SDP: "sd", SFG: "sf", ARI: "ari", AZ: "ari",
 };
 const NFL_ESPN_ABBREV: Record<string, string> = {
   JAC: "jac", JAX: "jax",
