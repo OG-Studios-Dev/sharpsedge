@@ -1,0 +1,112 @@
+[
+  {
+    "route": "/",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Home",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/picks",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/picks",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Picks",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/trends",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/trends",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Trends",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/props",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/props",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Props",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/schedule",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/schedule",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Schedule & Standings",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/odds",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/odds",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Lines & Odds",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/my-picks",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/my-picks",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "My Picks",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/login",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/login",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Pick Smarter",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/signup",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/signup",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Create account",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  },
+  {
+    "route": "/upgrade",
+    "ok": true,
+    "finalUrl": "https://goosalytics.vercel.app/upgrade",
+    "title": "Goosalytics - Sports Betting Edge",
+    "h1": "Pick Smarter",
+    "pageErrors": [],
+    "consoleErrors": [],
+    "badResponses": [],
+    "failedRequests": []
+  }
+]
