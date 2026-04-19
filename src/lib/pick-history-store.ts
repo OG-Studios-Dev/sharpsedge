@@ -332,7 +332,9 @@ function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord
     if (!syntheticSlate) return slate;
 
     if (
-      syntheticSlate.pick_count > slate.pick_count
+      syntheticSlate.pick_count !== slate.pick_count
+      || syntheticSlate.status !== slate.status
+      || syntheticSlate.integrity_status !== slate.integrity_status
       || (syntheticSlate.integrity_status === "ok" && slate.integrity_status !== "ok")
     ) {
       return {
@@ -340,7 +342,7 @@ function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord
         ...syntheticSlate,
         locked_at: slate.locked_at,
         created_at: slate.created_at,
-        updated_at: slate.updated_at ?? syntheticSlate.updated_at,
+        updated_at: syntheticSlate.updated_at ?? slate.updated_at,
       };
     }
 
@@ -422,7 +424,30 @@ export async function getStoredPickSlate(date: string, league: string): Promise<
     readPickHistoryByDateAndLeague(date, league),
   ]);
 
-  return toFetchResult(slate, records);
+  const reconciledSlate = await (async () => {
+    if (!slate) return slate;
+
+    const expectedPickCount = typeof slate.expected_pick_count === "number" && Number.isFinite(slate.expected_pick_count)
+      ? slate.expected_pick_count
+      : EXPECTED_DAILY_PICK_COUNT;
+    const actualPickCount = records.length;
+    const nextStatus = actualPickCount >= expectedPickCount ? "locked" : "incomplete";
+    const nextStatusNote = actualPickCount >= expectedPickCount
+      ? null
+      : `Only ${actualPickCount} of ${expectedPickCount} picks recorded.`;
+
+    if (slate.pick_count === actualPickCount && slate.status === nextStatus && slate.status_note === nextStatusNote) {
+      return slate;
+    }
+
+    return await tryPatchPickSlate(date, league, {
+      pick_count: actualPickCount,
+      status: nextStatus,
+      status_note: nextStatusNote,
+    }) ?? slate;
+  })();
+
+  return toFetchResult(reconciledSlate, records);
 }
 
 export async function storeDailyPickSlate(
