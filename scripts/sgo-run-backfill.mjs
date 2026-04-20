@@ -5,6 +5,7 @@ import path from 'node:path';
 
 const cwd = process.cwd();
 const nodeBin = process.env.NODE_BIN || process.execPath || 'node';
+const childPathNodeBin = process.execPath || nodeBin;
 const startIso = process.argv[2] || '2024-02-01T00:00:00Z';
 const endIso = process.argv[3] || new Date().toISOString();
 const leagues = (process.argv[4] || 'NHL,MLB,NBA,NFL').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -157,7 +158,7 @@ for (const monthRow of plan) {
       if (!supabaseHealth.ok) {
         throw new Error(`SUPABASE_UNHEALTHY ${supabaseHealth.status} ${supabaseHealth.endpoint || ''} ${supabaseHealth.body || ''}`);
       }
-      const pullRaw = execFileSync(nodeBin, [
+      const pullRaw = execFileSync(childPathNodeBin, [
         'scripts/sgo-historical-backfill.mjs',
         '--sport', monthRow.league,
         '--starts-after', chunk.startsAfter,
@@ -169,14 +170,14 @@ for (const monthRow of plan) {
 
       const cachePath = cacheFileFor(monthRow.league, chunk.startsAfter, chunk.startsBefore);
       if (existsSync(cachePath)) {
-        const normRaw = execFileSync(nodeBin, [
+        const normRaw = execFileSync(childPathNodeBin, [
           'scripts/sgo-normalize-cache.mjs',
           path.relative(cwd, cachePath),
           monthRow.league,
         ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
         normalizeMeta = JSON.parse(normRaw);
 
-        const ingestRaw = execFileSync(nodeBin, [
+        const ingestRaw = execFileSync(childPathNodeBin, [
           'scripts/ingest-sgo-goose2-window.mjs',
           '--sport', monthRow.league,
           '--cache', path.relative(cwd, cachePath),
@@ -184,7 +185,7 @@ for (const monthRow of plan) {
         rowIngestMeta = JSON.parse(ingestRaw);
 
         if (['NHL', 'NBA', 'MLB', 'NFL'].includes(monthRow.league)) {
-          const enrichRaw = execFileSync(nodeBin, [
+          const enrichRaw = execFileSync(childPathNodeBin, [
             'scripts/enrich-historical-league-ids.mjs',
             chunk.startsAfter.slice(0, 10),
             chunk.startsBefore.slice(0, 10),
