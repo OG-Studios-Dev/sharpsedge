@@ -45,10 +45,21 @@ function marketTypeForOdd(sport, odd) {
   if (odd?.betTypeID === 'ou') {
     const stat = normalizeToken(odd?.statID);
     const period = normalizeToken(odd?.periodID);
-    const isTeamTotal = stat === 'points' && odd?.statEntityID && !String(odd.statEntityID).includes('_') && ['home', 'away'].includes(String(odd.statEntityID).toLowerCase());
+    const entity = String(odd?.statEntityID ?? '').toLowerCase();
+    const marketName = String(odd?.marketName ?? '').toLowerCase();
+    const isPeriodTotal = ['game', 'full', 'ft', ''].includes(period);
+    const isTeamSide = ['home', 'away'].includes(entity);
+    const isWholeGameEntity = ['all', 'game', 'match', 'full', 'total'].includes(entity);
+    const isPlayerLike = Boolean(odd?.playerID) || (entity && !isTeamSide && !isWholeGameEntity);
+    const looksLikeQuarterProp = marketName.includes('quarter points') || marketName.includes('1st quarter points') || marketName.includes('3rd quarter points');
     if (period === '1st5' || period === 'first5') return 'first_five_total';
-    if (isTeamTotal || stat === 'points') return 'total';
-    return inferGoose2MarketType({ sport, marketType: odd?.marketName ?? odd?.oddID ?? 'unknown', propType: odd?.marketName ?? odd?.statID ?? undefined });
+    if (stat === 'points' && isPeriodTotal && isWholeGameEntity && !looksLikeQuarterProp && !isPlayerLike) return 'total';
+    if ((stat === 'points' && (isTeamSide || isPlayerLike)) || !['points', 'runs', 'goals'].includes(stat)) {
+      const inferredProp = inferGoose2MarketType({ sport, marketType: 'unknown', propType: odd?.marketName ?? odd?.statID ?? undefined });
+      return inferredProp === 'total' ? 'unknown' : inferredProp;
+    }
+    const inferred = inferGoose2MarketType({ sport, marketType: odd?.marketName ?? odd?.oddID ?? 'unknown', propType: odd?.marketName ?? odd?.statID ?? undefined });
+    return inferred === 'total' && stat !== 'points' ? 'unknown' : inferred;
   }
   return inferGoose2MarketType({ sport, marketType: odd?.marketName ?? odd?.oddID ?? 'unknown', propType: odd?.marketName ?? odd?.statID ?? undefined });
 }

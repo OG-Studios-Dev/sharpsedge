@@ -84,7 +84,7 @@ export function inferGoose2MarketType({ marketType, propType }) {
   const prop = normalizeToken(propType);
   if (market.includes('moneyline') || market === 'ml') return 'moneyline';
   if (market.includes('spread')) return 'spread';
-  if (market.includes('total') || market.includes('over-under') || market === 'ou') return 'total';
+  if (market === 'total' || market === 'totals') return 'total';
   if (prop.includes('points')) return 'player_prop_points';
   if (prop.includes('rebounds')) return 'player_prop_rebounds';
   if (prop.includes('assists')) return 'player_prop_assists';
