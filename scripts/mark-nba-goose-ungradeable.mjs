@@ -47,7 +47,7 @@ async function fetchJson(url, init = {}) {
 }
 
 async function main() {
-  const selectUrl = `${base}/rest/v1/system_qualifiers?select=id,system_id,system_name,game_date,matchup,settlement_status,outcome,grading_notes,provenance&system_id=eq.goose-system&league=eq.NBA&settlement_status=eq.pending&order=game_date.asc`;
+  const selectUrl = `${base}/rest/v1/system_qualifiers?select=id,system_id,system_name,game_date,matchup,settlement_status,outcome,grading_notes,provenance&system_id=eq.nba-goose-system&league=eq.NBA&settlement_status=eq.pending&order=game_date.asc`;
   const rows = await fetchJson(selectUrl, { cache: 'no-store' });
 
   const targets = (rows || []).filter((row) => {
@@ -76,7 +76,7 @@ async function main() {
     });
   }
 
-  const verifyUrl = `${base}/rest/v1/system_qualifiers?select=id,settlement_status,outcome,grading_source,grading_notes&system_id=eq.goose-system&league=eq.NBA&or=(settlement_status.eq.pending,settlement_status.eq.ungradeable)&order=game_date.asc`;
+  const verifyUrl = `${base}/rest/v1/system_qualifiers?select=id,settlement_status,outcome,grading_source,grading_notes&system_id=eq.nba-goose-system&league=eq.NBA&or=(settlement_status.eq.pending,settlement_status.eq.ungradeable)&order=game_date.asc`;
   const verify = await fetchJson(verifyUrl, { cache: 'no-store' });
   console.log(JSON.stringify({ post_verify: verify }, null, 2));
 }
