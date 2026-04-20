@@ -9,6 +9,10 @@ export type SnapshotEventRow = {
   snapshot_id: string;
   sport: string;
   game_id: string;
+  canonical_game_id?: string | null;
+  source_event_id_kind?: string | null;
+  real_game_id?: string | null;
+  snapshot_game_id?: string | null;
   odds_api_event_id: string | null;
   commence_time: string | null;
   matchup: string;
@@ -18,6 +22,8 @@ export type SnapshotEventRow = {
   away_abbrev: string;
   captured_at: string;
   source: string;
+  coverage_flags?: Record<string, unknown> | null;
+  source_limited?: boolean | null;
 };
 
 export type SnapshotPriceRow = {
@@ -26,6 +32,9 @@ export type SnapshotPriceRow = {
   event_snapshot_id: string;
   sport: string;
   game_id: string;
+  canonical_game_id?: string | null;
+  canonical_market_key?: string | null;
+  participant_key?: string | null;
   odds_api_event_id: string | null;
   commence_time: string | null;
   captured_at: string;
@@ -37,6 +46,11 @@ export type SnapshotPriceRow = {
   source: string;
   source_updated_at: string | null;
   source_age_minutes: number | null;
+  capture_window_phase?: string | null;
+  is_opening_candidate?: boolean | null;
+  is_closing_candidate?: boolean | null;
+  coverage_flags?: Record<string, unknown> | null;
+  source_limited?: boolean | null;
   participant_type?: string | null;
   participant_id?: string | null;
   participant_name?: string | null;

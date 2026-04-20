@@ -73,21 +73,20 @@ export type Goose2WarehouseAudit = {
   notes: string[];
 };
 
-function serviceHeaders(extra?: HeadersInit) {
+function serviceHeaders(preferCount = true) {
   const key = getSupabaseServiceRoleKey();
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
-    Prefer: "count=exact",
-    ...extra,
+    ...(preferCount ? { Prefer: "count=exact" } : {}),
   };
 }
 
 async function postgrest(path: string, options?: { preferCount?: boolean; head?: boolean }): Promise<CountResponse> {
   const response = await fetch(`${getSupabaseUrl()}/rest/v1${path}`, {
     method: options?.head ? "HEAD" : "GET",
-    headers: serviceHeaders(options?.preferCount === false ? { Prefer: undefined } : undefined),
+    headers: serviceHeaders(options?.preferCount !== false),
     cache: "no-store",
   });
   const text = options?.head ? "" : await response.text();

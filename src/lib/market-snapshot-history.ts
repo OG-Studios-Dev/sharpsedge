@@ -142,12 +142,17 @@ async function readDailySnapshotsFromSupabase(dateKey: string, gameId: string): 
       );
       if (!marketType) continue;
 
+      const participantKey = `${marketType}:${String(row.outcome ?? "").toLowerCase()}:${row.line ?? "na"}`;
+      const canonicalGameId = `cg:${String(row.sport || "unknown").toLowerCase()}:${String(row.game_id || "unknown")}`;
       stub.prices.push({
         id: row.id,
         snapshotId: row.snapshot_id,
         eventSnapshotId: row.event_snapshot_id,
         sport: row.sport as MarketSnapshotPriceRecord["sport"],
         gameId: row.game_id,
+        canonicalGameId,
+        canonicalMarketKey: `${canonicalGameId}:${String(row.book || "unknown").toLowerCase()}:${participantKey}`,
+        participantKey,
         oddsApiEventId: row.odds_api_event_id,
         commenceTime: row.commence_time,
         capturedAt: row.captured_at,
@@ -159,6 +164,11 @@ async function readDailySnapshotsFromSupabase(dateKey: string, gameId: string): 
         source: row.source,
         sourceUpdatedAt: row.source_updated_at,
         sourceAgeMinutes: row.source_age_minutes,
+        captureWindowPhase: "pregame",
+        isOpeningCandidate: true,
+        isClosingCandidate: false,
+        coverageFlags: {},
+        sourceLimited: false,
       });
     }
 

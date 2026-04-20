@@ -1,5 +1,6 @@
 import type { MarketPriceMarketType, MarketSnapshotPriceRecord } from "@/lib/market-snapshot-store";
 import type { OddsEvent } from "@/lib/types";
+import { getDateKey } from "@/lib/date-utils";
 import { getDailyPlayerPropOddsEvents } from "@/lib/props-cache";
 import { inferGoose2MarketType } from "@/lib/goose2/taxonomy";
 
@@ -13,6 +14,28 @@ function slugify(value: string) {
 
 function normalizeParticipantId(name: string) {
   return slugify(name);
+}
+
+function canonicalGameId(input: { sport: string; awayTeam: string; homeTeam: string; commenceTime: string | null }) {
+  const commenceHour = input.commenceTime ? new Date(input.commenceTime).toISOString().slice(0, 13) : "unknown-time";
+  return `cg:${input.sport.toLowerCase()}:${slugify(input.awayTeam)}@${slugify(input.homeTeam)}:${commenceHour}`;
+}
+
+function normalizeDateKey(value: string | null | undefined, fallback: string) {
+  if (!value) return fallback;
+  const trimmed = String(value).trim();
+  if (!trimmed) return fallback;
+  if (/^\d{10,13}$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      const millis = trimmed.length === 10 ? numeric * 1000 : numeric;
+      return getDateKey(new Date(millis));
+    }
+    return fallback;
+  }
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return getDateKey(parsed);
 }
 
 function toPropMarketType(propType: string): MarketPriceMarketType | null {
@@ -51,12 +74,18 @@ function extractPlayerPropRowsFromEvent(input: {
         const participantName = String(outcome.description || "").trim();
         if (!participantName) continue;
 
+        const cgId = canonicalGameId(input);
+        const participantId = normalizeParticipantId(participantName);
+        const participantKey = `${marketType}:${participantId}:${direction.toLowerCase()}:${outcome.point}`;
         rows.push({
           id: `${input.snapshotId}:${input.gameId}:${slugify(bookmaker.title)}:${marketType}:${slugify(participantName)}:${slugify(direction)}:${outcome.point}`,
           snapshotId: input.snapshotId,
           eventSnapshotId: input.eventSnapshotId,
           sport: input.sport,
           gameId: input.gameId,
+          canonicalGameId: cgId,
+          canonicalMarketKey: `${cgId}:${slugify(bookmaker.title)}:${participantKey}`,
+          participantKey,
           oddsApiEventId: input.oddsApiEventId,
           commenceTime: input.commenceTime,
           capturedAt: input.capturedAt,
@@ -68,8 +97,13 @@ function extractPlayerPropRowsFromEvent(input: {
           source: "player_props_odds_api",
           sourceUpdatedAt: input.capturedAt,
           sourceAgeMinutes: 0,
+          captureWindowPhase: "pregame",
+          isOpeningCandidate: true,
+          isClosingCandidate: false,
+          coverageFlags: {},
+          sourceLimited: false,
           participantType: "player",
-          participantId: normalizeParticipantId(participantName),
+          participantId,
           participantName,
           opponentName: `${input.awayTeam} @ ${input.homeTeam}`,
           propType,
@@ -96,12 +130,52 @@ export async function capturePlayerPropSnapshotRows(input: {
 }) {
   const supportedSports = ["NHL", "NBA", "MLB", "NFL"] as const;
   const rows: MarketSnapshotPriceRecord[] = [];
+  const capturedDateKey = getDateKey(new Date(input.capturedAt));
 
   for (const sport of supportedSports) {
-    const events = (input.sportsBoard[sport] ?? []).filter((event) => event.oddsApiEventId);
+    const events = input.sportsBoard[sport] ?? [];
     if (!events.length) continue;
 
-    const odds = await getDailyPlayerPropOddsEvents(sport, events.map((event) => event.oddsApiEventId));
+    const eventsByLookup = new Map<string, Array<typeof events[number]>>();
+    const eventIds = Array.from(new Set(
+      events
+        .map((event) => String(event.oddsApiEventId || "").trim())
+        .filter(Boolean),
+    ));
+
+    for (const event of events) {
+      const dateKey = normalizeDateKey(event.commenceTime, capturedDateKey);
+      const keys = [
+        `${event.homeTeam}__${event.awayTeam}__${dateKey}`.toLowerCase(),
+        `${event.gameId}__${dateKey}`.toLowerCase(),
+      ];
+      for (const key of keys) {
+        const existing = eventsByLookup.get(key) ?? [];
+        existing.push(event);
+        eventsByLookup.set(key, existing);
+      }
+    }
+
+    const odds = await getDailyPlayerPropOddsEvents(sport, eventIds);
+    const payloadByEvent = new Map<string, OddsEvent>();
+
+    for (const [eventId, eventPayload] of Array.from(odds.events.entries())) {
+      if (eventPayload) payloadByEvent.set(eventId, eventPayload);
+    }
+
+    for (const eventPayload of Array.from(payloadByEvent.values())) {
+      const dateKey = normalizeDateKey(eventPayload.commence_time, capturedDateKey);
+      const lookupKeys = [
+        `${eventPayload.home_team}__${eventPayload.away_team}__${dateKey}`.toLowerCase(),
+      ];
+      for (const lookupKey of lookupKeys) {
+        const matchedEvents = eventsByLookup.get(lookupKey) ?? [];
+        for (const event of matchedEvents) {
+          if (event.oddsApiEventId) continue;
+          event.oddsApiEventId = eventPayload.id;
+        }
+      }
+    }
 
     for (const event of events) {
       const oddsApiEventId = event.oddsApiEventId;

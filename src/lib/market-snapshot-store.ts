@@ -37,6 +37,9 @@ export type MarketSnapshotPriceRecord = {
   eventSnapshotId: string;
   sport: AggregatedSport;
   gameId: string;
+  canonicalGameId: string;
+  canonicalMarketKey: string;
+  participantKey: string;
   oddsApiEventId: string | null;
   commenceTime: string | null;
   capturedAt: string;
@@ -48,6 +51,11 @@ export type MarketSnapshotPriceRecord = {
   source: string;
   sourceUpdatedAt: string | null;
   sourceAgeMinutes: number | null;
+  captureWindowPhase: CaptureWindowPhase;
+  isOpeningCandidate: boolean;
+  isClosingCandidate: boolean;
+  coverageFlags: Record<string, unknown>;
+  sourceLimited: boolean;
   participantType?: "team" | "player" | "golfer" | "pairing" | "field" | "unknown" | null;
   participantId?: string | null;
   participantName?: string | null;
@@ -62,6 +70,10 @@ export type MarketSnapshotEventRecord = {
   snapshotId: string;
   sport: AggregatedSport;
   gameId: string;
+  canonicalGameId: string;
+  sourceEventIdKind: string;
+  realGameId: string | null;
+  snapshotGameId: string;
   oddsApiEventId: string | null;
   commenceTime: string | null;
   matchup: string;
@@ -73,6 +85,8 @@ export type MarketSnapshotEventRecord = {
   source: string;
   sourceSummary: MarketSnapshotSourceSummary;
   freshness: SourceFreshnessSummary;
+  coverageFlags: Record<string, unknown>;
+  sourceLimited: boolean;
   bookCount: number;
   priceCount: number;
   bestPrices: {
@@ -173,6 +187,32 @@ type SourceAge = {
   updatedAt: string;
   ageMinutes: number | null;
 };
+
+type CaptureWindowPhase = "early" | "pregame" | "close" | "live";
+
+function teamKey(value?: string | null) {
+  return slugify(String(value ?? "")).replace(/^-+|-+$/g, "") || "unknown";
+}
+
+function canonicalGameIdForEvent(event: Pick<AggregatedOdds, "sport" | "homeTeam" | "awayTeam" | "commenceTime">) {
+  const commenceHour = parseIsoTimestamp(event.commenceTime)?.toISOString().slice(0, 13) ?? "unknown-time";
+  return `cg:${String(event.sport).toLowerCase()}:${teamKey(event.awayTeam)}@${teamKey(event.homeTeam)}:${commenceHour}`;
+}
+
+function canonicalParticipantKey(marketType: MarketPriceMarketType, outcome: string, line: number | null) {
+  return `${marketType}:${slugify(outcome)}:${line ?? "na"}`;
+}
+
+function inferCaptureWindowPhase(commenceTime: string | null | undefined, capturedAt: string): CaptureWindowPhase {
+  const commence = parseIsoTimestamp(commenceTime)?.getTime();
+  const captured = parseIsoTimestamp(capturedAt)?.getTime();
+  if (!Number.isFinite(commence) || !Number.isFinite(captured)) return "pregame";
+  const diffMinutes = Math.round(((commence as number) - (captured as number)) / 60000);
+  if (diffMinutes < 0) return "live";
+  if (diffMinutes <= 30) return "close";
+  if (diffMinutes <= 120) return "pregame";
+  return "early";
+}
 
 function slugify(value: string) {
   return value
@@ -341,12 +381,19 @@ function createPriceRecord(
   odds: number,
   line: number | null,
 ): MarketSnapshotPriceRecord {
+  const canonicalGameId = canonicalGameIdForEvent(event);
+  const participantKey = canonicalParticipantKey(marketType, outcome, line);
+  const canonicalMarketKey = `${canonicalGameId}:${slugify(book.book)}:${participantKey}`;
+  const captureWindowPhase = inferCaptureWindowPhase(event.commenceTime, capturedAt);
   return {
     id: `${snapshotId}:${event.gameId}:${slugify(book.book)}:${marketType}:${slugify(outcome)}:${line ?? "na"}`,
     snapshotId,
     eventSnapshotId,
     sport: event.sport,
     gameId: event.gameId,
+    canonicalGameId,
+    canonicalMarketKey,
+    participantKey,
     oddsApiEventId: event.oddsApiEventId ?? null,
     commenceTime: event.commenceTime,
     capturedAt,
@@ -358,6 +405,11 @@ function createPriceRecord(
     source: SOURCE_NAME,
     sourceUpdatedAt: book.lastUpdated || null,
     sourceAgeMinutes: toAgeMinutes(book.lastUpdated || null, capturedAt),
+    captureWindowPhase,
+    isOpeningCandidate: captureWindowPhase === "early" || captureWindowPhase === "pregame",
+    isClosingCandidate: captureWindowPhase === "close",
+    coverageFlags: {},
+    sourceLimited: false,
   };
 }
 
@@ -417,11 +469,18 @@ function buildEventSnapshot(snapshotId: string, event: AggregatedOdds, capturedA
   const metadata = summarizeBooks(event.books, capturedAt);
   const prices = buildPriceRecords(snapshotId, eventSnapshotId, event, capturedAt);
 
+  const observedMarkets = new Set(prices.map((price) => price.marketType));
+  const missingCoreMarkets = ["moneyline", "spread", "total"].filter((market) => !observedMarkets.has(market as MarketPriceMarketType));
+  const sourceLimited = missingCoreMarkets.length > 0;
   const eventRecord: MarketSnapshotEventRecord = {
     id: eventSnapshotId,
     snapshotId,
     sport: event.sport,
     gameId: event.gameId,
+    canonicalGameId: canonicalGameIdForEvent(event),
+    sourceEventIdKind: event.oddsApiEventId ? "odds_api_event_id" : "snapshot_game_id",
+    realGameId: null,
+    snapshotGameId: event.gameId,
     oddsApiEventId: event.oddsApiEventId ?? null,
     commenceTime: event.commenceTime,
     matchup: `${event.awayTeam} @ ${event.homeTeam}`,
@@ -433,6 +492,8 @@ function buildEventSnapshot(snapshotId: string, event: AggregatedOdds, capturedA
     source: SOURCE_NAME,
     sourceSummary: metadata.sourceSummary,
     freshness: metadata.freshness,
+    coverageFlags: { missingCoreMarkets, observedMarkets: Array.from(observedMarkets).sort() },
+    sourceLimited,
     bookCount: metadata.sourceSummary.bookCount,
     priceCount: prices.length,
     bestPrices: {
@@ -551,6 +612,10 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     snapshot_id: event.snapshotId,
     sport: event.sport,
     game_id: event.gameId,
+    canonical_game_id: event.canonicalGameId,
+    source_event_id_kind: event.sourceEventIdKind,
+    real_game_id: event.realGameId,
+    snapshot_game_id: event.snapshotGameId,
     odds_api_event_id: event.oddsApiEventId,
     commence_time: parseIsoTimestamp(event.commenceTime)?.toISOString() ?? null,
     matchup: event.matchup,
@@ -562,6 +627,8 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     source: event.source,
     source_summary: event.sourceSummary,
     freshness: event.freshness,
+    coverage_flags: event.coverageFlags,
+    source_limited: event.sourceLimited,
     book_count: event.bookCount,
     price_count: event.priceCount,
     best_prices: event.bestPrices,
@@ -573,6 +640,9 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     event_snapshot_id: price.eventSnapshotId,
     sport: price.sport,
     game_id: price.gameId,
+    canonical_game_id: price.canonicalGameId,
+    canonical_market_key: price.canonicalMarketKey,
+    participant_key: price.participantKey,
     odds_api_event_id: price.oddsApiEventId,
     commence_time: parseIsoTimestamp(price.commenceTime)?.toISOString() ?? null,
     captured_at: price.capturedAt,
@@ -584,6 +654,11 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     source: price.source,
     source_updated_at: parseIsoTimestamp(price.sourceUpdatedAt)?.toISOString() ?? null,
     source_age_minutes: price.sourceAgeMinutes,
+    capture_window_phase: price.captureWindowPhase,
+    is_opening_candidate: price.isOpeningCandidate,
+    is_closing_candidate: price.isClosingCandidate,
+    coverage_flags: price.coverageFlags,
+    source_limited: price.sourceLimited,
     participant_type: price.participantType ?? null,
     participant_id: price.participantId ?? null,
     participant_name: price.participantName ?? null,
