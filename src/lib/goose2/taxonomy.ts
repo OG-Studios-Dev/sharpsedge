@@ -17,11 +17,12 @@ export function inferGoose2MarketType(input: {
   if (market === "h2h_1st_5_innings") return "first_five_moneyline";
   if (market === "totals_1st_5_innings") return "first_five_total";
 
+  if (prop.includes("fieldgoalsmade") || prop.includes("field goals made")) return "player_prop_points";
   if (prop.includes("points")) return "player_prop_points";
   if (prop.includes("rebounds")) return "player_prop_rebounds";
   if (prop.includes("assists")) return "player_prop_assists";
   if (prop.includes("shots")) return input.sport === 'NBA' ? 'unknown' : "player_prop_shots_on_goal";
-  if (prop.includes("goals")) return input.sport === 'NBA' ? 'unknown' : "player_prop_goals";
+  if (prop === "goals" || prop.includes("player goals") || prop.includes("goals over") || prop.includes("goals under")) return input.sport === 'NBA' ? 'unknown' : "player_prop_goals";
   if (prop.includes("hits")) return "player_prop_hits";
   if (prop.includes("total bases")) return "player_prop_total_bases";
   if (prop.includes("strikeouts")) return "player_prop_strikeouts";
