@@ -4,6 +4,7 @@ const ODDS_API_KEY_NAMES = [
   "ODDS_API_KEY_3",
   "ODDS_API_KEY_4",
   "ODDS_API_KEY_5",
+  "ODDS_API_KEY_6",
 ] as const;
 
 const EXHAUSTED_COOLDOWN_MS = 30 * 60 * 1000;
