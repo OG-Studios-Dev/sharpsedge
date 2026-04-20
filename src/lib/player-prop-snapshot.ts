@@ -17,7 +17,8 @@ function normalizeParticipantId(name: string) {
 }
 
 function canonicalGameId(input: { sport: string; awayTeam: string; homeTeam: string; commenceTime: string | null }) {
-  const commenceHour = input.commenceTime ? new Date(input.commenceTime).toISOString().slice(0, 13) : "unknown-time";
+  const parsed = input.commenceTime ? new Date(input.commenceTime) : null;
+  const commenceHour = parsed && Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 13) : "unknown-time";
   return `cg:${input.sport.toLowerCase()}:${slugify(input.awayTeam)}@${slugify(input.homeTeam)}:${commenceHour}`;
 }
 

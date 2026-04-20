@@ -195,7 +195,8 @@ function teamKey(value?: string | null) {
 }
 
 function canonicalGameIdForEvent(event: Pick<AggregatedOdds, "sport" | "homeTeam" | "awayTeam" | "commenceTime">) {
-  const commenceHour = parseIsoTimestamp(event.commenceTime)?.toISOString().slice(0, 13) ?? "unknown-time";
+  const parsed = parseIsoTimestamp(event.commenceTime);
+  const commenceHour = parsed && Number.isFinite(parsed.getTime()) ? parsed.toISOString().slice(0, 13) : "unknown-time";
   return `cg:${String(event.sport).toLowerCase()}:${teamKey(event.awayTeam)}@${teamKey(event.homeTeam)}:${commenceHour}`;
 }
 
