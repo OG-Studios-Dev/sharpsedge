@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const cwd = process.cwd();
 const nodeBin = process.env.NODE_BIN || process.execPath || 'node';
-const childPathNodeBin = process.execPath || nodeBin;
+const childPathNodeBin = process.env.SGO_CHILD_NODE_BIN || process.execPath || nodeBin;
 const startIso = process.argv[2] || '2024-02-01T00:00:00Z';
 const endIso = process.argv[3] || new Date().toISOString();
 const leagues = (process.argv[4] || 'NHL,MLB,NBA,NFL').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -101,14 +101,33 @@ function dedupeLedger(rows) {
   });
 }
 
+function cacheKeyFor(league, startsAfter, startsBefore) {
+  return `${league}_${startsAfter}_${startsBefore}_true_true_${limit}_all`.replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
 function cacheFileFor(league, startsAfter, startsBefore) {
-  const key = `${league}_${startsAfter}_${startsBefore}_true_true_${limit}_all`.replace(/[^a-zA-Z0-9._-]+/g, '_');
-  return path.join(cacheDir, `${key}.json`);
+  return path.join(cacheDir, `${cacheKeyFor(league, startsAfter, startsBefore)}.json`);
 }
 
 function normalizeOutFor(league, startsAfter, startsBefore) {
-  const key = `${league}_${startsAfter}_${startsBefore}_true_true_${limit}_all`.replace(/[^a-zA-Z0-9._-]+/g, '_');
-  return path.join(cacheDir, `${key}.goose2.${league}.json`);
+  return path.join(cacheDir, `${cacheKeyFor(league, startsAfter, startsBefore)}.goose2.${league}.json`);
+}
+
+function hasUsableSuccess(row) {
+  return row?.status === 'done' && (row?.pull?.ok !== false);
+}
+
+function hasRetryableRateLimit(row) {
+  return row?.pull?.status === 429;
+}
+
+function retryableEntryScore(row) {
+  const pull = row?.pull ?? {};
+  const normalize = row?.normalize ?? {};
+  const ingest = row?.ingest ?? {};
+  return Number(pull?.summary?.events ?? 0)
+    + Number(normalize?.summary?.candidates ?? 0)
+    + Number(ingest?.inserted?.candidates ?? 0);
 }
 
 async function checkSupabaseHealth() {
@@ -132,7 +151,7 @@ let ledger = dedupeLedger(loadLedger());
 const latestByKey = new Map(ledger.map((r) => [rowKey(r), r]));
 const seen = new Set(
   [...latestByKey.values()]
-    .filter((r) => r.status === 'done')
+    .filter((r) => hasUsableSuccess(r))
     .map((r) => rowKey(r))
 );
 const plan = buildPlan(startIso, endIso, leagues);
@@ -146,52 +165,63 @@ for (const monthRow of plan) {
     if (mode !== 'retry-errors' && seen.has(id)) continue;
 
     const existing = latestByKey.get(id);
-    if (mode === 'retry-errors' && (!existing || existing.status === 'done')) continue;
+    if (mode === 'retry-errors' && (!existing || hasUsableSuccess(existing))) continue;
 
-    let pullMeta = null;
-    let normalizeMeta = null;
+    let pullMeta = existing?.pull ?? null;
+    let normalizeMeta = existing?.normalize ?? null;
     let status = 'done';
     let error = null;
-    let rowIngestMeta = null;
+    let rowIngestMeta = existing?.ingest ?? null;
 
     try {
       if (!supabaseHealth.ok) {
         throw new Error(`SUPABASE_UNHEALTHY ${supabaseHealth.status} ${supabaseHealth.endpoint || ''} ${supabaseHealth.body || ''}`);
       }
-      const pullRaw = execFileSync(childPathNodeBin, [
-        'scripts/sgo-historical-backfill.mjs',
-        '--sport', monthRow.league,
-        '--starts-after', chunk.startsAfter,
-        '--starts-before', chunk.startsBefore,
-        '--limit', String(limit),
-        '--chunk-days', String(effectiveChunkDays),
-      ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
-      pullMeta = JSON.parse(pullRaw);
-
       const cachePath = cacheFileFor(monthRow.league, chunk.startsAfter, chunk.startsBefore);
-      if (existsSync(cachePath)) {
-        const normRaw = execFileSync(childPathNodeBin, [
-          'scripts/sgo-normalize-cache.mjs',
-          path.relative(cwd, cachePath),
-          monthRow.league,
-        ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
-        normalizeMeta = JSON.parse(normRaw);
+      const normalizedPath = normalizeOutFor(monthRow.league, chunk.startsAfter, chunk.startsBefore);
+      const canReuseRateLimitedCache = mode === 'retry-errors' && hasRetryableRateLimit(existing) && existsSync(cachePath);
 
-        const ingestRaw = execFileSync(childPathNodeBin, [
-          'scripts/ingest-sgo-goose2-window.mjs',
+      if (!canReuseRateLimitedCache) {
+        const pullRaw = execFileSync(childPathNodeBin, [
+          'scripts/sgo-historical-backfill.mjs',
           '--sport', monthRow.league,
-          '--cache', path.relative(cwd, cachePath),
+          '--starts-after', chunk.startsAfter,
+          '--starts-before', chunk.startsBefore,
+          '--limit', String(limit),
+          '--chunk-days', String(effectiveChunkDays),
         ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
-        rowIngestMeta = JSON.parse(ingestRaw);
+        pullMeta = JSON.parse(pullRaw);
+      }
 
-        if (['NHL', 'NBA', 'MLB', 'NFL'].includes(monthRow.league)) {
-          const enrichRaw = execFileSync(childPathNodeBin, [
-            'scripts/enrich-historical-league-ids.mjs',
-            chunk.startsAfter.slice(0, 10),
-            chunk.startsBefore.slice(0, 10),
+      if (existsSync(cachePath)) {
+        const shouldNormalize = !existsSync(normalizedPath) || !normalizeMeta || hasRetryableRateLimit(existing) || retryableEntryScore(existing) === 0;
+        if (shouldNormalize) {
+          const normRaw = execFileSync(childPathNodeBin, [
+            'scripts/sgo-normalize-cache.mjs',
+            path.relative(cwd, cachePath),
             monthRow.league,
           ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
-          rowIngestMeta.enrichment = JSON.parse(enrichRaw);
+          normalizeMeta = JSON.parse(normRaw);
+        }
+
+        const shouldIngest = !rowIngestMeta || hasRetryableRateLimit(existing) || retryableEntryScore(existing) === 0;
+        if (shouldIngest) {
+          const ingestRaw = execFileSync(childPathNodeBin, [
+            'scripts/ingest-sgo-goose2-window.mjs',
+            '--sport', monthRow.league,
+            '--cache', path.relative(cwd, cachePath),
+          ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
+          rowIngestMeta = JSON.parse(ingestRaw);
+
+          if (['NHL', 'NBA', 'MLB', 'NFL'].includes(monthRow.league)) {
+            const enrichRaw = execFileSync(childPathNodeBin, [
+              'scripts/enrich-historical-league-ids.mjs',
+              chunk.startsAfter.slice(0, 10),
+              chunk.startsBefore.slice(0, 10),
+              monthRow.league,
+            ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
+            rowIngestMeta.enrichment = JSON.parse(enrichRaw);
+          }
         }
       }
       seen.add(id);
@@ -217,7 +247,7 @@ for (const monthRow of plan) {
 
     latestByKey.set(id, row);
     ledger = dedupeLedger([...latestByKey.values()]);
-    if (status === 'done') seen.add(id);
+    if (hasUsableSuccess(row)) seen.add(id);
     saveLedger(ledger);
     console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null, ingestedCandidates: rowIngestMeta?.inserted?.candidates ?? null }, null, 2));
   }
