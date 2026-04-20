@@ -16,6 +16,8 @@ if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Missing Supabase env vars');
 const CORE_TEAM_MARKETS = ['moneyline', 'spread', 'total'];
 const FAST_SETTLE_SPORTS = new Set(['NBA', 'NHL', 'MLB', 'NFL']);
 const PLAYER_PROP_PREFIX = 'player_prop_';
+const RECENT_CAPTURE_LIMIT = Number(process.env.GOOSE_WAREHOUSE_RECENT_CAPTURE_LIMIT || 4000);
+const SETTLEMENT_AUDIT_LIMIT = Number(process.env.GOOSE_WAREHOUSE_SETTLEMENT_LIMIT || 8000);
 
 function headers(extra = {}) {
   return {
@@ -83,6 +85,20 @@ function isSettleableAuditCandidate(row, yesterdayKey) {
   return Boolean(row.event_date) && row.event_date <= yesterdayKey;
 }
 
+async function countOnly(pathname) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1${pathname}`, {
+    headers: headers({ Prefer: 'count=exact,head=true' }),
+    method: 'HEAD',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`Warehouse audit count failed ${response.status}: ${text.slice(0, 300)}`);
+  }
+  const contentRange = response.headers.get('content-range');
+  return contentRange ? Number(contentRange.split('/')[1] || 0) : 0;
+}
+
 async function buildWarehouseAudit() {
   const checkedAt = new Date().toISOString();
   const nowMs = Date.now();
@@ -94,18 +110,18 @@ async function buildWarehouseAudit() {
 
   const select = 'candidate_id,event_id,sport,event_date,market_type,capture_ts,goose_market_events!inner(status,commence_time,home_team,away_team),goose_market_results(result,integrity_status)';
 
-  const [snapshots, recentCandidates, recentResults, stalePending, settlementCandidates] = await Promise.all([
-    postgrest(`/market_snapshots?select=id,captured_at&captured_at=gte.${encodeURIComponent(last24h)}&order=captured_at.desc&limit=20`),
-    postgrest(`/goose_market_candidates?select=${select}&capture_ts=gte.${encodeURIComponent(last24h)}&order=capture_ts.desc&limit=10000`),
-    postgrest(`/goose_market_results?select=candidate_id,settlement_ts,result,integrity_status&settlement_ts=gte.${encodeURIComponent(last36h)}&order=settlement_ts.desc&limit=10000`),
-    postgrest(`/system_qualifiers?select=id,system_id,created_at,settlement_status&settlement_status=eq.pending&created_at=lt.${encodeURIComponent(last24h)}&limit=200`),
-    postgrest(`/goose_market_candidates?select=${select}&event_date=gte.${last7DateKey}&order=event_date.desc,capture_ts.desc&limit=20000`),
+  const [snapshotCountExact, candidateCountExact, recentResultCountExact, stalePendingCount, recentCandidates, settlementCandidates] = await Promise.all([
+    countOnly(`/market_snapshots?select=id&captured_at=gte.${encodeURIComponent(last24h)}`),
+    countOnly(`/goose_market_candidates?select=candidate_id&capture_ts=gte.${encodeURIComponent(last24h)}`),
+    countOnly(`/goose_market_results?select=candidate_id&settlement_ts=gte.${encodeURIComponent(last36h)}`),
+    countOnly(`/system_qualifiers?select=id&settlement_status=eq.pending&created_at=lt.${encodeURIComponent(last24h)}`),
+    postgrest(`/goose_market_candidates?select=${select}&capture_ts=gte.${encodeURIComponent(last24h)}&order=capture_ts.desc&limit=${RECENT_CAPTURE_LIMIT}`),
+    postgrest(`/goose_market_candidates?select=${select}&event_date=gte.${last7DateKey}&order=event_date.desc,capture_ts.desc&limit=${SETTLEMENT_AUDIT_LIMIT}`),
   ]);
 
-  const snapshotCount = snapshots.rows?.length ?? 0;
+  const snapshotCount = snapshotCountExact;
   const recentCandidateRows = recentCandidates.rows ?? [];
-  const recentResultCount = recentResults.rows?.length ?? 0;
-  const stalePendingCount = stalePending.rows?.length ?? 0;
+  const recentResultCount = recentResultCountExact;
   const settlementRows = settlementCandidates.rows ?? [];
 
   const pregameRows = recentCandidateRows.filter((row) => isPregameAuditCandidate(row, nowMs, todayKey));

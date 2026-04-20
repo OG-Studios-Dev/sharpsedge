@@ -17,6 +17,8 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 
 const sports = ['NHL', 'NBA', 'MLB'];
 const apiBase = `${SUPABASE_URL}/rest/v1`;
+const EVENT_LIMIT = Number(process.env.GOOSE2_PHASE1_EVENT_LIMIT || 2000);
+const GRADING_LIMIT = Number(process.env.GOOSE2_PHASE1_GRADING_LIMIT || 1500);
 const headers = {
   apikey: SERVICE_KEY,
   Authorization: `Bearer ${SERVICE_KEY}`,
@@ -91,7 +93,7 @@ function duplicateClusterKey(event) {
 }
 
 async function getIdentityAudit(sport) {
-  const { data: events } = await rest(`/goose_market_events?select=event_id,source_event_id,sport,event_date,commence_time,home_team,away_team,event_label,metadata&sport=eq.${sport}&order=event_date.desc,commence_time.desc&limit=5000`);
+  const { data: events } = await rest(`/goose_market_events?select=event_id,source_event_id,sport,event_date,commence_time,home_team,away_team,event_label,metadata&sport=eq.${sport}&order=event_date.desc,commence_time.desc&limit=${EVENT_LIMIT}`);
   const normalized = (events || []).map(normalizeEvent);
   const suspiciousRows = normalized
     .map((event) => {
@@ -182,7 +184,7 @@ function gradingBucket(row) {
 }
 
 async function getGradingAudit(sport) {
-  const { data: rows } = await rest(`/goose_market_candidates?select=candidate_id,event_id,sport,event_date,market_type,odds,capture_ts,goose_market_events!inner(commence_time,status),goose_market_results(result,integrity_status,settlement_ts,grade_source,grading_notes)&sport=eq.${sport}&event_date=gte.${new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)}&order=event_date.desc,capture_ts.desc&limit=5000`);
+  const { data: rows } = await rest(`/goose_market_candidates?select=candidate_id,event_id,sport,event_date,market_type,odds,capture_ts,goose_market_events!inner(commence_time,status),goose_market_results(result,integrity_status,settlement_ts,grade_source,grading_notes)&sport=eq.${sport}&event_date=gte.${new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10)}&order=event_date.desc,capture_ts.desc&limit=${GRADING_LIMIT}`);
 
   const normalized = (rows || []).map((row) => ({
     candidate_id: row.candidate_id,
