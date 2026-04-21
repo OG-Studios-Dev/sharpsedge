@@ -6,6 +6,20 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const envPath = path.join(ROOT, '.env.local');
+try {
+  const { readFile } = await import('node:fs/promises');
+  const rawEnv = await readFile(envPath, 'utf8');
+  for (const line of rawEnv.split(/\r?\n/)) {
+    if (!line || line.trim().startsWith('#')) continue;
+    const idx = line.indexOf('=');
+    if (idx === -1) continue;
+    const key = line.slice(0, idx).trim();
+    let value = line.slice(idx + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
+    if (!(key in process.env)) process.env[key] = value;
+  }
+} catch {}
 const OUT_DIR = path.join(ROOT, 'tmp', 'the-odds-phase1');
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const MARKETS = 'h2h,spreads,totals';
