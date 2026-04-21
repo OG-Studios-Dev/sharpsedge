@@ -180,7 +180,7 @@ function isEmptyWindowSuccess(row) {
 const LEAGUE_SEASON_DEFAULTS = {
   NBA: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30 },
   NHL: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30 },
-  MLB: { startMonth: 4, startDay: 1, endMonth: 9, endDay: 30 },
+  MLB: { startMonth: 3, startDay: 1, endMonth: 11, endDay: 15 },
   NFL: { startMonth: 9, startDay: 1, endMonth: 2, endDay: 15 },
 };
 
