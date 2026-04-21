@@ -19,8 +19,8 @@
         "envName": "ODDS_API_KEY",
         "status": 200,
         "headers": {
-          "remaining": "18962",
-          "used": "1038",
+          "remaining": "18842",
+          "used": "1158",
           "last": "30"
         },
         "body": {
@@ -5744,8 +5744,8 @@
         "envName": "ODDS_API_KEY",
         "status": 200,
         "headers": {
-          "remaining": "18902",
-          "used": "1098",
+          "remaining": "18782",
+          "used": "1218",
           "last": "30"
         },
         "body": {
@@ -10912,5 +10912,5 @@
       }
     }
   ],
-  "capturedAt": "2026-04-21T02:32:26.088Z"
+  "capturedAt": "2026-04-21T02:33:26.703Z"
 }

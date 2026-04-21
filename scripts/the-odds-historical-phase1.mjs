@@ -17,6 +17,7 @@ const SPORT_MAP = {
   NFL: 'americanfootball_nfl',
 };
 
+
 const KEY_ENV_NAMES = [
   'ODDS_API_KEY',
   'ODDS_API_KEY_2',
@@ -136,7 +137,7 @@ function isSnapshotAligned(window, summary) {
   return snapshot.slice(0, 10) === window.endDateInclusive;
 }
 
-function classifyWindowResult(window, row) {
+function classifyWindowResult(_sportArg, window, row) {
   if (row.status == null) return 'no_result';
   if (row.status !== 200) return 'http_error';
   if (row.windowAligned) return 'pass';
@@ -150,7 +151,7 @@ function classifyWindowResult(window, row) {
     return 'stale_snapshot';
   }
 
-  return 'offseason_or_no_aligned_snapshot';
+  return 'unaligned_snapshot';
 }
 
 async function main() {
@@ -221,7 +222,7 @@ async function main() {
     };
     return {
       ...row,
-      classification: classifyWindowResult(window, row),
+      classification: classifyWindowResult(sportArg, window, row),
     };
   });
 
