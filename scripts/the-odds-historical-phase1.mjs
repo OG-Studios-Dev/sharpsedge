@@ -42,18 +42,22 @@ function getKeys() {
   return keys;
 }
 
+function toCompactIso(value) {
+  return new Date(value).toISOString().replace('.000Z', 'Z');
+}
+
 function toIsoDayStart(value) {
-  return new Date(`${value}T00:00:00.000Z`).toISOString();
+  return toCompactIso(`${value}T00:00:00.000Z`);
 }
 
 function toIsoDayEnd(value) {
-  return new Date(`${value}T23:59:59.000Z`).toISOString();
+  return toCompactIso(`${value}T23:59:59.000Z`);
 }
 
 function addDays(iso, days) {
   const d = new Date(iso);
   d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString();
+  return toCompactIso(d.toISOString());
 }
 
 function* weeklyWindows(startDate, endDate) {
@@ -64,7 +68,7 @@ function* weeklyWindows(startDate, endDate) {
     const boundedEnd = Math.min(new Date(next).getTime(), end);
     yield {
       start: cursor,
-      end: new Date(boundedEnd).toISOString().replace('.000Z', '.000Z').slice(0,24)+'Z'.replace('ZZ','Z'),
+      end: toCompactIso(new Date(boundedEnd).toISOString()),
     };
     cursor = addDays(cursor, 7);
   }
@@ -77,7 +81,7 @@ async function fetchHistoricalOdds({ key, sportKey, date }) {
   url.searchParams.set('markets', MARKETS);
   url.searchParams.set('oddsFormat', 'american');
   url.searchParams.set('date', date);
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
+  const response = await fetch(url.toString(), { headers: { accept: 'application/json' } });
   const text = await response.text();
   let body;
   try {
