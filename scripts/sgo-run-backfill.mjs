@@ -163,6 +163,13 @@ function hasIngestedCandidates(row) {
   return Number(((row?.ingest ?? {}).inserted ?? {}).candidates ?? 0) > 0;
 }
 
+function isEmptyWindowSuccess(row) {
+  const pullEvents = Number(((row?.pull ?? {}).summary ?? {}).events ?? 0);
+  const normalizeCandidates = Number(((row?.normalize ?? {}).summary ?? {}).candidates ?? 0);
+  const ingestedCandidates = Number((((row?.ingest ?? {}).inserted) ?? {}).candidates ?? 0);
+  return pullEvents === 0 && normalizeCandidates === 0 && ingestedCandidates === 0;
+}
+
 function inferSeasonYearForLeague(league, startIsoValue, endIsoValue) {
   const start = new Date(startIsoValue);
   const end = new Date(endIsoValue);
@@ -346,7 +353,7 @@ for (const monthRow of plan) {
         rowIngestMeta = null;
       }
 
-      if (status === 'done' && !hasIngestedCandidates({ ingest: rowIngestMeta, pull: pullMeta })) {
+      if (status === 'done' && !hasIngestedCandidates({ ingest: rowIngestMeta, pull: pullMeta, normalize: normalizeMeta }) && !isEmptyWindowSuccess({ ingest: rowIngestMeta, pull: pullMeta, normalize: normalizeMeta })) {
         status = 'error';
         error = error || `INGEST_MISSING for ${monthRow.league} ${chunk.startsAfter}..${chunk.startsBefore}`;
       }
