@@ -7410,7 +7410,83 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:20:15.270Z",
+    "runAt": "2026-04-21T12:40:48.342Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-01T00:00:00.000Z",
+    "startsBefore": "2024-09-01T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-01T00:00:00.000Z",
+      "startsBefore": "2024-09-01T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 12,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "17012",
+        "x-requests-used": "2988",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+      "summary": {
+        "events": 12,
+        "candidates": 484,
+        "byMarket": {
+          "h2h": 166,
+          "spreads": 152,
+          "totals": 166
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+      "summary": {
+        "events": 12,
+        "candidates": 484,
+        "byMarket": {
+          "h2h": 166,
+          "spreads": 152,
+          "totals": 166
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 12,
+        "candidates": 484,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 12,
+        "candidates": 484,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-01"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:20:03.006Z",
     "league": "MLB",
     "month": "2024-09",
     "startsAfter": "2024-09-01T00:00:00.000Z",
@@ -7420,90 +7496,556 @@
     "splitDepth": 0,
     "parentWindowKey": null,
     "pull": {
-      "fromCache": false,
-      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/MLB_2024-09-01T00_00_00.000Z_2024-09-07T23_59_59.000Z_true_true_250_all.json",
-      "ok": false,
-      "status": 429,
-      "usedKeyIndex": 2,
+      "fromCache": true,
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json"
+      ],
+      "ok": true,
+      "status": 200,
       "sport": "MLB",
       "startsAfter": "2024-09-01T00:00:00.000Z",
       "startsBefore": "2024-09-07T23:59:59.000Z",
       "finalized": true,
-      "includeAltLine": true,
-      "limit": 250,
-      "oddID": null,
       "summary": {
-        "events": 0,
-        "totalOdds": 0,
-        "bookmakerRefs": 0,
-        "estimatedEntities": 0,
-        "nextCursor": null,
-        "hitCap": false,
-        "sample": null
-      },
-      "usageBefore": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
+        "events": 151,
+        "source": "the_odds_api_historical_direct",
+        "days": 7
       },
       "usageAfter": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
-      },
-      "keyRankingBefore": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "keyRankingAfter": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "dryRun": false,
-      "probableTruncation": false,
-      "minWindowMinutes": 60,
-      "splitPlan": null
+        "x-requests-remaining": "16832",
+        "x-requests-used": "3168",
+        "x-requests-last": "30"
+      }
     },
-    "normalize": null,
-    "ingest": null,
-    "status": "error",
-    "error": "PULL_FAILED 429 for MLB 2024-09-01T00:00:00.000Z..2024-09-07T23:59:59.000Z"
+    "normalize": {
+      "outPath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json"
+      ],
+      "summary": {
+        "events": 151,
+        "candidates": 5638,
+        "byMarket": {
+          "h2h": 1942,
+          "spreads": 1776,
+          "totals": 1920
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-01.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json"
+      ],
+      "summary": {
+        "events": 151,
+        "candidates": 5638,
+        "byMarket": {
+          "h2h": 1942,
+          "spreads": 1776,
+          "totals": 1920
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 151,
+        "candidates": 5638,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 151,
+        "candidates": 5638,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-01",
+      "2024-09-02",
+      "2024-09-03",
+      "2024-09-04",
+      "2024-09-05",
+      "2024-09-06",
+      "2024-09-07"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:40:50.375Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-02T00:00:00.000Z",
+    "startsBefore": "2024-09-02T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-02T00:00:00.000Z",
+      "startsBefore": "2024-09-02T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 18,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16982",
+        "x-requests-used": "3018",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+      "summary": {
+        "events": 18,
+        "candidates": 770,
+        "byMarket": {
+          "h2h": 266,
+          "spreads": 250,
+          "totals": 254
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-02.json",
+      "summary": {
+        "events": 18,
+        "candidates": 770,
+        "byMarket": {
+          "h2h": 266,
+          "spreads": 250,
+          "totals": 254
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 18,
+        "candidates": 770,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 18,
+        "candidates": 770,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-02"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:40:52.182Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-03T00:00:00.000Z",
+    "startsBefore": "2024-09-03T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-03T00:00:00.000Z",
+      "startsBefore": "2024-09-03T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 27,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16952",
+        "x-requests-used": "3048",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+      "summary": {
+        "events": 27,
+        "candidates": 1080,
+        "byMarket": {
+          "spreads": 356,
+          "totals": 366,
+          "h2h": 358
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-03.json",
+      "summary": {
+        "events": 27,
+        "candidates": 1080,
+        "byMarket": {
+          "spreads": 356,
+          "totals": 366,
+          "h2h": 358
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 27,
+        "candidates": 1080,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 27,
+        "candidates": 1080,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-03"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:40:59.256Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-04T00:00:00.000Z",
+    "startsBefore": "2024-09-04T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-04T00:00:00.000Z",
+      "startsBefore": "2024-09-04T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 23,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16922",
+        "x-requests-used": "3078",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+      "summary": {
+        "events": 23,
+        "candidates": 858,
+        "byMarket": {
+          "h2h": 288,
+          "spreads": 274,
+          "totals": 296
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-04.json",
+      "summary": {
+        "events": 23,
+        "candidates": 858,
+        "byMarket": {
+          "h2h": 288,
+          "spreads": 274,
+          "totals": 296
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 23,
+        "candidates": 858,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 23,
+        "candidates": 858,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-04"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:41:04.149Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-05T00:00:00.000Z",
+    "startsBefore": "2024-09-05T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-05T00:00:00.000Z",
+      "startsBefore": "2024-09-05T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 19,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16892",
+        "x-requests-used": "3108",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+      "summary": {
+        "events": 19,
+        "candidates": 518,
+        "byMarket": {
+          "h2h": 198,
+          "spreads": 132,
+          "totals": 188
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-05.json",
+      "summary": {
+        "events": 19,
+        "candidates": 518,
+        "byMarket": {
+          "h2h": 198,
+          "spreads": 132,
+          "totals": 188
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 19,
+        "candidates": 518,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 19,
+        "candidates": 518,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-05"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:41:06.052Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-06T00:00:00.000Z",
+    "startsBefore": "2024-09-06T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-06T00:00:00.000Z",
+      "startsBefore": "2024-09-06T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 28,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16862",
+        "x-requests-used": "3138",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+      "summary": {
+        "events": 28,
+        "candidates": 1056,
+        "byMarket": {
+          "h2h": 356,
+          "spreads": 348,
+          "totals": 352
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-06.json",
+      "summary": {
+        "events": 28,
+        "candidates": 1056,
+        "byMarket": {
+          "h2h": 356,
+          "spreads": 348,
+          "totals": 352
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 28,
+        "candidates": 1056,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 28,
+        "candidates": 1056,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-06"
+    ]
+  },
+  {
+    "runAt": "2026-04-21T12:41:07.708Z",
+    "league": "MLB",
+    "month": "2024-09",
+    "startsAfter": "2024-09-07T00:00:00.000Z",
+    "startsBefore": "2024-09-07T23:59:59.000Z",
+    "chunkDays": 1,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": true,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json",
+      "ok": true,
+      "status": 200,
+      "sport": "MLB",
+      "startsAfter": "2024-09-07T00:00:00.000Z",
+      "startsBefore": "2024-09-07T23:59:59.000Z",
+      "finalized": true,
+      "summary": {
+        "events": 24,
+        "source": "the_odds_api_historical_direct",
+        "days": 1
+      },
+      "usageAfter": {
+        "x-requests-remaining": "16832",
+        "x-requests-used": "3168",
+        "x-requests-last": "30"
+      }
+    },
+    "normalize": {
+      "outPath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json",
+      "summary": {
+        "events": 24,
+        "candidates": 872,
+        "byMarket": {
+          "spreads": 264,
+          "totals": 298,
+          "h2h": 310
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-07.json",
+      "summary": {
+        "events": 24,
+        "candidates": 872,
+        "byMarket": {
+          "spreads": 264,
+          "totals": 298,
+          "h2h": 310
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 24,
+        "candidates": 872,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 24,
+        "candidates": 872,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-07"
+    ]
   },
   {
     "runAt": "2026-04-21T03:17:15.027Z",
@@ -7964,7 +8506,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:20:19.276Z",
+    "runAt": "2026-04-21T12:20:05.972Z",
     "league": "MLB",
     "month": "2024-09",
     "startsAfter": "2024-09-22T00:00:00.000Z",
@@ -7974,93 +8516,103 @@
     "splitDepth": 0,
     "parentWindowKey": null,
     "pull": {
-      "fromCache": false,
-      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/MLB_2024-09-22T00_00_00.000Z_2024-09-28T23_59_59.000Z_true_true_250_all.json",
-      "ok": false,
-      "status": 429,
-      "usedKeyIndex": 2,
+      "fromCache": true,
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-22.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-23.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-24.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-25.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-26.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-27.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-28.json"
+      ],
+      "ok": true,
+      "status": 200,
       "sport": "MLB",
       "startsAfter": "2024-09-22T00:00:00.000Z",
       "startsBefore": "2024-09-28T23:59:59.000Z",
       "finalized": true,
-      "includeAltLine": true,
-      "limit": 250,
-      "oddID": null,
       "summary": {
-        "events": 0,
-        "totalOdds": 0,
-        "bookmakerRefs": 0,
-        "estimatedEntities": 0,
-        "nextCursor": null,
-        "hitCap": false,
-        "sample": null
-      },
-      "usageBefore": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
+        "events": 128,
+        "source": "the_odds_api_historical_direct",
+        "days": 7
       },
       "usageAfter": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
-      },
-      "keyRankingBefore": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "keyRankingAfter": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "dryRun": false,
-      "probableTruncation": false,
-      "minWindowMinutes": 60,
-      "splitPlan": null
+        "x-requests-remaining": "16622",
+        "x-requests-used": "3378",
+        "x-requests-last": "30"
+      }
     },
-    "normalize": null,
-    "ingest": null,
-    "status": "error",
-    "error": "PULL_FAILED 429 for MLB 2024-09-22T00:00:00.000Z..2024-09-28T23:59:59.000Z"
+    "normalize": {
+      "outPath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-22.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-23.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-24.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-25.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-26.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-27.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-28.json"
+      ],
+      "summary": {
+        "events": 128,
+        "candidates": 4906,
+        "byMarket": {
+          "spreads": 1542,
+          "totals": 1686,
+          "h2h": 1678
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-22.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-23.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-24.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-25.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-26.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-27.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-28.json"
+      ],
+      "summary": {
+        "events": 128,
+        "candidates": 4906,
+        "byMarket": {
+          "spreads": 1542,
+          "totals": 1686,
+          "h2h": 1678
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 128,
+        "candidates": 4906,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 128,
+        "candidates": 4906,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-22",
+      "2024-09-23",
+      "2024-09-24",
+      "2024-09-25",
+      "2024-09-26",
+      "2024-09-27",
+      "2024-09-28"
+    ]
   },
   {
-    "runAt": "2026-04-21T11:20:20.855Z",
+    "runAt": "2026-04-21T12:20:07.675Z",
     "league": "MLB",
     "month": "2024-09",
     "startsAfter": "2024-09-29T00:00:00.000Z",
@@ -8070,90 +8622,80 @@
     "splitDepth": 0,
     "parentWindowKey": null,
     "pull": {
-      "fromCache": false,
-      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/MLB_2024-09-29T00_00_00.000Z_2024-09-30T23_59_59.000Z_true_true_250_all.json",
-      "ok": false,
-      "status": 429,
-      "usedKeyIndex": 2,
+      "fromCache": true,
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-29.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-30.json"
+      ],
+      "ok": true,
+      "status": 200,
       "sport": "MLB",
       "startsAfter": "2024-09-29T00:00:00.000Z",
       "startsBefore": "2024-09-30T23:59:59.000Z",
       "finalized": true,
-      "includeAltLine": true,
-      "limit": 250,
-      "oddID": null,
       "summary": {
-        "events": 0,
-        "totalOdds": 0,
-        "bookmakerRefs": 0,
-        "estimatedEntities": 0,
-        "nextCursor": null,
-        "hitCap": false,
-        "sample": null
-      },
-      "usageBefore": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
+        "events": 9,
+        "source": "the_odds_api_historical_direct",
+        "days": 2
       },
       "usageAfter": {
-        "max-requests": "unlimited",
-        "max-entities": 2500,
-        "current-entities": 2501
-      },
-      "keyRankingBefore": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "keyRankingAfter": [
-        {
-          "keyIndex": 1,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 4,
-          "status": 200,
-          "remainingApprox": -1
-        },
-        {
-          "keyIndex": 3,
-          "status": 200,
-          "remainingApprox": -21
-        },
-        {
-          "keyIndex": 2,
-          "status": 200,
-          "remainingApprox": -26
-        }
-      ],
-      "dryRun": false,
-      "probableTruncation": false,
-      "minWindowMinutes": 60,
-      "splitPlan": null
+        "x-requests-remaining": "16562",
+        "x-requests-used": "3438",
+        "x-requests-last": "30"
+      }
     },
-    "normalize": null,
-    "ingest": null,
-    "status": "error",
-    "error": "PULL_FAILED 429 for MLB 2024-09-29T00:00:00.000Z..2024-09-30T23:59:59.000Z"
+    "normalize": {
+      "outPath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-29.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-30.json"
+      ],
+      "summary": {
+        "events": 9,
+        "candidates": 200,
+        "byMarket": {
+          "h2h": 72,
+          "spreads": 64,
+          "totals": 64
+        },
+        "source": "the_odds_api_historical_direct"
+      }
+    },
+    "ingest": {
+      "ok": true,
+      "sport": "MLB",
+      "cachePath": [
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-29.json",
+        "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/the-odds-direct-mlb-sep/2024-09-30.json"
+      ],
+      "summary": {
+        "events": 9,
+        "candidates": 200,
+        "byMarket": {
+          "h2h": 72,
+          "spreads": 64,
+          "totals": 64
+        },
+        "source": "the_odds_api_historical_direct"
+      },
+      "inserted": {
+        "events": 9,
+        "candidates": 200,
+        "feature_rows": 0
+      },
+      "deduped_from": {
+        "events": 9,
+        "candidates": 200,
+        "feature_rows": 0
+      }
+    },
+    "status": "done",
+    "error": null,
+    "repair_note": "Repaired via direct The Odds historical ingest bridge on 2026-04-21",
+    "repair_source": "the_odds_api_historical_direct",
+    "repair_days": [
+      "2024-09-29",
+      "2024-09-30"
+    ]
   },
   {
     "runAt": "2026-04-21T03:46:23.750Z",
@@ -23511,7 +24053,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:22:38.247Z",
+    "runAt": "2026-04-21T12:20:08.326Z",
     "league": "NBA",
     "month": "2025-10",
     "startsAfter": "2025-10-01T00:00:00.000Z",
@@ -23594,7 +24136,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:22:38.975Z",
+    "runAt": "2026-04-21T12:20:09.054Z",
     "league": "NBA",
     "month": "2025-10",
     "startsAfter": "2025-10-08T00:00:00.000Z",
@@ -43876,6 +44418,102 @@
     "ingest": null,
     "status": "error",
     "error": "PULL_FAILED 429 for NBA 2026-04-15T00:00:00.000Z..2026-04-21T11:20:00.000Z"
+  },
+  {
+    "runAt": "2026-04-21T12:20:12.644Z",
+    "league": "NBA",
+    "month": "2026-04",
+    "startsAfter": "2026-04-15T00:00:00.000Z",
+    "startsBefore": "2026-04-21T12:20:00.000Z",
+    "chunkDays": 7,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": false,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/NBA_2026-04-15T00_00_00.000Z_2026-04-21T12_20_00.000Z_true_true_250_all.json",
+      "ok": false,
+      "status": 429,
+      "usedKeyIndex": 2,
+      "sport": "NBA",
+      "startsAfter": "2026-04-15T00:00:00.000Z",
+      "startsBefore": "2026-04-21T12:20:00.000Z",
+      "finalized": true,
+      "includeAltLine": true,
+      "limit": 250,
+      "oddID": null,
+      "summary": {
+        "events": 0,
+        "totalOdds": 0,
+        "bookmakerRefs": 0,
+        "estimatedEntities": 0,
+        "nextCursor": null,
+        "hitCap": false,
+        "sample": null
+      },
+      "usageBefore": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "usageAfter": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "keyRankingBefore": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "keyRankingAfter": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "dryRun": false,
+      "probableTruncation": false,
+      "minWindowMinutes": 60,
+      "splitPlan": null
+    },
+    "normalize": null,
+    "ingest": null,
+    "status": "error",
+    "error": "PULL_FAILED 429 for NBA 2026-04-15T00:00:00.000Z..2026-04-21T12:20:00.000Z"
   },
   {
     "runAt": "2026-04-16T13:05:05.885Z",
@@ -75671,7 +76309,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:23:03.762Z",
+    "runAt": "2026-04-21T12:20:14.369Z",
     "league": "NHL",
     "month": "2026-01",
     "startsAfter": "2026-01-15T00:00:00.000Z",
@@ -76519,7 +77157,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:23:04.488Z",
+    "runAt": "2026-04-21T12:20:15.100Z",
     "league": "NHL",
     "month": "2026-02",
     "startsAfter": "2026-02-08T00:00:00.000Z",
@@ -76602,7 +77240,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:23:05.259Z",
+    "runAt": "2026-04-21T12:20:15.815Z",
     "league": "NHL",
     "month": "2026-02",
     "startsAfter": "2026-02-15T00:00:00.000Z",
@@ -77193,7 +77831,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T11:23:08.641Z",
+    "runAt": "2026-04-21T12:20:17.977Z",
     "league": "NHL",
     "month": "2026-03",
     "startsAfter": "2026-03-08T00:00:00.000Z",
@@ -93834,6 +94472,102 @@
     "ingest": null,
     "status": "error",
     "error": "PULL_FAILED 429 for NHL 2026-04-15T00:00:00.000Z..2026-04-21T11:20:00.000Z"
+  },
+  {
+    "runAt": "2026-04-21T12:20:19.799Z",
+    "league": "NHL",
+    "month": "2026-04",
+    "startsAfter": "2026-04-15T00:00:00.000Z",
+    "startsBefore": "2026-04-21T12:20:00.000Z",
+    "chunkDays": 7,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": false,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/NHL_2026-04-15T00_00_00.000Z_2026-04-21T12_20_00.000Z_true_true_250_all.json",
+      "ok": false,
+      "status": 429,
+      "usedKeyIndex": 2,
+      "sport": "NHL",
+      "startsAfter": "2026-04-15T00:00:00.000Z",
+      "startsBefore": "2026-04-21T12:20:00.000Z",
+      "finalized": true,
+      "includeAltLine": true,
+      "limit": 250,
+      "oddID": null,
+      "summary": {
+        "events": 0,
+        "totalOdds": 0,
+        "bookmakerRefs": 0,
+        "estimatedEntities": 0,
+        "nextCursor": null,
+        "hitCap": false,
+        "sample": null
+      },
+      "usageBefore": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "usageAfter": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "keyRankingBefore": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "keyRankingAfter": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "dryRun": false,
+      "probableTruncation": false,
+      "minWindowMinutes": 60,
+      "splitPlan": null
+    },
+    "normalize": null,
+    "ingest": null,
+    "status": "error",
+    "error": "PULL_FAILED 429 for NHL 2026-04-15T00:00:00.000Z..2026-04-21T12:20:00.000Z"
   },
   {
     "runAt": "2026-04-16T13:05:07.267Z",
