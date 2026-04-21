@@ -200,6 +200,7 @@ async function runOddsApiPhase1Preflight(leaguesToCheck, startIsoValue, endIsoVa
     enabled: true,
     skipped: false,
     ok: results.every((row) => row.ok === true),
+    defaultVerdict: results.every((row) => row.defaultVerdict === 'trusted_in_season') ? 'trusted_in_season' : 'mixed_or_untrusted',
     results,
   };
 }

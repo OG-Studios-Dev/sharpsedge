@@ -199,6 +199,25 @@ function classifyWindowResult(_sportArg, window, row) {
   return 'unaligned_snapshot';
 }
 
+function verdictForClassification(classification) {
+  switch (classification) {
+    case 'pass':
+      return 'trusted_in_season';
+    case 'stale_snapshot':
+      return 'stale_or_unaligned';
+    case 'unaligned_snapshot':
+      return 'stale_or_unaligned';
+    case 'missing_snapshot_timestamp':
+      return 'stale_or_unaligned';
+    case 'http_error':
+      return 'provider_error_do_not_trust';
+    case 'no_result':
+      return 'no_result_do_not_trust';
+    default:
+      return 'unknown_do_not_trust';
+  }
+}
+
 async function main() {
   const sportArg = (process.argv[2] || 'NBA').toUpperCase();
   const rawStartDate = process.argv[3] || null;
@@ -270,9 +289,11 @@ async function main() {
       windowAligned: result?.windowAligned ?? false,
       summary: result?.summary ?? null,
     };
+    const classification = classifyWindowResult(sportArg, window, row);
     return {
       ...row,
-      classification: classifyWindowResult(sportArg, window, row),
+      classification,
+      verdict: verdictForClassification(classification),
     };
   });
 
@@ -283,11 +304,18 @@ async function main() {
     return acc;
   }, {});
 
+  const verdictCounts = compact.reduce((acc, row) => {
+    acc[row.verdict] = (acc[row.verdict] || 0) + 1;
+    return acc;
+  }, {});
+
   console.log(JSON.stringify({
     ok: compact.length > 0 && failedWindows === 0,
     passedWindows,
     failedWindows,
     classificationCounts,
+    verdictCounts,
+    defaultVerdict: failedWindows === 0 ? 'trusted_in_season' : 'mixed_or_untrusted',
     sport: sportArg,
     sportKey,
     requestedWindow,
