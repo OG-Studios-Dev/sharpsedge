@@ -21,6 +21,8 @@ const mode = (process.argv[7] || 'append').trim().toLowerCase();
 const cacheDir = path.join(cwd, 'tmp', 'sgo-cache');
 const ledgerDir = path.join(cwd, 'tmp', 'sgo-ledger');
 const ledgerPath = path.join(ledgerDir, 'historical-backfill-ledger.json');
+const eventCap = Number(process.env.SGO_EVENT_CAP || 50);
+const minWindowMinutes = Math.max(1, Number(process.env.SGO_MIN_WINDOW_MINUTES || 60));
 
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
@@ -83,6 +85,30 @@ function saveLedger(rows) {
 
 function rowKey(row) {
   return `${row.league}|${row.startsAfter}|${row.startsBefore}`;
+}
+
+function windowDurationMinutes(start, end) {
+  return Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 60000));
+}
+
+function splitWindowMidpoint(start, end) {
+  const startMs = new Date(start).getTime();
+  const endMs = new Date(end).getTime();
+  if (!(endMs > startMs)) return null;
+  const midpointMs = startMs + Math.floor((endMs - startMs) / 2);
+  if (midpointMs <= startMs || midpointMs >= endMs) return null;
+  return [
+    { startsAfter: new Date(startMs).toISOString(), startsBefore: new Date(midpointMs).toISOString() },
+    { startsAfter: new Date(midpointMs + 1).toISOString(), startsBefore: new Date(endMs).toISOString() },
+  ];
+}
+
+function shouldSplitWindow(row) {
+  const events = Number(row?.pull?.summary?.events ?? 0);
+  const nextCursor = row?.pull?.summary?.nextCursor || row?.pull?.probableTruncation || row?.pull?.splitPlan ? true : false;
+  if (events < eventCap) return false;
+  if (!nextCursor) return false;
+  return windowDurationMinutes(row.startsAfter, row.startsBefore) > minWindowMinutes;
 }
 
 function dedupeLedger(rows) {
@@ -154,7 +180,19 @@ const seen = new Set(
     .filter((r) => hasUsableSuccess(r))
     .map((r) => rowKey(r))
 );
-const plan = buildPlan(startIso, endIso, leagues);
+const basePlan = buildPlan(startIso, endIso, leagues);
+const extraPlan = [];
+for (const row of latestByKey.values()) {
+  if (!shouldSplitWindow(row)) continue;
+  const children = splitWindowMidpoint(row.startsAfter, row.startsBefore);
+  if (!children) continue;
+  for (const child of children) {
+    extraPlan.push({ league: row.league, month: row.month || row.startsAfter.slice(0, 7), ...child, parentWindowKey: rowKey(row), splitDepth: Number(row.splitDepth || 0) + 1 });
+  }
+}
+const planMap = new Map();
+for (const row of [...basePlan, ...extraPlan]) planMap.set(`${row.league}|${row.startsAfter}|${row.startsBefore}`, row);
+const plan = [...planMap.values()].sort((a, b) => `${a.league}|${a.startsAfter}`.localeCompare(`${b.league}|${b.startsAfter}`));
 const supabaseHealth = await checkSupabaseHealth();
 
 for (const monthRow of plan) {
@@ -189,6 +227,8 @@ for (const monthRow of plan) {
           '--starts-before', chunk.startsBefore,
           '--limit', String(limit),
           '--chunk-days', String(effectiveChunkDays),
+          '--event-cap', String(eventCap),
+          '--min-window-minutes', String(minWindowMinutes),
         ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
         pullMeta = JSON.parse(pullRaw);
       }
@@ -238,6 +278,8 @@ for (const monthRow of plan) {
       startsBefore: chunk.startsBefore,
       chunkDays: effectiveChunkDays,
       limit,
+      splitDepth: Number(monthRow.splitDepth || 0),
+      parentWindowKey: monthRow.parentWindowKey || null,
       pull: pullMeta,
       normalize: normalizeMeta,
       ingest: rowIngestMeta,

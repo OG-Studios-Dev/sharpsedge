@@ -27,6 +27,9 @@ const includeAltLine = flagValue('--include-alt-line', true);
 const limit = Number(argValue('--limit') || 50);
 const oddID = argValue('--odd-id') || null;
 const chunkDays = Number(argValue('--chunk-days') || 0);
+const cursor = argValue('--cursor') || null;
+const eventCap = Number(argValue('--event-cap') || 50);
+const minWindowMinutes = Math.max(1, Number(argValue('--min-window-minutes') || 60));
 const outDir = path.join(cwd, 'tmp', 'sgo-cache');
 mkdirSync(outDir, { recursive: true });
 
@@ -54,9 +57,15 @@ const params = new URLSearchParams({
   limit: String(limit),
 });
 if (oddID) params.set('oddID', oddID);
+if (cursor) params.set('cursor', cursor);
 
 const url = `${base}?${params.toString()}`;
-const cacheKey = `${sport}_${startsAfter}_${startsBefore}_${finalized}_${includeAltLine}_${limit}_${oddID || 'all'}`.replace(/[^a-zA-Z0-9._-]+/g, '_');
+function buildCacheKey(windowStart, windowEnd, cursorValue = null) {
+  return `${sport}_${windowStart}_${windowEnd}_${finalized}_${includeAltLine}_${limit}_${oddID || 'all'}${cursorValue ? `_cursor_${cursorValue}` : ''}`
+    .replace(/[^a-zA-Z0-9._-]+/g, '_');
+}
+
+const cacheKey = buildCacheKey(startsAfter, startsBefore, cursor);
 const cachePath = path.join(outDir, `${cacheKey}.json`);
 
 function argValue(name) {
@@ -116,6 +125,7 @@ async function fetchWithRotation(targetUrl) {
 
 function summarize(payload) {
   const events = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  const nextCursor = payload && typeof payload === 'object' ? payload.nextCursor ?? null : null;
   let totalOdds = 0;
   let bookmakerRefs = 0;
   let sample = null;
@@ -140,7 +150,25 @@ function summarize(payload) {
     totalOdds,
     bookmakerRefs,
     estimatedEntities: events.length + totalOdds,
+    nextCursor,
+    hitCap: events.length >= eventCap,
     sample,
+  };
+}
+
+function windowDurationMinutes(startIso, endIso) {
+  return Math.max(0, Math.floor((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000));
+}
+
+function splitWindowMidpoint(startIso, endIso) {
+  const startMs = new Date(startIso).getTime();
+  const endMs = new Date(endIso).getTime();
+  if (!(endMs > startMs)) return null;
+  const midpointMs = startMs + Math.floor((endMs - startMs) / 2);
+  if (midpointMs <= startMs || midpointMs >= endMs) return null;
+  return {
+    left: { startsAfter: new Date(startMs).toISOString(), startsBefore: new Date(midpointMs).toISOString() },
+    right: { startsAfter: new Date(midpointMs + 1).toISOString(), startsBefore: new Date(endMs).toISOString() },
   };
 }
 
@@ -169,7 +197,7 @@ async function runSingleWindow(windowStart, windowEnd) {
   });
   if (oddID) localParams.set('oddID', oddID);
   const localUrl = `${base}?${localParams.toString()}`;
-  const localCacheKey = `${sport}_${windowStart}_${windowEnd}_${finalized}_${includeAltLine}_${limit}_${oddID || 'all'}`.replace(/[^a-zA-Z0-9._-]+/g, '_');
+  const localCacheKey = buildCacheKey(windowStart, windowEnd, null);
   const localCachePath = path.join(outDir, `${localCacheKey}.json`);
 
   if (existsSync(localCachePath)) {
@@ -183,6 +211,9 @@ async function runSingleWindow(windowStart, windowEnd) {
   const usageRowsAfter = await refreshKeyRanking();
   const afterUsage = await fetchWithRotation('https://api.sportsgameodds.com/v2/account/usage');
   const summary = summarize(result.data);
+  const canSplit = windowDurationMinutes(windowStart, windowEnd) > minWindowMinutes;
+  const probableTruncation = summary.hitCap && !cursor && canSplit;
+  const splitPlan = probableTruncation ? splitWindowMidpoint(windowStart, windowEnd) : null;
   const meta = {
     ok: result.ok,
     status: result.status,
@@ -200,6 +231,9 @@ async function runSingleWindow(windowStart, windowEnd) {
     keyRankingBefore: usageRowsBefore.map((row) => ({ keyIndex: row.index + 1, status: row.status, remainingApprox: row.remainingApprox })),
     keyRankingAfter: usageRowsAfter.map((row) => ({ keyIndex: row.index + 1, status: row.status, remainingApprox: row.remainingApprox })),
     dryRun: DRY_RUN,
+    probableTruncation,
+    minWindowMinutes,
+    splitPlan,
   };
   if (result.ok) writeFileSync(localCachePath, JSON.stringify({ meta, payload: result.data }, null, 2));
   return { fromCache: false, cachePath: localCachePath, ...meta };
