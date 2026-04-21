@@ -56,3 +56,4 @@ dev.pid
 .playwright-dk-profile/
 supabase/.temp/
 tmp-*.mjs
+tmp/the-odds-phase1/
