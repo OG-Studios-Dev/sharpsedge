@@ -60,15 +60,22 @@ function addDays(iso, days) {
   return toCompactIso(d.toISOString());
 }
 
+function endOfDayIso(dateOnly) {
+  return `${dateOnly}T23:59:59Z`;
+}
+
 function* weeklyWindows(startDate, endDate) {
   let cursor = toIsoDayStart(startDate);
-  const end = new Date(toIsoDayEnd(endDate)).getTime();
-  while (new Date(cursor).getTime() <= end) {
+  const endInclusive = new Date(toIsoDayEnd(endDate)).getTime();
+  while (new Date(cursor).getTime() <= endInclusive) {
     const next = addDays(cursor, 6);
-    const boundedEnd = Math.min(new Date(next).getTime(), end);
+    const boundedEndInclusive = Math.min(new Date(next).getTime(), endInclusive);
+    const boundedEndIso = toCompactIso(new Date(boundedEndInclusive).toISOString());
+    const endDateInclusive = boundedEndIso.slice(0, 10);
     yield {
-      start: cursor,
-      end: toCompactIso(new Date(boundedEnd).toISOString()),
+      startDate: cursor.slice(0, 10),
+      endDateInclusive,
+      probeDate: endOfDayIso(endDateInclusive),
     };
     cursor = addDays(cursor, 7);
   }
@@ -123,6 +130,29 @@ function summarizeResponse(payload) {
   };
 }
 
+function isSnapshotAligned(window, summary) {
+  const snapshot = summary?.snapshotTimestamp;
+  if (!snapshot) return false;
+  return snapshot.slice(0, 10) === window.endDateInclusive;
+}
+
+function classifyWindowResult(window, row) {
+  if (row.status == null) return 'no_result';
+  if (row.status !== 200) return 'http_error';
+  if (row.windowAligned) return 'pass';
+
+  const snapshot = row.summary?.snapshotTimestamp;
+  if (!snapshot) return 'missing_snapshot_timestamp';
+
+  const snapshotMs = Date.parse(snapshot);
+  const probeMs = Date.parse(window.probeDate);
+  if (Number.isFinite(snapshotMs) && Number.isFinite(probeMs) && snapshotMs < probeMs) {
+    return 'stale_snapshot';
+  }
+
+  return 'offseason_or_no_aligned_snapshot';
+}
+
 async function main() {
   const sportArg = (process.argv[2] || 'NBA').toUpperCase();
   const startDate = process.argv[3] || '2024-01-01';
@@ -148,15 +178,17 @@ async function main() {
 
   for (let i = 0; i < windows.length; i += 1) {
     const window = windows[i];
-    const probeDate = window.end;
+    const probeDate = window.probeDate;
     let attemptResult = null;
 
     for (const candidate of keys) {
       const res = await fetchHistoricalOdds({ key: candidate.key, sportKey, date: probeDate });
+      const summary = res.status === 200 ? summarizeResponse(res) : null;
       attemptResult = {
         envName: candidate.envName,
         ...res,
-        summary: res.status === 200 ? summarizeResponse(res) : null,
+        summary,
+        windowAligned: res.status === 200 ? isSnapshotAligned(window, summary) : false,
       };
       if (res.status === 200) break;
       if (res.status !== 401 && res.status !== 429) break;
@@ -176,18 +208,35 @@ async function main() {
     capturedAt: new Date().toISOString(),
   }, null, 2));
 
-  const compact = results.map(({ window, result }) => ({
-    window,
-    status: result?.status ?? null,
-    envName: result?.envName ?? null,
-    remaining: result?.headers?.remaining ?? null,
-    used: result?.headers?.used ?? null,
-    last: result?.headers?.last ?? null,
-    summary: result?.summary ?? null,
-  }));
+  const compact = results.map(({ window, result }) => {
+    const row = {
+      window,
+      status: result?.status ?? null,
+      envName: result?.envName ?? null,
+      remaining: result?.headers?.remaining ?? null,
+      used: result?.headers?.used ?? null,
+      last: result?.headers?.last ?? null,
+      windowAligned: result?.windowAligned ?? false,
+      summary: result?.summary ?? null,
+    };
+    return {
+      ...row,
+      classification: classifyWindowResult(window, row),
+    };
+  });
+
+  const passedWindows = compact.filter((row) => row.classification === 'pass').length;
+  const failedWindows = compact.length - passedWindows;
+  const classificationCounts = compact.reduce((acc, row) => {
+    acc[row.classification] = (acc[row.classification] || 0) + 1;
+    return acc;
+  }, {});
 
   console.log(JSON.stringify({
-    ok: compact.some((row) => row.status === 200),
+    ok: compact.length > 0 && failedWindows === 0,
+    passedWindows,
+    failedWindows,
+    classificationCounts,
     sport: sportArg,
     sportKey,
     windowsTested: compact.length,
