@@ -25,6 +25,7 @@ const eventCap = Number(process.env.SGO_EVENT_CAP || 50);
 const minWindowMinutes = Math.max(1, Number(process.env.SGO_MIN_WINDOW_MINUTES || 60));
 const ENABLE_ODDS_API_PHASE1_PREFLIGHT = String(process.env.ENABLE_ODDS_API_PHASE1_PREFLIGHT || '').trim() === '1';
 const ODDS_API_PREFLIGHT_WINDOWS = Math.max(1, Number(process.env.ODDS_API_PHASE1_WINDOWS || 2));
+const ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT = String(process.env.ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT || '').trim() === '1';
 
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
@@ -245,6 +246,24 @@ const plan = [...planMap.values()].sort((a, b) => `${a.league}|${a.startsAfter}`
 const supabaseHealth = await checkSupabaseHealth();
 const oddsApiPhase1Preflight = await runOddsApiPhase1Preflight(leagues, startIso, endIso);
 
+if (
+  ENABLE_ODDS_API_PHASE1_PREFLIGHT
+  && oddsApiPhase1Preflight.enabled
+  && !oddsApiPhase1Preflight.skipped
+  && oddsApiPhase1Preflight.defaultVerdict !== 'trusted_in_season'
+  && !ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT
+) {
+  console.error(JSON.stringify({
+    ok: false,
+    blocked: true,
+    reason: 'UNTRUSTED_ODDS_API_PREFLIGHT',
+    message: 'Historical backfill aborted because Odds API preflight verdict was not trusted_in_season. Set ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT=1 to override deliberately.',
+    supabaseHealth,
+    oddsApiPhase1Preflight,
+  }, null, 2));
+  process.exit(2);
+}
+
 for (const monthRow of plan) {
   const effectiveChunkDays = leagueChunkDays[monthRow.league] || chunkDays;
   const chunks = splitWindows(monthRow.startsAfter, monthRow.startsBefore, effectiveChunkDays);
@@ -345,4 +364,17 @@ for (const monthRow of plan) {
   }
 }
 
-console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode, supabaseHealth, oddsApiPhase1Preflight }, null, 2));
+console.log(JSON.stringify({
+  ok: true,
+  ledgerPath,
+  rows: ledger.length,
+  mode,
+  preflightGate: {
+    enabled: ENABLE_ODDS_API_PHASE1_PREFLIGHT,
+    overrideUsed: ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT,
+    verdict: oddsApiPhase1Preflight.defaultVerdict || null,
+    blocked: false,
+  },
+  supabaseHealth,
+  oddsApiPhase1Preflight,
+}, null, 2));
