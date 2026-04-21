@@ -23,6 +23,8 @@ const ledgerDir = path.join(cwd, 'tmp', 'sgo-ledger');
 const ledgerPath = path.join(ledgerDir, 'historical-backfill-ledger.json');
 const eventCap = Number(process.env.SGO_EVENT_CAP || 50);
 const minWindowMinutes = Math.max(1, Number(process.env.SGO_MIN_WINDOW_MINUTES || 60));
+const ENABLE_ODDS_API_PHASE1_PREFLIGHT = String(process.env.ENABLE_ODDS_API_PHASE1_PREFLIGHT || '').trim() === '1';
+const ODDS_API_PREFLIGHT_WINDOWS = Math.max(1, Number(process.env.ODDS_API_PHASE1_WINDOWS || 2));
 
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
@@ -156,6 +158,41 @@ function retryableEntryScore(row) {
     + Number(ingest?.inserted?.candidates ?? 0);
 }
 
+async function runOddsApiPhase1Preflight(leaguesToCheck, startIsoValue, endIsoValue) {
+  if (!ENABLE_ODDS_API_PHASE1_PREFLIGHT) return { enabled: false, ok: true, skipped: true, results: [] };
+
+  const startDate = startIsoValue.slice(0, 10);
+  const endDate = endIsoValue.slice(0, 10);
+  const results = [];
+
+  for (const league of leaguesToCheck) {
+    try {
+      const raw = execFileSync(childPathNodeBin, [
+        'scripts/the-odds-historical-phase1.mjs',
+        league,
+        startDate,
+        endDate,
+        String(ODDS_API_PREFLIGHT_WINDOWS),
+      ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
+      const parsed = JSON.parse(raw);
+      results.push({ league, ...parsed });
+    } catch (err) {
+      results.push({
+        league,
+        ok: false,
+        error: err?.stderr?.toString?.() || err?.message || String(err),
+      });
+    }
+  }
+
+  return {
+    enabled: true,
+    skipped: false,
+    ok: results.every((row) => row.ok === true),
+    results,
+  };
+}
+
 async function checkSupabaseHealth() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -194,6 +231,7 @@ const planMap = new Map();
 for (const row of [...basePlan, ...extraPlan]) planMap.set(`${row.league}|${row.startsAfter}|${row.startsBefore}`, row);
 const plan = [...planMap.values()].sort((a, b) => `${a.league}|${a.startsAfter}`.localeCompare(`${b.league}|${b.startsAfter}`));
 const supabaseHealth = await checkSupabaseHealth();
+const oddsApiPhase1Preflight = await runOddsApiPhase1Preflight(leagues, startIso, endIso);
 
 for (const monthRow of plan) {
   const effectiveChunkDays = leagueChunkDays[monthRow.league] || chunkDays;
@@ -295,4 +333,4 @@ for (const monthRow of plan) {
   }
 }
 
-console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode, supabaseHealth }, null, 2));
+console.log(JSON.stringify({ ok: true, ledgerPath, rows: ledger.length, mode, supabaseHealth, oddsApiPhase1Preflight }, null, 2));
