@@ -143,7 +143,7 @@ function normalizeOutFor(league, startsAfter, startsBefore) {
 }
 
 function hasUsableSuccess(row) {
-  return row?.status === 'done' && (row?.pull?.ok !== false);
+  return row?.status === 'done' && (row?.pull?.ok !== false) && hasIngestedCandidates(row);
 }
 
 function hasRetryableRateLimit(row) {
@@ -157,6 +157,10 @@ function retryableEntryScore(row) {
   return Number(pull?.summary?.events ?? 0)
     + Number(normalize?.summary?.candidates ?? 0)
     + Number(ingest?.inserted?.candidates ?? 0);
+}
+
+function hasIngestedCandidates(row) {
+  return Number(((row?.ingest ?? {}).inserted ?? {}).candidates ?? 0) > 0;
 }
 
 function inferSeasonYearForLeague(league, startIsoValue, endIsoValue) {
@@ -302,7 +306,10 @@ for (const monthRow of plan) {
         pullMeta = JSON.parse(pullRaw);
       }
 
-      if (existsSync(cachePath)) {
+      const cacheExists = existsSync(cachePath);
+      const pullSucceeded = pullMeta?.ok !== false && pullMeta?.status !== 429;
+
+      if (cacheExists && pullSucceeded) {
         const shouldNormalize = !existsSync(normalizedPath) || !normalizeMeta || hasRetryableRateLimit(existing) || retryableEntryScore(existing) === 0;
         if (shouldNormalize) {
           const normRaw = execFileSync(childPathNodeBin, [
@@ -313,7 +320,7 @@ for (const monthRow of plan) {
           normalizeMeta = JSON.parse(normRaw);
         }
 
-        const shouldIngest = !rowIngestMeta || hasRetryableRateLimit(existing) || retryableEntryScore(existing) === 0;
+        const shouldIngest = !hasIngestedCandidates(existing) || !rowIngestMeta || hasRetryableRateLimit(existing) || retryableEntryScore(existing) === 0;
         if (shouldIngest) {
           const ingestRaw = execFileSync(childPathNodeBin, [
             'scripts/ingest-sgo-goose2-window.mjs',
@@ -332,8 +339,19 @@ for (const monthRow of plan) {
             rowIngestMeta.enrichment = JSON.parse(enrichRaw);
           }
         }
+      } else if (!pullSucceeded) {
+        status = 'error';
+        error = `PULL_FAILED ${pullMeta?.status ?? 'unknown'} for ${monthRow.league} ${chunk.startsAfter}..${chunk.startsBefore}`;
+        normalizeMeta = null;
+        rowIngestMeta = null;
       }
-      seen.add(id);
+
+      if (status === 'done' && !hasIngestedCandidates({ ingest: rowIngestMeta, pull: pullMeta })) {
+        status = 'error';
+        error = error || `INGEST_MISSING for ${monthRow.league} ${chunk.startsAfter}..${chunk.startsBefore}`;
+      }
+
+      if (status === 'done') seen.add(id);
     } catch (err) {
       status = 'error';
       error = err?.stderr?.toString?.() || err?.message || String(err);
