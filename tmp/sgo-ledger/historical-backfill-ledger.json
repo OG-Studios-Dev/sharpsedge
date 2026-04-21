@@ -24053,7 +24053,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:01.989Z",
+    "runAt": "2026-04-21T16:20:02.030Z",
     "league": "NBA",
     "month": "2025-10",
     "startsAfter": "2025-10-01T00:00:00.000Z",
@@ -24136,7 +24136,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:02.793Z",
+    "runAt": "2026-04-21T16:20:02.844Z",
     "league": "NBA",
     "month": "2025-10",
     "startsAfter": "2025-10-08T00:00:00.000Z",
@@ -44347,6 +44347,102 @@
     "ingest": null,
     "status": "error",
     "error": "PULL_FAILED 429 for NBA 2026-04-15T00:00:00.000Z..2026-04-21T15:20:00.000Z"
+  },
+  {
+    "runAt": "2026-04-21T16:20:07.405Z",
+    "league": "NBA",
+    "month": "2026-04",
+    "startsAfter": "2026-04-15T00:00:00.000Z",
+    "startsBefore": "2026-04-21T16:20:00.000Z",
+    "chunkDays": 7,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": false,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/NBA_2026-04-15T00_00_00.000Z_2026-04-21T16_20_00.000Z_true_true_250_all.json",
+      "ok": false,
+      "status": 429,
+      "usedKeyIndex": 2,
+      "sport": "NBA",
+      "startsAfter": "2026-04-15T00:00:00.000Z",
+      "startsBefore": "2026-04-21T16:20:00.000Z",
+      "finalized": true,
+      "includeAltLine": true,
+      "limit": 250,
+      "oddID": null,
+      "summary": {
+        "events": 0,
+        "totalOdds": 0,
+        "bookmakerRefs": 0,
+        "estimatedEntities": 0,
+        "nextCursor": null,
+        "hitCap": false,
+        "sample": null
+      },
+      "usageBefore": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "usageAfter": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "keyRankingBefore": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "keyRankingAfter": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "dryRun": false,
+      "probableTruncation": false,
+      "minWindowMinutes": 60,
+      "splitPlan": null
+    },
+    "normalize": null,
+    "ingest": null,
+    "status": "error",
+    "error": "PULL_FAILED 429 for NBA 2026-04-15T00:00:00.000Z..2026-04-21T16:20:00.000Z"
   },
   {
     "runAt": "2026-04-16T13:05:05.885Z",
@@ -76142,7 +76238,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:11.556Z",
+    "runAt": "2026-04-21T16:20:11.077Z",
     "league": "NHL",
     "month": "2026-01",
     "startsAfter": "2026-01-15T00:00:00.000Z",
@@ -76990,7 +77086,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:12.287Z",
+    "runAt": "2026-04-21T16:20:11.770Z",
     "league": "NHL",
     "month": "2026-02",
     "startsAfter": "2026-02-08T00:00:00.000Z",
@@ -77073,7 +77169,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:13.027Z",
+    "runAt": "2026-04-21T16:20:12.505Z",
     "league": "NHL",
     "month": "2026-02",
     "startsAfter": "2026-02-15T00:00:00.000Z",
@@ -77664,7 +77760,7 @@
     "error": null
   },
   {
-    "runAt": "2026-04-21T15:20:16.044Z",
+    "runAt": "2026-04-21T16:20:14.222Z",
     "league": "NHL",
     "month": "2026-03",
     "startsAfter": "2026-03-08T00:00:00.000Z",
@@ -94247,6 +94343,102 @@
     "ingest": null,
     "status": "error",
     "error": "PULL_FAILED 429 for NHL 2026-04-15T00:00:00.000Z..2026-04-21T15:20:00.000Z"
+  },
+  {
+    "runAt": "2026-04-21T16:20:16.386Z",
+    "league": "NHL",
+    "month": "2026-04",
+    "startsAfter": "2026-04-15T00:00:00.000Z",
+    "startsBefore": "2026-04-21T16:20:00.000Z",
+    "chunkDays": 7,
+    "limit": 250,
+    "splitDepth": 0,
+    "parentWindowKey": null,
+    "pull": {
+      "fromCache": false,
+      "cachePath": "/Users/tonysoprano/.openclaw/workspace-marco/goosalytics/tmp/sgo-cache/NHL_2026-04-15T00_00_00.000Z_2026-04-21T16_20_00.000Z_true_true_250_all.json",
+      "ok": false,
+      "status": 429,
+      "usedKeyIndex": 2,
+      "sport": "NHL",
+      "startsAfter": "2026-04-15T00:00:00.000Z",
+      "startsBefore": "2026-04-21T16:20:00.000Z",
+      "finalized": true,
+      "includeAltLine": true,
+      "limit": 250,
+      "oddID": null,
+      "summary": {
+        "events": 0,
+        "totalOdds": 0,
+        "bookmakerRefs": 0,
+        "estimatedEntities": 0,
+        "nextCursor": null,
+        "hitCap": false,
+        "sample": null
+      },
+      "usageBefore": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "usageAfter": {
+        "max-requests": "unlimited",
+        "max-entities": 2500,
+        "current-entities": 2501
+      },
+      "keyRankingBefore": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "keyRankingAfter": [
+        {
+          "keyIndex": 1,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 4,
+          "status": 200,
+          "remainingApprox": -1
+        },
+        {
+          "keyIndex": 3,
+          "status": 200,
+          "remainingApprox": -21
+        },
+        {
+          "keyIndex": 2,
+          "status": 200,
+          "remainingApprox": -26
+        }
+      ],
+      "dryRun": false,
+      "probableTruncation": false,
+      "minWindowMinutes": 60,
+      "splitPlan": null
+    },
+    "normalize": null,
+    "ingest": null,
+    "status": "error",
+    "error": "PULL_FAILED 429 for NHL 2026-04-15T00:00:00.000Z..2026-04-21T16:20:00.000Z"
   },
   {
     "runAt": "2026-04-16T13:05:07.267Z",

@@ -38,7 +38,19 @@ function seasonYear(league, eventDate) {
   return String(year);
 }
 
-const rows = await get('/goose_market_events?select=league,event_date,event_id&league=in.(MLB,NBA,NHL)&limit=5000');
+async function getAll(pathPrefix, pageSize = 1000) {
+  const out = [];
+  let offset = 0;
+  while (true) {
+    const batch = await get(`${pathPrefix}&limit=${pageSize}&offset=${offset}`);
+    out.push(...batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return out;
+}
+
+const rows = await getAll('/goose_market_events?select=league,event_date,event_id&league=in.(MLB,NBA,NHL)');
 const grouped = {};
 for (const row of rows) {
   const league = String(row.league || '').toUpperCase();
