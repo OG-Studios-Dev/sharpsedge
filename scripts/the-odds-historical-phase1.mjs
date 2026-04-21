@@ -17,6 +17,12 @@ const SPORT_MAP = {
   NFL: 'americanfootball_nfl',
 };
 
+const SEASONAL_DEFAULTS = {
+  NBA: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30, label: 'Oct-Jun' },
+  NHL: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30, label: 'Oct-Jun' },
+  MLB: { startMonth: 4, startDay: 1, endMonth: 11, endDay: 15, label: 'Apr-Nov' },
+  NFL: { startMonth: 9, startDay: 1, endMonth: 2, endDay: 15, label: 'Sep-Feb' },
+};
 
 const KEY_ENV_NAMES = [
   'ODDS_API_KEY',
@@ -137,6 +143,45 @@ function isSnapshotAligned(window, summary) {
   return snapshot.slice(0, 10) === window.endDateInclusive;
 }
 
+function normalizeDateOnly(value) {
+  return new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10);
+}
+
+function buildSeasonWindow(sportArg, anchorYear) {
+  const season = SEASONAL_DEFAULTS[sportArg];
+  if (!season) return null;
+  const crossesYear = season.endMonth < season.startMonth;
+  const startYear = crossesYear ? anchorYear - 1 : anchorYear;
+  const endYear = anchorYear;
+  return {
+    startDate: normalizeDateOnly(`${startYear}-${String(season.startMonth).padStart(2, '0')}-${String(season.startDay).padStart(2, '0')}`),
+    endDate: normalizeDateOnly(`${endYear}-${String(season.endMonth).padStart(2, '0')}-${String(season.endDay).padStart(2, '0')}`),
+    label: season.label,
+  };
+}
+
+function resolveRequestedWindow(sportArg, startDateArg, endDateArg, seasonYearArg) {
+  const hasExplicitDates = startDateArg && endDateArg && startDateArg !== '__AUTO__' && endDateArg !== '__AUTO__';
+  if (hasExplicitDates) {
+    return {
+      startDate: normalizeDateOnly(startDateArg),
+      endDate: normalizeDateOnly(endDateArg),
+      source: 'explicit',
+      label: 'explicit',
+    };
+  }
+
+  const nowYear = new Date().getUTCFullYear();
+  const seasonYear = Number(seasonYearArg || nowYear);
+  const seasonWindow = buildSeasonWindow(sportArg, seasonYear);
+  if (!seasonWindow) throw new Error(`No season defaults for ${sportArg}`);
+  return {
+    ...seasonWindow,
+    source: 'season_default',
+    seasonYear,
+  };
+}
+
 function classifyWindowResult(_sportArg, window, row) {
   if (row.status == null) return 'no_result';
   if (row.status !== 200) return 'http_error';
@@ -156,9 +201,14 @@ function classifyWindowResult(_sportArg, window, row) {
 
 async function main() {
   const sportArg = (process.argv[2] || 'NBA').toUpperCase();
-  const startDate = process.argv[3] || '2024-01-01';
-  const endDate = process.argv[4] || '2024-01-31';
+  const rawStartDate = process.argv[3] || null;
+  const rawEndDate = process.argv[4] || null;
   const maxWindows = Number(process.argv[5] || '2');
+  const seasonYearArg = process.argv[6] || null;
+
+  const requestedWindow = resolveRequestedWindow(sportArg, rawStartDate, rawEndDate, seasonYearArg);
+  const startDate = requestedWindow.startDate;
+  const endDate = requestedWindow.endDate;
 
   const sportKey = SPORT_MAP[sportArg];
   if (!sportKey) {
@@ -240,6 +290,7 @@ async function main() {
     classificationCounts,
     sport: sportArg,
     sportKey,
+    requestedWindow,
     windowsTested: compact.length,
     results: compact,
     outPath,

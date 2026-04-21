@@ -158,24 +158,35 @@ function retryableEntryScore(row) {
     + Number(ingest?.inserted?.candidates ?? 0);
 }
 
+function inferSeasonYearForLeague(league, startIsoValue, endIsoValue) {
+  const start = new Date(startIsoValue);
+  const end = new Date(endIsoValue);
+  const startYear = start.getUTCFullYear();
+  const endYear = end.getUTCFullYear();
+
+  if (league === 'NFL') return end.getUTCMonth() + 1 <= 2 ? endYear : startYear + 1;
+  if (league === 'NBA' || league === 'NHL') return endYear;
+  return startYear;
+}
+
 async function runOddsApiPhase1Preflight(leaguesToCheck, startIsoValue, endIsoValue) {
   if (!ENABLE_ODDS_API_PHASE1_PREFLIGHT) return { enabled: false, ok: true, skipped: true, results: [] };
 
-  const startDate = startIsoValue.slice(0, 10);
-  const endDate = endIsoValue.slice(0, 10);
   const results = [];
 
   for (const league of leaguesToCheck) {
     try {
+      const seasonYear = inferSeasonYearForLeague(league, startIsoValue, endIsoValue);
       const raw = execFileSync(childPathNodeBin, [
         'scripts/the-odds-historical-phase1.mjs',
         league,
-        startDate,
-        endDate,
+        '__AUTO__',
+        '__AUTO__',
         String(ODDS_API_PREFLIGHT_WINDOWS),
+        String(seasonYear),
       ], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NODE_BIN: nodeBin } });
       const parsed = JSON.parse(raw);
-      results.push({ league, ...parsed });
+      results.push({ league, seasonYear, ...parsed });
     } catch (err) {
       results.push({
         league,
