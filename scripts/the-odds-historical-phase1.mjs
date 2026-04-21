@@ -20,7 +20,7 @@ const SPORT_MAP = {
 const SEASONAL_DEFAULTS = {
   NBA: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30, label: 'Oct-Jun' },
   NHL: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30, label: 'Oct-Jun' },
-  MLB: { startMonth: 4, startDay: 1, endMonth: 11, endDay: 15, label: 'Apr-Nov' },
+  MLB: { startMonth: 4, startDay: 1, endMonth: 9, endDay: 30, label: 'Apr-Sep' },
   NFL: { startMonth: 9, startDay: 1, endMonth: 2, endDay: 15, label: 'Sep-Feb' },
 };
 

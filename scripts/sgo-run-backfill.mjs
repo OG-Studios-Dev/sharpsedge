@@ -55,9 +55,16 @@ function monthKey(d) { return d.toISOString().slice(0, 7); }
 function buildPlan(start, end, leagueList) {
   const rows = [];
   for (const league of leagueList) {
-    for (let cur = monthStart(new Date(start)); cur <= new Date(end); cur = nextMonth(cur)) {
+    const requestedStart = new Date(start);
+    const requestedEnd = new Date(end);
+    const seasonYear = inferSeasonYearForLeague(league, start, end);
+    const seasonBounds = resolveLeagueSeasonBounds(league, seasonYear);
+    const boundedStart = seasonBounds ? new Date(Math.max(requestedStart.getTime(), seasonBounds.start.getTime())) : requestedStart;
+    const boundedEnd = seasonBounds ? new Date(Math.min(requestedEnd.getTime(), seasonBounds.end.getTime())) : requestedEnd;
+    if (boundedStart > boundedEnd) continue;
+    for (let cur = monthStart(boundedStart); cur <= boundedEnd; cur = nextMonth(cur)) {
       const next = nextMonth(cur);
-      const windowEnd = next < new Date(end) ? new Date(next.getTime() - 1000) : new Date(end);
+      const windowEnd = next < boundedEnd ? new Date(next.getTime() - 1000) : new Date(boundedEnd);
       rows.push({ league, month: monthKey(cur), startsAfter: iso(cur), startsBefore: iso(windowEnd) });
     }
   }
@@ -168,6 +175,25 @@ function isEmptyWindowSuccess(row) {
   const normalizeCandidates = Number(((row?.normalize ?? {}).summary ?? {}).candidates ?? 0);
   const ingestedCandidates = Number((((row?.ingest ?? {}).inserted) ?? {}).candidates ?? 0);
   return pullEvents === 0 && normalizeCandidates === 0 && ingestedCandidates === 0;
+}
+
+const LEAGUE_SEASON_DEFAULTS = {
+  NBA: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30 },
+  NHL: { startMonth: 10, startDay: 1, endMonth: 6, endDay: 30 },
+  MLB: { startMonth: 4, startDay: 1, endMonth: 9, endDay: 30 },
+  NFL: { startMonth: 9, startDay: 1, endMonth: 2, endDay: 15 },
+};
+
+function resolveLeagueSeasonBounds(league, seasonYear) {
+  const season = LEAGUE_SEASON_DEFAULTS[league];
+  if (!season) return null;
+  const crossesYear = season.endMonth < season.startMonth;
+  const startYear = crossesYear ? seasonYear - 1 : seasonYear;
+  const endYear = seasonYear;
+  return {
+    start: new Date(Date.UTC(startYear, season.startMonth - 1, season.startDay, 0, 0, 0)),
+    end: new Date(Date.UTC(endYear, season.endMonth - 1, season.endDay, 23, 59, 59)),
+  };
 }
 
 function inferSeasonYearForLeague(league, startIsoValue, endIsoValue) {
