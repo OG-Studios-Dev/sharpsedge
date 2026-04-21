@@ -34,21 +34,44 @@ const payload = raw.payload ?? raw;
 const normalizeMod = await import(pathToFileURL(path.join(cwd, 'scripts/lib/sgo-normalize-standalone.mjs')).href);
 const mapped = normalizeMod.mapSportsGameOddsToGoose2(payload, sport);
 const featureRows = [];
+const batchSize = Number(process.env.SGO_INGEST_BATCH_SIZE || 100);
+const maxAttempts = Number(process.env.SGO_INGEST_MAX_ATTEMPTS || 4);
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function post(pathname, rows, conflict) {
   if (!rows.length) return 0;
-  const res = await fetch(`${supabaseUrl}/rest/v1/${pathname}?on_conflict=${encodeURIComponent(conflict)}`, {
-    method: 'POST',
-    headers: {
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(rows),
-  });
-  if (!res.ok) throw new Error(`${pathname} ${res.status}: ${(await res.text()).slice(0, 400)}`);
-  return rows.length;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    let success = false;
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const res = await fetch(`${supabaseUrl}/rest/v1/${pathname}?on_conflict=${encodeURIComponent(conflict)}`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify(batch),
+      });
+      if (res.ok) {
+        inserted += batch.length;
+        success = true;
+        break;
+      }
+      const text = await res.text();
+      lastError = new Error(`${pathname} ${res.status}: ${text.slice(0, 400)}`);
+      if (![408, 409, 425, 429, 500, 502, 503, 504, 522, 524].includes(res.status) || attempt === maxAttempts) break;
+      await sleep(750 * attempt);
+    }
+    if (!success) throw lastError;
+  }
+  return inserted;
 }
 
 function dedupe(rows, keyField) {
@@ -61,9 +84,9 @@ const eventRows = dedupe(mapped.eventRows, 'event_id');
 const candidateRows = dedupe(mapped.candidateRows.map(({ sportsbook, ...row }) => row), 'candidate_id');
 const dedupedFeatureRows = dedupe(featureRows, 'feature_row_id');
 
-await post('goose_market_events', eventRows, 'event_id');
-await post('goose_market_candidates', candidateRows, 'candidate_id');
-if (dedupedFeatureRows.length) await post('goose_feature_rows', dedupedFeatureRows, 'feature_row_id');
+const insertedEvents = await post('goose_market_events', eventRows, 'event_id');
+const insertedCandidates = await post('goose_market_candidates', candidateRows, 'candidate_id');
+const insertedFeatureRows = dedupedFeatureRows.length ? await post('goose_feature_rows', dedupedFeatureRows, 'feature_row_id') : 0;
 
 console.log(JSON.stringify({
   ok: true,
@@ -71,9 +94,9 @@ console.log(JSON.stringify({
   cachePath,
   summary: mapped.summary,
   inserted: {
-    events: eventRows.length,
-    candidates: candidateRows.length,
-    feature_rows: dedupedFeatureRows.length,
+    events: insertedEvents,
+    candidates: insertedCandidates,
+    feature_rows: insertedFeatureRows,
   },
   deduped_from: {
     events: mapped.eventRows.length,
