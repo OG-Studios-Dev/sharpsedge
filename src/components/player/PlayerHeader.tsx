@@ -53,6 +53,9 @@ export default function PlayerHeader({
     if (headshot) params.set("headshot", headshot);
     return imageError ? null : `/api/assets/player-headshot?${params.toString()}`;
   }, [headshot, imageError, league, name, player.playerId]);
+  const handedness = [player.bats ? `Bats ${player.bats}` : null, player.throws ? `Throws ${player.throws}` : null]
+    .filter(Boolean)
+    .join(" • ");
   const infoLine = [player.positionLabel || player.position, team, player.jerseyNumber ? `#${player.jerseyNumber}` : null]
     .filter(Boolean)
     .join(" • ");
@@ -77,6 +80,7 @@ export default function PlayerHeader({
               <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300/80">{league} Player Analysis</p>
               <h1 className="mt-2 truncate text-2xl font-semibold text-white md:text-3xl">{name}</h1>
               <p className="mt-1 text-sm text-gray-300">{infoLine || league}</p>
+              {handedness ? <p className="mt-1 text-xs text-gray-400">{handedness}</p> : null}
             </div>
           </div>
 
@@ -91,8 +95,31 @@ export default function PlayerHeader({
 
         {nextGame ? (
           <div className="mt-5 rounded-[24px] border border-emerald-500/30 bg-emerald-500/12 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300/80">Next Game</p>
-            <p className="mt-1 text-sm font-semibold text-emerald-50 md:text-base">{nextGame.display}</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300/80">Next Game</p>
+                <p className="mt-1 text-sm font-semibold text-emerald-50 md:text-base">{nextGame.display}</p>
+                {(nextGame.opponentFullName || nextGame.statusDetail || nextGame.opponentRecord) ? (
+                  <p className="mt-1 text-xs text-emerald-100/80">
+                    {[nextGame.opponentFullName, nextGame.opponentRecord ? `Opp ${nextGame.opponentRecord}` : null, nextGame.statusDetail].filter(Boolean).join(" • ")}
+                  </p>
+                ) : null}
+              </div>
+              {(nextGame.teamRecord || nextGame.status) ? (
+                <div className="flex flex-wrap gap-2">
+                  {nextGame.teamRecord ? (
+                    <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-emerald-50">
+                      {team} {nextGame.teamRecord}
+                    </span>
+                  ) : null}
+                  {nextGame.status && nextGame.status !== nextGame.display ? (
+                    <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-emerald-50">
+                      {nextGame.status}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>

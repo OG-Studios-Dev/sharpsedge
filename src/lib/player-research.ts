@@ -14,6 +14,11 @@ export type PlayerNextGame = {
   isAway: boolean;
   startTimeUTC?: string;
   display: string;
+  status?: string;
+  statusDetail?: string;
+  opponentFullName?: string;
+  teamRecord?: string;
+  opponentRecord?: string;
 };
 
 export type PlayerIdentity = {
@@ -22,6 +27,8 @@ export type PlayerIdentity = {
   positionLabel: string;
   jerseyNumber?: string | number | null;
   injuryStatus?: string | null;
+  bats?: string | null;
+  throws?: string | null;
 };
 
 export type DefenseRankingCell = {

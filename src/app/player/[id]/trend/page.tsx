@@ -8,6 +8,7 @@ import GameLogTable, { GameLogTableTab } from "@/components/player/GameLogTable"
 import HitRateTimeline from "@/components/player/HitRateTimeline";
 import PlayerHeader from "@/components/player/PlayerHeader";
 import PropBuilder from "@/components/player/PropBuilder";
+import ResearchMarketCard from "@/components/player/ResearchMarketCard";
 import StatTabs from "@/components/player/StatTabs";
 import {
   NBA_PLAYER_RESEARCH_STATS,
@@ -410,6 +411,15 @@ export default function PlayerTrendPage() {
                   onStatChange={handleStatChange}
                   onDirectionChange={setDirection}
                   onLineAdjust={handleLineAdjust}
+                />
+
+                <ResearchMarketCard
+                  oddsComparison={data?.oddsComparison}
+                  statLabel={resolvedStat}
+                  direction={direction}
+                  line={selectedLine}
+                  opponent={currentOpponent || undefined}
+                  nextGameDisplay={data?.nextGame?.display || null}
                 />
 
                 <HitRateTimeline items={timelineItems} />

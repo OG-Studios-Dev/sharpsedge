@@ -38,6 +38,13 @@ function formatNBANextGameDisplay(
   return `${matchup}${day ? ` ${day}` : ""}${time ? ` ${time}` : ""}`.trim();
 }
 
+function getUpcomingNBAGame(team: string, games: Awaited<ReturnType<typeof getNBASchedule>>) {
+  return games.find((game) => {
+    const isTeamGame = game.homeTeam.abbreviation === team || game.awayTeam.abbreviation === team;
+    return isTeamGame && game.status !== "Final";
+  });
+}
+
 export async function GET(req: NextRequest, context: { params: { name: string } }) {
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -82,18 +89,25 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
       || roster.find((player) => normalizeName(player.name).includes(normalizeName(playerName)))
       || roster.find((player) => normalizeName(playerName).includes(normalizeName(player.name)));
     const playerPosition = rosterEntry?.position || logs[0]?.position || "";
-    const nextGame = upcomingGames.find((game) =>
-      game.homeTeam.abbreviation === team || game.awayTeam.abbreviation === team
-    );
+    const nextGame = getUpcomingNBAGame(team, upcomingGames);
+    const opponentAbbrev = nextGame
+      ? nextGame.homeTeam.abbreviation === team ? nextGame.awayTeam.abbreviation : nextGame.homeTeam.abbreviation
+      : "";
     const nextGameInfo = nextGame
       ? {
           gameId: nextGame.id,
-          opponent: nextGame.homeTeam.abbreviation === team ? nextGame.awayTeam.abbreviation : nextGame.homeTeam.abbreviation,
+          opponent: opponentAbbrev,
           team,
           isAway: nextGame.awayTeam.abbreviation === team,
+          startTimeUTC: nextGame.date ? `${nextGame.date}T12:00:00Z` : undefined,
+          status: nextGame.status,
+          statusDetail: nextGame.statusDetail,
+          opponentFullName: nextGame.homeTeam.abbreviation === team ? nextGame.awayTeam.fullName : nextGame.homeTeam.fullName,
+          teamRecord: nextGame.homeTeam.abbreviation === team ? nextGame.homeTeam.record : nextGame.awayTeam.record,
+          opponentRecord: nextGame.homeTeam.abbreviation === team ? nextGame.awayTeam.record : nextGame.homeTeam.record,
           display: formatNBANextGameDisplay(
             team,
-            nextGame.homeTeam.abbreviation === team ? nextGame.awayTeam.abbreviation : nextGame.homeTeam.abbreviation,
+            opponentAbbrev,
             nextGame.awayTeam.abbreviation === team,
             nextGame.date,
             nextGame.status
