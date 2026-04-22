@@ -1,1 +1,1 @@
-export { default } from "./trend/page";
+export { default } from "@/components/player/PlayerResearchPage";

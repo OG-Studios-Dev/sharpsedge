@@ -160,7 +160,7 @@ export async function GET(req: NextRequest, context: { params: { name: string } 
     return NextResponse.json({
       league: "MLB",
       playerId,
-      playerName: logs[0]?.playerName || playerName,
+      playerName: logs[0]?.playerName || rosterEntry?.name || playerName,
       team,
       teamColor: MLB_TEAM_COLORS[team] || "#4a9eff",
       headshot: resolveHeadshot(playerId),
