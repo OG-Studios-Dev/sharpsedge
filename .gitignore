@@ -57,3 +57,9 @@ dev.pid
 supabase/.temp/
 tmp-*.mjs
 tmp/the-odds-phase1/
+
+# disposable cache / local warehouse scratch
+tmp/sgo-cache/
+tmp/the-odds-historical/
+tmp/the-odds-direct-mlb-sep/
+tmp/sgo-ledger/
