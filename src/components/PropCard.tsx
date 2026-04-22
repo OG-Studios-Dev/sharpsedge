@@ -51,12 +51,9 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
 
   if (compact) {
     return (
-      <Link
-        href={getPlayerTrendHrefFromProp(prop)}
-        className="block rounded-2xl border border-dark-border bg-dark-surface/70 p-4 transition hover:border-white/15 hover:bg-dark-surface"
-      >
+      <div className="rounded-2xl border border-dark-border bg-dark-surface/70 p-4 transition hover:border-white/15 hover:bg-dark-surface">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
+          <Link href={getPlayerTrendHrefFromProp(prop)} className="flex min-w-0 flex-1 items-start gap-3">
             <PlayerAvatar name={prop.playerName} team={prop.team} league={prop.league} playerId={prop.playerId} size={24} teamColor={prop.teamColor || "#4a9eff"} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-white">{prop.playerName}</p>
@@ -66,30 +63,45 @@ export default function PropCard({ prop, compact = false }: { prop: PlayerProp; 
                 <Link href={getTeamHref(prop.opponent, prop.league)} onClick={(e) => e.stopPropagation()} className="hover:text-gray-300 transition-colors">{prop.opponent}</Link>
               </p>
             </div>
-          </div>
+          </Link>
 
-          <div className="text-right">
-            <p className="text-sm font-semibold text-white">{formatOdds(prop.odds)}</p>
-            <p className="mt-1 text-[10px] text-gray-500">{prop.book || "Model"}</p>
+          <div className="flex items-start gap-2 shrink-0">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-white">{formatOdds(prop.odds)}</p>
+              <p className="mt-1 text-[10px] text-gray-500">{prop.book || "Model"}</p>
+            </div>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openAddPickModal(createDraftFromProp(prop));
+              }}
+              className="tap-button inline-flex h-9 w-9 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
+              aria-label={`Add ${prop.playerName} to My Picks`}
+            >
+              +
+            </button>
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-300">
-          <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
-            {prop.overUnder} {prop.line} {prop.propType}
-          </span>
-          <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
-            Hit {hitRate}
-          </span>
-          <span className={`rounded-full border px-2.5 py-1 ${
-            typeof compactEdge === "number" && compactEdge > 0
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-dark-border/70 bg-dark-bg/60 text-gray-300"
-          }`}>
-            Edge {compactEdge != null ? `${compactEdge > 0 ? "+" : ""}${(compactEdge * 100).toFixed(1)}%` : "NA"}
-          </span>
-        </div>
-      </Link>
+        <Link href={getPlayerTrendHrefFromProp(prop)} className="block">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-300">
+            <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
+              {prop.overUnder} {prop.line} {prop.propType}
+            </span>
+            <span className="rounded-full border border-dark-border/70 bg-dark-bg/60 px-2.5 py-1">
+              Hit {hitRate}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 ${
+              typeof compactEdge === "number" && compactEdge > 0
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : "border-dark-border/70 bg-dark-bg/60 text-gray-300"
+            }`}>
+              Edge {compactEdge != null ? `${compactEdge > 0 ? "+" : ""}${(compactEdge * 100).toFixed(1)}%` : "NA"}
+            </span>
+          </div>
+        </Link>
+      </div>
     );
   }
 

@@ -69,6 +69,16 @@ function computeHitRate(vals: number[], line: number): number {
 
 function roundHalf(n: number): number { return Math.round(n * 2) / 2; }
 
+function recentAverage(logs: GameLog[], key: keyof GameLog, count: number) {
+  const values = logs.slice(0, count).map((game) => Number(game[key] ?? 0)).filter((value) => Number.isFinite(value));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function splitAverage(logs: GameLog[], key: keyof GameLog, predicate: (game: GameLog) => boolean) {
+  const values = logs.filter(predicate).map((game) => Number(game[key] ?? 0)).filter((value) => Number.isFinite(value));
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
 export default function PlayerPage() {
   const { id } = useParams<{ id: string }>();
   const [player, setPlayer] = useState<PlayerInfo | null>(null);
@@ -95,6 +105,10 @@ export default function PlayerPage() {
   const assists = gameLogs.map(g => g.assists);
   const points = gameLogs.map(g => g.points);
   const shots = gameLogs.map(g => g.shots);
+  const recentOpponent = gameLogs[0]?.opponentAbbrev ?? null;
+  const homeGames = gameLogs.filter((g) => g.homeRoadFlag === "H");
+  const roadGames = gameLogs.filter((g) => g.homeRoadFlag !== "H");
+  const opponentGames = recentOpponent ? gameLogs.filter((g) => g.opponentAbbrev === recentOpponent) : [];
 
   const propLines = [
     { label: "Points", vals: points, key: "points" as const },
@@ -195,6 +209,22 @@ export default function PlayerPage() {
             </div>
           )}
 
+          {/* Next game + prop setup */}
+          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Next game prop setup</p>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p>
+                Next opponent context: <span className="font-semibold text-white">{recentOpponent ?? "Pending sync"}</span>
+              </p>
+              <p>
+                Odds status: <span className="font-semibold text-white">next-game player prop book wiring still needs to be connected here</span>
+              </p>
+              <p className="text-xs text-gray-500">
+                This page should show next-game player prop odds plus historical form. The historical side is now here, the live odds rail still needs to be wired into this page.
+              </p>
+            </div>
+          </div>
+
           {/* Prop Trend Lines */}
           {propLines.length > 0 && (
             <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
@@ -218,6 +248,23 @@ export default function PlayerPage() {
               <p className="text-gray-600 text-[10px] mt-3">% = hit rate last {Math.min(gameLogs.length, 10)} games</p>
             </div>
           )}
+
+          {/* Historical splits */}
+          <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-3">Historical split tracker</p>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <StatBox label="PTS L5" value={recentAverage(gameLogs, "points", 5).toFixed(1)} />
+              <StatBox label="PTS L10" value={recentAverage(gameLogs, "points", 10).toFixed(1)} />
+              <StatBox label="Shots L5" value={recentAverage(gameLogs, "shots", 5).toFixed(1)} />
+              <StatBox label="Shots L10" value={recentAverage(gameLogs, "shots", 10).toFixed(1)} />
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 mt-2">
+              <StatBox label="Home PTS" value={splitAverage(homeGames, "points", () => true).toFixed(1)} />
+              <StatBox label="Road PTS" value={splitAverage(roadGames, "points", () => true).toFixed(1)} />
+              <StatBox label={recentOpponent ? `Vs ${recentOpponent}` : "Vs Opp"} value={splitAverage(opponentGames, "points", () => true).toFixed(1)} />
+              <StatBox label="Games vs Opp" value={opponentGames.length} />
+            </div>
+          </div>
 
           {/* Last 10 Games */}
           {gameLogs.length > 0 && (

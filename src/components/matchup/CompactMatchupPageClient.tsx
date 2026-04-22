@@ -187,12 +187,21 @@ export default function CompactMatchupPageClient({
             <p>{data.header.home.abbrev}: {data.header.compact.home}</p>
           </div>
 
-          <div className="mt-4 space-y-2 border-t border-white/10 pt-4 text-sm text-gray-300">
-            <p>ML: {data.header.compact.betting.moneyline ?? "Unavailable"}</p>
-            <p>
-              Spread: {data.header.compact.betting.spread ?? "Unavailable"}
-              {data.header.compact.betting.total ? ` | ${data.header.compact.betting.total}` : ""}
-            </p>
+          <div className="mt-4 border-t border-white/10 pt-4">
+            <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Game lines & odds</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-gray-300">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Moneyline</p>
+                <p className="mt-1 text-white">{data.header.compact.betting.moneyline ?? "Unavailable"}</p>
+              </div>
+              <div className="rounded-2xl border border-white/8 bg-black/20 px-4 py-3 text-sm text-gray-300">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-gray-500">Spread / total</p>
+                <p className="mt-1 text-white">
+                  {data.header.compact.betting.spread ?? "Unavailable"}
+                  {data.header.compact.betting.total ? ` | ${data.header.compact.betting.total}` : ""}
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -220,6 +229,7 @@ export default function CompactMatchupPageClient({
               <div>
                 <p className="text-[11px] uppercase tracking-[0.24em] text-gray-500">Props</p>
                 <h2 className="mt-1 text-xl font-semibold text-white">Game-specific player props</h2>
+                <p className="mt-2 text-sm text-gray-400">Every available prop should be actionable here, with live odds, hit rate, edge, and a direct + add-to-bets control.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {["All", ...data.propFilters].map((filter) => (
