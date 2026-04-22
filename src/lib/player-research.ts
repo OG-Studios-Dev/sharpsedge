@@ -1,3 +1,4 @@
+import { ReadonlyURLSearchParams } from "next/navigation";
 import { BookOdds } from "@/lib/types";
 import { PlayerTrendGame, SupportedTrendLeague, getTrendGameStatValue } from "@/lib/player-trend";
 
@@ -67,6 +68,18 @@ export type PlayerGameFilters = {
   venue?: "all" | "home" | "away";
   minMinutes?: number;
   maxMinutes?: number;
+};
+
+export type PlayerResearchRequest = {
+  league: SupportedTrendLeague;
+  requestedPropType: string;
+  requestedLine: number;
+  requestedDirection: "Over" | "Under";
+  opponent: string;
+  playerName: string;
+  queryTeam: string;
+  oddsEventId: string;
+  requestedPlayerId: string;
 };
 
 export const NBA_PLAYER_RESEARCH_STATS: PlayerResearchStatOption[] = [
@@ -189,4 +202,50 @@ export function ordinal(value: number) {
 
 export function getOpponentOptions(games: PlayerTrendGame[]) {
   return Array.from(new Set(games.map((game) => game.opponentAbbrev).filter(Boolean)));
+}
+
+export function resolveResearchLeague(value: string | null): SupportedTrendLeague {
+  if (value === "NBA") return "NBA";
+  if (value === "MLB") return "MLB";
+  return "NHL";
+}
+
+export function parseResearchLine(value: string | null) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function resolvePlayerResearchRequest(id: string, searchParams: URLSearchParams | ReadonlyURLSearchParams): PlayerResearchRequest {
+  const league = resolveResearchLeague(searchParams.get("league"));
+  return {
+    league,
+    requestedPropType: searchParams.get("propType") || (league === "NBA" ? "Points" : league === "MLB" ? "Hits" : "Points"),
+    requestedLine: parseResearchLine(searchParams.get("line")),
+    requestedDirection: searchParams.get("overUnder") === "Under" ? "Under" : "Over",
+    opponent: (searchParams.get("opponent") || "").toUpperCase(),
+    playerName: searchParams.get("playerName") || id.replace(/-/g, " "),
+    queryTeam: searchParams.get("team") || "",
+    oddsEventId: searchParams.get("oddsEventId") || "",
+    requestedPlayerId: searchParams.get("playerId") || "",
+  };
+}
+
+export function getPlayerResearchEndpoint(id: string, request: PlayerResearchRequest) {
+  const query = new URLSearchParams();
+  if (request.playerName) query.set("playerName", request.playerName);
+  if (request.queryTeam) query.set("team", request.queryTeam);
+  if (request.opponent) query.set("opponent", request.opponent);
+  if (request.requestedPropType) query.set("propType", request.requestedPropType);
+  if (request.requestedDirection) query.set("overUnder", request.requestedDirection);
+  if (request.oddsEventId) query.set("oddsEventId", request.oddsEventId);
+  if (request.requestedPlayerId) query.set("playerId", request.requestedPlayerId);
+
+  const endpoint = request.league === "NBA"
+    ? `/api/nba/player/${encodeURIComponent(id)}/game-log`
+    : request.league === "MLB"
+      ? `/api/mlb/player/${encodeURIComponent(id)}/game-log`
+      : `/api/player/${encodeURIComponent(id)}/game-log`;
+
+  const queryString = query.toString();
+  return queryString ? `${endpoint}?${queryString}` : endpoint;
 }

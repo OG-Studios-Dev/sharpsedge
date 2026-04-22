@@ -47,8 +47,25 @@ function getColumns(league: SupportedTrendLeague, statKey: string) {
     ];
   }
 
+  const isPitchingStat = ["Strikeouts", "Strikeouts (K)", "K", "Earned Runs", "Innings Pitched", "Hits Allowed", "Walks Allowed", "Pitch Count", "Pitches Thrown"].includes(statKey);
+  if (isPitchingStat) {
+    return [
+      { label: "IP", value: (game: PlayerTrendGame) => game.inningsPitched ?? 0 },
+      { label: "K", value: (game: PlayerTrendGame) => game.strikeOuts ?? 0 },
+      { label: "ER", value: (game: PlayerTrendGame) => game.earnedRuns ?? 0 },
+      { label: "HA", value: (game: PlayerTrendGame) => game.hitsAllowed ?? 0 },
+      { label: "BB", value: (game: PlayerTrendGame) => game.walksAllowed ?? 0 },
+      { label: "PIT", value: (game: PlayerTrendGame) => game.pitchesThrown ?? 0 },
+    ];
+  }
+
   return [
-    { label: statKey.replace(/[^A-Za-z0-9+]/g, "").toUpperCase().slice(0, 6) || "STAT", value: (game: PlayerTrendGame) => getTrendGameStatValue(game, statKey, league) },
+    { label: "AB", value: (game: PlayerTrendGame) => game.atBats ?? 0 },
+    { label: "H", value: (game: PlayerTrendGame) => game.hits ?? 0 },
+    { label: "TB", value: (game: PlayerTrendGame) => game.totalBases ?? 0 },
+    { label: "R", value: (game: PlayerTrendGame) => game.runs ?? 0 },
+    { label: "RBI", value: (game: PlayerTrendGame) => game.rbis ?? 0 },
+    { label: "K", value: (game: PlayerTrendGame) => game.strikeOuts ?? 0 },
   ];
 }
 
@@ -110,7 +127,7 @@ export default function GameLogTable({
                 <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium">Opponent</th>
                 <th className="px-4 py-3 font-medium">Result</th>
-                <th className="px-4 py-3 font-medium">Min</th>
+                <th className="px-4 py-3 font-medium">{league === "MLB" ? "Venue" : "Min"}</th>
                 {columns.map((column) => (
                   <th key={column.label} className="px-4 py-3 font-medium text-right">
                     {column.label}
@@ -141,7 +158,7 @@ export default function GameLogTable({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-300">{formatResult(game)}</td>
-                    <td className="px-4 py-3 text-gray-300">{game.minutes || "—"}</td>
+                    <td className="px-4 py-3 text-gray-300">{league === "MLB" ? (game.isHome ? "Home" : "Away") : (game.minutes || "—")}</td>
                     {columns.map((column) => (
                       <td key={`${game.gameId}-${column.label}`} className="px-4 py-3 text-right font-semibold text-white">
                         {column.value(game)}

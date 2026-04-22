@@ -31,6 +31,9 @@ export type PlayerTrendGame = {
   inningsPitched?: number;
   earnedRuns?: number;
   hitsAllowed?: number;
+  atBats?: number;
+  walksAllowed?: number;
+  pitchesThrown?: number;
 };
 
 type SplitReadyGame = {
@@ -83,7 +86,7 @@ function setIfDefined(params: URLSearchParams, key: string, value: string | numb
   params.set(key, String(value));
 }
 
-export function buildPlayerTrendHref(input: PlayerTrendLinkInput): string {
+export function buildPlayerResearchHref(input: PlayerTrendLinkInput): string {
   const params = new URLSearchParams();
   const league = resolveTrendLeague(input.league);
 
@@ -103,11 +106,15 @@ export function buildPlayerTrendHref(input: PlayerTrendLinkInput): string {
   setIfDefined(params, "playerId", input.playerId);
 
   const query = params.toString();
-  return `/player/${resolveTrendRouteId(input)}/trend${query ? `?${query}` : ""}`;
+  return `/player/${resolveTrendRouteId(input)}${query ? `?${query}` : ""}`;
+}
+
+export function buildPlayerTrendHref(input: PlayerTrendLinkInput): string {
+  return buildPlayerResearchHref(input);
 }
 
 export function getPlayerTrendHrefFromProp(prop: PlayerProp): string {
-  return buildPlayerTrendHref({
+  return buildPlayerResearchHref({
     book: prop.book,
     gameId: prop.gameId,
     isAway: prop.isAway,
@@ -133,7 +140,7 @@ export function getPlayerTrendHrefFromPick(pick: AIPick): string | null {
     return null;
   }
 
-  return buildPlayerTrendHref({
+  return buildPlayerResearchHref({
     book: pick.book,
     gameId: pick.gameId,
     isAway: pick.isAway,
@@ -241,6 +248,8 @@ export function getTrendGameStatValue(game: PlayerTrendGame, propType: string, l
     if (propType === "RBIs") return game.rbis ?? 0;
     if (propType === "Runs Scored" || propType === "Runs") return game.runs ?? 0;
     if (propType === "Stolen Bases" || propType === "SBs") return game.stolenBases ?? 0;
+    if (propType === "Walks Allowed") return game.walksAllowed ?? 0;
+    if (propType === "Pitch Count" || propType === "Pitches Thrown") return game.pitchesThrown ?? 0;
     if (propType === "Strikeouts" || propType === "Strikeouts (K)" || propType === "K") return game.strikeOuts ?? 0;
     if (propType === "Earned Runs") return game.earnedRuns ?? 0;
     if (propType === "Innings Pitched") return game.inningsPitched ?? 0;

@@ -1,6 +1,7 @@
 import { DefenseGrid } from "@/lib/player-research";
 import { getNBABoxscore, getRecentNBAGames } from "@/lib/nba-api";
 import { getDateKeyWithOffset } from "@/lib/date-utils";
+import { getMLBBoxscore, getRecentMLBGames } from "@/lib/mlb-api";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const CACHE_TTL = 15 * 60 * 1000;
@@ -41,6 +42,16 @@ type NHLAllowedPlayer = {
   shots: number;
 };
 
+type MLBAllowedPlayer = {
+  position: string;
+  hits: number;
+  totalBases: number;
+  homeRuns: number;
+  rbis: number;
+  runs: number;
+  stolenBases: number;
+};
+
 const cache = new Map<string, CacheEntry<unknown>>();
 
 const NBA_METRICS = [
@@ -57,6 +68,15 @@ const NHL_METRICS = [
   { label: "Assists", key: "Assists", getValue: (player: NHLAllowedPlayer) => player.assists },
   { label: "Shots", key: "Shots", getValue: (player: NHLAllowedPlayer) => player.shots },
   { label: "Points", key: "Points", getValue: (player: NHLAllowedPlayer) => player.points },
+] as const;
+
+const MLB_METRICS = [
+  { label: "H", key: "H", getValue: (player: MLBAllowedPlayer) => player.hits },
+  { label: "TB", key: "TB", getValue: (player: MLBAllowedPlayer) => player.totalBases },
+  { label: "HR", key: "HR", getValue: (player: MLBAllowedPlayer) => player.homeRuns },
+  { label: "RBI", key: "RBI", getValue: (player: MLBAllowedPlayer) => player.rbis },
+  { label: "R", key: "R", getValue: (player: MLBAllowedPlayer) => player.runs },
+  { label: "SB", key: "SB", getValue: (player: MLBAllowedPlayer) => player.stolenBases },
 ] as const;
 
 async function cachedFetch<T>(url: string): Promise<T> {
@@ -103,6 +123,29 @@ function matchesNBAPosition(position: string, target: string) {
   if (normalizedTarget === "F") return playerPosition === "SF" || playerPosition === "PF" || playerPosition === "F";
   if (normalizedTarget === "PG" || normalizedTarget === "SG") return playerPosition === normalizedTarget || playerPosition === "G";
   if (normalizedTarget === "SF" || normalizedTarget === "PF") return playerPosition === normalizedTarget || playerPosition === "F";
+  return playerPosition === normalizedTarget;
+}
+
+function normalizeMLBPosition(position: string) {
+  const clean = (position || "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (!clean) return "";
+  if (clean.startsWith("DH")) return "DH";
+  if (clean.startsWith("C")) return "C";
+  if (clean.startsWith("1B")) return "1B";
+  if (clean.startsWith("2B")) return "2B";
+  if (clean.startsWith("3B")) return "3B";
+  if (clean.startsWith("SS")) return "SS";
+  if (clean.startsWith("LF")) return "OF";
+  if (clean.startsWith("CF")) return "OF";
+  if (clean.startsWith("RF")) return "OF";
+  if (clean.startsWith("OF")) return "OF";
+  return clean;
+}
+
+function matchesMLBPosition(position: string, target: string) {
+  const playerPosition = normalizeMLBPosition(position);
+  const normalizedTarget = normalizeMLBPosition(target);
+  if (!normalizedTarget) return true;
   return playerPosition === normalizedTarget;
 }
 
@@ -314,6 +357,86 @@ async function getNHLBoxscore(gameId: number) {
   return data;
 }
 
+async function buildMLBRankingsForPosition(position: string): Promise<Map<string, TeamRankings>> {
+  const cacheKey = `rankings:mlb:${normalizeMLBPosition(position) || "ALL"}`;
+  const hit = cache.get(cacheKey) as CacheEntry<Map<string, TeamRankings>> | undefined;
+  if (hit && Date.now() - hit.timestamp < CACHE_TTL) {
+    return hit.data;
+  }
+
+  const recentGames = (await getRecentMLBGames(14)).slice(0, 90);
+  const boxes = await Promise.all(
+    recentGames.map(async (game) => {
+      try {
+        const box = await getMLBBoxscore(game.id);
+        return { game, box };
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const teamMap = new Map<string, TeamAccumulator>();
+
+  for (const entry of boxes) {
+    if (!entry) continue;
+    const { game, box } = entry;
+    const homeTeam = upsertAccumulator(teamMap, game.homeTeam.abbreviation);
+    const awayTeam = upsertAccumulator(teamMap, game.awayTeam.abbreviation);
+    const homeBatters: MLBAllowedPlayer[] = box.home.filter((player) => !player.isPitcher).map((player) => ({
+      position: player.position,
+      hits: player.hits,
+      totalBases: player.totalBases,
+      homeRuns: player.homeRuns,
+      rbis: player.rbis,
+      runs: player.runs,
+      stolenBases: player.stolenBases,
+    }));
+    const awayBatters: MLBAllowedPlayer[] = box.away.filter((player) => !player.isPitcher).map((player) => ({
+      position: player.position,
+      hits: player.hits,
+      totalBases: player.totalBases,
+      homeRuns: player.homeRuns,
+      rbis: player.rbis,
+      runs: player.runs,
+      stolenBases: player.stolenBases,
+    }));
+
+    homeTeam.overallGames += 1;
+    awayTeam.overallGames += 1;
+
+    for (const metric of MLB_METRICS) {
+      homeTeam.overallTotals[metric.key] = (homeTeam.overallTotals[metric.key] || 0) + awayBatters.reduce((sum, player) => sum + metric.getValue(player), 0);
+      awayTeam.overallTotals[metric.key] = (awayTeam.overallTotals[metric.key] || 0) + homeBatters.reduce((sum, player) => sum + metric.getValue(player), 0);
+    }
+
+    const awayByPosition = awayBatters.filter((player) => matchesMLBPosition(player.position, position));
+    const homeByPosition = homeBatters.filter((player) => matchesMLBPosition(player.position, position));
+
+    if (awayByPosition.length > 0) {
+      homeTeam.positionGames += 1;
+      for (const metric of MLB_METRICS) {
+        homeTeam.positionTotals[metric.key] = (homeTeam.positionTotals[metric.key] || 0) + awayByPosition.reduce((sum, player) => sum + metric.getValue(player), 0);
+      }
+    }
+
+    if (homeByPosition.length > 0) {
+      awayTeam.positionGames += 1;
+      for (const metric of MLB_METRICS) {
+        awayTeam.positionTotals[metric.key] = (awayTeam.positionTotals[metric.key] || 0) + homeByPosition.reduce((sum, player) => sum + metric.getValue(player), 0);
+      }
+    }
+  }
+
+  const rankings = buildRankings(
+    teamMap,
+    MLB_METRICS.map((metric) => ({ label: metric.label, key: metric.key }))
+  );
+
+  cache.set(cacheKey, { data: rankings, timestamp: Date.now() });
+  return rankings;
+}
+
 async function buildNHLRankingsForPosition(position: string): Promise<Map<string, TeamRankings>> {
   const cacheKey = `rankings:nhl:${normalizeNHLPosition(position) || "ALL"}`;
   const hit = cache.get(cacheKey) as CacheEntry<Map<string, TeamRankings>> | undefined;
@@ -398,7 +521,7 @@ async function buildNHLRankingsForPosition(position: string): Promise<Map<string
 }
 
 export async function getDefenseGridForPlayer(
-  league: "NBA" | "NHL",
+  league: "NBA" | "NHL" | "MLB",
   opponent: string,
   position: string
 ): Promise<DefenseGrid | null> {
@@ -407,15 +530,17 @@ export async function getDefenseGridForPlayer(
 
   const rankings = league === "NBA"
     ? await buildNBARankingsForPosition(position)
-    : await buildNHLRankingsForPosition(position);
+    : league === "MLB"
+      ? await buildMLBRankingsForPosition(position)
+      : await buildNHLRankingsForPosition(position);
 
   const opponentRanks = rankings.get(upperOpponent);
   if (!opponentRanks) return null;
 
-  const metrics = league === "NBA" ? NBA_METRICS : NHL_METRICS;
+  const metrics = league === "NBA" ? NBA_METRICS : league === "MLB" ? MLB_METRICS : NHL_METRICS;
   return {
     opponent: upperOpponent,
-    position: league === "NBA" ? normalizeNBAPosition(position) : normalizeNHLPosition(position),
+    position: league === "NBA" ? normalizeNBAPosition(position) : league === "MLB" ? normalizeMLBPosition(position) : normalizeNHLPosition(position),
     overall: metrics.map((metric) => ({
       label: metric.label,
       rank: opponentRanks.overall[metric.label]?.rank || opponentRanks.teamCount,
