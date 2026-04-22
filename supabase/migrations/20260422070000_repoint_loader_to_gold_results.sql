@@ -1,4 +1,6 @@
-create or replace view public.historical_trends_loader_source_v1 as
+drop view if exists public.historical_trends_loader_source_v1;
+
+create view public.historical_trends_loader_source_v1 as
 select
   hbg.candidate_id,
   hbg.canonical_game_id,
@@ -28,15 +30,15 @@ select
   hbg.line,
   hbg.odds,
   hbg.sportsbook,
+  null::boolean as is_favorite,
+  null::boolean as is_underdog,
+  hbg.bet_on_home_team as is_home_team_bet,
+  hbg.bet_on_away_team as is_away_team_bet,
   null::boolean as is_home_favorite,
   null::boolean as is_away_favorite,
   null::boolean as is_home_underdog,
   null::boolean as is_road_underdog,
   null::boolean as is_road_favorite,
-  null::boolean as is_favorite,
-  null::boolean as is_underdog,
-  hbg.bet_on_home_team as is_home_team_bet,
-  hbg.bet_on_away_team as is_away_team_bet,
   hbg.result,
   hbg.graded,
   hbg.integrity_status,
