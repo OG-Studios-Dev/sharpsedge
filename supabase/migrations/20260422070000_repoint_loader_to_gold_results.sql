@@ -28,19 +28,13 @@ select
   hbg.line,
   hbg.odds,
   hbg.sportsbook,
-  hbg.favorite_team_id is not null and hbg.team_role = 'home' and hbg.favorite_team_id = hbg.home_team_id as is_home_favorite,
-  hbg.favorite_team_id is not null and hbg.team_role = 'away' and hbg.favorite_team_id = hbg.away_team_id as is_away_favorite,
-  hbg.underdog_team_id is not null and hbg.team_role = 'home' and hbg.underdog_team_id = hbg.home_team_id as is_home_underdog,
-  hbg.underdog_team_id is not null and hbg.team_role = 'away' and hbg.underdog_team_id = hbg.away_team_id as is_road_underdog,
-  hbg.favorite_team_id is not null and hbg.team_role = 'away' and hbg.favorite_team_id = hbg.away_team_id as is_road_favorite,
-  case when hbg.favorite_team_id is not null and (
-    (hbg.team_role = 'home' and hbg.favorite_team_id = hbg.home_team_id) or
-    (hbg.team_role = 'away' and hbg.favorite_team_id = hbg.away_team_id)
-  ) then true else false end as is_favorite,
-  case when hbg.underdog_team_id is not null and (
-    (hbg.team_role = 'home' and hbg.underdog_team_id = hbg.home_team_id) or
-    (hbg.team_role = 'away' and hbg.underdog_team_id = hbg.away_team_id)
-  ) then true else false end as is_underdog,
+  null::boolean as is_home_favorite,
+  null::boolean as is_away_favorite,
+  null::boolean as is_home_underdog,
+  null::boolean as is_road_underdog,
+  null::boolean as is_road_favorite,
+  null::boolean as is_favorite,
+  null::boolean as is_underdog,
   hbg.bet_on_home_team as is_home_team_bet,
   hbg.bet_on_away_team as is_away_team_bet,
   hbg.result,
