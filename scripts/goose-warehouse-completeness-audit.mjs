@@ -86,17 +86,34 @@ function isSettleableAuditCandidate(row, yesterdayKey) {
 }
 
 async function countOnly(pathname) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1${pathname}`, {
+  const exactHead = await fetch(`${SUPABASE_URL}/rest/v1${pathname}`, {
     headers: headers({ Prefer: 'count=exact,head=true' }),
     method: 'HEAD',
     cache: 'no-store',
   });
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Warehouse audit count failed ${response.status}: ${text.slice(0, 300)}`);
+
+  if (exactHead.ok) {
+    const contentRange = exactHead.headers.get('content-range');
+    return contentRange ? Number(contentRange.split('/')[1] || 0) : 0;
   }
-  const contentRange = response.headers.get('content-range');
-  return contentRange ? Number(contentRange.split('/')[1] || 0) : 0;
+
+  const fallback = await fetch(`${SUPABASE_URL}/rest/v1${pathname}`, {
+    headers: headers({ Prefer: 'count=planned' }),
+    method: 'GET',
+    cache: 'no-store',
+  });
+  const text = await fallback.text();
+  if (!fallback.ok) {
+    throw new Error(`Warehouse audit count failed ${fallback.status}: ${text.slice(0, 300)}`);
+  }
+
+  const contentRange = fallback.headers.get('content-range');
+  if (contentRange) {
+    return Number(contentRange.split('/')[1] || 0);
+  }
+
+  const rows = text ? JSON.parse(text) : [];
+  return Array.isArray(rows) ? rows.length : 0;
 }
 
 async function buildWarehouseAudit() {
@@ -110,19 +127,23 @@ async function buildWarehouseAudit() {
 
   const select = 'candidate_id,event_id,sport,event_date,market_type,capture_ts,goose_market_events!inner(status,commence_time,home_team,away_team),goose_market_results(result,integrity_status)';
 
-  const [snapshotCountExact, candidateCountExact, recentResultCountExact, stalePendingCount, recentCandidates, settlementCandidates] = await Promise.all([
+  const [snapshotCountExact, candidateCountExact, recentResultCountExact, stalePendingCount, recentCandidates] = await Promise.all([
     countOnly(`/market_snapshots?select=id&captured_at=gte.${encodeURIComponent(last24h)}`),
     countOnly(`/goose_market_candidates?select=candidate_id&capture_ts=gte.${encodeURIComponent(last24h)}`),
     countOnly(`/goose_market_results?select=candidate_id&settlement_ts=gte.${encodeURIComponent(last36h)}`),
     countOnly(`/system_qualifiers?select=id&settlement_status=eq.pending&created_at=lt.${encodeURIComponent(last24h)}`),
     postgrest(`/goose_market_candidates?select=${select}&capture_ts=gte.${encodeURIComponent(last24h)}&order=capture_ts.desc&limit=${RECENT_CAPTURE_LIMIT}`),
-    postgrest(`/goose_market_candidates?select=${select}&event_date=gte.${last7DateKey}&order=event_date.desc,capture_ts.desc&limit=${SETTLEMENT_AUDIT_LIMIT}`),
   ]);
 
   const snapshotCount = snapshotCountExact;
   const recentCandidateRows = recentCandidates.rows ?? [];
   const recentResultCount = recentResultCountExact;
-  const settlementRows = settlementCandidates.rows ?? [];
+
+  let settlementRows = [];
+  if (candidateCountExact > 0) {
+    const settlementCandidates = await postgrest(`/goose_market_candidates?select=${select}&event_date=gte.${last7DateKey}&order=event_date.desc,capture_ts.desc&limit=${SETTLEMENT_AUDIT_LIMIT}`);
+    settlementRows = settlementCandidates.rows ?? [];
+  }
 
   const pregameRows = recentCandidateRows.filter((row) => isPregameAuditCandidate(row, nowMs, todayKey));
   const pregameEvents = new Map();
