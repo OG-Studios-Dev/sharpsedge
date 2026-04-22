@@ -12,6 +12,7 @@ export type AppNavItemId =
   | "parlays"
   | "my-picks"
   | "search"
+  | "ask-goose"
   | "teams"
   | "systems"
   | "settings"
@@ -131,6 +132,15 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: "Search",
     shortLabel: "Search",
     emoji: "🔍",
+    group: "tools",
+    shortcutEligible: true,
+  },
+  {
+    id: "ask-goose",
+    href: "/ask-goose",
+    label: "Ask Goose",
+    shortLabel: "Goose",
+    emoji: "🪿",
     group: "tools",
     shortcutEligible: true,
   },
