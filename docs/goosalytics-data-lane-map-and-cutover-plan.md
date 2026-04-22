@@ -4,10 +4,11 @@
 Implementation planning artifact.
 
 ## Why this exists
-The architecture decision is made in principle:
+The architecture decision is now explicit:
 - Supabase/Postgres stays for OLTP + serving
-- deep historical analytics and ML should not live on request-time serving paths
-- Ask Goose and other user-facing analytical surfaces need curated serving tables
+- deep historical analytics and ML move to a separate warehouse lane
+- the warehouse lane should use BigQuery, constrained to the free tier for now
+- Ask Goose and other user-facing analytical surfaces need curated serving tables in Supabase, fed from batch outputs rather than warehouse queries at request time
 
 This doc turns that into a concrete repo-specific execution map.
 
@@ -44,6 +45,8 @@ Examples:
 
 ### Lane 3: Analytics / ML / warehouse
 Deep history, heavy joins, training, evaluation, wide scans, enrichment chains.
+
+**Physical home:** separate BigQuery warehouse project/dataset, kept inside free-tier guardrails for now.
 
 Examples:
 - historical odds/result fact chains
@@ -671,6 +674,7 @@ The problem is concentrated:
 So the plan is not “rewrite everything.”
 The plan is:
 1. freeze warehouse-only objects out of serving paths
-2. build explicit serving tables for analytical user-facing features
-3. keep Postgres for serving
-4. move deep historical analytics and ML to a real warehouse lane
+2. build explicit serving tables for analytical user-facing features in Supabase
+3. keep Supabase/Postgres for serving and operational writes
+4. move deep historical analytics and ML to a separate BigQuery warehouse lane
+5. stay inside BigQuery free-tier limits until usage proves we need more
