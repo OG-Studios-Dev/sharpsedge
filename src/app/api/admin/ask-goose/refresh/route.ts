@@ -88,6 +88,13 @@ async function fetchCount(path: string) {
 }
 
 async function refreshWindow(mode: string, league: string, startDate: string | null, endDate: string | null) {
+  if (league === "NHL" && mode === "batch") {
+    return await callRpc<number>("refresh_ask_goose_query_layer_nhl_v1", {
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
+  }
+
   return mode === "stage"
     ? await callRpc<number>("refresh_ask_goose_source_stage_v1", {
         p_league: league,

@@ -66,11 +66,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "league must be one of NHL, NBA, MLB, NFL" }, { status: 400 });
     }
 
-    const [queryLayer, loaderSource, gradedQuery, gradedGold] = await Promise.all([
+    const [queryLayer, loaderSource, gradedQuery, gradedGold, nhlCache] = await Promise.all([
       fetchCountSafe(`/rest/v1/ask_goose_query_layer_v1?league=eq.${league}&select=candidate_id`),
       fetchCountSafe(`/rest/v1/historical_trends_loader_source_v1?league=eq.${league}&select=candidate_id`),
       fetchCountSafe(`/rest/v1/historical_betting_markets_query_graded_v1?league=eq.${league}&select=candidate_id`),
       fetchCountSafe(`/rest/v1/historical_betting_markets_gold_graded_v1?league=eq.${league}&select=candidate_id`),
+      league === "NHL"
+        ? fetchCountSafe(`/rest/v1/ask_goose_nhl_source_cache_v1?select=candidate_id`)
+        : Promise.resolve({ ok: true as const, count: null, error: null }),
     ]);
 
     const warnings = [
@@ -81,6 +84,7 @@ export async function GET(request: NextRequest) {
       !loaderSource.ok ? `Loader source count failed: ${loaderSource.error}` : null,
       !gradedQuery.ok ? `Graded query count failed: ${gradedQuery.error}` : null,
       !gradedGold.ok ? `Gold graded count failed: ${gradedGold.error}` : null,
+      league === "NHL" && !nhlCache.ok ? `NHL cache count failed: ${nhlCache.error}` : null,
     ].filter(Boolean);
 
     return NextResponse.json({
@@ -91,6 +95,7 @@ export async function GET(request: NextRequest) {
         historicalTrendsLoaderSource: loaderSource.count,
         historicalBettingMarketsQueryGraded: gradedQuery.count,
         historicalBettingMarketsGoldGraded: gradedGold.count,
+        askGooseNhlSourceCache: nhlCache.count,
       },
       parity: {
         queryLayerVsLoaderSourceDelta:
@@ -99,6 +104,8 @@ export async function GET(request: NextRequest) {
           loaderSource.count !== null && gradedQuery.count !== null ? loaderSource.count - gradedQuery.count : null,
         queryGradedVsGoldGradedDelta:
           gradedQuery.count !== null && gradedGold.count !== null ? gradedQuery.count - gradedGold.count : null,
+        nhlCacheVsQueryLayerDelta:
+          nhlCache.count !== null && queryLayer.count !== null ? nhlCache.count - queryLayer.count : null,
       },
       warnings,
       sources: {
@@ -106,6 +113,7 @@ export async function GET(request: NextRequest) {
         loaderSource,
         gradedQuery,
         gradedGold,
+        nhlCache,
       },
     });
   } catch (error) {
