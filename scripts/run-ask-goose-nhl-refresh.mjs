@@ -32,7 +32,6 @@ const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
 const startDate = args.startDate || '2026-03-01';
 const endDate = args.endDate || '2026-03-07';
 const chunkSize = Number(args.chunkSize || 1000);
-const totalsFile = args.totalsFile || '';
 
 function headers(extra={}) {
   return {
@@ -72,17 +71,15 @@ function enumerateDates(start, end) {
   return out;
 }
 
-let totalsOverride = null;
-if (totalsFile) {
-  totalsOverride = JSON.parse(fs.readFileSync(path.resolve(cwd, totalsFile), 'utf8'));
-}
-
 for (const eventDate of enumerateDates(startDate, endDate)) {
   const dayStart = eventDate;
   const dayEnd = eventDate;
   const servingRows = Number(await rpc('refresh_ask_goose_nhl_serving_source_v2', { p_start_date: dayStart, p_end_date: dayEnd }) || 0);
-  const rows = totalsOverride ? null : await rest(`/rest/v1/ask_goose_nhl_serving_source_v2?select=event_date&event_date=eq.${eventDate}&limit=200000`);
-  const totalRows = totalsOverride ? Number(totalsOverride[eventDate] || 0) : rows.length;
+  const countsByDate = await rpc('count_ask_goose_nhl_serving_rows_by_date', {
+    p_start_date: dayStart,
+    p_end_date: dayEnd,
+  });
+  const totalRows = Number((countsByDate || [])[0]?.row_count || 0);
   let chunkStart = 1;
   let rowsWritten = 0;
   let chunks = 0;
