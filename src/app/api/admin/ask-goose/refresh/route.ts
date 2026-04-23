@@ -100,25 +100,11 @@ async function hydrateNhlCandidateCache(startDate: string | null, endDate: strin
   });
 }
 
-async function fetchNhlServingRows(startDate: string, endDate: string) {
-  const response = await fetch(`${getSupabaseUrl()}/rest/v1/ask_goose_nhl_serving_source_v2?select=event_date&event_date=gte.${startDate}&event_date=lte.${endDate}&order=event_date.asc&limit=200000`, {
-    method: "GET",
-    headers: serviceHeaders(),
-    cache: "no-store",
+async function fetchNhlServingCounts(startDate: string, endDate: string) {
+  return await callRpc<Array<{ event_date: string; row_count: number }>>("count_ask_goose_nhl_serving_rows_by_date", {
+    p_start_date: startDate,
+    p_end_date: endDate,
   });
-
-  if (!response.ok) {
-    let message = `Supabase serving row read failed (${response.status})`;
-    try {
-      const payload = await response.json() as RpcResponse;
-      message = payload.message || payload.error || payload.details || message;
-    } catch {
-      // ignore malformed payloads
-    }
-    throw new Error(message);
-  }
-
-  return await response.json() as Array<{ event_date: string }>;
 }
 
 async function refreshNhlChunkedQueryLayer(startDate: string, endDate: string) {
@@ -128,18 +114,12 @@ async function refreshNhlChunkedQueryLayer(startDate: string, endDate: string) {
     p_end_date: endDate,
   });
 
-  const rawRows = await fetchNhlServingRows(startDate, endDate);
-  const countsByDate = new Map<string, number>();
-  for (const row of rawRows) {
-    const key = String(row.event_date);
-    countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
-  }
+  const countsByDate = await fetchNhlServingCounts(startDate, endDate);
 
   let rowsRefreshed = 0;
-  const countEntries = Array.from(countsByDate.entries());
-  for (const entry of countEntries) {
-    const eventDate = entry[0];
-    const totalRows = entry[1];
+  for (const entry of countsByDate) {
+    const eventDate = String(entry.event_date);
+    const totalRows = Number(entry.row_count || 0);
     let chunkStart = 1;
     const chunkSize = 1000;
     let first = true;
@@ -159,16 +139,11 @@ async function refreshNhlChunkedQueryLayer(startDate: string, endDate: string) {
 }
 
 async function refreshWindow(mode: string, league: string, startDate: string | null, endDate: string | null) {
-  if (league === "NHL" && mode === "batch" && startDate && endDate) {
-    return await refreshNhlChunkedQueryLayer(startDate, endDate);
-  }
-
   if (league === "NHL" && mode === "batch") {
-    await hydrateNhlCandidateCache(startDate, endDate);
-    return await callRpc<number>("refresh_ask_goose_query_layer_nhl_v2", {
-      p_start_date: startDate,
-      p_end_date: endDate,
-    });
+    if (!startDate || !endDate) {
+      throw new Error("NHL batch refresh requires explicit startDate and endDate");
+    }
+    return await refreshNhlChunkedQueryLayer(startDate, endDate);
   }
 
   return mode === "stage"
