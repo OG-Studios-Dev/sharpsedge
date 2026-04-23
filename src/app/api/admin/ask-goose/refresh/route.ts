@@ -1,5 +1,9 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
+
+const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -87,9 +91,81 @@ async function fetchCount(path: string) {
   return Number.isFinite(total) ? total : 0;
 }
 
+async function hydrateNhlCandidateCache(startDate: string | null, endDate: string | null) {
+  if (!startDate || !endDate) return;
+  await execFileAsync("node", ["scripts/load-ask-goose-nhl-candidate-cache.mjs", `--startDate=${startDate}`, `--endDate=${endDate}`], {
+    cwd: process.cwd(),
+    timeout: 120_000,
+    maxBuffer: 1024 * 1024 * 10,
+  });
+}
+
+async function fetchNhlServingRows(startDate: string, endDate: string) {
+  const response = await fetch(`${getSupabaseUrl()}/rest/v1/ask_goose_nhl_serving_source_v2?select=event_date&event_date=gte.${startDate}&event_date=lte.${endDate}&order=event_date.asc&limit=200000`, {
+    method: "GET",
+    headers: serviceHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = `Supabase serving row read failed (${response.status})`;
+    try {
+      const payload = await response.json() as RpcResponse;
+      message = payload.message || payload.error || payload.details || message;
+    } catch {
+      // ignore malformed payloads
+    }
+    throw new Error(message);
+  }
+
+  return await response.json() as Array<{ event_date: string }>;
+}
+
+async function refreshNhlChunkedQueryLayer(startDate: string, endDate: string) {
+  await hydrateNhlCandidateCache(startDate, endDate);
+  await callRpc<number>("refresh_ask_goose_nhl_serving_source_v2", {
+    p_start_date: startDate,
+    p_end_date: endDate,
+  });
+
+  const rawRows = await fetchNhlServingRows(startDate, endDate);
+  const countsByDate = new Map<string, number>();
+  for (const row of rawRows) {
+    const key = String(row.event_date);
+    countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
+  }
+
+  let rowsRefreshed = 0;
+  const countEntries = Array.from(countsByDate.entries());
+  for (const entry of countEntries) {
+    const eventDate = entry[0];
+    const totalRows = entry[1];
+    let chunkStart = 1;
+    const chunkSize = 1000;
+    let first = true;
+    while (chunkStart <= totalRows) {
+      rowsRefreshed += Number(await callRpc<number>("refresh_ask_goose_query_layer_nhl_v2_chunk", {
+        p_event_date: eventDate,
+        p_chunk_start: chunkStart,
+        p_chunk_size: chunkSize,
+        p_delete_existing: first,
+      }) || 0);
+      first = false;
+      chunkStart += chunkSize;
+    }
+  }
+
+  return rowsRefreshed;
+}
+
 async function refreshWindow(mode: string, league: string, startDate: string | null, endDate: string | null) {
+  if (league === "NHL" && mode === "batch" && startDate && endDate) {
+    return await refreshNhlChunkedQueryLayer(startDate, endDate);
+  }
+
   if (league === "NHL" && mode === "batch") {
-    return await callRpc<number>("refresh_ask_goose_query_layer_nhl_v1", {
+    await hydrateNhlCandidateCache(startDate, endDate);
+    return await callRpc<number>("refresh_ask_goose_query_layer_nhl_v2", {
       p_start_date: startDate,
       p_end_date: endDate,
     });
