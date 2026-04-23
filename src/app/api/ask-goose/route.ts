@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
+import { answerAskGooseQuestion } from "@/lib/ask-goose/internal-query";
 
 export const dynamic = "force-dynamic";
 
@@ -95,36 +96,31 @@ export async function GET(request: NextRequest) {
 
     const rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${query.toString()}`);
 
-    const gradedRows = rows.filter((row) => row?.graded === true);
-    const wins = gradedRows.filter((row) => String(row?.result || "").toLowerCase() === "win").length;
-    const losses = gradedRows.filter((row) => String(row?.result || "").toLowerCase() === "loss").length;
-    const pushes = gradedRows.filter((row) => {
-      const result = String(row?.result || "").toLowerCase();
-      return result === "push" || result === "dq";
-    }).length;
-    const totalUnits = gradedRows.reduce((sum, row) => sum + Number(row?.profit_units || 0), 0);
-    const avgRoi = gradedRows.length
-      ? gradedRows.reduce((sum, row) => sum + Number(row?.roi_on_10_flat || 0), 0) / gradedRows.length
-      : 0;
+    const answer = answerAskGooseQuestion(question, league, rows);
 
     return NextResponse.json({
       ok: true,
       question,
       filters: { league, limit },
       summary: {
-        rows: rows.length,
-        gradedRows: gradedRows.length,
-        wins,
-        losses,
-        pushes,
-        totalUnits,
-        avgRoi,
+        rows: answer.sampleSize,
+        gradedRows: answer.gradedRows,
+        wins: answer.wins,
+        losses: answer.losses,
+        pushes: answer.pushes,
+        totalUnits: answer.totalUnits,
+        avgRoi: answer.avgRoi,
       },
-      rows,
-      empty: rows.length === 0,
-      message: rows.length === 0
+      interpretation: answer.intent,
+      answer: {
+        summaryText: answer.summaryText,
+        warnings: answer.warnings,
+      },
+      rows: answer.evidenceRows,
+      empty: answer.sampleSize === 0,
+      message: answer.sampleSize === 0
         ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
-        : `Loaded ${rows.length} persisted Ask Goose rows for ${league}.`,
+        : answer.summaryText,
     });
   } catch (error) {
     return NextResponse.json({

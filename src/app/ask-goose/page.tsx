@@ -67,6 +67,16 @@ type AskGooseResponse = {
     totalUnits: number;
     avgRoi: number;
   };
+  interpretation?: {
+    matchedTeam?: string | null;
+    matchedOpponent?: string | null;
+    marketType?: string | null;
+    side?: string | null;
+  };
+  answer?: {
+    summaryText?: string;
+    warnings?: string[];
+  };
   rows: AskGooseRow[];
   empty?: boolean;
   message?: string;
@@ -234,6 +244,18 @@ export default function AskGoosePage() {
 
           {result?.ok && !result.empty && (
             <>
+              <div className="mt-4 rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-accent-blue">Internal Ask Goose answer</p>
+                <p className="mt-2 text-base font-semibold text-white">{result.answer?.summaryText || result.message}</p>
+                {result.answer?.warnings?.length ? (
+                  <ul className="mt-3 space-y-1 text-sm text-yellow-200">
+                    {result.answer.warnings.map((warning) => (
+                      <li key={warning}>• {warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Rows</p>
