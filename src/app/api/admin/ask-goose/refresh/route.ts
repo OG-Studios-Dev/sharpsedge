@@ -5,6 +5,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const ALLOWED_LEAGUES = new Set(["NHL", "NBA", "MLB", "NFL"]);
+const NHL_SEASON_WINDOWS = [
+  ["2025-10-01", "2025-10-31"],
+  ["2025-11-01", "2025-11-30"],
+  ["2025-12-01", "2025-12-31"],
+  ["2026-01-01", "2026-01-31"],
+  ["2026-02-01", "2026-02-28"],
+  ["2026-03-01", "2026-03-31"],
+  ["2026-04-01", "2026-04-30"],
+] as const;
 
 type RpcResponse = {
   message?: string;
@@ -78,6 +87,48 @@ async function fetchCount(path: string) {
   return Number.isFinite(total) ? total : 0;
 }
 
+async function refreshWindow(mode: string, league: string, startDate: string | null, endDate: string | null) {
+  return mode === "stage"
+    ? await callRpc<number>("refresh_ask_goose_source_stage_v1", {
+        p_league: league,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      })
+    : await callRpc<number>("refresh_ask_goose_query_layer_v1_batch", {
+        p_league: league,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
+}
+
+async function runNhlWindowedRefresh(mode: string) {
+  const windows: Array<{ startDate: string; endDate: string; rowsRefreshed: number; ok: boolean; error?: string }> = [];
+  let totalRows = 0;
+
+  for (const [startDate, endDate] of NHL_SEASON_WINDOWS) {
+    try {
+      const rowsRefreshed = await refreshWindow(mode, "NHL", startDate, endDate);
+      totalRows += Number(rowsRefreshed || 0);
+      windows.push({ startDate, endDate, rowsRefreshed: Number(rowsRefreshed || 0), ok: true });
+    } catch (error) {
+      windows.push({
+        startDate,
+        endDate,
+        rowsRefreshed: 0,
+        ok: false,
+        error: toErrorMessage(error, `Window refresh failed for ${startDate} to ${endDate}`),
+      });
+      break;
+    }
+  }
+
+  return {
+    rowsRefreshed: totalRows,
+    windows,
+    completedAllWindows: windows.length === NHL_SEASON_WINDOWS.length && windows.every((window) => window.ok),
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -85,6 +136,7 @@ export async function POST(request: NextRequest) {
     const startDate = normalizeDate(body.startDate);
     const endDate = normalizeDate(body.endDate);
     const mode = String(body.mode ?? "batch").trim().toLowerCase();
+    const forceWindowed = body.windowed === true;
 
     if (!league) {
       return NextResponse.json({ ok: false, error: "league must be one of NHL, NBA, MLB, NFL" }, { status: 400 });
@@ -99,17 +151,20 @@ export async function POST(request: NextRequest) {
     );
 
     const startedAt = new Date().toISOString();
-    const rowsRefreshed = mode === "stage"
-      ? await callRpc<number>("refresh_ask_goose_source_stage_v1", {
-          p_league: league,
-          p_start_date: startDate,
-          p_end_date: endDate,
-        })
-      : await callRpc<number>("refresh_ask_goose_query_layer_v1_batch", {
-          p_league: league,
-          p_start_date: startDate,
-          p_end_date: endDate,
-        });
+    const shouldRunWindowed = league === "NHL" && !startDate && !endDate && mode === "batch" && forceWindowed !== false;
+
+    let rowsRefreshed = 0;
+    let windows: Array<{ startDate: string; endDate: string; rowsRefreshed: number; ok: boolean; error?: string }> = [];
+    let completedAllWindows: boolean | null = null;
+
+    if (shouldRunWindowed) {
+      const result = await runNhlWindowedRefresh(mode);
+      rowsRefreshed = result.rowsRefreshed;
+      windows = result.windows;
+      completedAllWindows = result.completedAllWindows;
+    } else {
+      rowsRefreshed = Number(await refreshWindow(mode, league, startDate, endDate) || 0);
+    }
 
     const afterCount = await fetchCount(
       `/rest/v1/ask_goose_query_layer_v1?league=eq.${league}&select=candidate_id`,
@@ -127,6 +182,9 @@ export async function POST(request: NextRequest) {
       delta: afterCount - beforeCount,
       startedAt,
       finishedAt: new Date().toISOString(),
+      windowed: shouldRunWindowed,
+      completedAllWindows,
+      windows,
       message: `Ask Goose ${mode} refresh completed for ${league}.`,
     });
   } catch (error) {
