@@ -35,6 +35,11 @@ function buildQuestionPreview(question: string) {
   return cleaned.slice(0, 180);
 }
 
+function wantsRecentPerformance(question: string) {
+  const q = question.toLowerCase();
+  return q.includes("lately") || q.includes("recent") || q.includes("perform") || q.includes("performance") || q.includes("record");
+}
+
 async function postgrest<T>(path: string) {
   const response = await fetch(`${getSupabaseUrl()}${path}`, {
     method: "GET",
@@ -63,38 +68,52 @@ export async function GET(request: NextRequest) {
     const limit = normalizeLimit(searchParams.get("limit"));
     const question = buildQuestionPreview(searchParams.get("q") || "");
 
-    const query = new URLSearchParams({
-      select: [
-        "candidate_id",
-        "league",
-        "event_date",
-        "team_name",
-        "opponent_name",
-        "market_type",
-        "submarket_type",
-        "market_family",
-        "market_scope",
-        "side",
-        "line",
-        "odds",
-        "sportsbook",
-        "result",
-        "graded",
-        "profit_units",
-        "profit_dollars_10",
-        "roi_on_10_flat",
-        "segment_key",
-        "is_home_team_bet",
-        "is_away_team_bet",
-        "is_favorite",
-        "is_underdog"
-      ].join(","),
+    const select = [
+      "candidate_id",
+      "league",
+      "event_date",
+      "team_name",
+      "opponent_name",
+      "market_type",
+      "submarket_type",
+      "market_family",
+      "market_scope",
+      "side",
+      "line",
+      "odds",
+      "sportsbook",
+      "result",
+      "graded",
+      "profit_units",
+      "profit_dollars_10",
+      "roi_on_10_flat",
+      "segment_key",
+      "is_home_team_bet",
+      "is_away_team_bet",
+      "is_favorite",
+      "is_underdog"
+    ].join(",");
+
+    const gradedFirst = wantsRecentPerformance(question);
+    const primaryQuery = new URLSearchParams({
+      select,
       league: `eq.${league}`,
       order: "event_date.desc",
       limit: String(limit),
+      ...(gradedFirst ? { graded: "eq.true" } : {}),
     });
 
-    const rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${query.toString()}`);
+    let rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+
+    if (gradedFirst && rows.length === 0) {
+      const fallbackQuery = new URLSearchParams({
+        select,
+        league: `eq.${league}`,
+        order: "event_date.desc",
+        limit: String(limit),
+      });
+      rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${fallbackQuery.toString()}`);
+    }
 
     const answer = answerAskGooseQuestion(question, league, rows);
 
