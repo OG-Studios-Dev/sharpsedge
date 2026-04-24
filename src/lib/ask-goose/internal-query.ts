@@ -14,6 +14,7 @@ export type AskGooseRow = {
   sportsbook: string | null;
   result: string | null;
   graded: boolean | null;
+  integrity_status?: string | null;
   profit_units: number | null;
   profit_dollars_10: number | null;
   roi_on_10_flat: number | null;

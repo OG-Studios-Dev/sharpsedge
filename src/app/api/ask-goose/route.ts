@@ -121,7 +121,8 @@ export async function GET(request: NextRequest) {
       "is_home_team_bet",
       "is_away_team_bet",
       "is_favorite",
-      "is_underdog"
+      "is_underdog",
+      "integrity_status"
     ].join(",");
 
     const gradedFirst = wantsRecentPerformance(question);
@@ -206,11 +207,18 @@ export async function GET(request: NextRequest) {
 
     const answer = answerAskGooseQuestion(question, league, rows);
 
+    const ungradeableRows = answer.evidenceRows.filter((row) => String(row.result || "").toLowerCase() === "ungradeable" || String(row.integrity_status || "").toLowerCase() === "unresolvable").length;
+    const lineMissingRows = answer.evidenceRows.filter((row) => row.market_family === "spread" && (row.line === null || row.line === undefined)).length;
+
     const message = answer.sampleSize === 0
       ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
-      : answer.gradedRows === 0
-        ? `Matching ${league} rows were found, but no graded sample is settled yet for this exact question.`
-        : answer.summaryText;
+      : answer.gradedRows === 0 && lineMissingRows > 0
+        ? `Matching ${league} spread rows were found, but the source has no spread line for this slice, so Ask Goose cannot honestly grade it yet.`
+        : answer.gradedRows === 0 && ungradeableRows > 0
+          ? `Matching ${league} rows were found, but this slice is currently ungradeable from available source fields.`
+          : answer.gradedRows === 0
+            ? `Matching ${league} rows were found, but no graded sample is settled yet for this exact question.`
+            : answer.summaryText;
 
     return NextResponse.json({
       ok: true,
