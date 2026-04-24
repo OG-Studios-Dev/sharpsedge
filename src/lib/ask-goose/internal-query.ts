@@ -55,7 +55,7 @@ export type AskGooseAnswer = {
 
 const TEAM_ALIASES: Record<string, string[]> = {
   NHL: [
-    "ducks", "bruins", "sabres", "flames", "hurricanes", "blackhawks", "avalanche", "blue jackets", "stars", "red wings", "oilers", "panthers", "kings", "wild", "canadiens", "predators", "devils", "islanders", "rangers", "senators", "flyers", "penguins", "sharks", "kraken", "blues", "lightning", "maple leafs", "utah", "canucks", "golden knights", "capitals", "jets",
+    "ducks", "anaheim ducks", "bruins", "boston bruins", "sabres", "buffalo sabres", "flames", "calgary flames", "hurricanes", "carolina hurricanes", "blackhawks", "chicago blackhawks", "avalanche", "colorado avalanche", "blue jackets", "columbus blue jackets", "stars", "dallas stars", "red wings", "detroit red wings", "oilers", "edmonton oilers", "panthers", "florida panthers", "kings", "los angeles kings", "wild", "minnesota wild", "canadiens", "montreal canadiens", "habs", "predators", "nashville predators", "devils", "new jersey devils", "islanders", "new york islanders", "rangers", "new york rangers", "senators", "ottawa senators", "flyers", "philadelphia flyers", "penguins", "pittsburgh penguins", "sharks", "san jose sharks", "kraken", "seattle kraken", "blues", "st louis blues", "lightning", "tampa bay lightning", "maple leafs", "toronto maple leafs", "leafs", "utah", "utah hockey club", "canucks", "vancouver canucks", "golden knights", "vegas golden knights", "knights", "capitals", "washington capitals", "jets", "winnipeg jets",
   ],
   NBA: [
     "hawks", "celtics", "nets", "hornets", "bulls", "cavaliers", "mavericks", "nuggets", "pistons", "warriors", "rockets", "pacers", "clippers", "lakers", "grizzlies", "heat", "bucks", "timberwolves", "pelicans", "knicks", "thunder", "magic", "76ers", "suns", "blazers", "kings", "spurs", "raptors", "jazz", "wizards",
@@ -94,7 +94,7 @@ function rowMatchesNeedle(value: string | null | undefined, needle: string | nul
 
 export function parseAskGooseIntent(question: string, league: string, rows: AskGooseRow[]): AskGooseIntent {
   const normalizedQuestion = question.replace(/\s+/g, " ").trim().toLowerCase();
-  const looksLikeBettingQuestion = /(win rate|roi|units|profit|record|system|trend|cover|favorite|underdog|over|under|moneyline|spread|ats)/.test(normalizedQuestion);
+  const looksLikeBettingQuestion = /(win rate|roi|units|profit|record|system|trend|cover|favorite|underdog|over|under|moneyline|spread|ats|perform|performance|lately|recent|against|head to head|total)/.test(normalizedQuestion);
   const candidates = TEAM_ALIASES[league] ?? [];
   const matchedTeams = candidates.filter((team) => normalizedQuestion.includes(team));
 
