@@ -119,7 +119,10 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const matchedTeam = matchedRowNames[0] ?? matchedTeams[0] ?? null;
   const matchedOpponent = matchedRowNames[1] ?? matchedTeams[1] ?? null;
   const wantsHeadToHead = /\bvs\b|against|head to head/.test(normalizedQuestion) || Boolean(matchedTeam && matchedOpponent);
-  const wantsTeamMarketFocus = Boolean(matchedTeam) && (marketType === "moneyline" || marketType === "spread" || marketType === "total" || wantsHeadToHead);
+  if (marketType === "total" && (normalizedQuestion.includes("underdog") || normalizedQuestion.includes("dog") || normalizedQuestion.includes("favorite"))) {
+    marketType = null;
+  }
+  const wantsTeamMarketFocus = Boolean(matchedTeam) && (marketType === "moneyline" || marketType === "spread" || marketType === "total" || wantsHeadToHead || normalizedQuestion.includes("underdog") || normalizedQuestion.includes("dog") || normalizedQuestion.includes("favorite"));
 
   return {
     normalizedQuestion,
