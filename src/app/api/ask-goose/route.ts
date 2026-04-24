@@ -10,6 +10,29 @@ const MAX_LIMIT = 100;
 const BROADER_SAMPLE_LIMIT = 250;
 const TEAM_QUERY_SAMPLE_LIMIT = 1000;
 
+const LEAGUE_TEAM_ALIASES: Record<string, string[]> = {
+  NHL: [
+    "ducks", "bruins", "sabres", "flames", "hurricanes", "blackhawks", "avalanche", "blue jackets", "stars", "red wings", "oilers", "panthers", "kings", "wild", "canadiens", "predators", "devils", "islanders", "rangers", "senators", "flyers", "penguins", "sharks", "kraken", "blues", "lightning", "maple leafs", "utah", "canucks", "golden knights", "capitals", "jets",
+  ],
+  NBA: [
+    "hawks", "celtics", "nets", "hornets", "bulls", "cavaliers", "mavericks", "nuggets", "pistons", "warriors", "rockets", "pacers", "clippers", "lakers", "grizzlies", "heat", "bucks", "timberwolves", "pelicans", "knicks", "thunder", "magic", "76ers", "suns", "blazers", "kings", "spurs", "raptors", "jazz", "wizards",
+  ],
+  MLB: [
+    "diamondbacks", "braves", "orioles", "red sox", "cubs", "white sox", "reds", "guardians", "rockies", "tigers", "astros", "royals", "angels", "dodgers", "marlins", "brewers", "twins", "mets", "yankees", "athletics", "phillies", "pirates", "padres", "giants", "mariners", "cardinals", "rays", "rangers", "blue jays", "nationals",
+  ],
+  NFL: [
+    "cardinals", "falcons", "ravens", "bills", "panthers", "bears", "bengals", "browns", "cowboys", "broncos", "lions", "packers", "texans", "colts", "jaguars", "chiefs", "raiders", "chargers", "rams", "dolphins", "vikings", "patriots", "saints", "giants", "jets", "eagles", "steelers", "49ers", "seahawks", "buccaneers", "titans", "commanders",
+  ],
+};
+
+function normalizeLoose(value: string | null | undefined) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function serviceHeaders(extra?: HeadersInit) {
   const key = getSupabaseServiceRoleKey();
   return {
@@ -134,7 +157,7 @@ export async function GET(request: NextRequest) {
       .filter((value): value is string => Boolean(value))
       .map((value) => value.toLowerCase());
 
-    if (teamQuestion && normalizedNeedles.length > 0) {
+    if (teamQuestion) {
       const targetedQuery = new URLSearchParams({
         select,
         league: `eq.${league}`,
@@ -143,11 +166,21 @@ export async function GET(request: NextRequest) {
         ...(gradedFirst ? { graded: "eq.true" } : {}),
       });
       const targetedRows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${targetedQuery.toString()}`);
-      rows = targetedRows.filter((row) => {
-        const team = (row.team_name || "").toLowerCase();
-        const opp = (row.opponent_name || "").toLowerCase();
-        return normalizedNeedles.some((needle) => team.includes(needle) || opp.includes(needle));
-      });
+
+      const questionNorm = normalizeLoose(question);
+      const aliasNeedles = (LEAGUE_TEAM_ALIASES[league] || []).filter((alias) => questionNorm.includes(normalizeLoose(alias)));
+      const allNeedles = [...new Set([...normalizedNeedles, ...aliasNeedles.map((value) => value.toLowerCase())])];
+
+      if (allNeedles.length > 0) {
+        rows = targetedRows.filter((row) => {
+          const team = normalizeLoose(row.team_name);
+          const opp = normalizeLoose(row.opponent_name);
+          return allNeedles.some((needle) => {
+            const n = normalizeLoose(needle);
+            return Boolean(n) && (team.includes(n) || opp.includes(n) || n.includes(team) || n.includes(opp));
+          });
+        });
+      }
 
       if (rows.length === 0) {
         rows = targetedRows;
