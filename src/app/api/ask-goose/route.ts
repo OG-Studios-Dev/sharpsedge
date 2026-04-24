@@ -205,6 +205,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const normalizedQuestion = question.toLowerCase();
+    if (teamQuestion && (normalizedQuestion.includes("underdog") || normalizedQuestion.includes(" as dogs") || normalizedQuestion.includes(" as dog") || normalizedQuestion.includes(" as an underdog"))) {
+      rows = rows.filter((row) => row.is_underdog === true);
+    }
+
     const answer = answerAskGooseQuestion(question, league, rows);
 
     return NextResponse.json({
