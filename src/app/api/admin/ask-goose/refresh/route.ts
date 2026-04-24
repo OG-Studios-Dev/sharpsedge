@@ -1,9 +1,5 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
-
-const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -92,11 +88,10 @@ async function fetchCount(path: string) {
 }
 
 async function hydrateNhlCandidateCache(startDate: string | null, endDate: string | null) {
-  if (!startDate || !endDate) return;
-  await execFileAsync("node", ["scripts/load-ask-goose-nhl-candidate-cache.mjs", `--startDate=${startDate}`, `--endDate=${endDate}`], {
-    cwd: process.cwd(),
-    timeout: 120_000,
-    maxBuffer: 1024 * 1024 * 10,
+  if (!startDate || !endDate) return 0;
+  return await callRpc<number>("refresh_ask_goose_nhl_candidate_cache_v1_batch", {
+    p_start_date: startDate,
+    p_end_date: endDate,
   });
 }
 
