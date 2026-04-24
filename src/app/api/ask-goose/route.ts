@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
 
       const questionNorm = normalizeLoose(question);
       const aliasNeedles = (LEAGUE_TEAM_ALIASES[league] || []).filter((alias) => questionNorm.includes(normalizeLoose(alias)));
-      const allNeedles = [...new Set([...normalizedNeedles, ...aliasNeedles.map((value) => value.toLowerCase())])];
+      const allNeedles = Array.from(new Set(normalizedNeedles.concat(aliasNeedles.map((value) => value.toLowerCase()))));
 
       if (allNeedles.length > 0) {
         rows = targetedRows.filter((row) => {
