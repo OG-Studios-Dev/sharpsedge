@@ -22,14 +22,82 @@ const headers = {
 
 const SUPPORTED_MARKETS = new Set(['moneyline', 'spread', 'total', 'first_five_total', 'first_five_side']);
 const SUPPORTED_SPORTS = new Set(['NHL', 'NBA', 'MLB']);
+const PAGE_SIZE = Number(process.env.GOOSE2_EXPORT_PAGE_SIZE || 1000);
+const MAX_ROWS = Number(process.env.GOOSE2_EXPORT_MAX_ROWS || 50000);
+const HYDRATE_CHUNK_SIZE = Number(process.env.GOOSE2_EXPORT_HYDRATE_CHUNK_SIZE || 20);
 
-async function rest(pathname) {
-  const res = await fetch(`${apiBase}${pathname}`, { headers, cache: 'no-store' });
+async function rest(pathname, extraHeaders = {}) {
+  const res = await fetch(`${apiBase}${pathname}`, { headers: { ...headers, ...extraHeaders }, cache: 'no-store' });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`REST ${res.status} ${pathname}: ${text.slice(0, 300)}`);
   }
   return res.json();
+}
+
+function encodeIn(values) {
+  return values.map((value) => `"${String(value).replace(/"/g, '\\"')}"`).join(',');
+}
+
+function chunk(values, size) {
+  const out = [];
+  for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
+  return out;
+}
+
+async function fetchTrainingLabels() {
+  const labels = [];
+  for (let offset = 0; offset < MAX_ROWS; offset += PAGE_SIZE) {
+    const limit = Math.min(PAGE_SIZE, MAX_ROWS - offset);
+    const page = await rest(`/goose_market_results?select=candidate_id,event_id,result,integrity_status,settlement_ts&integrity_status=eq.ok&result=in.(win,loss)&order=settlement_ts.asc,candidate_id.asc&limit=${limit}&offset=${offset}`);
+    labels.push(...page);
+    if (page.length < limit) break;
+  }
+  return labels;
+}
+
+async function fetchByCandidateIds(table, select, ids) {
+  const rows = [];
+  for (const group of chunk(ids, HYDRATE_CHUNK_SIZE)) {
+    if (group.length === 0) continue;
+    rows.push(...await rest(`/${table}?select=${select}&candidate_id=in.(${encodeIn(group)})`));
+  }
+  return rows;
+}
+
+async function fetchEventRows(eventIds) {
+  const rows = [];
+  for (const group of chunk(eventIds, HYDRATE_CHUNK_SIZE)) {
+    if (group.length === 0) continue;
+    rows.push(...await rest(`/goose_market_events?select=event_id,commence_time,home_team,away_team,status&event_id=in.(${encodeIn(group)})`));
+  }
+  return rows;
+}
+
+async function fetchTrainingSourceRows() {
+  const labels = await fetchTrainingLabels();
+  const candidateIds = labels.map((row) => row.candidate_id);
+  const candidates = await fetchByCandidateIds(
+    'goose_market_candidates',
+    'candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing,snapshot_id,event_snapshot_id',
+    candidateIds,
+  );
+  const features = await fetchByCandidateIds(
+    'goose_feature_rows',
+    'candidate_id,feature_row_id,feature_version,feature_payload,system_flags,generated_ts',
+    candidateIds,
+  );
+  const events = await fetchEventRows([...new Set(candidates.map((row) => row.event_id).filter(Boolean))]);
+  const labelByCandidate = new Map(labels.map((row) => [row.candidate_id, row]));
+  const featureByCandidate = new Map(features.map((row) => [row.candidate_id, row]));
+  const eventById = new Map(events.map((row) => [row.event_id, row]));
+
+  return candidates.map((row) => ({
+    ...row,
+    goose_market_results: labelByCandidate.get(row.candidate_id) ?? null,
+    goose_feature_rows: featureByCandidate.get(row.candidate_id) ?? null,
+    goose_market_events: eventById.get(row.event_id) ?? null,
+  }));
 }
 
 function impliedProbFromAmericanOdds(odds) {
@@ -72,7 +140,7 @@ function toCsv(rows) {
 }
 
 async function main() {
-  const rows = await rest('/goose_market_candidates?select=candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing,snapshot_id,event_snapshot_id,goose_market_events!inner(commence_time,home_team,away_team,status),goose_market_results!left(result,integrity_status,settlement_ts),goose_feature_rows!left(feature_row_id,feature_version,feature_payload,system_flags,generated_ts)&limit=5000');
+  const rows = await fetchTrainingSourceRows();
 
   const normalized = rows.map((row) => {
     const feature = Array.isArray(row.goose_feature_rows) ? row.goose_feature_rows[0] : row.goose_feature_rows;
@@ -139,6 +207,10 @@ async function main() {
       source_rows: normalized.length,
       included_rows: included.length,
       excluded_rows: excluded.length,
+      page_size: PAGE_SIZE,
+      max_rows: MAX_ROWS,
+      hydrate_chunk_size: HYDRATE_CHUNK_SIZE,
+      ordered_by: 'goose_market_results.settlement_ts.asc,candidate_id.asc',
     },
     by_sport: Object.fromEntries([...SUPPORTED_SPORTS].map((sport) => [sport, included.filter((row) => row.sport === sport).length])),
     by_market: Object.fromEntries([...new Set(included.map((row) => row.market_type))].sort().map((market) => [market, included.filter((row) => row.market_type === market).length])),
