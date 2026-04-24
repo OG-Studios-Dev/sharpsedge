@@ -156,9 +156,8 @@ export async function GET(request: NextRequest) {
       const targetedQuery = new URLSearchParams({
         select,
         league: `eq.${league}`,
-        order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+        order: "graded.desc,event_date.desc",
         limit: String(TEAM_QUERY_SAMPLE_LIMIT),
-        ...(gradedFirst ? { graded: "eq.true" } : {}),
       });
       const targetedRows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${targetedQuery.toString()}`);
 
@@ -172,9 +171,8 @@ export async function GET(request: NextRequest) {
         const teamQuery = new URLSearchParams({
           select,
           league: `eq.${league}`,
-          order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+          order: "graded.desc,event_date.desc",
           limit: String(TEAM_QUERY_SAMPLE_LIMIT),
-          ...(gradedFirst ? { graded: "eq.true" } : {}),
         });
         teamQuery.set("or", `(team_name.ilike.*${needle}*,opponent_name.ilike.*${needle}*)`);
         const fetched = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${teamQuery.toString()}`);
