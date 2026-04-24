@@ -1,4 +1,4 @@
-type AskGooseRow = {
+export type AskGooseRow = {
   candidate_id: string;
   league: string;
   event_date: string;
@@ -32,8 +32,11 @@ export type AskGooseIntent = {
   marketType: string | null;
   side: string | null;
   wantsRecentOnly: boolean;
+  wantsBroaderSample: boolean;
   mentionedFavorite: boolean;
   mentionedUnderdog: boolean;
+  wantsTeamMarketFocus: boolean;
+  wantsHeadToHead: boolean;
 };
 
 export type AskGooseAnswer = {
@@ -74,6 +77,21 @@ const MARKET_KEYWORDS: Array<{ match: RegExp; value: string }> = [
   { match: /\b1h\b|\bfirst half\b/, value: "first_half" },
 ];
 
+function normalizeName(value: string | null | undefined) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function rowMatchesNeedle(value: string | null | undefined, needle: string | null | undefined) {
+  const hay = normalizeName(value);
+  const target = normalizeName(needle);
+  if (!hay || !target) return false;
+  return hay === target || hay.includes(target) || target.includes(hay);
+}
+
 export function parseAskGooseIntent(question: string, league: string, rows: AskGooseRow[]): AskGooseIntent {
   const normalizedQuestion = question.replace(/\s+/g, " ").trim().toLowerCase();
   const looksLikeBettingQuestion = /(win rate|roi|units|profit|record|system|trend|cover|favorite|underdog|over|under|moneyline|spread|ats)/.test(normalizedQuestion);
@@ -93,18 +111,29 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     .filter((value): value is string => Boolean(value))
     .filter((value, index, all) => all.indexOf(value) === index);
 
-  const matchedRowNames = rowTeamMatches.filter((name) => normalizedQuestion.includes(name.toLowerCase()));
+  const matchedRowNames = rowTeamMatches.filter((name) => {
+    const normalizedName = normalizeName(name);
+    return normalizedQuestion.includes(normalizedName) || matchedTeams.some((team) => normalizedName.includes(normalizeName(team)) || normalizeName(team).includes(normalizedName));
+  });
+
+  const matchedTeam = matchedRowNames[0] ?? matchedTeams[0] ?? null;
+  const matchedOpponent = matchedRowNames[1] ?? matchedTeams[1] ?? null;
+  const wantsHeadToHead = /\bvs\b|against|head to head/.test(normalizedQuestion) || Boolean(matchedTeam && matchedOpponent);
+  const wantsTeamMarketFocus = Boolean(matchedTeam) && (marketType === "moneyline" || marketType === "spread" || marketType === "total" || wantsHeadToHead);
 
   return {
     normalizedQuestion,
     looksLikeBettingQuestion,
-    matchedTeam: matchedRowNames[0] ?? matchedTeams[0] ?? null,
-    matchedOpponent: matchedRowNames[1] ?? matchedTeams[1] ?? null,
+    matchedTeam,
+    matchedOpponent,
     marketType,
     side: normalizedQuestion.includes("over") ? "over" : normalizedQuestion.includes("under") ? "under" : null,
     wantsRecentOnly: /last\s+(5|10|25)|recent/.test(normalizedQuestion),
+    wantsBroaderSample: /lately|recent|performance|perform|record|trend|how have/.test(normalizedQuestion) || matchedTeams.length > 0 || matchedRowNames.length > 0,
     mentionedFavorite: normalizedQuestion.includes("favorite"),
     mentionedUnderdog: normalizedQuestion.includes("underdog") || normalizedQuestion.includes("dog"),
+    wantsTeamMarketFocus,
+    wantsHeadToHead,
   };
 }
 
@@ -119,21 +148,11 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   }
 
   if (intent.matchedTeam) {
-    filtered = filtered.filter((row) => {
-      const team = row.team_name?.toLowerCase() ?? "";
-      const opp = row.opponent_name?.toLowerCase() ?? "";
-      const needle = intent.matchedTeam?.toLowerCase() ?? "";
-      return team.includes(needle) || opp.includes(needle);
-    });
+    filtered = filtered.filter((row) => rowMatchesNeedle(row.team_name, intent.matchedTeam) || rowMatchesNeedle(row.opponent_name, intent.matchedTeam));
   }
 
   if (intent.matchedOpponent) {
-    filtered = filtered.filter((row) => {
-      const team = row.team_name?.toLowerCase() ?? "";
-      const opp = row.opponent_name?.toLowerCase() ?? "";
-      const needle = intent.matchedOpponent?.toLowerCase() ?? "";
-      return team.includes(needle) || opp.includes(needle);
-    });
+    filtered = filtered.filter((row) => rowMatchesNeedle(row.team_name, intent.matchedOpponent) || rowMatchesNeedle(row.opponent_name, intent.matchedOpponent));
   }
 
   if (intent.marketType) {
@@ -142,12 +161,37 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      return parts.includes(intent.marketType!.replace("_", " ")) || parts.includes(intent.marketType!);
+      const marketNeedle = intent.marketType!;
+      const marketMatch = parts.includes(marketNeedle.replace("_", " "))
+        || parts.includes(marketNeedle)
+        || (marketNeedle === "moneyline" && parts.includes("h2h"));
+      if (!marketMatch) return false;
+      if (!intent.wantsTeamMarketFocus) return true;
+      if (marketNeedle === "total") {
+        return row.market_type === "total" && (row.submarket_type == null || row.submarket_type.trim() === "");
+      }
+      return row.market_type === marketNeedle || (marketNeedle === "moneyline" && row.market_family === "moneyline");
     });
   }
 
   if (intent.side) {
     filtered = filtered.filter((row) => (row.side || "").toLowerCase().includes(intent.side!));
+  }
+
+  if (intent.wantsTeamMarketFocus) {
+    filtered = filtered.filter((row) => {
+      const submarket = (row.submarket_type || "").toLowerCase();
+      const isLikelyPlayerProp = submarket.includes("points")
+        || submarket.includes("assists")
+        || submarket.includes("goals")
+        || submarket.includes("shots")
+        || submarket.includes("saves")
+        || submarket.includes("rebounds")
+        || submarket.includes("passing")
+        || submarket.includes("rushing")
+        || submarket.includes("receiving");
+      return !isLikelyPlayerProp;
+    });
   }
 
   if (intent.mentionedFavorite) {
@@ -157,6 +201,31 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.mentionedUnderdog) {
     filtered = filtered.filter((row) => row.is_underdog === true);
   }
+
+  filtered.sort((a, b) => {
+    const score = (row: AskGooseRow) => {
+      let value = 0;
+      if (row.graded === true) value += 100;
+      if (intent.marketType && row.market_type === intent.marketType) value += 50;
+      if (intent.matchedTeam) {
+        if (rowMatchesNeedle(row.team_name, intent.matchedTeam)) value += 40;
+        else if (rowMatchesNeedle(row.opponent_name, intent.matchedTeam)) value += 20;
+      }
+      if (intent.matchedOpponent) {
+        if (rowMatchesNeedle(row.opponent_name, intent.matchedOpponent)) value += 30;
+        else if (rowMatchesNeedle(row.team_name, intent.matchedOpponent)) value += 10;
+      }
+      if (intent.wantsHeadToHead && intent.matchedTeam && intent.matchedOpponent) {
+        const teamMatchesPrimary = rowMatchesNeedle(row.team_name, intent.matchedTeam) && rowMatchesNeedle(row.opponent_name, intent.matchedOpponent);
+        const teamMatchesReverse = rowMatchesNeedle(row.team_name, intent.matchedOpponent) && rowMatchesNeedle(row.opponent_name, intent.matchedTeam);
+        if (teamMatchesPrimary || teamMatchesReverse) value += 60;
+      }
+      return value;
+    };
+    const scoreDiff = score(b) - score(a);
+    if (scoreDiff !== 0) return scoreDiff;
+    return String(b.event_date || "").localeCompare(String(a.event_date || ""));
+  });
 
   if (intent.wantsRecentOnly) {
     filtered = filtered.slice(0, 10);

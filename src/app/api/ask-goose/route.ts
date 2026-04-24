@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
-import { answerAskGooseQuestion } from "@/lib/ask-goose/internal-query";
+import { answerAskGooseQuestion, parseAskGooseIntent, type AskGooseRow } from "@/lib/ask-goose/internal-query";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_LEAGUES = new Set(["NHL", "NBA", "MLB", "NFL"]);
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
+const BROADER_SAMPLE_LIMIT = 250;
+const TEAM_QUERY_SAMPLE_LIMIT = 1000;
 
 function serviceHeaders(extra?: HeadersInit) {
   const key = getSupabaseServiceRoleKey();
@@ -38,6 +40,11 @@ function buildQuestionPreview(question: string) {
 function wantsRecentPerformance(question: string) {
   const q = question.toLowerCase();
   return q.includes("lately") || q.includes("recent") || q.includes("perform") || q.includes("performance") || q.includes("record");
+}
+
+function looksLikeTeamQuestion(question: string) {
+  const q = question.toLowerCase();
+  return /how have|\bvs\b|against|head to head|moneyline|spread|total|over|under|favorite|underdog/.test(q);
 }
 
 async function postgrest<T>(path: string) {
@@ -95,24 +102,56 @@ export async function GET(request: NextRequest) {
     ].join(",");
 
     const gradedFirst = wantsRecentPerformance(question);
+    const wantsBroaderSample = gradedFirst || /how have|trend|team|vs\b|against\b/i.test(question);
+    const teamQuestion = looksLikeTeamQuestion(question);
+    const fetchLimit = teamQuestion
+      ? Math.max(limit, TEAM_QUERY_SAMPLE_LIMIT)
+      : wantsBroaderSample
+        ? Math.max(limit, BROADER_SAMPLE_LIMIT)
+        : limit;
     const primaryQuery = new URLSearchParams({
       select,
       league: `eq.${league}`,
-      order: "event_date.desc",
-      limit: String(limit),
+      order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+      limit: String(fetchLimit),
       ...(gradedFirst ? { graded: "eq.true" } : {}),
     });
 
-    let rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+    let rows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
 
     if (gradedFirst && rows.length === 0) {
       const fallbackQuery = new URLSearchParams({
         select,
         league: `eq.${league}`,
         order: "event_date.desc",
-        limit: String(limit),
+        limit: String(fetchLimit),
       });
-      rows = await postgrest<any[]>(`/rest/v1/ask_goose_query_layer_v1?${fallbackQuery.toString()}`);
+      rows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${fallbackQuery.toString()}`);
+    }
+
+    const previewIntent = parseAskGooseIntent(question, league, rows);
+    const normalizedNeedles = [previewIntent.matchedTeam, previewIntent.matchedOpponent]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase());
+
+    if (teamQuestion && normalizedNeedles.length > 0) {
+      const targetedQuery = new URLSearchParams({
+        select,
+        league: `eq.${league}`,
+        order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+        limit: String(TEAM_QUERY_SAMPLE_LIMIT),
+        ...(gradedFirst ? { graded: "eq.true" } : {}),
+      });
+      const targetedRows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${targetedQuery.toString()}`);
+      rows = targetedRows.filter((row) => {
+        const team = (row.team_name || "").toLowerCase();
+        const opp = (row.opponent_name || "").toLowerCase();
+        return normalizedNeedles.some((needle) => team.includes(needle) || opp.includes(needle));
+      });
+
+      if (rows.length === 0) {
+        rows = targetedRows;
+      }
     }
 
     const answer = answerAskGooseQuestion(question, league, rows);
@@ -120,7 +159,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       question,
-      filters: { league, limit },
+      filters: { league, limit, fetchLimit },
       summary: {
         rows: answer.sampleSize,
         gradedRows: answer.gradedRows,
