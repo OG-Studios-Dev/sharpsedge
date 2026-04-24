@@ -139,11 +139,37 @@ async function refreshNhlChunkedQueryLayer(startDate: string, endDate: string) {
 }
 
 async function refreshWindow(mode: string, league: string, startDate: string | null, endDate: string | null) {
+  if (mode === "grade") {
+    return await callRpc<number>("grade_ask_goose_game_markets_from_event_scores_v1", {
+      p_league: league,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
+  }
+
   if (league === "NHL" && mode === "batch") {
     if (!startDate || !endDate) {
       throw new Error("NHL batch refresh requires explicit startDate and endDate");
     }
+    await callRpc<number>("grade_ask_goose_game_markets_from_event_scores_v1", {
+      p_league: league,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
     return await refreshNhlChunkedQueryLayer(startDate, endDate);
+  }
+
+  if ((league === "NBA" || league === "MLB") && mode === "batch") {
+    await callRpc<number>("grade_ask_goose_game_markets_from_event_scores_v1", {
+      p_league: league,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
+    return await callRpc<number>("refresh_ask_goose_simple_league_v1", {
+      p_league: league,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
   }
 
   return mode === "stage"
