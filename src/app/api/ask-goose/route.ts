@@ -91,12 +91,56 @@ async function postgrest<T>(path: string) {
   return await response.json() as T;
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const league = normalizeLeague(searchParams.get("league"));
-    const limit = normalizeLimit(searchParams.get("limit"));
-    const question = buildQuestionPreview(searchParams.get("q") || "");
+async function writePostgrest<T>(path: string, body: unknown) {
+  const response = await fetch(`${getSupabaseUrl()}${path}`, {
+    method: "POST",
+    headers: serviceHeaders({ Prefer: "return=representation" }),
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = `Supabase write failed (${response.status})`;
+    try {
+      const payload = await response.json() as { message?: string; error?: string; details?: string };
+      message = payload.message || payload.error || payload.details || message;
+    } catch {
+      // ignore malformed payloads
+    }
+    throw new Error(message);
+  }
+
+  return await response.json() as T;
+}
+
+type AskGooseResponsePayload = {
+  ok: true;
+  question: string;
+  filters: { league: string; limit: number; fetchLimit: number };
+  summary: {
+    rows: number;
+    gradedRows: number;
+    wins: number;
+    losses: number;
+    pushes: number;
+    totalUnits: number;
+    avgRoi: number;
+  };
+  interpretation: ReturnType<typeof parseAskGooseIntent>;
+  answer: {
+    summaryText: string;
+    warnings: string[];
+  };
+  rows: AskGooseRow[];
+  empty: boolean;
+  message: string;
+};
+
+async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown; limit?: unknown; question?: unknown; q?: unknown }) {
+  const { searchParams } = new URL(requestUrl);
+  const league = normalizeLeague(String(body?.league ?? searchParams.get("league") ?? ""));
+  const limit = normalizeLimit(String(body?.limit ?? searchParams.get("limit") ?? ""));
+  const question = buildQuestionPreview(String(body?.question ?? body?.q ?? searchParams.get("q") ?? ""));
 
     const select = [
       "candidate_id",
@@ -220,7 +264,7 @@ export async function GET(request: NextRequest) {
             ? `Matching ${league} rows were found, but no graded sample is settled yet for this exact question.`
             : answer.summaryText;
 
-    return NextResponse.json({
+    return {
       ok: true,
       question,
       filters: { league, limit, fetchLimit },
@@ -241,11 +285,60 @@ export async function GET(request: NextRequest) {
       rows: answer.evidenceRows,
       empty: answer.sampleSize === 0,
       message,
-    });
+    } satisfies AskGooseResponsePayload;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    return NextResponse.json(await buildAskGooseAnswer(request.url));
   } catch (error) {
     return NextResponse.json({
       ok: false,
       error: toErrorMessage(error, "Failed to load Ask Goose data"),
+      rows: [],
+      summary: {
+        rows: 0,
+        gradedRows: 0,
+        wins: 0,
+        losses: 0,
+        pushes: 0,
+        totalUnits: 0,
+        avgRoi: 0,
+      },
+    }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const payload = await buildAskGooseAnswer(request.url, body);
+    const interactionRows = await writePostgrest<Array<{ id: string }>>("/rest/v1/ask_goose_interactions_v1", {
+      league: payload.filters.league,
+      question: payload.question,
+      normalized_question: payload.interpretation.normalizedQuestion,
+      looks_like_betting_question: payload.interpretation.looksLikeBettingQuestion,
+      intent: payload.interpretation,
+      answer: payload.answer,
+      summary: payload.summary,
+      evidence_candidate_ids: payload.rows.map((row) => row.candidate_id).filter(Boolean),
+      warnings: payload.answer.warnings,
+      parser_version: "ask_goose_deterministic_v1",
+      source_layer_version: "ask_goose_query_layer_v1",
+      client_metadata: {
+        route: "/api/ask-goose",
+        empty: payload.empty,
+      },
+    });
+
+    return NextResponse.json({
+      ...payload,
+      interactionId: interactionRows[0]?.id ?? null,
+    });
+  } catch (error) {
+    return NextResponse.json({
+      ok: false,
+      error: toErrorMessage(error, "Failed to answer Ask Goose question"),
       rows: [],
       summary: {
         rows: 0,
