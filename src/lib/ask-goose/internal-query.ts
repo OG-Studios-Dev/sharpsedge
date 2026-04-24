@@ -137,6 +137,28 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   };
 }
 
+function isLikelyPlayerProp(row: AskGooseRow) {
+  const submarket = (row.submarket_type || "").toLowerCase();
+  return submarket.includes("points")
+    || submarket.includes("assists")
+    || submarket.includes("goals")
+    || submarket.includes("shots")
+    || submarket.includes("saves")
+    || submarket.includes("rebounds")
+    || submarket.includes("passing")
+    || submarket.includes("rushing")
+    || submarket.includes("receiving");
+}
+
+function isGameLevelTeamMarketRow(row: AskGooseRow) {
+  const submarket = (row.submarket_type || "").toLowerCase().trim();
+  const scope = (row.market_scope || "").toLowerCase().trim();
+  if (isLikelyPlayerProp(row)) return false;
+  if (!submarket) return true;
+  if (scope === "game" && !/(period|quarter|half|inning)/.test(submarket)) return true;
+  return submarket === "spread" || submarket === "moneyline" || submarket === "total";
+}
+
 export function answerAskGooseQuestion(question: string, league: string, rows: AskGooseRow[]): AskGooseAnswer {
   const intent = parseAskGooseIntent(question, league, rows);
   const warnings: string[] = [];
@@ -179,19 +201,7 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   }
 
   if (intent.wantsTeamMarketFocus) {
-    filtered = filtered.filter((row) => {
-      const submarket = (row.submarket_type || "").toLowerCase();
-      const isLikelyPlayerProp = submarket.includes("points")
-        || submarket.includes("assists")
-        || submarket.includes("goals")
-        || submarket.includes("shots")
-        || submarket.includes("saves")
-        || submarket.includes("rebounds")
-        || submarket.includes("passing")
-        || submarket.includes("rushing")
-        || submarket.includes("receiving");
-      return !isLikelyPlayerProp;
-    });
+    filtered = filtered.filter((row) => isGameLevelTeamMarketRow(row));
   }
 
   if (intent.mentionedFavorite) {
