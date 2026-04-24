@@ -152,11 +152,6 @@ export async function GET(request: NextRequest) {
       rows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${fallbackQuery.toString()}`);
     }
 
-    const previewIntent = parseAskGooseIntent(question, league, rows);
-    const normalizedNeedles = [previewIntent.matchedTeam, previewIntent.matchedOpponent]
-      .filter((value): value is string => Boolean(value))
-      .map((value) => value.toLowerCase());
-
     if (teamQuestion) {
       const targetedQuery = new URLSearchParams({
         select,
@@ -169,7 +164,8 @@ export async function GET(request: NextRequest) {
 
       const questionNorm = normalizeLoose(question);
       const aliasNeedles = (LEAGUE_TEAM_ALIASES[league] || []).filter((alias) => questionNorm.includes(normalizeLoose(alias)));
-      const allNeedles = Array.from(new Set(normalizedNeedles.concat(aliasNeedles.map((value) => value.toLowerCase()))));
+      const directQuestionNeedles = questionNorm.split(" ").filter(Boolean);
+      const allNeedles = Array.from(new Set(aliasNeedles.map((value) => value.toLowerCase()).concat(directQuestionNeedles)));
       const extraRows: AskGooseRow[] = [];
 
       for (const needle of allNeedles) {
