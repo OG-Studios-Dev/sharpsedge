@@ -208,6 +208,12 @@ export async function GET(request: NextRequest) {
 
     const answer = answerAskGooseQuestion(question, league, rows);
 
+    const message = answer.sampleSize === 0
+      ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
+      : answer.gradedRows === 0
+        ? `Matching ${league} rows were found, but no graded sample is settled yet for this exact question.`
+        : answer.summaryText;
+
     return NextResponse.json({
       ok: true,
       question,
@@ -228,9 +234,7 @@ export async function GET(request: NextRequest) {
       },
       rows: answer.evidenceRows,
       empty: answer.sampleSize === 0,
-      message: answer.sampleSize === 0
-        ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
-        : answer.summaryText,
+      message,
     });
   } catch (error) {
     return NextResponse.json({
