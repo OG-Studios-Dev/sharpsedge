@@ -130,7 +130,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     matchedTeam,
     matchedOpponent,
     marketType,
-    side: normalizedQuestion.includes("over") ? "over" : normalizedQuestion.includes("under") ? "under" : null,
+    side: /\bover\b/.test(normalizedQuestion)
+      ? "over"
+      : /\bunder\b/.test(normalizedQuestion) && !/\bunderdog(s)?\b/.test(normalizedQuestion)
+        ? "under"
+        : null,
     wantsRecentOnly: /last\s+(5|10|25)|recent/.test(normalizedQuestion),
     wantsBroaderSample: /lately|recent|performance|perform|record|trend|how have/.test(normalizedQuestion) || matchedTeams.length > 0 || matchedRowNames.length > 0,
     mentionedFavorite: normalizedQuestion.includes("favorite"),
