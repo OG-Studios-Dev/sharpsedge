@@ -170,9 +170,25 @@ export async function GET(request: NextRequest) {
       const questionNorm = normalizeLoose(question);
       const aliasNeedles = (LEAGUE_TEAM_ALIASES[league] || []).filter((alias) => questionNorm.includes(normalizeLoose(alias)));
       const allNeedles = Array.from(new Set(normalizedNeedles.concat(aliasNeedles.map((value) => value.toLowerCase()))));
+      const extraRows: AskGooseRow[] = [];
+
+      for (const needle of allNeedles) {
+        const teamQuery = new URLSearchParams({
+          select,
+          league: `eq.${league}`,
+          order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+          limit: String(TEAM_QUERY_SAMPLE_LIMIT),
+          ...(gradedFirst ? { graded: "eq.true" } : {}),
+        });
+        teamQuery.set("or", `(team_name.ilike.*${needle}*,opponent_name.ilike.*${needle}*)`);
+        const fetched = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${teamQuery.toString()}`);
+        extraRows.push(...fetched);
+      }
+
+      const mergedRows = Array.from(new Map(targetedRows.concat(extraRows).map((row) => [row.candidate_id, row])).values());
 
       if (allNeedles.length > 0) {
-        rows = targetedRows.filter((row) => {
+        rows = mergedRows.filter((row) => {
           const team = normalizeLoose(row.team_name);
           const opp = normalizeLoose(row.opponent_name);
           return allNeedles.some((needle) => {
@@ -180,10 +196,12 @@ export async function GET(request: NextRequest) {
             return Boolean(n) && (team.includes(n) || opp.includes(n) || n.includes(team) || n.includes(opp));
           });
         });
+      } else {
+        rows = mergedRows;
       }
 
       if (rows.length === 0) {
-        rows = targetedRows;
+        rows = mergedRows;
       }
     }
 
