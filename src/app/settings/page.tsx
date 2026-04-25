@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase-client";
 import PageHeader from "@/components/PageHeader";
+import type { League } from "@/lib/types";
+import { readDefaultLeague, writeDefaultLeague } from "@/lib/league-storage";
 
 type UserProfile = {
   name: string;
@@ -16,16 +18,13 @@ type UserProfile = {
   last_login_at: string | null;
 };
 
-const LEAGUES = ["NHL", "NBA", "MLB", "PGA"];
+const LEAGUES: League[] = ["NHL", "NBA", "MLB", "PGA"];
 
 export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [favLeague, setFavLeague] = useState<string>(() => {
-    if (typeof window !== "undefined") return localStorage.getItem("goosalytics_fav_league") || "All";
-    return "All";
-  });
+  const [favLeague, setFavLeague] = useState<League>(() => readDefaultLeague());
 
   useEffect(() => {
     async function load() {
@@ -52,9 +51,9 @@ export default function SettingsPage() {
     load();
   }, []);
 
-  function handleFavLeague(league: string) {
+  function handleFavLeague(league: League) {
     setFavLeague(league);
-    localStorage.setItem("goosalytics_fav_league", league);
+    writeDefaultLeague(league, { applyActive: true });
   }
 
   async function handleLogout() {
@@ -128,7 +127,7 @@ export default function SettingsPage() {
           <div className="px-4 py-3 border-b border-dark-border/20">
             <p className="text-xs text-gray-400 mb-2">Default League</p>
             <div className="flex gap-2 flex-wrap">
-              {["All", ...LEAGUES].map((league) => (
+              {(["All", ...LEAGUES] as League[]).map((league) => (
                 <button
                   key={league}
                   onClick={() => handleFavLeague(league)}
@@ -158,8 +157,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Admin — always show during beta */}
-        {(
+        {profile?.role === "admin" && (
           <div className="rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
             <div className="px-4 py-2.5 border-b border-dark-border/50">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Admin</p>

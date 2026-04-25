@@ -17,6 +17,8 @@ type NHLSchedule = {
 
 type DashboardState = {
   loading: boolean;
+  error: string | null;
+  failedFeeds: string[];
   props: PlayerProp[];
   teamTrends: TeamTrend[];
   nhlSchedule: NHLSchedule;
@@ -37,6 +39,8 @@ type DashboardState = {
 
 const EMPTY_STATE: DashboardState = {
   loading: true,
+  error: null,
+  failedFeeds: [],
   props: [],
   teamTrends: [],
   nhlSchedule: { games: [], date: "" },
@@ -55,14 +59,23 @@ const EMPTY_STATE: DashboardState = {
   nflDashboard: null,
 };
 
-async function fetchJson<T>(url: string): Promise<T | null> {
+type FetchJsonResult<T> = {
+  data: T | null;
+  error: string | null;
+};
+
+async function fetchJson<T>(url: string): Promise<FetchJsonResult<T>> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return null;
-    return await response.json() as T;
-  } catch {
-    return null;
+    if (!response.ok) return { data: null, error: `${url} returned ${response.status}` };
+    return { data: await response.json() as T, error: null };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : `Unable to fetch ${url}` };
   }
+}
+
+function skipped<T>(): Promise<FetchJsonResult<T>> {
+  return Promise.resolve({ data: null, error: null });
 }
 
 function parseNHLSchedule(payload: any): NHLSchedule {
@@ -107,7 +120,7 @@ export function useSportsDashboards(league: SportsLeague) {
     let cancelled = false;
 
     async function load() {
-      setState((current) => ({ ...current, loading: true }));
+      setState((current) => ({ ...current, loading: true, error: null, failedFeeds: [] }));
 
       const shouldLoadNHL = league === "All" || league === "NHL";
       const shouldLoadNBA = league === "All" || league === "NBA";
@@ -117,20 +130,41 @@ export function useSportsDashboards(league: SportsLeague) {
       const shouldLoadSerieA = league === "All" || league === "Serie A";
       const shouldLoadNFL = league === "All" || league === "NFL";
 
-      const [nhlPayload, nbaPayload, mlbPayload, golfPayload, eplPayload, serieAPayload, nflPayload] = await Promise.all([
-        shouldLoadNHL ? fetchJson<any>("/api/dashboard") : Promise.resolve(null),
-        shouldLoadNBA ? fetchJson<any>("/api/nba/dashboard") : Promise.resolve(null),
-        shouldLoadMLB ? fetchJson<any>("/api/mlb/dashboard") : Promise.resolve(null),
-        shouldLoadGolf ? fetchJson<GolfDashboardData>("/api/golf/dashboard") : Promise.resolve(null),
-        shouldLoadEPL ? fetchJson<SoccerDashboardData>("/api/soccer/dashboard?league=EPL") : Promise.resolve(null),
-        shouldLoadSerieA ? fetchJson<SoccerDashboardData>("/api/soccer/dashboard?league=SERIE_A") : Promise.resolve(null),
-        shouldLoadNFL ? fetchJson<NFLDashboardData>("/api/nfl/dashboard") : Promise.resolve(null),
+      const [nhlResult, nbaResult, mlbResult, golfResult, eplResult, serieAResult, nflResult] = await Promise.all([
+        shouldLoadNHL ? fetchJson<any>("/api/dashboard") : skipped<any>(),
+        shouldLoadNBA ? fetchJson<any>("/api/nba/dashboard") : skipped<any>(),
+        shouldLoadMLB ? fetchJson<any>("/api/mlb/dashboard") : skipped<any>(),
+        shouldLoadGolf ? fetchJson<GolfDashboardData>("/api/golf/dashboard") : skipped<GolfDashboardData>(),
+        shouldLoadEPL ? fetchJson<SoccerDashboardData>("/api/soccer/dashboard?league=EPL") : skipped<SoccerDashboardData>(),
+        shouldLoadSerieA ? fetchJson<SoccerDashboardData>("/api/soccer/dashboard?league=SERIE_A") : skipped<SoccerDashboardData>(),
+        shouldLoadNFL ? fetchJson<NFLDashboardData>("/api/nfl/dashboard") : skipped<NFLDashboardData>(),
       ]);
 
       if (cancelled) return;
 
+      const nhlPayload = nhlResult.data;
+      const nbaPayload = nbaResult.data;
+      const mlbPayload = mlbResult.data;
+      const golfPayload = golfResult.data;
+      const eplPayload = eplResult.data;
+      const serieAPayload = serieAResult.data;
+      const nflPayload = nflResult.data;
+      const failedFeeds = [
+        shouldLoadNHL && nhlResult.error ? "NHL" : null,
+        shouldLoadNBA && nbaResult.error ? "NBA" : null,
+        shouldLoadMLB && mlbResult.error ? "MLB" : null,
+        shouldLoadGolf && golfResult.error ? "PGA" : null,
+        shouldLoadEPL && eplResult.error ? "EPL" : null,
+        shouldLoadSerieA && serieAResult.error ? "Serie A" : null,
+        shouldLoadNFL && nflResult.error ? "NFL" : null,
+      ].filter((feed): feed is string => Boolean(feed));
+
       setState({
         loading: false,
+        failedFeeds,
+        error: failedFeeds.length
+          ? `${failedFeeds.join(", ")} ${failedFeeds.length === 1 ? "feed is" : "feeds are"} unavailable right now. Showing any cached/healthy sections that loaded.`
+          : null,
         props: [
           ...(Array.isArray(nhlPayload?.props) ? nhlPayload.props : []),
           ...(Array.isArray(nbaPayload?.props) ? nbaPayload.props : []),

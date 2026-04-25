@@ -39,6 +39,8 @@ const testEnd = args.testEnd || '2026-12-31';
 const minSample = Number(args.minSample || 50);
 const writeMode = args.write === 'true' || args.write === '1';
 const maxRows = Number(args.maxRows || 100000);
+const dedupeEventLevel = args.dedupeEvent !== 'false';
+const walkForward = args.walkForward === 'true' || args.walkForward === '1';
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
 if (![trainStart, trainEnd, testStart, testEnd].every(isoDateOk)) throw new Error('Dates must be YYYY-MM-DD');
@@ -60,7 +62,7 @@ async function fetchExamples(startDate, endDate) {
   const pageSize = 1000;
   while (out.length < maxRows) {
     const q = new URLSearchParams({
-      select: 'example_id,sport,league,event_date,market_family,side,line,odds,sportsbook,is_favorite,is_underdog,is_home_team_bet,is_away_team_bet,team_above_500_pre_game,opponent_above_500_pre_game,is_back_to_back,is_prime_time,is_divisional_game,team_role,result,profit_units',
+      select: 'example_id,candidate_id,canonical_game_id,event_id,sport,league,event_date,home_team,away_team,team_name,opponent_name,market_family,market_type,side,line,odds,sportsbook,is_favorite,is_underdog,is_home_team_bet,is_away_team_bet,team_above_500_pre_game,opponent_above_500_pre_game,is_back_to_back,is_prime_time,is_divisional_game,team_role,result,profit_units',
       event_date: `gte.${startDate}`,
       order: 'event_date.asc',
       limit: String(Math.min(pageSize, maxRows - out.length)),
@@ -136,6 +138,43 @@ function emptyStat(signalKey, sampleRow) {
   };
 }
 
+function decisionKey(row) {
+  const eventKey = row.canonical_game_id || row.event_id || `${row.league || row.sport || 'UNKNOWN'}:${row.event_date || 'unknown'}:${row.away_team || ''}@${row.home_team || ''}`;
+  return [
+    eventKey,
+    row.market_family || 'unknown_market',
+    row.market_type || '',
+    row.side || 'unknown_side',
+    row.team_name || '',
+    row.opponent_name || '',
+    row.team_role || '',
+    row.line == null ? 'no_line' : Number(row.line).toFixed(2),
+  ].join('|');
+}
+
+function dedupeExamples(rows) {
+  const preferredBooks = ['pinnacle', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet'];
+  const rankBook = (book) => {
+    const normalized = String(book || '').toLowerCase().replace(/[^a-z]/g, '');
+    const idx = preferredBooks.findIndex((preferred) => normalized.includes(preferred));
+    return idx === -1 ? preferredBooks.length : idx;
+  };
+  const best = new Map();
+  for (const row of rows) {
+    const key = decisionKey(row);
+    const current = best.get(key);
+    if (!current) {
+      best.set(key, row);
+      continue;
+    }
+    const currentRank = rankBook(current.sportsbook);
+    const nextRank = rankBook(row.sportsbook);
+    if (nextRank < currentRank) best.set(key, row);
+    else if (nextRank === currentRank && String(row.example_id || '') < String(current.example_id || '')) best.set(key, row);
+  }
+  return Array.from(best.values());
+}
+
 function accumulate(rows) {
   const map = new Map();
   for (const row of rows) {
@@ -150,6 +189,28 @@ function accumulate(rows) {
     }
   }
   return map;
+}
+
+function buildFold(rows, trainEndYear, minFoldTest = Math.max(20, Math.floor(minSample / 2))) {
+  const train = rows.filter((row) => new Date(row.event_date).getUTCFullYear() < trainEndYear);
+  const test = rows.filter((row) => new Date(row.event_date).getUTCFullYear() === trainEndYear);
+  const candidates = finalize(accumulate(train), accumulate(test)).filter((candidate) => candidate.test_sample >= minFoldTest);
+  return {
+    testYear: trainEndYear,
+    trainExamples: train.length,
+    testExamples: test.length,
+    candidates: candidates.length,
+    eligibleCandidates: candidates.filter((candidate) => candidate.promotion_status === 'eligible').length,
+    topCandidates: candidates.slice(0, 10).map((candidate) => ({
+      signal_key: candidate.signal_key,
+      train_sample: candidate.sample,
+      train_roi: candidate.train_roi,
+      test_sample: candidate.test_sample,
+      test_roi: candidate.test_roi,
+      promotion_status: candidate.promotion_status,
+      rejection_reason: candidate.rejection_reason,
+    })),
+  };
 }
 
 function finalize(trainMap, testMap) {
@@ -203,7 +264,7 @@ async function writeResults(candidates, summary) {
       sports: Array.from(new Set(candidates.map((c) => c.sport))).sort(),
       markets: Array.from(new Set(candidates.map((c) => c.market_family))).sort(),
       min_sample: minSample,
-      config: { maxRows, generator: 'goose-learning-shadow-backtest' },
+      config: { maxRows, dedupeEventLevel, walkForward, generator: 'goose-learning-shadow-backtest' },
       metrics: summary,
       notes: 'Shadow learning run only. Does not affect production pick generation.',
     }),
@@ -259,9 +320,17 @@ async function writeResults(candidates, summary) {
   });
 }
 
-const trainRows = await fetchExamples(trainStart, trainEnd);
-const testRows = await fetchExamples(testStart, testEnd);
+const rawTrainRows = await fetchExamples(trainStart, trainEnd);
+const rawTestRows = await fetchExamples(testStart, testEnd);
+const trainRows = dedupeEventLevel ? dedupeExamples(rawTrainRows) : rawTrainRows;
+const testRows = dedupeEventLevel ? dedupeExamples(rawTestRows) : rawTestRows;
 const candidates = finalize(accumulate(trainRows), accumulate(testRows));
+let walkForwardFolds = [];
+if (walkForward) {
+  const allRows = dedupeEventLevel ? dedupeExamples([...rawTrainRows, ...rawTestRows]) : [...rawTrainRows, ...rawTestRows];
+  const years = Array.from(new Set(allRows.map((row) => new Date(row.event_date).getUTCFullYear()).filter(Number.isFinite))).sort((a, b) => a - b);
+  walkForwardFolds = years.slice(1).map((year) => buildFold(allRows, year));
+}
 const summary = {
   modelVersion,
   writeMode,
@@ -270,10 +339,17 @@ const summary = {
   testStart,
   testEnd,
   minSample,
+  dedupeEventLevel,
+  walkForward,
+  rawTrainExamples: rawTrainRows.length,
+  rawTestExamples: rawTestRows.length,
+  dedupedTrainExamples: rawTrainRows.length - trainRows.length,
+  dedupedTestExamples: rawTestRows.length - testRows.length,
   trainExamples: trainRows.length,
   testExamples: testRows.length,
   candidates: candidates.length,
   eligibleCandidates: candidates.filter((c) => c.promotion_status === 'eligible').length,
+  walkForwardFolds,
   topCandidates: candidates.slice(0, 20).map((c) => ({
     signal_key: c.signal_key,
     sport: c.sport,

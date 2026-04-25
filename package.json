@@ -17,6 +17,9 @@
     "goose2:canonicalize-nhl": "node scripts/canonicalize-goose2-nhl-duplicates.mjs",
     "goose2:finalize-buf-cbj": "node scripts/finalize-goose2-nhl-buf-cbj-merge.mjs",
     "goose:warehouse-audit": "node scripts/goose-warehouse-completeness-audit.mjs",
+    "goose:daily-refresh": "node scripts/run-daily-warehouse-refresh.mjs",
+    "goose:training-anomaly-audit": "node scripts/goose-training-anomaly-audit.mjs",
+    "goose:learning-status": "node scripts/goose-learning-lab-status.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
     "qa:assets": "node scripts/qa-asset-fallbacks.mjs"
   },

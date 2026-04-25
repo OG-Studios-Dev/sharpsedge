@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useLeague } from "@/hooks/useLeague";
 import { useSportsDashboards } from "@/hooks/useSportsDashboards";
 import { normalizeSportsLeague } from "@/lib/insights";
+import { getPlayerTrendHrefFromProp } from "@/lib/player-trend";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import LeagueDropdown from "@/components/LeagueDropdown";
 import PageHeader from "@/components/PageHeader";
@@ -38,7 +39,7 @@ export default function SearchPage() {
         id: `player-${prop.id}`,
         title: prop.playerName,
         subtitle: `${prop.team} ${prop.isAway ? "@" : "vs"} ${prop.opponent} · ${prop.overUnder} ${prop.line} ${prop.propType}`,
-        href: "/props",
+        href: getPlayerTrendHrefFromProp(prop),
         kind: "player",
       }));
   }, [dashboards.props, query]);
@@ -62,7 +63,7 @@ export default function SearchPage() {
         subtitle: `${trend.league} team page`,
         href: trend.league === "NBA"
           ? `/nba/team/${trend.team}`
-          : trend.league === "NHL"
+          : trend.league === "NHL" || trend.league === "MLB"
             ? `/team/${trend.team}`
             : "/schedule",
         kind: "team",
@@ -160,7 +161,13 @@ export default function SearchPage() {
       </PageHeader>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
-        {dashboards.loading ? (
+        {dashboards.error ? (
+          <EmptyStateCard
+            eyebrow="Search unavailable"
+            title="Live slate search did not load"
+            body={dashboards.error}
+          />
+        ) : dashboards.loading ? (
           <EmptyStateCard
             eyebrow="Search"
             title="Indexing the current slate"

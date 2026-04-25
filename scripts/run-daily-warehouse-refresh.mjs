@@ -22,6 +22,7 @@ const cronSecret = process.env.CRON_SECRET || '';
 const sports = process.env.SGO_DAILY_SPORTS || 'NBA,NHL,MLB,NFL';
 const reason = process.env.SGO_DAILY_REASON || 'lm-daily-archive';
 const timeoutMs = Number(process.env.SGO_DAILY_TIMEOUT_MS || 120000);
+const allowManualFallback = ['1', 'true', 'yes'].includes(String(process.env.ALLOW_MANUAL_SNAPSHOT_FALLBACK || '').toLowerCase());
 
 function withTimeout(ms) {
   const controller = new AbortController();
@@ -30,15 +31,17 @@ function withTimeout(ms) {
 }
 
 async function callSnapshot() {
-  if (!cronSecret) {
-    throw new Error('CRON_SECRET is required because /api/odds/aggregated/snapshot?cron=true fails closed without it');
+  const cronMode = Boolean(cronSecret);
+  if (!cronMode && !allowManualFallback) {
+    throw new Error('CRON_SECRET is required for cron-mode capture. Set ALLOW_MANUAL_SNAPSHOT_FALLBACK=1 for local manual proof without cron health writes.');
   }
 
-  const url = `${baseUrl}/api/odds/aggregated/snapshot?cron=true&capture=true&sports=${encodeURIComponent(sports)}&reason=${encodeURIComponent(reason)}`;
+  const modeParams = cronMode ? 'cron=true&capture=true' : 'capture=true';
+  const url = `${baseUrl}/api/odds/aggregated/snapshot?${modeParams}&sports=${encodeURIComponent(sports)}&reason=${encodeURIComponent(reason)}`;
   const { controller, timeout } = withTimeout(timeoutMs);
   try {
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${cronSecret}` },
+      headers: cronMode ? { Authorization: `Bearer ${cronSecret}` } : {},
       signal: controller.signal,
       cache: 'no-store',
     });
@@ -61,5 +64,6 @@ console.log(JSON.stringify({
   baseUrl,
   sports: sports.split(',').map((s) => s.trim()).filter(Boolean),
   reason,
+  mode: cronSecret ? 'cron' : 'manual-fallback',
   snapshot: result.body,
 }, null, 2));

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdmin } from "@/lib/auth";
 
 const links = [
   { href: "/admin", label: "Overview" },
@@ -14,11 +15,13 @@ const links = [
 
 export const dynamic = "force-dynamic";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  await requireAdmin();
+
   return (
     <main className="min-h-screen bg-dark-bg px-4 py-6">
       <div className="mx-auto max-w-5xl space-y-5">

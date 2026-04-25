@@ -2,28 +2,32 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { League } from "@/lib/types";
-
-const STORAGE_KEY = "goosalytics_active_league";
-const DEFAULT_LEAGUE: League = "All";
-
-function readLeague(): League {
-  if (typeof window === "undefined") return DEFAULT_LEAGUE;
-  return (localStorage.getItem(STORAGE_KEY) as League) || DEFAULT_LEAGUE;
-}
+import {
+  ACTIVE_LEAGUE_STORAGE_KEY,
+  DEFAULT_LEAGUE,
+  DEFAULT_LEAGUE_STORAGE_KEY,
+  normalizeLeague,
+  readActiveLeague,
+  writeActiveLeague,
+} from "@/lib/league-storage";
 
 export function useLeague(): [League, (l: League) => void] {
   const [league, setLeagueState] = useState<League>(DEFAULT_LEAGUE);
 
-  // Read from localStorage on mount
+  // Read from localStorage on mount, falling back to the saved default league.
   useEffect(() => {
-    setLeagueState(readLeague());
+    setLeagueState(readActiveLeague());
   }, []);
 
-  // Listen for changes from other pages/tabs
+  // Listen for active/default changes from other pages/tabs.
   useEffect(() => {
     const handler = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        setLeagueState(e.newValue as League);
+      if (e.key === ACTIVE_LEAGUE_STORAGE_KEY && e.newValue) {
+        setLeagueState(normalizeLeague(e.newValue));
+      }
+
+      if (e.key === DEFAULT_LEAGUE_STORAGE_KEY && e.newValue && !localStorage.getItem(ACTIVE_LEAGUE_STORAGE_KEY)) {
+        setLeagueState(normalizeLeague(e.newValue));
       }
     };
     window.addEventListener("storage", handler);
@@ -31,10 +35,8 @@ export function useLeague(): [League, (l: League) => void] {
   }, []);
 
   const setLeague = useCallback((l: League) => {
-    localStorage.setItem(STORAGE_KEY, l);
+    writeActiveLeague(l);
     setLeagueState(l);
-    // Dispatch so other tabs pick it up too
-    window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY, newValue: l }));
   }, []);
 
   return [league, setLeague];

@@ -28,6 +28,16 @@ const NHL_DIVISIONS: Record<string, string[]> = {
   Western: ["Central", "Pacific"],
 };
 
+function MobilePageContext({ league, view }: { league: string; view: string }) {
+  return (
+    <div className="rounded-2xl border border-dark-border bg-dark-surface/70 px-4 py-3 sm:hidden">
+      <p className="text-[10px] uppercase tracking-[0.22em] text-gray-500">Page context</p>
+      <p className="mt-1 text-sm font-semibold text-white">{league} {view}</p>
+      <p className="mt-1 text-xs text-gray-400">Switch league or tab above. Rows open detail pages where Goosalytics has one wired.</p>
+    </div>
+  );
+}
+
 function NHLStandings() {
   const [standings, setStandings] = useState<TeamStandingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -277,9 +287,11 @@ function MLBStandings() {
                       : "bg-dark-bg text-gray-400 border-dark-border";
 
                   return (
-                    <div
+                    <Link
                       key={team.teamAbbrev}
+                      href={`/team/${team.teamAbbrev}`}
                       className="grid grid-cols-[1fr_40px_40px_48px_48px_56px] gap-1 items-center border-b border-dark-border/30 px-3 py-2.5 last:border-b-0"
+                      aria-label={`Open ${team.teamName || team.teamAbbrev} team page`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <TeamLogo team={team.teamAbbrev} size={26} sport="MLB" />
@@ -292,7 +304,7 @@ function MLBStandings() {
                       <div className="flex justify-center">
                         <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${streakColor}`}>{team.streak || "—"}</span>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -335,6 +347,12 @@ export default function ScheduleStandingsContent() {
           </button>
         ))}
       </div>
+
+      <MobilePageContext league={sportLeague} view={view} />
+
+      {dashboards.error ? (
+        <EmptyStateCard eyebrow="Live data unavailable" title="Some schedule feeds did not load" body={dashboards.error} className="mx-0 mt-0" />
+      ) : null}
 
       {/* Content */}
       {sportLeague === "PGA" ? (

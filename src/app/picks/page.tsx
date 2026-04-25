@@ -335,10 +335,10 @@ export default function PicksPage() {
   const [recordSport, setRecordSport] = useState(sportLeague === "All" ? "All" : sportLeague);
   const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
 
-  const { todayPicks: nhlToday, allPicks: nhlAll, loadingPicks: nhlLoading, stalePickCount: nhlStalePickCount, clearStalePicks: clearNHLStalePicks } = usePicks();
-  const { todayPicks: nbaToday, allPicks: nbaAll, loadingPicks: nbaLoading, stalePickCount: nbaStalePickCount, clearStalePicks: clearNBAStalePicks } = useNBAPicks();
-  const { todayPicks: mlbToday, allPicks: mlbAll, loadingPicks: mlbLoading, stalePickCount: mlbStalePickCount, clearStalePicks: clearMLBStalePicks } = useMLBPicks();
-  const { todayPicks: golfToday, allPicks: golfAll, loadingPicks: golfLoading, stalePickCount: golfStalePickCount, clearStalePicks: clearGolfStalePicks } = useGolfPicks();
+  const { todayPicks: nhlToday, allPicks: nhlAll, loadingPicks: nhlLoading, picksError: nhlPicksError, stalePickCount: nhlStalePickCount, clearStalePicks: clearNHLStalePicks } = usePicks();
+  const { todayPicks: nbaToday, allPicks: nbaAll, loadingPicks: nbaLoading, picksError: nbaPicksError, stalePickCount: nbaStalePickCount, clearStalePicks: clearNBAStalePicks } = useNBAPicks();
+  const { todayPicks: mlbToday, allPicks: mlbAll, loadingPicks: mlbLoading, picksError: mlbPicksError, stalePickCount: mlbStalePickCount, clearStalePicks: clearMLBStalePicks } = useMLBPicks();
+  const { todayPicks: golfToday, allPicks: golfAll, loadingPicks: golfLoading, picksError: golfPicksError, stalePickCount: golfStalePickCount, clearStalePicks: clearGolfStalePicks } = useGolfPicks();
   const { picks: historyPicks = [] } = usePickHistory();
 
   useEffect(() => {
@@ -402,6 +402,16 @@ export default function PicksPage() {
         : sportLeague === "All"
           ? (nhlLoading || nbaLoading || mlbLoading)
           : nhlLoading;
+
+  const picksError = sportLeague === "NBA"
+    ? nbaPicksError
+    : sportLeague === "MLB"
+      ? mlbPicksError
+      : sportLeague === "PGA"
+        ? golfPicksError
+        : sportLeague === "All"
+          ? [nhlPicksError, nbaPicksError, mlbPicksError].filter(Boolean).join(" · ") || null
+          : nhlPicksError;
 
   const golfTournament = resolveGolfTournament(golfDashboard);
   const golfBannerCopy = buildGolfBannerCopy(golfDashboard, golfTournament);
@@ -557,6 +567,8 @@ export default function PicksPage() {
 
               {loading ? (
                 <div className="space-y-3"><PickCardSkeleton /><PickCardSkeleton /><PickCardSkeleton /></div>
+              ) : picksError && activeToday.length === 0 ? (
+                <EmptyStateCard eyebrow="Picks unavailable" title="AI picks feed did not load" body={picksError} />
               ) : activeToday.length === 0 ? (
                 <EmptyStateCard eyebrow="AI Picks" title={`No ${sportLeague === "All" ? "" : `${sportLeague} `}picks today`} body={sportLeague === "PGA" ? golfBannerCopy : "Check back when games are scheduled to see today's top AI picks."} />
               ) : (

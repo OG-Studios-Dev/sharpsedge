@@ -57,6 +57,13 @@ export default function PageHeader({
           </div>
         </div>
 
+        {title && (
+          <div className="mt-2 lg:hidden">
+            <h1 className="truncate text-base font-bold text-white">{title}</h1>
+            {subtitle && <p className="mt-0.5 line-clamp-2 text-[11px] text-gray-500">{subtitle}</p>}
+          </div>
+        )}
+
         {children && (
           <div className="pt-3">
             {children}

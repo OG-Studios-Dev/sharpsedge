@@ -4,7 +4,7 @@ import { ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, restoreSession } from "@/lib/s
 import { PROFILE_TIER_COOKIE_NAME } from "@/lib/session-cookies";
 import { hasTierAccess, isPreLaunchMode, normalizeTier, type ProfileTier } from "@/lib/tier-access";
 
-const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/settings", "/admin", "/admin/users", "/admin/picks", "/admin/system", "/golf", "/odds", "/my-picks", "/parlays", "/upgrade", "/picks/history"]);
+const PUBLIC_ROUTES = new Set(["/", "/login", "/signup", "/settings", "/golf", "/odds", "/my-picks", "/parlays", "/upgrade", "/picks/history"]);
 const AUTH_ROUTES = new Set(["/login", "/signup"]);
 // BETA MODE: All features open. Re-enable gates after launch.
 const TIER_GATED_ROUTES: Array<{
@@ -43,7 +43,10 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (!PUBLIC_ROUTES.has(pathname) && !session) {
+  const isPublicRoute = PUBLIC_ROUTES.has(pathname);
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+
+  if ((!isPublicRoute || isAdminRoute) && !session) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);

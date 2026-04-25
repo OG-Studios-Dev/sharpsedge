@@ -287,7 +287,9 @@ export default function TrendsPage() {
         </div>
       )}
 
-      {dashboards.loading ? (
+      {dashboards.error ? (
+        <EmptyStateCard eyebrow="Trends unavailable" title="Trend dashboard did not load" body={dashboards.error} />
+      ) : dashboards.loading ? (
         <div className="grid gap-3 px-4 py-4 lg:grid-cols-2 lg:px-0">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="stagger-in" style={getStaggerStyle(index)}>

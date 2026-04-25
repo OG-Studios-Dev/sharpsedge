@@ -125,6 +125,7 @@ async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<A
 function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string | null, timeZone = APP_TIME_ZONE) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
   const [loadingPicks, setLoadingPicks] = useState(true);
+  const [picksError, setPicksError] = useState<string | null>(null);
 
   const key = todayKey(timeZone);
   const todayPicks = allPicks[key] || [];
@@ -162,6 +163,7 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
 
   const fetchAndStore = useCallback(async () => {
     setLoadingPicks(true);
+    setPicksError(null);
     try {
       const loaded = loadStore(storageKey);
       const normalized = normalizeStore(loaded);
@@ -171,6 +173,9 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
       }
       // Always fetch fresh picks from API (don't rely on stale localStorage)
       const res = await fetch(`${fetchEndpoint}?date=${key}`);
+      if (!res.ok) {
+        throw new Error(`${fetchEndpoint} returned ${res.status}`);
+      }
       const data = await res.json();
       if (data.picks?.length) {
         const date = data.date || key;
@@ -190,8 +195,10 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
 
       setAllPicks({ ...store });
       await resolvePending(store);
-    } catch {
-      // silently fail
+    } catch (err) {
+      const loaded = loadStore(storageKey);
+      setAllPicks(loaded);
+      setPicksError(err instanceof Error ? err.message : "Unable to refresh picks");
     } finally {
       setLoadingPicks(false);
     }
@@ -217,7 +224,7 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   const record = computePickRecord(Object.values(allPicks).flat());
   const stalePickCount = countStalePendingPicks(allPicks, timeZone);
 
-  return { todayPicks, allPicks, record, loadingPicks, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
+  return { todayPicks, allPicks, record, loadingPicks, picksError, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
 }
 
 export function usePicks() {

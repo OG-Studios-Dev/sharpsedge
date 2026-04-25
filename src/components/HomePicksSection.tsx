@@ -208,6 +208,17 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
       ? nhl.loadingPicks || nba.loadingPicks || mlb.loadingPicks
       : nhl.loadingPicks;
 
+  const picksError =
+    league === "NBA"
+      ? nba.picksError
+      : league === "MLB"
+      ? mlb.picksError
+      : league === "PGA"
+      ? golf.picksError
+      : league === "All"
+      ? [nhl.picksError, nba.picksError, mlb.picksError].filter(Boolean).join(" · ") || null
+      : nhl.picksError;
+
   const record =
     league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
   const mobileDisplayPicks = league === "PGA" ? displayPicks.slice(0, 5) : displayPicks;
@@ -260,6 +271,11 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-12 rounded-xl bg-dark-border/40 animate-pulse" />
             ))}
+          </div>
+        ) : picksError && displayPicks.length === 0 ? (
+          <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 px-4 py-3">
+            <p className="text-sm font-semibold text-accent-red">Picks feed unavailable</p>
+            <p className="mt-1 text-xs text-gray-400">{picksError}</p>
           </div>
         ) : displayPicks.length === 0 ? (
           <div className="text-center py-4">
