@@ -1,0 +1,991 @@
+{
+  "ok": true,
+  "rows": 181,
+  "totalRows": 82346,
+  "totalGraded": 65356,
+  "moneyline": 24818,
+  "spread": 31496,
+  "totalMarket": 26032,
+  "failed": [],
+  "daily": [
+    {
+      "day": "2025-09-01",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-02",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-03",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-04",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-05",
+      "before": 864,
+      "graded": 0,
+      "remat": 864,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-06",
+      "before": 864,
+      "graded": 0,
+      "remat": 864,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-07",
+      "before": 11012,
+      "graded": 11012,
+      "remat": 11012,
+      "gradedRows": 11012
+    },
+    {
+      "day": "2025-09-08",
+      "before": 900,
+      "graded": 0,
+      "remat": 900,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-09",
+      "before": 898,
+      "graded": 0,
+      "remat": 898,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-10",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-11",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-12",
+      "before": 390,
+      "graded": 0,
+      "remat": 390,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-13",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-14",
+      "before": 4080,
+      "graded": 4080,
+      "remat": 4080,
+      "gradedRows": 4080
+    },
+    {
+      "day": "2025-09-15",
+      "before": 580,
+      "graded": 290,
+      "remat": 580,
+      "gradedRows": 290
+    },
+    {
+      "day": "2025-09-16",
+      "before": 262,
+      "graded": 0,
+      "remat": 262,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-17",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-18",
+      "before": 46,
+      "graded": 46,
+      "remat": 46,
+      "gradedRows": 46
+    },
+    {
+      "day": "2025-09-19",
+      "before": 132,
+      "graded": 0,
+      "remat": 132,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-20",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-21",
+      "before": 3658,
+      "graded": 3612,
+      "remat": 3658,
+      "gradedRows": 3612
+    },
+    {
+      "day": "2025-09-22",
+      "before": 264,
+      "graded": 0,
+      "remat": 264,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-23",
+      "before": 198,
+      "graded": 0,
+      "remat": 198,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-24",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-25",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-26",
+      "before": 304,
+      "graded": 0,
+      "remat": 304,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-09-27",
+      "status": "empty"
+    },
+    {
+      "day": "2025-09-28",
+      "before": 3518,
+      "graded": 3518,
+      "remat": 3518,
+      "gradedRows": 3518
+    },
+    {
+      "day": "2025-09-29",
+      "before": 582,
+      "graded": 312,
+      "remat": 582,
+      "gradedRows": 312
+    },
+    {
+      "day": "2025-09-30",
+      "before": 278,
+      "graded": 0,
+      "remat": 278,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-01",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-02",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-03",
+      "before": 282,
+      "graded": 0,
+      "remat": 282,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-04",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-05",
+      "before": 3022,
+      "graded": 3022,
+      "remat": 3022,
+      "gradedRows": 3022
+    },
+    {
+      "day": "2025-10-06",
+      "before": 340,
+      "graded": 0,
+      "remat": 340,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-07",
+      "before": 264,
+      "graded": 0,
+      "remat": 264,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-08",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-09",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-10",
+      "before": 280,
+      "graded": 0,
+      "remat": 280,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-11",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-12",
+      "before": 3234,
+      "graded": 3234,
+      "remat": 3234,
+      "gradedRows": 3234
+    },
+    {
+      "day": "2025-10-13",
+      "before": 572,
+      "graded": 244,
+      "remat": 572,
+      "gradedRows": 244
+    },
+    {
+      "day": "2025-10-14",
+      "before": 244,
+      "graded": 0,
+      "remat": 244,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-15",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-16",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-17",
+      "before": 282,
+      "graded": 0,
+      "remat": 282,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-18",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-19",
+      "before": 3304,
+      "graded": 3304,
+      "remat": 3304,
+      "gradedRows": 3304
+    },
+    {
+      "day": "2025-10-20",
+      "before": 516,
+      "graded": 244,
+      "remat": 516,
+      "gradedRows": 244
+    },
+    {
+      "day": "2025-10-21",
+      "before": 278,
+      "graded": 0,
+      "remat": 278,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-22",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-23",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-24",
+      "before": 192,
+      "graded": 0,
+      "remat": 192,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-25",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-26",
+      "before": 2796,
+      "graded": 2796,
+      "remat": 2796,
+      "gradedRows": 2796
+    },
+    {
+      "day": "2025-10-27",
+      "before": 260,
+      "graded": 0,
+      "remat": 260,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-28",
+      "before": 258,
+      "graded": 0,
+      "remat": 258,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-10-29",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-30",
+      "status": "empty"
+    },
+    {
+      "day": "2025-10-31",
+      "before": 166,
+      "graded": 0,
+      "remat": 166,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-01",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-02",
+      "before": 3018,
+      "graded": 3018,
+      "remat": 3018,
+      "gradedRows": 3018
+    },
+    {
+      "day": "2025-11-03",
+      "before": 270,
+      "graded": 0,
+      "remat": 270,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-04",
+      "before": 260,
+      "graded": 0,
+      "remat": 260,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-05",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-06",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-07",
+      "before": 252,
+      "graded": 0,
+      "remat": 252,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-08",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-09",
+      "before": 3276,
+      "graded": 3276,
+      "remat": 3276,
+      "gradedRows": 3276
+    },
+    {
+      "day": "2025-11-10",
+      "before": 260,
+      "graded": 0,
+      "remat": 260,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-11",
+      "before": 338,
+      "graded": 0,
+      "remat": 338,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-12",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-13",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-14",
+      "before": 234,
+      "graded": 0,
+      "remat": 234,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-15",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-16",
+      "before": 3118,
+      "graded": 3118,
+      "remat": 3118,
+      "gradedRows": 3118
+    },
+    {
+      "day": "2025-11-17",
+      "before": 228,
+      "graded": 0,
+      "remat": 228,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-18",
+      "before": 216,
+      "graded": 0,
+      "remat": 216,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-19",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-20",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-21",
+      "before": 174,
+      "graded": 0,
+      "remat": 174,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-22",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-23",
+      "before": 2812,
+      "graded": 2812,
+      "remat": 2812,
+      "gradedRows": 2812
+    },
+    {
+      "day": "2025-11-24",
+      "before": 272,
+      "graded": 0,
+      "remat": 272,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-25",
+      "before": 262,
+      "graded": 0,
+      "remat": 262,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-11-26",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-27",
+      "before": 438,
+      "graded": 438,
+      "remat": 438,
+      "gradedRows": 438
+    },
+    {
+      "day": "2025-11-28",
+      "before": 454,
+      "graded": 246,
+      "remat": 454,
+      "gradedRows": 246
+    },
+    {
+      "day": "2025-11-29",
+      "status": "empty"
+    },
+    {
+      "day": "2025-11-30",
+      "before": 2536,
+      "graded": 2536,
+      "remat": 2536,
+      "gradedRows": 2536
+    },
+    {
+      "day": "2025-12-01",
+      "before": 238,
+      "graded": 0,
+      "remat": 238,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-02",
+      "before": 232,
+      "graded": 0,
+      "remat": 232,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-03",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-04",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-05",
+      "before": 162,
+      "graded": 0,
+      "remat": 162,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-06",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-07",
+      "before": 2776,
+      "graded": 2776,
+      "remat": 2776,
+      "gradedRows": 2776
+    },
+    {
+      "day": "2025-12-08",
+      "before": 212,
+      "graded": 0,
+      "remat": 212,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-09",
+      "before": 236,
+      "graded": 0,
+      "remat": 236,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-10",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-11",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-12",
+      "before": 174,
+      "graded": 0,
+      "remat": 174,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-13",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-14",
+      "before": 3254,
+      "graded": 3254,
+      "remat": 3254,
+      "gradedRows": 3254
+    },
+    {
+      "day": "2025-12-15",
+      "before": 220,
+      "graded": 0,
+      "remat": 220,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-16",
+      "before": 240,
+      "graded": 0,
+      "remat": 240,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-17",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-18",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-19",
+      "before": 186,
+      "graded": 0,
+      "remat": 186,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-20",
+      "before": 516,
+      "graded": 324,
+      "remat": 516,
+      "gradedRows": 324
+    },
+    {
+      "day": "2025-12-21",
+      "before": 2774,
+      "graded": 2502,
+      "remat": 2774,
+      "gradedRows": 2502
+    },
+    {
+      "day": "2025-12-22",
+      "before": 238,
+      "graded": 0,
+      "remat": 238,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-23",
+      "before": 272,
+      "graded": 0,
+      "remat": 272,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-24",
+      "status": "empty"
+    },
+    {
+      "day": "2025-12-25",
+      "before": 610,
+      "graded": 610,
+      "remat": 610,
+      "gradedRows": 610
+    },
+    {
+      "day": "2025-12-26",
+      "before": 244,
+      "graded": 0,
+      "remat": 244,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-27",
+      "before": 86,
+      "graded": 86,
+      "remat": 86,
+      "gradedRows": 86
+    },
+    {
+      "day": "2025-12-28",
+      "before": 2400,
+      "graded": 2076,
+      "remat": 2400,
+      "gradedRows": 2076
+    },
+    {
+      "day": "2025-12-29",
+      "before": 224,
+      "graded": 0,
+      "remat": 224,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-30",
+      "before": 224,
+      "graded": 0,
+      "remat": 224,
+      "gradedRows": 0
+    },
+    {
+      "day": "2025-12-31",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-01",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-02",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-03",
+      "before": 42,
+      "graded": 42,
+      "remat": 42,
+      "gradedRows": 42
+    },
+    {
+      "day": "2026-01-04",
+      "before": 2344,
+      "graded": 1944,
+      "remat": 2344,
+      "gradedRows": 1944
+    },
+    {
+      "day": "2026-01-05",
+      "before": 64,
+      "graded": 0,
+      "remat": 64,
+      "gradedRows": 0
+    },
+    {
+      "day": "2026-01-06",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-07",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-08",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-09",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-10",
+      "before": 40,
+      "graded": 40,
+      "remat": 40,
+      "gradedRows": 40
+    },
+    {
+      "day": "2026-01-11",
+      "before": 186,
+      "graded": 122,
+      "remat": 186,
+      "gradedRows": 122
+    },
+    {
+      "day": "2026-01-12",
+      "before": 64,
+      "graded": 0,
+      "remat": 64,
+      "gradedRows": 0
+    },
+    {
+      "day": "2026-01-13",
+      "before": 64,
+      "graded": 0,
+      "remat": 64,
+      "gradedRows": 0
+    },
+    {
+      "day": "2026-01-14",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-15",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-16",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-17",
+      "before": 36,
+      "graded": 36,
+      "remat": 36,
+      "gradedRows": 36
+    },
+    {
+      "day": "2026-01-18",
+      "before": 192,
+      "graded": 128,
+      "remat": 192,
+      "gradedRows": 128
+    },
+    {
+      "day": "2026-01-19",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-20",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-21",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-22",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-23",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-24",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-25",
+      "before": 128,
+      "graded": 128,
+      "remat": 128,
+      "gradedRows": 128
+    },
+    {
+      "day": "2026-01-26",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-27",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-28",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-29",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-30",
+      "status": "empty"
+    },
+    {
+      "day": "2026-01-31",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-01",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-02",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-03",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-04",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-05",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-06",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-07",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-08",
+      "before": 130,
+      "graded": 130,
+      "remat": 130,
+      "gradedRows": 130
+    },
+    {
+      "day": "2026-02-09",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-10",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-11",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-12",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-13",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-14",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-15",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-16",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-17",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-18",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-19",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-20",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-21",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-22",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-23",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-24",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-25",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-26",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-27",
+      "status": "empty"
+    },
+    {
+      "day": "2026-02-28",
+      "status": "empty"
+    }
+  ]
+}

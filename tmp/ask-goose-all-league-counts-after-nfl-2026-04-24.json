@@ -1,0 +1,38 @@
+[
+  {
+    "league": "NBA",
+    "moneyline_total": 47657,
+    "moneyline_graded": 40163,
+    "spread_total": 61470,
+    "spread_graded": 5466,
+    "total_total": 74365,
+    "total_graded": 66301
+  },
+  {
+    "league": "MLB",
+    "moneyline_total": 19370,
+    "moneyline_graded": 14818,
+    "spread_total": 16077,
+    "spread_graded": 1783,
+    "total_total": 27051,
+    "total_graded": 22405
+  },
+  {
+    "league": "NHL",
+    "moneyline_total": 8780,
+    "moneyline_graded": 3570,
+    "spread_total": 3862,
+    "spread_graded": 14,
+    "total_total": 69361,
+    "total_graded": 3551
+  },
+  {
+    "league": "NFL",
+    "moneyline_total": 24818,
+    "moneyline_graded": 19700,
+    "spread_total": 31496,
+    "spread_graded": 25026,
+    "total_total": 26032,
+    "total_graded": 20630
+  }
+]
