@@ -256,7 +256,7 @@ export default function AskGoosePage() {
             ) : null}
           </div>
 
-          <form onSubmit={submitQuestion} className="sticky bottom-0 border-t border-dark-border bg-dark-bg/95 p-3 backdrop-blur md:p-4">
+          <form onSubmit={submitQuestion} className="sticky bottom-16 z-[90] border-t border-dark-border bg-dark-bg/95 p-3 backdrop-blur md:p-4 lg:bottom-0">
             <div className="flex gap-2 rounded-3xl border border-accent-blue/30 bg-dark-surface/90 p-2 shadow-lg shadow-black/20 focus-within:border-accent-blue/70">
               <textarea
                 ref={inputRef}
