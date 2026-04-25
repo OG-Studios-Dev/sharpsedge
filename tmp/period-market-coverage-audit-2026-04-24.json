@@ -1,0 +1,862 @@
+{
+  "generated_at": "2026-04-25T01:10:07.125Z",
+  "checks": [
+    {
+      "label": "NBA 2024 Oct preseason/start",
+      "league": "NBA",
+      "start": "2024-10-01",
+      "end": "2024-10-31",
+      "markets": [
+        {
+          "market": "first_quarter_spread",
+          "total": 262,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "third_quarter_spread",
+          "total": 168,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_quarter_total",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_half_spread",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_half_total",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        }
+      ],
+      "samples": [
+        {
+          "candidate_id": "cand:evt:nba:nba:pelicans@warriors:2024-10-31T02:third-quarter-spread:warriors:home:na:sportsgameodds:2024-10-31T02:00",
+          "event_id": "evt:nba:nba:pelicans@warriors:2024-10-31T02",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "home",
+          "line": null,
+          "odds": -115,
+          "participant_name": "Warriors",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-home-3q-sp-home",
+            "score": 31,
+            "sideID": "home",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-115",
+            "fairOdds": "+100",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "-10.5",
+            "fairSpread": "-10.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "home",
+            "opposingOddID": "points-away-3q-sp-away",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:trail-blazers@clippers:2024-10-31T02:third-quarter-spread:trail-blazers:away:na:sportsgameodds:2024-10-31T02:30",
+          "event_id": "evt:nba:nba:trail-blazers@clippers:2024-10-31T02",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "away",
+          "line": null,
+          "odds": 100,
+          "participant_name": "Trail Blazers",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-away-3q-sp-away",
+            "score": 28,
+            "sideID": "away",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "+100",
+            "fairOdds": "+119",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "+8.5",
+            "fairSpread": "+10.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "away",
+            "opposingOddID": "points-home-3q-sp-home",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:spurs@thunder:2024-10-31T01:third-quarter-spread:thunder:home:na:sportsgameodds:2024-10-31T01:30",
+          "event_id": "evt:nba:nba:spurs@thunder:2024-10-31T01",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "home",
+          "line": null,
+          "odds": -115,
+          "participant_name": "Thunder",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-home-3q-sp-home",
+            "score": 23,
+            "sideID": "home",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-115",
+            "fairOdds": "+100",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "-3",
+            "fairSpread": "-3",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "home",
+            "opposingOddID": "points-away-3q-sp-away",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:spurs@thunder:2024-10-31T01:third-quarter-spread:spurs:away:na:sportsgameodds:2024-10-31T01:30",
+          "event_id": "evt:nba:nba:spurs@thunder:2024-10-31T01",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "away",
+          "line": null,
+          "odds": -115,
+          "participant_name": "Spurs",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-away-3q-sp-away",
+            "score": 26,
+            "sideID": "away",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-115",
+            "fairOdds": "+100",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "+3",
+            "fairSpread": "+3",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "away",
+            "opposingOddID": "points-home-3q-sp-home",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:pelicans@warriors:2024-10-31T02:third-quarter-spread:pelicans:away:na:sportsgameodds:2024-10-31T02:00",
+          "event_id": "evt:nba:nba:pelicans@warriors:2024-10-31T02",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "away",
+          "line": null,
+          "odds": -115,
+          "participant_name": "Pelicans",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-away-3q-sp-away",
+            "score": 22,
+            "sideID": "away",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-115",
+            "fairOdds": "+100",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "+10.5",
+            "fairSpread": "+10.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "away",
+            "opposingOddID": "points-home-3q-sp-home",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:nets@grizzlies:2024-10-31T00:third-quarter-spread:nets:away:na:sportsgameodds:2024-10-31T00:00",
+          "event_id": "evt:nba:nba:nets@grizzlies:2024-10-31T00",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "away",
+          "line": null,
+          "odds": -105,
+          "participant_name": "Nets",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-away-3q-sp-away",
+            "score": 24,
+            "sideID": "away",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-105",
+            "fairOdds": "+108",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "+0.5",
+            "fairSpread": "+0.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "away",
+            "opposingOddID": "points-home-3q-sp-home",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:magic@bulls:2024-10-31T00:third-quarter-spread:magic:away:na:sportsgameodds:2024-10-31T00:00",
+          "event_id": "evt:nba:nba:magic@bulls:2024-10-31T00",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "away",
+          "line": null,
+          "odds": -115,
+          "participant_name": "Magic",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-away-3q-sp-away",
+            "score": 25,
+            "sideID": "away",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-115",
+            "fairOdds": "-102",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "-1.5",
+            "fairSpread": "-1.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "away",
+            "opposingOddID": "points-home-3q-sp-home",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:nets@grizzlies:2024-10-31T00:third-quarter-spread:grizzlies:home:na:sportsgameodds:2024-10-31T00:00",
+          "event_id": "evt:nba:nba:nets@grizzlies:2024-10-31T00",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "home",
+          "line": null,
+          "odds": -125,
+          "participant_name": "Grizzlies",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-home-3q-sp-home",
+            "score": 28,
+            "sideID": "home",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-125",
+            "fairOdds": "-108",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "-0.5",
+            "fairSpread": "-0.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "home",
+            "opposingOddID": "points-away-3q-sp-away",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:trail-blazers@clippers:2024-10-31T02:third-quarter-spread:clippers:home:na:sportsgameodds:2024-10-31T02:30",
+          "event_id": "evt:nba:nba:trail-blazers@clippers:2024-10-31T02",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "home",
+          "line": null,
+          "odds": -135,
+          "participant_name": "Clippers",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-home-3q-sp-home",
+            "score": 35,
+            "sideID": "home",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-135",
+            "fairOdds": "-119",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "-8.5",
+            "fairSpread": "-10.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "home",
+            "opposingOddID": "points-away-3q-sp-away",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:magic@bulls:2024-10-31T00:third-quarter-spread:bulls:home:na:sportsgameodds:2024-10-31T00:00",
+          "event_id": "evt:nba:nba:magic@bulls:2024-10-31T00",
+          "event_date": "2024-10-31",
+          "market_type": "third_quarter_spread",
+          "submarket_type": "3rd Quarter Spread",
+          "side": "home",
+          "line": null,
+          "odds": -110,
+          "participant_name": "Bulls",
+          "opponent_name": null,
+          "book": "sportsgameodds",
+          "raw_payload": {
+            "ended": true,
+            "oddID": "points-home-3q-sp-home",
+            "score": 34,
+            "sideID": "home",
+            "statID": "points",
+            "started": true,
+            "bookOdds": "-110",
+            "fairOdds": "+102",
+            "periodID": "3q",
+            "betTypeID": "sp",
+            "cancelled": false,
+            "bookSpread": "+1.5",
+            "fairSpread": "+1.5",
+            "marketName": "3rd Quarter Spread",
+            "byBookmaker": {},
+            "statEntityID": "home",
+            "opposingOddID": "points-away-3q-sp-away",
+            "scoringSupported": true,
+            "bookOddsAvailable": false,
+            "fairOddsAvailable": false
+          }
+        }
+      ]
+    },
+    {
+      "label": "NBA current Apr 2026",
+      "league": "NBA",
+      "start": "2026-04-01",
+      "end": "2026-04-25",
+      "markets": [
+        {
+          "market": "first_quarter_spread",
+          "total": 1074,
+          "with_line": 84,
+          "line_rate": 0.0782
+        },
+        {
+          "market": "third_quarter_spread",
+          "total": 1074,
+          "with_line": 84,
+          "line_rate": 0.0782
+        },
+        {
+          "market": "first_quarter_total",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_half_spread",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_half_total",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        }
+      ],
+      "samples": [
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:new-york-knicks:-3.5:pinnacle:2026-04-20T18:48",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "New York Knicks",
+          "line": -3.5,
+          "odds": 131,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:48:03.345Z:5f4d932f:NBA:ATL@NYK:na:pinnacle:spread_q3:new-york-knicks:-3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:atlanta-hawks:3.5:pinnacle:2026-04-20T18:48",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Atlanta Hawks",
+          "line": 3.5,
+          "odds": -157,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:48:03.345Z:5f4d932f:NBA:ATL@NYK:na:pinnacle:spread_q3:atlanta-hawks:3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02:third-quarter-spread:field:denver-nuggets:-4.0:pinnacle:2026-04-20T18:48",
+          "event_id": "evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Denver Nuggets",
+          "line": -4,
+          "odds": 141,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:48:03.345Z:5f4d932f:NBA:MIN@DEN:na:pinnacle:spread_q3:denver-nuggets:-4",
+            "source_updated_at": "2026-04-21T02:35:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02:third-quarter-spread:field:minnesota-timberwolves:4.0:pinnacle:2026-04-20T18:48",
+          "event_id": "evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Minnesota Timberwolves",
+          "line": 4,
+          "odds": -171,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:48:03.345Z:5f4d932f:NBA:MIN@DEN:na:pinnacle:spread_q3:minnesota-timberwolves:4",
+            "source_updated_at": "2026-04-21T02:35:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:new-york-knicks:-3.5:pinnacle:2026-04-20T18:49",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "New York Knicks",
+          "line": -3.5,
+          "odds": 131,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:49:33.038Z:9ab99300:NBA:ATL@NYK:na:pinnacle:spread_q3:new-york-knicks:-3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:atlanta-hawks:3.5:pinnacle:2026-04-20T18:49",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Atlanta Hawks",
+          "line": 3.5,
+          "odds": -157,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:49:33.038Z:9ab99300:NBA:ATL@NYK:na:pinnacle:spread_q3:atlanta-hawks:3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02:third-quarter-spread:field:denver-nuggets:-4.0:pinnacle:2026-04-20T18:49",
+          "event_id": "evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Denver Nuggets",
+          "line": -4,
+          "odds": 141,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:49:33.038Z:9ab99300:NBA:MIN@DEN:na:pinnacle:spread_q3:denver-nuggets:-4",
+            "source_updated_at": "2026-04-21T02:35:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02:third-quarter-spread:field:minnesota-timberwolves:4.0:pinnacle:2026-04-20T18:49",
+          "event_id": "evt:nba:nba:minnesota-timberwolves@denver-nuggets:2026-04-21T02",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Minnesota Timberwolves",
+          "line": 4,
+          "odds": -171,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:49:33.038Z:9ab99300:NBA:MIN@DEN:na:pinnacle:spread_q3:minnesota-timberwolves:4",
+            "source_updated_at": "2026-04-21T02:35:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:new-york-knicks:-3.5:pinnacle:2026-04-20T18:53",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "New York Knicks",
+          "line": -3.5,
+          "odds": 131,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:53:29.507Z:85666972:NBA:ATL@NYK:na:pinnacle:spread_q3:new-york-knicks:-3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00:third-quarter-spread:field:atlanta-hawks:3.5:pinnacle:2026-04-20T18:53",
+          "event_id": "evt:nba:nba:atlanta-hawks@new-york-knicks:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "third_quarter_spread",
+          "submarket_type": null,
+          "side": "Atlanta Hawks",
+          "line": 3.5,
+          "odds": -157,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T18:53:29.507Z:85666972:NBA:ATL@NYK:na:pinnacle:spread_q3:atlanta-hawks:3.5",
+            "source_updated_at": "2026-04-21T00:05:00.000Z",
+            "source_age_minutes": 0
+          }
+        }
+      ]
+    },
+    {
+      "label": "MLB 2024 Apr",
+      "league": "MLB",
+      "start": "2024-04-01",
+      "end": "2024-04-30",
+      "markets": [
+        {
+          "market": "first_five_total",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_five_side",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_five_spread",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_five_moneyline",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        }
+      ],
+      "samples": []
+    },
+    {
+      "label": "MLB current Apr 2026",
+      "league": "MLB",
+      "start": "2026-04-01",
+      "end": "2026-04-25",
+      "markets": [
+        {
+          "market": "first_five_total",
+          "total": 286,
+          "with_line": 286,
+          "line_rate": 1
+        },
+        {
+          "market": "first_five_side",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_five_spread",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        },
+        {
+          "market": "first_five_moneyline",
+          "total": 0,
+          "with_line": 0,
+          "line_rate": 0
+        }
+      ],
+      "samples": [
+        {
+          "candidate_id": "cand:evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01:first-five-total:field:under:5.0:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Under",
+          "line": 5,
+          "odds": -199,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:TOR@LAA:na:pinnacle:first_five_total:under:5",
+            "source_updated_at": "2026-04-21T01:38:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:los-angeles-dodgers@colorado-rockies:2026-04-21T00:first-five-total:field:over:7.5:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:los-angeles-dodgers@colorado-rockies:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Over",
+          "line": 7.5,
+          "odds": 134,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:LAD@COL:na:pinnacle:first_five_total:over:7.5",
+            "source_updated_at": "2026-04-21T00:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01:first-five-total:field:over:5.0:pinnacle:2026-04-20T19:06",
+          "event_id": "evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Over",
+          "line": 5,
+          "odds": 170,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:06:46.335Z:47e03236:MLB:TOR@LAA:2026-04-21T01:pinnacle:first_five_total:over:5",
+            "source_updated_at": "2026-04-21T01:38:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01:first-five-total:field:over:5.0:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Over",
+          "line": 5,
+          "odds": 170,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:TOR@LAA:na:pinnacle:first_five_total:over:5",
+            "source_updated_at": "2026-04-21T01:38:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01:first-five-total:field:over:5.5:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Over",
+          "line": 5.5,
+          "odds": 158,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:OAK@SEA:na:pinnacle:first_five_total:over:5.5",
+            "source_updated_at": "2026-04-21T01:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01:first-five-total:field:under:5.5:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Under",
+          "line": 5.5,
+          "odds": -185,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:OAK@SEA:na:pinnacle:first_five_total:under:5.5",
+            "source_updated_at": "2026-04-21T01:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01:first-five-total:field:over:5.5:pinnacle:2026-04-20T19:06",
+          "event_id": "evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Over",
+          "line": 5.5,
+          "odds": 158,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:06:46.335Z:47e03236:MLB:OAK@SEA:2026-04-21T01:pinnacle:first_five_total:over:5.5",
+            "source_updated_at": "2026-04-21T01:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01:first-five-total:field:under:5.5:pinnacle:2026-04-20T19:06",
+          "event_id": "evt:mlb:mlb:athletics@seattle-mariners:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Under",
+          "line": 5.5,
+          "odds": -185,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:06:46.335Z:47e03236:MLB:OAK@SEA:2026-04-21T01:pinnacle:first_five_total:under:5.5",
+            "source_updated_at": "2026-04-21T01:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01:first-five-total:field:under:5.0:pinnacle:2026-04-20T19:06",
+          "event_id": "evt:mlb:mlb:toronto-blue-jays@los-angeles-angels:2026-04-21T01",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Under",
+          "line": 5,
+          "odds": -199,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:06:46.335Z:47e03236:MLB:TOR@LAA:2026-04-21T01:pinnacle:first_five_total:under:5",
+            "source_updated_at": "2026-04-21T01:38:00.000Z",
+            "source_age_minutes": 0
+          }
+        },
+        {
+          "candidate_id": "cand:evt:mlb:mlb:los-angeles-dodgers@colorado-rockies:2026-04-21T00:first-five-total:field:under:7.5:pinnacle:2026-04-20T19:33",
+          "event_id": "evt:mlb:mlb:los-angeles-dodgers@colorado-rockies:2026-04-21T00",
+          "event_date": "2026-04-21",
+          "market_type": "first_five_total",
+          "submarket_type": null,
+          "side": "Under",
+          "line": 7.5,
+          "odds": -155,
+          "participant_name": null,
+          "opponent_name": null,
+          "book": "Pinnacle",
+          "raw_payload": {
+            "snapshot_price_id": "market-snapshot:2026-04-20T19:33:44.289Z:cffde163:MLB:LAD@COL:na:pinnacle:first_five_total:under:7.5",
+            "source_updated_at": "2026-04-21T00:40:00.000Z",
+            "source_age_minutes": 0
+          }
+        }
+      ]
+    }
+  ]
+}
