@@ -138,8 +138,8 @@ async function buildWarehouseAudit() {
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const last36h = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
 
-  const recentSelect = 'candidate_id,event_id,sport,event_date,market_type,capture_ts';
-  const settlementSelect = 'candidate_id,event_id,sport,event_date,market_type,capture_ts,goose_market_results(result,integrity_status)';
+  const recentSelect = 'candidate_id,event_id,sport,event_date,market_type,capture_ts,goose_market_events(commence_time,status,event_label)';
+  const settlementSelect = 'candidate_id,event_id,sport,event_date,market_type,capture_ts,goose_market_results(result,integrity_status),goose_market_events(commence_time,status,event_label)';
 
   const [snapshotCountExact, candidateCountExact, recentResultCountExact, stalePendingCount, recentCandidates] = await Promise.all([
     countOnly(`/market_snapshots?select=id&captured_at=gte.${encodeURIComponent(last24h)}`),
@@ -166,9 +166,9 @@ async function buildWarehouseAudit() {
     const existing = pregameEvents.get(row.event_id) ?? {
       sport: row.sport,
       eventDate: row.event_date,
-      commenceTime: null,
+      commenceTime: relationOne(row.goose_market_events)?.commence_time ?? null,
       commenceMs: rowCommenceMs(row),
-      matchup: row.event_id,
+      matchup: relationOne(row.goose_market_events)?.event_label ?? row.event_id,
       marketTypes: new Set(),
     };
     existing.marketTypes.add(row.market_type);

@@ -41,6 +41,9 @@ const writeMode = args.write === 'true' || args.write === '1';
 const maxRows = Number(args.maxRows || 100000);
 const dedupeEventLevel = args.dedupeEvent !== 'false';
 const walkForward = args.walkForward === 'true' || args.walkForward === '1';
+const maxSaneRoi = Number(args.maxSaneRoi || 0.18);
+const maxSaneWinRate = Number(args.maxSaneWinRate || 0.68);
+const minIndependentEvents = Number(args.minIndependentEvents || Math.max(minSample, 75));
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
 if (![trainStart, trainEnd, testStart, testEnd].every(isoDateOk)) throw new Error('Dates must be YYYY-MM-DD');
@@ -131,11 +134,16 @@ function emptyStat(signalKey, sampleRow) {
     side: sampleRow?.side || null,
     filter_json: { generated_by: 'goose-learning-shadow-backtest', signal_key: signalKey },
     sample: 0,
+    eventKeys: new Set(),
     wins: 0,
     losses: 0,
     pushes: 0,
     units: 0,
   };
+}
+
+function eventKeyForRow(row) {
+  return row.canonical_game_id || row.event_id || `${row.league || row.sport || 'UNKNOWN'}:${row.event_date || 'unknown'}:${row.away_team || ''}@${row.home_team || ''}`;
 }
 
 function decisionKey(row) {
@@ -181,6 +189,7 @@ function accumulate(rows) {
     for (const signal of signalsFor(row)) {
       const stat = map.get(signal) || emptyStat(signal, row);
       stat.sample += 1;
+      stat.eventKeys.add(eventKeyForRow(row));
       if (row.result === 'win') stat.wins += 1;
       else if (row.result === 'loss') stat.losses += 1;
       else stat.pushes += 1;
@@ -217,24 +226,32 @@ function finalize(trainMap, testMap) {
   const rows = [];
   for (const [signal, train] of trainMap.entries()) {
     if (train.sample < minSample) continue;
-    const test = testMap.get(signal) || { sample: 0, wins: 0, losses: 0, pushes: 0, units: 0 };
+    const test = testMap.get(signal) || { sample: 0, eventKeys: new Set(), wins: 0, losses: 0, pushes: 0, units: 0 };
     const trainRoi = train.sample ? train.units / train.sample : 0;
     const testRoi = test.sample ? test.units / test.sample : 0;
     const trainWinRate = (train.wins + train.losses) ? train.wins / (train.wins + train.losses) : 0;
     const testWinRate = (test.wins + test.losses) ? test.wins / (test.wins + test.losses) : 0;
-    const tooGoodToBeTrue = trainRoi > 0.25 || testRoi > 0.25 || trainWinRate > 0.72 || testWinRate > 0.72;
+    const trainIndependentEvents = train.eventKeys?.size || 0;
+    const testIndependentEvents = test.eventKeys?.size || 0;
+    const tooGoodToBeTrue = Math.abs(trainRoi) > maxSaneRoi || Math.abs(testRoi) > maxSaneRoi || trainWinRate > maxSaneWinRate || testWinRate > maxSaneWinRate;
     const hasOutOfSampleVolume = test.sample >= Math.max(20, Math.floor(minSample / 2));
-    const survives = hasOutOfSampleVolume && !tooGoodToBeTrue && trainRoi > 0 && testRoi > 0 && trainWinRate >= 0.52 && testWinRate >= 0.52;
+    const hasIndependentVolume = trainIndependentEvents >= minIndependentEvents && testIndependentEvents >= Math.max(25, Math.floor(minIndependentEvents / 2));
+    const survives = hasOutOfSampleVolume && hasIndependentVolume && !tooGoodToBeTrue && trainRoi > 0 && testRoi > 0 && trainWinRate >= 0.52 && testWinRate >= 0.52;
     const rejectionReason = survives
       ? null
       : tooGoodToBeTrue
         ? 'Rejected by sanity gate: ROI/win-rate is too high for a broad historical betting signal and likely indicates source/selection/line artifact.'
-        : 'Needs positive train/test ROI, 52%+ train/test WR, and enough out-of-sample volume.';
+        : !hasIndependentVolume
+          ? 'Needs more independent event-level decisions before this signal can be trusted.'
+          : 'Needs positive train/test ROI, 52%+ train/test WR, and enough out-of-sample volume.';
     rows.push({
       ...train,
+      eventKeys: undefined,
+      independent_events: trainIndependentEvents,
       train_roi: trainRoi,
       train_win_rate: trainWinRate,
       test_sample: test.sample,
+      test_independent_events: testIndependentEvents,
       test_wins: test.wins,
       test_losses: test.losses,
       test_pushes: test.pushes,
@@ -264,7 +281,7 @@ async function writeResults(candidates, summary) {
       sports: Array.from(new Set(candidates.map((c) => c.sport))).sort(),
       markets: Array.from(new Set(candidates.map((c) => c.market_family))).sort(),
       min_sample: minSample,
-      config: { maxRows, dedupeEventLevel, walkForward, generator: 'goose-learning-shadow-backtest' },
+      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, generator: 'goose-learning-shadow-backtest' },
       metrics: summary,
       notes: 'Shadow learning run only. Does not affect production pick generation.',
     }),
@@ -324,12 +341,21 @@ const rawTrainRows = await fetchExamples(trainStart, trainEnd);
 const rawTestRows = await fetchExamples(testStart, testEnd);
 const trainRows = dedupeEventLevel ? dedupeExamples(rawTrainRows) : rawTrainRows;
 const testRows = dedupeEventLevel ? dedupeExamples(rawTestRows) : rawTestRows;
-const candidates = finalize(accumulate(trainRows), accumulate(testRows));
+let candidates = finalize(accumulate(trainRows), accumulate(testRows));
 let walkForwardFolds = [];
 if (walkForward) {
   const allRows = dedupeEventLevel ? dedupeExamples([...rawTrainRows, ...rawTestRows]) : [...rawTrainRows, ...rawTestRows];
   const years = Array.from(new Set(allRows.map((row) => new Date(row.event_date).getUTCFullYear()).filter(Number.isFinite))).sort((a, b) => a - b);
   walkForwardFolds = years.slice(1).map((year) => buildFold(allRows, year));
+  if (walkForwardFolds.some((fold) => fold.eligibleCandidates === 0)) {
+    candidates = candidates.map((candidate) => candidate.promotion_status === 'eligible'
+      ? {
+          ...candidate,
+          promotion_status: 'shadow',
+          rejection_reason: 'Rejected by walk-forward gate: at least one chronological fold had zero eligible signals.',
+        }
+      : candidate);
+  }
 }
 const summary = {
   modelVersion,
@@ -341,6 +367,9 @@ const summary = {
   minSample,
   dedupeEventLevel,
   walkForward,
+  maxSaneRoi,
+  maxSaneWinRate,
+  minIndependentEvents,
   rawTrainExamples: rawTrainRows.length,
   rawTestExamples: rawTestRows.length,
   dedupedTrainExamples: rawTrainRows.length - trainRows.length,
@@ -356,9 +385,11 @@ const summary = {
     market_family: c.market_family,
     side: c.side,
     train_sample: c.sample,
+    train_independent_events: c.independent_events,
     train_win_rate: c.train_win_rate,
     train_roi: c.train_roi,
     test_sample: c.test_sample,
+    test_independent_events: c.test_independent_events,
     test_win_rate: c.test_win_rate,
     test_roi: c.test_roi,
     edge_score: c.edge_score,
