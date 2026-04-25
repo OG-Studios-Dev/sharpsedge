@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "league": "NBA",
+  "startDate": "2024-02-04",
+  "endDate": "2024-02-05",
+  "dryRun": false,
+  "days": 2,
+  "totalAfterRows": 468,
+  "totalGradedRows": 324,
+  "rows": [
+    {
+      "day": "2024-02-04",
+      "beforeRows": 0,
+      "materializedBeforeGrade": 348,
+      "graded": 312,
+      "materializedAfterGrade": 348,
+      "afterRows": 348,
+      "gradedRows": 240
+    },
+    {
+      "day": "2024-02-05",
+      "beforeRows": 0,
+      "materializedBeforeGrade": 120,
+      "graded": 108,
+      "materializedAfterGrade": 120,
+      "afterRows": 120,
+      "gradedRows": 84
+    }
+  ]
+}
