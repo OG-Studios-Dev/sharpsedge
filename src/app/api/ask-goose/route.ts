@@ -299,7 +299,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     const explanation = await explainAskGooseAnswer(question, league, answer);
 
     const message = answer.sampleSize === 0
-      ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
+      ? `Goose does not have enough proven ${league} rows for that question yet.`
       : answer.gradedRows === 0 && lineMissingRows > 0
         ? `Matching ${league} spread rows were found, but the source has no spread line for this slice, so Ask Goose cannot honestly grade it yet.`
         : answer.gradedRows === 0 && ungradeableRows > 0
