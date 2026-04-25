@@ -209,40 +209,6 @@ export default function AskGoosePage() {
           </div>
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
-            {messages.length === 0 ? (
-              <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-3">
-                <button
-                  type="button"
-                  onClick={() => setExamplesOpen((open) => !open)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-2 py-2 text-left"
-                  aria-expanded={examplesOpen}
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-white">Example Questions</p>
-                    <p className="mt-1 text-xs text-gray-500">Tap to open proven starter prompts</p>
-                  </div>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dark-border bg-dark-bg/70 text-lg font-semibold text-accent-blue">
-                    {examplesOpen ? "−" : "+"}
-                  </span>
-                </button>
-
-                {examplesOpen ? (
-                  <div className="mt-2 grid gap-2 border-t border-dark-border px-2 pt-3 sm:grid-cols-2">
-                    {normalizedExamples.map((example) => (
-                      <button
-                        key={example}
-                        type="button"
-                        onClick={() => chooseExample(example)}
-                        className="tap-button rounded-2xl border border-dark-border bg-dark-bg/70 px-4 py-3 text-left text-sm text-gray-200 transition-colors hover:border-accent-blue/50 hover:text-white"
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
             {messages.map((message) => (
               <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
                 <div className={message.role === "user" ? "max-w-[85%] rounded-3xl bg-accent-blue px-4 py-3 text-sm font-semibold text-white" : "max-w-[92%] rounded-3xl border border-dark-border bg-dark-surface/80 px-4 py-3 text-sm text-gray-100"}>
@@ -290,7 +256,8 @@ export default function AskGoosePage() {
                 className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none"
               />
               <button
-                type="submit"
+                type="button"
+                onClick={() => void askGoose()}
                 disabled={loading || !question.trim()}
                 className="tap-button rounded-2xl bg-accent-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-accent-blue/20 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Send Ask Goose question"
@@ -298,7 +265,7 @@ export default function AskGoosePage() {
                 {loading ? "…" : "Send"}
               </button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-gray-500">Enter sends • Shift+Enter new line • Beta uses deterministic data first, explanation second</p>
+            <p className="mt-2 text-center text-[11px] text-gray-500">Send routes the question through Ask Goose, queries the database layer, then returns the LLM-backed answer.</p>
           </form>
         </main>
 
@@ -333,6 +300,38 @@ export default function AskGoosePage() {
                     {NOT_SUPPORTED.map((item) => <li key={item} className="flex gap-2"><span className="text-red-400">•</span><span>{item}</span></li>)}
                   </ul>
                 </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-3">
+            <button
+              type="button"
+              onClick={() => setExamplesOpen((open) => !open)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl px-2 py-2 text-left"
+              aria-expanded={examplesOpen}
+            >
+              <div>
+                <p className="section-heading">Example Questions</p>
+                <p className="mt-1 text-xs text-gray-500">Starter prompts Goose can prove from data</p>
+              </div>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dark-border bg-dark-bg/70 text-lg font-semibold text-accent-blue">
+                {examplesOpen ? "−" : "+"}
+              </span>
+            </button>
+
+            {examplesOpen ? (
+              <div className="mt-2 space-y-2 border-t border-dark-border px-2 pt-3">
+                {normalizedExamples.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => chooseExample(example)}
+                    className="tap-button w-full rounded-2xl border border-dark-border bg-dark-bg/70 px-4 py-3 text-left text-sm text-gray-200 transition-colors hover:border-accent-blue/50 hover:text-white"
+                  >
+                    {example}
+                  </button>
+                ))}
               </div>
             ) : null}
           </div>
