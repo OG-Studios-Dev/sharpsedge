@@ -125,11 +125,16 @@ type AskGooseResponsePayload = {
     pushes: number;
     totalUnits: number;
     avgRoi: number;
+    sourceUnits?: number;
+    sourceAvgRoi?: number;
+    rawRows?: number;
+    dedupedRows?: number;
   };
   interpretation: ReturnType<typeof parseAskGooseIntent>;
   answer: {
     summaryText: string;
     warnings: string[];
+    trustNotes?: string[];
   };
   rows: AskGooseRow[];
   empty: boolean;
@@ -182,6 +187,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       league: `eq.${league}`,
       order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
       limit: String(fetchLimit),
+      offset: "0",
       ...(gradedFirst ? { graded: "eq.true" } : {}),
     });
 
@@ -193,6 +199,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
         league: `eq.${league}`,
         order: "event_date.desc",
         limit: String(fetchLimit),
+        offset: "0",
       });
       rows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${fallbackQuery.toString()}`);
     }
@@ -203,6 +210,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
         league: `eq.${league}`,
         order: "graded.desc,event_date.desc",
         limit: String(TEAM_QUERY_SAMPLE_LIMIT),
+        offset: "0",
       });
       const targetedRows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${targetedQuery.toString()}`);
 
@@ -218,6 +226,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
           league: `eq.${league}`,
           order: "graded.desc,event_date.desc",
           limit: String(TEAM_QUERY_SAMPLE_LIMIT),
+          offset: "0",
         });
         teamQuery.set("or", `(team_name.ilike.*${needle}*,opponent_name.ilike.*${needle}*)`);
         const fetched = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${teamQuery.toString()}`);
@@ -276,11 +285,16 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
         pushes: answer.pushes,
         totalUnits: answer.totalUnits,
         avgRoi: answer.avgRoi,
+        sourceUnits: answer.sourceUnits,
+        sourceAvgRoi: answer.sourceAvgRoi,
+        rawRows: answer.rawRows,
+        dedupedRows: answer.dedupedRows,
       },
       interpretation: answer.intent,
       answer: {
         summaryText: answer.summaryText,
         warnings: answer.warnings,
+        trustNotes: answer.trustNotes,
       },
       rows: answer.evidenceRows,
       empty: answer.sampleSize === 0,

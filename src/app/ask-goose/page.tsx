@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import LeagueDropdown from "@/components/LeagueDropdown";
@@ -66,16 +66,24 @@ type AskGooseResponse = {
     pushes: number;
     totalUnits: number;
     avgRoi: number;
+    sourceUnits?: number;
+    sourceAvgRoi?: number;
+    rawRows?: number;
+    dedupedRows?: number;
   };
   interpretation?: {
     matchedTeam?: string | null;
     matchedOpponent?: string | null;
     marketType?: string | null;
     side?: string | null;
+    requestedLine?: number | null;
+    scope?: string | null;
+    looksLikeBettingQuestion?: boolean;
   };
   answer?: {
     summaryText?: string;
     warnings?: string[];
+    trustNotes?: string[];
   };
   rows: AskGooseRow[];
   empty?: boolean;
@@ -97,6 +105,7 @@ export default function AskGoosePage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const [question, setQuestion] = useState("");
+  const [submittedQuestion, setSubmittedQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AskGooseResponse | null>(null);
 
@@ -107,44 +116,40 @@ export default function AskGoosePage() {
     return EXAMPLE_QUESTIONS;
   }, [sportLeague]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (!["NHL", "NBA", "MLB", "NFL"].includes(sportLeague)) {
-        setResult(null);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          league: sportLeague,
-          limit: "25",
-          q: question.trim(),
-        });
-        const response = await fetch(`/api/ask-goose?${params.toString()}`, { cache: "no-store" });
-        const payload = await response.json() as AskGooseResponse;
-        if (!cancelled) setResult(payload);
-      } catch {
-        if (!cancelled) {
-          setResult({
-            ok: false,
-            error: "Failed to load Ask Goose data.",
-            rows: [],
-            summary: { rows: 0, gradedRows: 0, wins: 0, losses: 0, pushes: 0, totalUnits: 0, avgRoi: 0 },
-          });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+  async function askGoose(nextQuestion = question) {
+    const cleaned = nextQuestion.trim();
+    if (!cleaned || !["NHL", "NBA", "MLB", "NFL"].includes(sportLeague)) {
+      setResult(null);
+      return;
     }
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [sportLeague, question]);
+    setSubmittedQuestion(cleaned);
+    setLoading(true);
+    try {
+      const response = await fetch("/api/ask-goose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ league: sportLeague, limit: 50, question: cleaned }),
+      });
+      const payload = await response.json() as AskGooseResponse;
+      setResult(payload);
+    } catch {
+      setResult({
+        ok: false,
+        error: "Failed to load Ask Goose data.",
+        rows: [],
+        summary: { rows: 0, gradedRows: 0, wins: 0, losses: 0, pushes: 0, totalUnits: 0, avgRoi: 0 },
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function chooseExample(example: string) {
+    setQuestion(example);
+    void askGoose(example);
+  }
+
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -168,8 +173,14 @@ export default function AskGoosePage() {
             <textarea
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  void askGoose();
+                }
+              }}
               rows={4}
-              placeholder="Example: NHL P1 home favorites of -150 or shorter, what is the win rate and ROI?"
+              placeholder="Example: NHL full-game home underdogs moneyline record and normalized ROI"
               className="w-full resize-none bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-dark-border pt-3">
@@ -178,10 +189,11 @@ export default function AskGoosePage() {
               </p>
               <button
                 type="button"
-                onClick={() => setQuestion((current) => current.trim())}
-                className="tap-button rounded-2xl border border-accent-blue/30 bg-accent-blue/10 px-4 py-2 text-sm font-semibold text-accent-blue"
+                onClick={() => void askGoose()}
+                disabled={loading || !question.trim()}
+                className="tap-button rounded-2xl border border-accent-blue/40 bg-accent-blue px-5 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Refresh persisted data
+                {loading ? "Asking Goose…" : "Ask Goose"}
               </button>
             </div>
           </div>
@@ -195,7 +207,7 @@ export default function AskGoosePage() {
                 <button
                   key={example}
                   type="button"
-                  onClick={() => setQuestion(example)}
+                  onClick={() => chooseExample(example)}
                   className="tap-button block w-full rounded-2xl border border-dark-border bg-dark-bg/70 px-4 py-3 text-left text-sm text-gray-200 transition-colors hover:border-gray-600"
                 >
                   {example}
@@ -236,8 +248,9 @@ export default function AskGoosePage() {
             <div>
               <p className="section-heading">Persisted query layer</p>
               <p className="mt-1 text-sm text-gray-400">
-                Live read from <span className="font-semibold text-gray-200">ask_goose_query_layer_v1</span>. Honest output only.
+                Live read from <span className="font-semibold text-gray-200">ask_goose_query_layer_v1</span>. De-duped, normalized, and refusal-safe.
               </p>
+              {submittedQuestion ? <p className="mt-2 text-xs text-gray-500">Question: “{submittedQuestion}”</p> : null}
             </div>
             {loading && <p className="text-xs text-gray-500">Loading…</p>}
           </div>
@@ -245,8 +258,15 @@ export default function AskGoosePage() {
           {result?.ok && !result.empty && (
             <>
               <div className="mt-4 rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-accent-blue">Internal Ask Goose answer</p>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-accent-blue">Ask Goose answer</p>
                 <p className="mt-2 text-base font-semibold text-white">{result.answer?.summaryText || result.message}</p>
+                {result.answer?.trustNotes?.length ? (
+                  <ul className="mt-3 space-y-1 text-xs text-gray-300">
+                    {result.answer.trustNotes.map((note) => (
+                      <li key={note}>✓ {note}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 {result.answer?.warnings?.length ? (
                   <ul className="mt-3 space-y-1 text-sm text-yellow-200">
                     {result.answer.warnings.map((warning) => (
@@ -258,8 +278,8 @@ export default function AskGoosePage() {
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Rows</p>
-                  <p className="mt-1 text-lg font-semibold text-white">{result.summary.rows}</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Decisions</p>
+                  <p className="mt-1 text-lg font-semibold text-white">{result.summary.dedupedRows ?? result.summary.rows}</p>
                 </div>
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
                   <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Graded</p>
@@ -270,16 +290,16 @@ export default function AskGoosePage() {
                   <p className="mt-1 text-lg font-semibold text-white">{result.summary.wins}-{result.summary.losses}-{result.summary.pushes}</p>
                 </div>
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Units</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Norm Units</p>
                   <p className="mt-1 text-lg font-semibold text-white">{formatNumber(result.summary.totalUnits, 2)}</p>
                 </div>
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Avg ROI</p>
-                  <p className="mt-1 text-lg font-semibold text-white">{formatNumber(result.summary.avgRoi, 2)}%</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Norm ROI</p>
+                  <p className="mt-1 text-lg font-semibold text-white">{formatNumber(result.summary.avgRoi, 1)}%</p>
                 </div>
                 <div className="rounded-2xl border border-dark-border bg-dark-bg/60 p-3">
-                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">League</p>
-                  <p className="mt-1 text-lg font-semibold text-white">{result.filters?.league || sportLeague}</p>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Raw Rows</p>
+                  <p className="mt-1 text-lg font-semibold text-white">{result.summary.rawRows ?? result.summary.rows}</p>
                 </div>
               </div>
 
@@ -312,8 +332,8 @@ export default function AskGoosePage() {
             <EmptyStateCard
               className="mx-0 mt-4"
               eyebrow="Persisted layer status"
-              title={result.ok ? "No proven rows for this league slice yet" : "Ask Goose query layer read failed"}
-              body={result.error || result.message || "The persisted Ask Goose layer is still empty for this filter, so the app is correctly refusing to fake an answer."}
+              title={result.ok ? "Goose refused or found no proven rows" : "Ask Goose query layer read failed"}
+              body={result.error || result.answer?.summaryText || result.message || "The persisted Ask Goose layer is still empty for this filter, so the app is correctly refusing to fake an answer."}
             />
           )}
 
@@ -321,8 +341,8 @@ export default function AskGoosePage() {
             <EmptyStateCard
               className="mx-0 mt-4"
               eyebrow="League support"
-              title="Pick NHL, NBA, MLB, or NFL to query the persisted layer"
-              body="Ask Goose is currently wired only to the leagues already mapped into the persisted query table path."
+              title="Ask a betting research question to start"
+              body="Ask Goose now waits for an explicit question, then answers only from mapped NHL, NBA, MLB, or NFL database rows."
             />
           )}
         </div>
