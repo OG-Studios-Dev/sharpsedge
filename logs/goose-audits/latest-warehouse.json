@@ -1,19 +1,20 @@
 {
-  "generated_at": "2026-04-22T18:12:48.879Z",
+  "generated_at": "2026-04-25T18:04:31.352Z",
   "owner": "Magoo",
   "goal": "daily warehouse completeness proof for future learning models",
   "audit": {
-    "checkedAt": "2026-04-22T18:12:47.757Z",
-    "ok": false,
-    "summary": "Goose2 warehouse verification failed. snapshots=0, candidates=0, missing_core_events=0, settleable_missing_terminal=0, stale_pending=0.",
+    "checkedAt": "2026-04-25T18:04:30.856Z",
+    "ok": true,
+    "summary": "Goose2 warehouse verification passed. snapshots=2, candidates=1000, pregame_events=8, settleable_missing_terminal=0, stale_pending=0, future_market_warnings=2.",
     "counts": {
-      "snapshotsLast24h": 0,
-      "candidatesLast24h": 0,
-      "resultsLast36h": 5447,
+      "snapshotsLast24h": 2,
+      "candidatesLast24h": 1000,
+      "resultsLast36h": 284226,
       "stalePendingQualifiers": 0,
-      "auditedPregameEvents": 0,
+      "auditedPregameEvents": 8,
       "eventsMissingCoreMarkets": 0,
-      "playerPropRowsLast24h": 0,
+      "futureEventsMissingCoreMarkets": 2,
+      "playerPropRowsLast24h": 522,
       "auditedSettleableCandidates": 0,
       "settleableCandidatesMissingTerminalResult": 0
     },
@@ -23,12 +24,59 @@
         "spread",
         "total"
       ],
-      "auditedEventCount": 0,
-      "coreMarketCoverageBySport": {},
-      "supplementalMarketCounts": {},
-      "playerPropRowsLast24h": 0,
-      "playerPropSportsCovered": [],
-      "eventsMissingCoreMarkets": []
+      "auditedEventCount": 8,
+      "coreMarketCoverageBySport": {
+        "NHL": {
+          "player_prop_points": 162,
+          "moneyline": 156,
+          "spread": 140,
+          "total": 140,
+          "player_prop_shots_on_goal": 228,
+          "player_prop_assists": 132
+        }
+      },
+      "supplementalMarketCounts": {
+        "player_prop_points": 162,
+        "player_prop_shots_on_goal": 228,
+        "player_prop_assists": 132
+      },
+      "playerPropRowsLast24h": 522,
+      "playerPropSportsCovered": [
+        "NHL"
+      ],
+      "eventsMissingCoreMarkets": [],
+      "futureEventsMissingCoreMarkets": [
+        {
+          "eventId": "evt:nhl:nhl:2025030124",
+          "sport": "NHL",
+          "eventDate": "2026-04-26",
+          "commenceTime": null,
+          "commenceMs": null,
+          "matchup": "evt:nhl:nhl:2025030124",
+          "missingMarkets": [
+            "spread",
+            "total"
+          ],
+          "observedMarkets": [
+            "moneyline"
+          ]
+        },
+        {
+          "eventId": "evt:nhl:nhl:2025030174",
+          "sport": "NHL",
+          "eventDate": "2026-04-27",
+          "commenceTime": null,
+          "commenceMs": null,
+          "matchup": "evt:nhl:nhl:2025030174",
+          "missingMarkets": [
+            "spread",
+            "total"
+          ],
+          "observedMarkets": [
+            "moneyline"
+          ]
+        }
+      ]
     },
     "settlement": {
       "auditedCandidateCount": 0,
@@ -39,14 +87,46 @@
       "eventsWithMissingTerminalResults": []
     },
     "notes": [
-      "No snapshot rows landed in the last 24h.",
-      "No candidate rows landed in the last 24h.",
-      "No player-prop candidate rows landed in the last 24h."
+      "2 future pregame event(s) are missing one or more core team markets; treated as upstream market-availability warnings until books post those markets."
     ]
   },
   "proof": {
     "missing_core_event_samples": [],
+    "future_missing_core_event_samples": [
+      {
+        "eventId": "evt:nhl:nhl:2025030124",
+        "sport": "NHL",
+        "eventDate": "2026-04-26",
+        "commenceTime": null,
+        "commenceMs": null,
+        "matchup": "evt:nhl:nhl:2025030124",
+        "missingMarkets": [
+          "spread",
+          "total"
+        ],
+        "observedMarkets": [
+          "moneyline"
+        ]
+      },
+      {
+        "eventId": "evt:nhl:nhl:2025030174",
+        "sport": "NHL",
+        "eventDate": "2026-04-27",
+        "commenceTime": null,
+        "commenceMs": null,
+        "matchup": "evt:nhl:nhl:2025030174",
+        "missingMarkets": [
+          "spread",
+          "total"
+        ],
+        "observedMarkets": [
+          "moneyline"
+        ]
+      }
+    ],
     "missing_terminal_event_samples": [],
-    "player_prop_sports_covered": []
+    "player_prop_sports_covered": [
+      "NHL"
+    ]
   }
 }

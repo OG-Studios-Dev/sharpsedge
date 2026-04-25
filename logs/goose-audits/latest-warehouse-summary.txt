@@ -1,15 +1,16 @@
 Goose warehouse completeness audit
-Checked: 2026-04-22T18:12:47.757Z
-Status: FAIL
-Snapshots last 24h: 0
-Candidates last 24h: 0
-Player prop rows last 24h: 0
-Audited pregame events: 0
+Checked: 2026-04-25T18:04:30.856Z
+Status: PASS
+Snapshots last 24h: 2
+Candidates last 24h: 1000
+Player prop rows last 24h: 522
+Audited pregame events: 8
 Events missing core markets: 0
+Future events missing core markets (warning): 2
 Audited settleable candidates: 0
 Settleable candidates missing terminal result: 0
 Stale pending qualifiers: 0
-Core coverage by sport: {}
-Supplemental market leaders: []
+Core coverage by sport: {"NHL":{"player_prop_points":162,"moneyline":156,"spread":140,"total":140,"player_prop_shots_on_goal":228,"player_prop_assists":132}}
+Supplemental market leaders: [{"key":"player_prop_shots_on_goal","count":228},{"key":"player_prop_points","count":162},{"key":"player_prop_assists","count":132}]
 Missing terminal by sport: []
-Notes: No snapshot rows landed in the last 24h. | No candidate rows landed in the last 24h. | No player-prop candidate rows landed in the last 24h.
+Notes: 2 future pregame event(s) are missing one or more core team markets; treated as upstream market-availability warnings until books post those markets.

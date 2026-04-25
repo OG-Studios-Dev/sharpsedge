@@ -67,14 +67,27 @@ function normalizeStatus(value) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+function rowCommenceMs(row) {
+  const event = relationOne(row.goose_market_events);
+  const direct = event?.commence_time ?? null;
+  const parsed = direct ? Date.parse(direct) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 function isPregameAuditCandidate(row, nowMs, todayKey) {
   const event = relationOne(row.goose_market_events);
   const status = normalizeStatus(event?.status);
   if (['final', 'cancelled', 'postponed'].includes(status)) return false;
 
-  const commenceMs = event?.commence_time ? Date.parse(event.commence_time) : Number.NaN;
+  const commenceMs = rowCommenceMs(row);
   if (Number.isFinite(commenceMs)) return commenceMs >= nowMs - 6 * 60 * 60 * 1000;
   return String(row.event_date || '') >= todayKey;
+}
+
+function isFutureMarketAvailabilityWarning(event, nowMs) {
+  const commenceMs = event.commenceMs;
+  if (Number.isFinite(commenceMs)) return commenceMs > nowMs;
+  return String(event.eventDate || '') > new Date(nowMs).toISOString().slice(0, 10);
 }
 
 function isSettleableAuditCandidate(row, yesterdayKey) {
@@ -154,6 +167,7 @@ async function buildWarehouseAudit() {
       sport: row.sport,
       eventDate: row.event_date,
       commenceTime: null,
+      commenceMs: rowCommenceMs(row),
       matchup: row.event_id,
       marketTypes: new Set(),
     };
@@ -165,11 +179,14 @@ async function buildWarehouseAudit() {
     .map(([eventId, event]) => {
       const observedMarkets = Array.from(event.marketTypes).sort((a, b) => a.localeCompare(b));
       const missingMarkets = CORE_TEAM_MARKETS.filter((market) => !event.marketTypes.has(market));
-      return { eventId, sport: event.sport, eventDate: event.eventDate, commenceTime: event.commenceTime, matchup: event.matchup, missingMarkets, observedMarkets };
+      return { eventId, sport: event.sport, eventDate: event.eventDate, commenceTime: event.commenceTime, commenceMs: event.commenceMs, matchup: event.matchup, missingMarkets, observedMarkets };
     })
     .filter((event) => event.missingMarkets.length > 0)
     .sort((a, b) => a.eventDate.localeCompare(b.eventDate))
     .slice(0, 25);
+
+  const hardMissingCoreMarketEvents = eventsMissingCoreMarkets.filter((event) => !isFutureMarketAvailabilityWarning(event, nowMs));
+  const futureMissingCoreMarketEvents = eventsMissingCoreMarkets.filter((event) => isFutureMarketAvailabilityWarning(event, nowMs));
 
   const coreMarketCoverageBySport = pregameRows.reduce((acc, row) => {
     const sport = String(row.sport || 'UNKNOWN').toUpperCase();
@@ -218,7 +235,8 @@ async function buildWarehouseAudit() {
   if (snapshotCount === 0) notes.push('No snapshot rows landed in the last 24h.');
   if (recentCandidateRows.length === 0) notes.push('No candidate rows landed in the last 24h.');
   if (playerPropRows.length === 0) notes.push('No player-prop candidate rows landed in the last 24h.');
-  if (eventsMissingCoreMarkets.length > 0) notes.push(`${eventsMissingCoreMarkets.length} recent pregame event(s) are missing one or more core team markets.`);
+  if (hardMissingCoreMarketEvents.length > 0) notes.push(`${hardMissingCoreMarketEvents.length} recent/current pregame event(s) are missing one or more core team markets.`);
+  if (futureMissingCoreMarketEvents.length > 0) notes.push(`${futureMissingCoreMarketEvents.length} future pregame event(s) are missing one or more core team markets; treated as upstream market-availability warnings until books post those markets.`);
   if (missingTerminalRows.length > 0) notes.push(`${missingTerminalRows.length} settleable candidate row(s) still lack a terminal result.`);
   if (stalePendingCount > 0) notes.push(`${stalePendingCount} system qualifier row(s) are still pending after 24h.`);
   if (!notes.length) notes.push('Daily warehouse rails look healthy: recent snapshots landed, candidate coverage is present, and settleable candidates have terminal results.');
@@ -226,22 +244,23 @@ async function buildWarehouseAudit() {
   const ok = snapshotCount > 0
     && recentCandidateRows.length > 0
     && stalePendingCount === 0
-    && eventsMissingCoreMarkets.length === 0
+    && hardMissingCoreMarketEvents.length === 0
     && missingTerminalRows.length === 0;
 
   return {
     checkedAt,
     ok,
     summary: ok
-      ? `Goose2 warehouse verification passed. snapshots=${snapshotCount}, candidates=${recentCandidateRows.length}, pregame_events=${pregameEvents.size}, settleable_missing_terminal=0, stale_pending=${stalePendingCount}.`
-      : `Goose2 warehouse verification failed. snapshots=${snapshotCount}, candidates=${recentCandidateRows.length}, missing_core_events=${eventsMissingCoreMarkets.length}, settleable_missing_terminal=${missingTerminalRows.length}, stale_pending=${stalePendingCount}.`,
+      ? `Goose2 warehouse verification passed. snapshots=${snapshotCount}, candidates=${recentCandidateRows.length}, pregame_events=${pregameEvents.size}, settleable_missing_terminal=0, stale_pending=${stalePendingCount}, future_market_warnings=${futureMissingCoreMarketEvents.length}.`
+      : `Goose2 warehouse verification failed. snapshots=${snapshotCount}, candidates=${recentCandidateRows.length}, hard_missing_core_events=${hardMissingCoreMarketEvents.length}, settleable_missing_terminal=${missingTerminalRows.length}, stale_pending=${stalePendingCount}.`,
     counts: {
       snapshotsLast24h: snapshotCount,
       candidatesLast24h: recentCandidateRows.length,
       resultsLast36h: recentResultCount,
       stalePendingQualifiers: stalePendingCount,
       auditedPregameEvents: pregameEvents.size,
-      eventsMissingCoreMarkets: eventsMissingCoreMarkets.length,
+      eventsMissingCoreMarkets: hardMissingCoreMarketEvents.length,
+      futureEventsMissingCoreMarkets: futureMissingCoreMarketEvents.length,
       playerPropRowsLast24h: playerPropRows.length,
       auditedSettleableCandidates: settleableRows.length,
       settleableCandidatesMissingTerminalResult: missingTerminalRows.length,
@@ -253,7 +272,8 @@ async function buildWarehouseAudit() {
       supplementalMarketCounts,
       playerPropRowsLast24h: playerPropRows.length,
       playerPropSportsCovered,
-      eventsMissingCoreMarkets,
+      eventsMissingCoreMarkets: hardMissingCoreMarketEvents,
+      futureEventsMissingCoreMarkets: futureMissingCoreMarketEvents,
     },
     settlement: {
       auditedCandidateCount: settleableRows.length,
@@ -284,6 +304,7 @@ function linesForSummary(audit) {
     `Player prop rows last 24h: ${audit.counts.playerPropRowsLast24h}`,
     `Audited pregame events: ${audit.counts.auditedPregameEvents}`,
     `Events missing core markets: ${audit.counts.eventsMissingCoreMarkets}`,
+    `Future events missing core markets (warning): ${audit.counts.futureEventsMissingCoreMarkets}`,
     `Audited settleable candidates: ${audit.counts.auditedSettleableCandidates}`,
     `Settleable candidates missing terminal result: ${audit.counts.settleableCandidatesMissingTerminalResult}`,
     `Stale pending qualifiers: ${audit.counts.stalePendingQualifiers}`,
@@ -313,6 +334,7 @@ async function main() {
     audit,
     proof: {
       missing_core_event_samples: audit.capture.eventsMissingCoreMarkets.slice(0, 10),
+      future_missing_core_event_samples: audit.capture.futureEventsMissingCoreMarkets.slice(0, 10),
       missing_terminal_event_samples: audit.settlement.eventsWithMissingTerminalResults.slice(0, 10),
       player_prop_sports_covered: audit.capture.playerPropSportsCovered,
     },
