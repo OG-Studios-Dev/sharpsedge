@@ -1,0 +1,1584 @@
+{
+  "generated_at": "2026-04-25T00:29:35.390Z",
+  "source": "data/systems-tracking.json",
+  "total_systems": 24,
+  "systems": [
+    {
+      "id": "nba-goose-system",
+      "slug": "nba-goose-system",
+      "name": "Mattys 1Q Chase NBA",
+      "league": "NBA",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Road favorite quarter ATS chase: 1Q first, then 3Q only if the opener loses.",
+      "definition": "Track every NBA game where the road team closes as a favorite of -5.5 or more. Bet the road favorite 1Q ATS. If that leg wins, stop. If it loses, double the original stake and bet the road favorite 3Q ATS.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "Road team must close as the favorite.",
+        "Full-game spread must be -5.5 or shorter for the road favorite (for example -6.0, -7.5, -10.0).",
+        "Sequence is only trackable once 1Q and 3Q ATS lines are available."
+      ],
+      "progressionLogic": [
+        {
+          "step": "Bet 1",
+          "label": "Road favorite 1Q ATS",
+          "stake": "1x base unit",
+          "stopIf": "Wins or pushes"
+        },
+        {
+          "step": "Bet 2",
+          "label": "Road favorite 3Q ATS",
+          "stake": "2x base unit",
+          "trigger": "Only after Bet 1 loses",
+          "stopIf": "Always stop after this leg"
+        }
+      ],
+      "dataRequirements": [
+        {
+          "label": "Closing full-game spread",
+          "status": "ready",
+          "detail": "Needed to confirm the -5.5 road favorite qualifier."
+        },
+        {
+          "label": "1Q ATS line",
+          "status": "ready",
+          "detail": "Stored from The Odds API quarter markets for qualifying NBA road favorites."
+        },
+        {
+          "label": "3Q ATS line",
+          "status": "ready",
+          "detail": "Stored from The Odds API third-quarter spread markets for the chase leg."
+        },
+        {
+          "label": "Quarter settlement outcomes",
+          "status": "ready",
+          "detail": "Settled from ESPN quarter linescores for 1 stored sequence. 5 final rows are explicitly ungradeable because a required quarter line or score is still missing."
+        }
+      ],
+      "automationStatusLabel": "Live pick refresh + partial settlement",
+      "automationStatusDetail": "Qualifiers are generated from live NBA odds aggregation and settled only when real quarter lines and ESPN linescores are present.",
+      "recordCount": 10,
+      "recordKinds": [
+        "progression"
+      ],
+      "marketTypes": [],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "big-cats-nba-1q-under",
+      "slug": "big-cats-nba-1q-under",
+      "name": "Big Cats NBA 1Q Under",
+      "league": "NBA",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "NBA first-quarter under system built from historical total-band validation. Fires when full-game total sits in the 210 to 225 range.",
+      "definition": "Flag NBA games with a posted full-game total between 210 and 225, then target the first-quarter under using a provisional threshold of 28% of the full-game total until exact sportsbook 1Q totals are captured live.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "A posted full-game total is required.",
+        "Full-game total must fall between 210 and 225 inclusive.",
+        "Qualifier is a first-quarter under candidate, with provisional target line estimated at 28% of the full-game total."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NBA full-game total",
+          "status": "ready",
+          "detail": "Pulled from aggregated NBA odds board."
+        },
+        {
+          "label": "Exact sportsbook 1Q total",
+          "status": "pending",
+          "detail": "Current rail uses a 28% proxy until direct 1Q total capture is added."
+        }
+      ],
+      "automationStatusLabel": "Live pick rail",
+      "automationStatusDetail": "Refresh scans the NBA odds board daily and stores candidates when the posted full-game total lands in the validated 210 to 225 band.",
+      "recordCount": 4,
+      "recordKinds": [
+        "alert"
+      ],
+      "marketTypes": [
+        "first-quarter-total"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "beefs-bounce-back",
+      "slug": "beefs-bounce-back-big-ats-loss",
+      "name": "The Centurion Comeback",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_verification",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "NBA revenge-cover angle for teams coming off a brutal ATS miss, cataloged honestly as blocked until prior-game line history is wired in.",
+      "definition": "Flag NBA teams that were blown out relative to the market in their previous game, then test whether the next spot creates an actionable bounce-back cover setup.",
+      "qualifierRules": [
+        "Previous game must qualify as a major ATS miss, not just a straight-up loss.",
+        "The follow-up game needs spread and opponent-strength filters so this is not an auto-bet on any embarrassed team.",
+        "Back-to-back and travel context likely matter and should be part of the final screen."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Previous-game closing spread archive",
+          "status": "pending",
+          "detail": "Required to quantify what counts as a big ATS loss."
+        },
+        {
+          "label": "Previous-game ATS result history",
+          "status": "pending",
+          "detail": "Need game-by-game close versus final margin inputs."
+        },
+        {
+          "label": "Rest/travel context",
+          "status": "pending",
+          "detail": "Back-to-back and travel filters are likely necessary to avoid fake edges."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Needs prior-game closing spread archive, ATS result history, and rest/travel context before honest screening.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "the-blowout",
+      "slug": "the-blowout",
+      "name": "Beefs Blowout",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NBA blowout-reaction system is live: when the trigger fires, it stores the qualified team moneyline as a real pick.",
+      "definition": "Track NBA teams whose most recent game within the last 3 days was a blowout win or loss of 18+ points, then log the next matchup when the spread stays within a manageable band and the opponent clears a basic competence filter.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "Qualified team's most recent completed game must have ended within the last 3 days.",
+        "That most recent game margin must be at least 18 points either for or against the qualified team.",
+        "Next-game spread from the qualified team perspective must have absolute value <= 6.5.",
+        "Opponent season win percentage must be >= .450.",
+        "System pick: back the qualified team moneyline when this trigger fires. If no qualified side passes, store nothing."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Recent NBA results",
+          "status": "ready",
+          "detail": "Used to confirm the most recent game margin and recency window."
+        },
+        {
+          "label": "Current full-game spread",
+          "status": "ready",
+          "detail": "Used to confirm the next-game spread stays within +/-6.5 from the qualified team perspective."
+        },
+        {
+          "label": "Opponent season win percentage",
+          "status": "ready",
+          "detail": "Available as a guardrail for the live rulebook."
+        },
+        {
+          "label": "Bet-direction rulebook",
+          "status": "ready",
+          "detail": "V1 rule is live: back the qualified team moneyline when the blowout trigger fires."
+        }
+      ],
+      "automationStatusLabel": "Off pending rulebook",
+      "automationStatusDetail": "3 internal qualifier rows exist, but this system stays off until bet direction and grading logic are defined honestly.",
+      "recordCount": 3,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "hot-teams-matchup",
+      "slug": "hot-teams-matchup",
+      "name": "Hot Teams Matchup",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NBA hot-teams collision system is live: when the trigger fires, it stores a real full-game over pick.",
+      "definition": "Track NBA matchups where both teams have won at least 4 of their last 5 completed games, both own season win percentages of .550 or better, the spread stays within +/-5.5, and the total is posted.",
+      "qualifierRules": [
+        "League must be NBA.",
+        "Both teams must have won at least 4 of their last 5 completed games.",
+        "Both teams must have season win percentages of .550 or better.",
+        "Current full-game spread must be within +/-5.5.",
+        "A game total must be available.",
+        "System pick: play the full-game over when this matchup trigger fires. If the trigger does not fire, store nothing."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Recent last-5 results",
+          "status": "ready",
+          "detail": "Used to confirm both teams are at least 4-1 in their last five completed games."
+        },
+        {
+          "label": "Season win percentages",
+          "status": "ready",
+          "detail": "Used to confirm both teams clear the .550 quality threshold."
+        },
+        {
+          "label": "Current spread and total",
+          "status": "ready",
+          "detail": "Used to confirm the spread band and that a posted total exists."
+        },
+        {
+          "label": "Bet-direction rulebook",
+          "status": "ready",
+          "detail": "V1 rule is live: play the full-game over when the matchup trigger fires and a posted total exists."
+        }
+      ],
+      "automationStatusLabel": "Off",
+      "automationStatusDetail": "System is off until a real bet-direction rule and grading path are defined.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "fat-tonys-fade",
+      "slug": "fat-tonys-road-chalk",
+      "name": "Fat Tony's Road Chalk",
+      "league": "NBA",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Contrarian NBA fade: public piles one-sided on spread, line inflated in that direction, fade the inflated side. Both rails live — Action Network splits + Supabase-backed line-move history.",
+      "definition": "Fade NBA spread sides where public bets >= 60% on one side AND the line has moved in the same direction (market inflated by public action, not sharp counter). Back the contrarian side only when both conditions are confirmed.",
+      "qualifierRules": [
+        "Spread bets% >= 60% on one side (primary source DK; FD fallback).",
+        "Line-move history required: spread line must have moved >= 0.5 points in the SAME direction as the public side (confirmation of public inflation, not sharp reversal).",
+        "Line-move source must have >= 2 Supabase snapshots for the game today (otherwise skip — no history = no qualifier).",
+        "Faded side's best spread odds must be between -135 and +135 (not a blowout line or massive dog).",
+        "If the trigger fires, it becomes a real stored system pick. If it does not fire, store nothing."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Public betting handle splits",
+          "status": "ready",
+          "detail": "Action Network DK (primary) + FD (comparison/fallback). Ingested via betting-splits.ts. Data confirmed live 2026-03-29."
+        },
+        {
+          "label": "Line-move history",
+          "status": "ready",
+          "detail": "market-snapshot-history.ts now reads Supabase market_snapshot_prices as primary fallback when filesystem has < 2 snapshots. Wired 2026-03-29."
+        }
+      ],
+      "automationStatusLabel": "Both rails live — pick builder active",
+      "automationStatusDetail": "Public betting splits (Action Network DK+FD) and line-move history (Supabase market_snapshot_prices) both connected. refreshFuchsFadeSystemData fires daily, stores system pick rows when spread public >= 60% + line moved same direction >= 0.5pt.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "coach-no-rest",
+      "slug": "coach-no-rest",
+      "name": "Coach, No Rest?",
+      "league": "NHL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "NHL rest-disparity system. Backs the better-rested side when one team plays on zero rest (back-to-back) and the opponent has 2+ days off. Daily-trackable from NHL schedule data.",
+      "definition": "Flag NHL games where one team is playing on the second night of a back-to-back (0 rest days) while the opponent has had at least 2 days of rest. Back the rested side with price discipline — market underprices rest edges in the NHL because scheduling fatigue accumulates on rosters, depth lines, and goalies.",
+      "qualifierRules": [
+        "The disadvantaged side must be on a back-to-back: 0 days rest (derived.rest.isBackToBack === true).",
+        "The advantaged side must have at least 2 days of rest (derived.rest.restDays >= 2).",
+        "The advantaged (rested) side is the pick. Back the rested team.",
+        "Goalie context is required for the B2B team: flag when B2B team is playing a backup or starter with compromised status.",
+        "Price discipline: do not store rows where the rested side's best moneyline is below -175 (pricing already absorbed) or above +170 (too large an underdog to flag as a pure rest angle).",
+        "Fatigue gap must exceed 15 points (derived.fatigueScore of B2B side minus rested side >= 15) to avoid noise from light-schedule games."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NHL schedule / rest rail",
+          "status": "ready",
+          "detail": "NHL API schedule provides game dates. derived.rest.restDays and derived.rest.isBackToBack computed per team per game via nhl-context."
+        },
+        {
+          "label": "Fatigue score rail",
+          "status": "ready",
+          "detail": "derived.fatigueScore computed from rest, travel, and schedule density per team via nhl-context."
+        },
+        {
+          "label": "Goalie context rail",
+          "status": "ready",
+          "detail": "Starter status (confirmed/probable/backup) sourced from NHL API via nhl-context."
+        },
+        {
+          "label": "Aggregated NHL moneylines",
+          "status": "ready",
+          "detail": "Best-available NHL moneylines per team from aggregated odds API."
+        },
+        {
+          "label": "Historical outcome validation",
+          "status": "pending",
+          "detail": "No settled record history yet. Need outcome data before any win-rate claim can be made."
+        }
+      ],
+      "automationStatusLabel": "Awaiting live pick",
+      "automationStatusDetail": "Daily rest-disparity screen: B2B team (0 rest) vs opponent with >=2 days rest, fatigue gap >=15, price -175 to +170. Audit 0 games • no odds 0 • no rest disparity 0 • fatigue gap 0 • no price 0 • price band 0 • qualified 0.",
+      "recordCount": 1,
+      "recordKinds": [
+        "qualifier"
+      ],
+      "marketTypes": [
+        "moneyline"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "swaggy-stretch-drive",
+      "slug": "swaggy-stretch-drive",
+      "name": "Swaggy's Stretch Drive",
+      "league": "NHL",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "awaiting_data",
+      "trackabilityBucket": "trackable_now",
+      "summary": "Late-season NHL live pick rail now uses explicit urgency, goalie, fatigue, MoneyPuck, and price gates. Conservative rules, not a claimed mature edge.",
+      "definition": "Look for late-season NHL teams with real standings urgency, acceptable goalie/fatigue posture, and enough underlying profile support that a moderate moneyline can still be justified without blindly paying for a 'must-win' story.",
+      "qualifierRules": [
+        "Urgency is mandatory: target side must carry derived playoff-pressure tier high, while the opponent cannot also rate high urgency.",
+        "Underlying support is mandatory: target side needs sourced MoneyPuck xGoalsPercentage of at least 0.515 and at least a 0.02 edge over the opponent.",
+        "Goalie sanity check is mandatory: target starter must be confirmed or probable and not flagged as a backup; opponent missing a starter or using a backup counts as support, but urgency alone is never enough.",
+        "Fatigue must be reasonable: target side cannot sit in the extreme fatigue band and cannot trail the opponent by a major fatigue gap.",
+        "Price discipline is mandatory: only store rows when the best available moneyline for the qualifying side is between -145 and +115.",
+        "Stored rows are real system picks only. No synthetic backtest and no fabricated settled history."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Standings urgency rules",
+          "status": "ready",
+          "detail": "Swaggy now requires derived high urgency for the target side while excluding games where both teams rate as high urgency."
+        },
+        {
+          "label": "Goalie + fatigue context rail",
+          "status": "ready",
+          "detail": "Starter status plus derived rest/travel/fatigue context is used directly in the qualifier gate and stored with each row."
+        },
+        {
+          "label": "MoneyPuck team-strength rail",
+          "status": "ready",
+          "detail": "Sourced MoneyPuck xGoalsPercentage is required, along with a minimum absolute level and opponent edge threshold."
+        },
+        {
+          "label": "Official-team news rail",
+          "status": "partial",
+          "detail": "Official-team news remains visible/auditable, but it is supporting context only because quote/impact tagging is still shallow."
+        },
+        {
+          "label": "Pricing discipline",
+          "status": "ready",
+          "detail": "Best available moneyline must stay between -145 and +115, so obvious tax spots and long-shot narratives are filtered out."
+        }
+      ],
+      "automationStatusLabel": "Awaiting fresh qualifiers",
+      "automationStatusDetail": "Refresh scans live NHL context and aggregated moneylines, then stores only teams that pass strict urgency, xG, goalie, fatigue, and price gates. Audit 0 games / 0 team checks • no odds event 0 • urgency 0 • opp urgency 0 • xG missing 0 • xG floor 0 • xG edge 0 • goalie missing 0 • backup 0 • goalie status 0 • fatigue 0 • fatigue gap 0 • no price 0 • price band 0.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "veal-bangers-zig-playoff-zigzag",
+      "slug": "veal-bangers-zig-playoff-zigzag",
+      "name": "Yo Adrian! Playoff ZigZag",
+      "league": "NHL",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "Classic playoff zig-zag riff preserved exactly by name, but parked until the real rematch filters are defined beyond old-school folklore.",
+      "definition": "A playoff zig-zag style concept for NHL series where the market may overreact to the previous game’s margin, puck luck, or special-teams noise before the next matchup in the same series.",
+      "qualifierRules": [
+        "Applies only in playoff series rematches.",
+        "Needs a clear definition for what counts as an overreaction spot rather than assuming every loser auto-bounces.",
+        "Should include series state, venue, and price discipline before tracking."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Series-state inputs",
+          "status": "pending",
+          "detail": "Need game number, prior result, and home/road sequence context."
+        },
+        {
+          "label": "Overreaction rule set",
+          "status": "pending",
+          "detail": "Need exact line-move or prior-game trigger rules."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Needs playoff-series state, price thresholds, and matchup filters before honest tracking.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "bigcat-bonaza-puckluck",
+      "slug": "bigcat-bonaza-puckluck",
+      "name": "BigCat Bonaza PuckLuck",
+      "league": "NHL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NHL 5v5 process-vs-results screener. Targets teams whose xG process diverges meaningfully from actual results — underfinishing teams (high xG%, low goals/xGoals ratio) are regression candidates. Daily qualification wired via MoneyPuck xGF season data. Partial PDO proxy: goalsAgainst not in current snapshot, so save-side luck requires a data upgrade.",
+      "definition": "Screen NHL teams at 5v5 for meaningful divergence between their underlying process (xGoalsPercentage from MoneyPuck) and their actual results (goalsFor vs xGoalsFor finishing ratio). Teams generating strong expected-goal share but finishing below their xG rate are regression candidates — markets can overprice recent losing streaks without adjusting for unsustainable variance. Buy the process, not the scoreboard.",
+      "qualifierRules": [
+        "5v5 focus via MoneyPuck xGoalsPercentage (season-level, all-situations proxy — not pure 5v5 split; blocker: MoneyPuck mirror does not expose strength-state splits).",
+        "Process gate: team's xGoalsPercentage must be >= 0.505 (generating at least 50.5% of xG in games played). Minimum 25 games played in standings to avoid small-sample noise.",
+        "Finishing luck gate (offense side): team's goalsFor / xGoalsFor ratio must be <= 0.96, meaning they are scoring at least 4% fewer goals than their expected-goal output predicts. This is the underfinishing / regression-up signal.",
+        "Divergence framing: the team is a candidate to regress toward its xG process, not a guaranteed win. Markets may be undervaluing the team based on recent poor results that are partially variance-driven.",
+        "Partial PDO proxy — offense side only: goalsAgainst is not available in the current MoneyPuck snapshot. Full PDO (goalsFor/xGoalsFor + goalsAgainst/xGoalsAgainst) requires a data upgrade. Current qualification captures only the finishing-luck (offense) side of variance.",
+        "Daily game filter: only surface a team as a BigCat qualifier on days when they have a scheduled NHL game. No all-season static lists.",
+        "Price discipline: best moneyline for the qualifying team must be between -170 and +250 to exclude obvious chalk and long-shot noise."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "xGoalsPercentage (season)",
+          "status": "ready",
+          "detail": "MoneyPuck xGoalsPercentage live for all 32 teams via bundled snapshot + live mirror fallback."
+        },
+        {
+          "label": "xGoalsFor / goalsFor (finishing luck, offense)",
+          "status": "ready",
+          "detail": "xGoalsFor and goalsFor both in snapshot. goalsFor/xGoalsFor ratio computable to measure underfinishing."
+        },
+        {
+          "label": "goalsAgainst / xGoalsAgainst (finishing luck, defense/goalie)",
+          "status": "pending",
+          "detail": "goalsAgainst not in current MoneyPuck snapshot. xGoalsAgainst is available but actual goalsAgainst is missing. Full PDO blocked until feed is upgraded."
+        },
+        {
+          "label": "5v5 strength-state split",
+          "status": "pending",
+          "detail": "MoneyPuck GitHub mirror CSV does not expose 5v5-only xG. Current data is all-situations. Upgrade requires a different data source (e.g., Natural Stat Trick)."
+        },
+        {
+          "label": "NHL standings (sample gate)",
+          "status": "ready",
+          "detail": "NHL standings provide gamesPlayed for minimum-sample enforcement (25+ games required)."
+        },
+        {
+          "label": "Aggregated NHL moneylines",
+          "status": "ready",
+          "detail": "Best-available NHL moneylines per team from aggregated odds API for price discipline gate."
+        },
+        {
+          "label": "Historical outcome validation",
+          "status": "pending",
+          "detail": "No settled record history yet. Need outcomes before any win-rate claim."
+        }
+      ],
+      "automationStatusLabel": "Awaiting qualifiers",
+      "automationStatusDetail": "Daily finishing-luck screen: xGoalsPercentage >= 0.505, goalsFor/xGoalsFor <= 0.96, >=25 GP, price -170 to +250. Partial PDO — goalsAgainst missing from MoneyPuck snapshot. Audit 0 games / 0 checks • no odds 0 • missing xG 0 • process gate 0 • sample gate 0 • finishing luck 0 • no price 0 • price band 0 • qualified 0.",
+      "recordCount": 7,
+      "recordKinds": [
+        "qualifier"
+      ],
+      "marketTypes": [
+        "moneyline"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "tonys-hot-bats",
+      "slug": "tonys-hot-bats",
+      "name": "Tony's Tight Bats",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "MLB tight-bats concept is OFF until recent-hitter context becomes a real directional picks rule with validation.",
+      "definition": "A first-pass hitting-form concept designed to detect offenses whose confirmed top-of-order bats have shown real recent production and are playing in a friendlier same-day run environment than the baseline market may fully reflect.",
+      "qualifierRules": [
+        "Use official MLB live-feed lineup status only; teams without an official batting order do not qualify.",
+        "Recent-offense trigger is based on the first four confirmed hitters only, using MLB player game logs from the last 10 games.",
+        "A live row would need at least three of the top four hitters to have 5+ logged recent games and a lineup-average of at least 1.00 hit/game, 1.60 total bases/game, and 0.55 runs+RBI/game.",
+        "Run environment must help rather than fight the offense: hitter-friendly park, warm weather, or a taxed opposing bullpen can support the row.",
+        "When the trigger fires, the system pick is the qualified team moneyline and must be logged, surfaced, and graded as a real system play.",
+        "Market context matters; totals and moneyline pricing are captured only when books are actually posting them, and the qualified side must keep an actual posted number."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Official lineup status",
+          "status": "ready",
+          "detail": "34 stored rows have an official batting order from the MLB live feed."
+        },
+        {
+          "label": "Top-of-order hitter game logs",
+          "status": "ready",
+          "detail": "7 stored rows include recent top-of-order hitter scoring built from MLB game logs."
+        },
+        {
+          "label": "Weather / park context",
+          "status": "ready",
+          "detail": "100 rows include weather context and 89 include seeded park-factor context."
+        },
+        {
+          "label": "Bullpen workload context",
+          "status": "ready",
+          "detail": "100 stored rows include last-three-day bullpen workload context."
+        },
+        {
+          "label": "Market availability context",
+          "status": "ready",
+          "detail": "100 stored rows carry posted moneyline/total/F5 context from available books."
+        },
+        {
+          "label": "Price discipline / validation layer",
+          "status": "partial",
+          "detail": "Context rows are live, but no qualified side has fired yet. When one does, it must persist and grade as a moneyline system pick."
+        }
+      ],
+      "automationStatusLabel": "Awaiting live pick",
+      "automationStatusDetail": "No live Tony's Tight Bats pick stored yet. This system now stays binary: real pick or nothing.",
+      "recordCount": 100,
+      "recordKinds": [
+        "alert"
+      ],
+      "marketTypes": [
+        "context-board",
+        "context-total-board"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "falcons-fight-pummeled-pitchers",
+      "slug": "falcons-fight-pummeled-pitchers",
+      "name": "Veal Banged Up Pitchers",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "MLB rebound-starter system. When it passes the gate, it becomes a real stored moneyline pick.",
+      "definition": "Flag upcoming MLB starters whose previous start within 10 days was objectively ugly, then surface the next game only when the listed ERA and current moneyline stay inside the first-pass screen.",
+      "qualifierRules": [
+        "Upcoming MLB game must list a probable starter.",
+        "That same starter must have a prior start within the last 10 days.",
+        "The prior start counts as 'pummeled' if earned runs >= 5, hits allowed >= 8, or innings pitched < 4.0.",
+        "Listed ERA must be 5.25 or lower when MLB provides an ERA; missing ERA stays unresolved instead of guessed.",
+        "Current moneyline for the starter's team must be between -140 and +125."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Probable pitchers feed",
+          "status": "ready",
+          "detail": "Probable starters were captured for 15 tracked picks."
+        },
+        {
+          "label": "Prior-start damage log",
+          "status": "ready",
+          "detail": "Prior pitching logs were linked for 15 qualifiers and stored with prior-start summaries."
+        },
+        {
+          "label": "Current moneyline",
+          "status": "ready",
+          "detail": "Current moneyline captured for 15 tracked picks."
+        },
+        {
+          "label": "Lineup status/context",
+          "status": "ready",
+          "detail": "Lineup context was attached to 15 tracked picks, while missing or unconfirmed lineups stay labeled explicitly."
+        },
+        {
+          "label": "Weather",
+          "status": "ready",
+          "detail": "Weather context was attached to 15 tracked picks; indoor/retractable cases stay contextual instead of assumed open-air."
+        },
+        {
+          "label": "Park factors",
+          "status": "ready",
+          "detail": "Seeded park-factor context was attached to 12 tracked picks."
+        },
+        {
+          "label": "Bullpen fatigue",
+          "status": "ready",
+          "detail": "Bullpen workload context was attached to 15 tracked picks."
+        },
+        {
+          "label": "F5 market availability",
+          "status": "ready",
+          "detail": "Explicit first-five market availability was checked for 15 tracked picks; no synthetic F5 pricing is inferred."
+        }
+      ],
+      "automationStatusLabel": "Live — buy-low starter qualifiers active",
+      "automationStatusDetail": "Falcons is live with 3 stored qualifiers. Audit 15 games (14 matched odds events) / 30 starter checks • no matched event 2 • no probable starter 0 • ERA filter 0 • no moneyline 0 • moneyline band 13 • no prior start 0 • prior start not pummeled 12.",
+      "recordCount": 15,
+      "recordKinds": [
+        "qualifier"
+      ],
+      "marketTypes": [
+        "moneyline"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "falcons-fight-big-upset-follow-ups",
+      "slug": "falcons-fight-big-upset-follow-ups",
+      "name": "Falcons Fight Big Upset Follow-Ups",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "MLB post-upset follow-up concept parked until the actual upset threshold and next-game action are specified.",
+      "definition": "Track teams after a loud underdog upset to see whether the next market overvalues momentum or underprices letdown.",
+      "qualifierRules": [
+        "Need a strict definition of what counts as a big upset using pregame moneyline.",
+        "Need to decide whether the angle fades the upset winner, backs the opponent, or changes by matchup context.",
+        "Pitching and bullpen carryover rules likely matter and are not finalized."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Upset threshold definition",
+          "status": "pending",
+          "detail": "Need exact moneyline bands for what qualifies as a major upset."
+        },
+        {
+          "label": "Next-game action rules",
+          "status": "pending",
+          "detail": "Need the real follow-up betting logic."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Need exact upset thresholds and next-game bet rules before honest tracking.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "robbies-ripper-fast-5",
+      "slug": "robbies-ripper-fast-5",
+      "name": "Robbie's Ripper Fast 5",
+      "league": "MLB",
+      "category": "historical",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "MLB first-five qualifier board targeting starter mismatches when F5 markets are posted. Alerts when a meaningful quality gap and live F5 price both exist. Grading requires inning-level linescore data.",
+      "definition": "Attack MLB first-five pricing before bullpen variance takes over by flagging games where one starter is meaningfully better than the other and an actual F5 market (side or total) has been posted by books. Qualifiers fire only when the starter mismatch is real and the F5 price exists. No synthetic lines are inferred.",
+      "qualifierRules": [
+        "Both probable pitchers must be listed by MLB before the game qualifies.",
+        "An F5 market (h2h_1st_5_innings or totals_1st_5_innings) must be explicitly posted by at least one book — no full-game-to-F5 inference.",
+        "Starter mismatch requires a qualityScore gap of 12 or more points (ERA+WHIP blend scale 30–80) between the two starters.",
+        "The qualifying side is the team with the better-quality starter.",
+        "Weather: if temperature is available and below 40°F, or wind speed above 22 mph in an exposed park, a context note is added but does not automatically disqualify.",
+        "Context-board rows are stored for every game with both probable pitchers even when the F5 market or mismatch gate does not fire, so the board reflects honest data coverage."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "F5 market availability",
+          "status": "ready",
+          "detail": "F5 markets posted for 13 games today. Rail checks h2h_1st_5_innings and totals_1st_5_innings keys from aggregated odds."
+        },
+        {
+          "label": "Probable pitchers + ERA/WHIP quality scoring",
+          "status": "ready",
+          "detail": "Both probable starters listed for 15 games. ERA+WHIP quality scores computed."
+        },
+        {
+          "label": "Starter-mismatch gate",
+          "status": "ready",
+          "detail": "Quality gap of 12+ points on the 30–80 scale is the trigger. No fabricated adjustments."
+        },
+        {
+          "label": "Weather / park / bullpen context",
+          "status": "ready",
+          "detail": "Open-Meteo weather, seeded park factors, and bullpen workload context attached from the MLB enrichment board."
+        },
+        {
+          "label": "F5 inning linescore for grading",
+          "status": "partial",
+          "detail": "MLB Stats API /game/{gamePk}/linescore grading is wired. Rows stay pending until 5 complete innings are confirmed or the game is final with available inning data."
+        }
+      ],
+      "automationStatusLabel": "Context board live — awaiting F5 market posts",
+      "automationStatusDetail": "Scanned 15 games • 0 alert games (0 system pick records) • 15 context-board • missing pitchers 0 • no F5 market 2 • below mismatch threshold 13.",
+      "recordCount": 100,
+      "recordKinds": [
+        "alert"
+      ],
+      "marketTypes": [
+        "context-board"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "gameId",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "warren-sharp-computer-totals-model",
+      "slug": "warren-sharp-computer-totals-model",
+      "name": "Dougy Magoo's AI Model",
+      "league": "NFL",
+      "category": "external",
+      "owner": "External source",
+      "status": "source_based",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "External-model totals concept blocked until an actual projections feed and line archive are attached.",
+      "definition": "A catalog entry for externally sourced NFL totals-model thinking. Included for attribution and idea coverage, not as a claimed native Goosalytics record.",
+      "qualifierRules": [
+        "Must remain labeled as external/source-based unless Goosalytics builds its own totals model.",
+        "Requires actual model projection numbers and timestamps, not article blurbs.",
+        "If later tracked, source-based results must remain separate from native systems."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "External totals projections",
+          "status": "pending",
+          "detail": "External model projections feed required."
+        },
+        {
+          "label": "Totals line archive",
+          "status": "pending",
+          "detail": "Need opening/closing totals history and timestamps."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "External model projections feed required, plus totals open/close archive for honest logging.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "fly-low-goose",
+      "slug": "fly-low-goose",
+      "name": "Joey on the LOW LOW",
+      "league": "NFL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "definition_only",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "Reserved NFL Goose-family slot parked until the actual qualifier logic exists on paper.",
+      "definition": "A placeholder for a future NFL Goose-family system, likely centered on low-event or under-the-radar game states once the real entry criteria are finalized.",
+      "qualifierRules": [
+        "Do not track until the true qualifier rules are written down.",
+        "Bet type, market timing, and any progression logic must be explicit before performance is published."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "True qualifier rules",
+          "status": "pending",
+          "detail": "Need the actual NFL Goose entry logic."
+        }
+      ],
+      "automationStatusLabel": "Parked / definition only",
+      "automationStatusDetail": "Precise rules still not defined enough to automate honestly.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "tonys-teaser-pleaser",
+      "slug": "tonys-teaser-pleaser",
+      "name": "Goosies Teaser Pleaser",
+      "league": "NFL",
+      "category": "external",
+      "owner": "External source",
+      "status": "source_based",
+      "trackabilityBucket": "blocked_missing_data",
+      "summary": "Source-based NFL teaser framework blocked until teaser prices, leg rules, and key-number screening are actually stored.",
+      "definition": "A catalog slot for classic teaser heuristics and Warren Sharp-style teaser screening ideas. Included for definition and sourcing, not as a claimed in-house record.",
+      "qualifierRules": [
+        "Must remain labeled as external/source-based unless Goosalytics creates its own explicit variant.",
+        "Key-number crossing rules need to be documented clearly.",
+        "If later tracked, teaser legs and pricing assumptions need their own separate ledger."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "Teaser price ledger",
+          "status": "pending",
+          "detail": "Need distinct teaser pricing and grading inputs."
+        },
+        {
+          "label": "Key-number rule capture",
+          "status": "pending",
+          "detail": "Need explicit teaser-entry logic crossing through 3, 7, and related numbers."
+        }
+      ],
+      "automationStatusLabel": "Blocked by missing data",
+      "automationStatusDetail": "Need teaser prices, leg-level settlement handling, and explicit key-number rule capture.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "nba-home-dog-majority-handle",
+      "slug": "nba-home-dog-majority-handle",
+      "name": "Home Dog with Majority Handle",
+      "league": "NBA",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NBA home underdog receiving majority (≥ 55%) of ML handle dollars. Public money contradicts the spread favorite — potential steam on the dog or narrative mis-pricing.",
+      "definition": "Flag NBA games where the home team is a moneyline underdog (homeML > 0) AND attracts ≥ 55% of ML handle dollars. The public money contradicts the odds. Either sharp money is pushing the home dog, or the away team is overpriced by narrative. Alert only — not a pick without further context.",
+      "qualifierRules": [
+        "Home team must be a moneyline underdog: homeML > 0 in American odds.",
+        "Home team must hold ≥ 60% of ML handle dollars (ml_home_money from Action Network). Tightened 2026-03-29 from 55% to reduce noise.",
+        "Splits data must be marked splitsAvailable = true (≥ 1 book returning handle data).",
+        "numBets threshold: minimum 200 bets tracked for the game before firing (low-volume games filtered)."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NBA public ML handle %",
+          "status": "ready",
+          "detail": "Live from Action Network scoreboard API (ml_home_money field). No key required. nba-handle.ts."
+        },
+        {
+          "label": "Home team moneyline",
+          "status": "ready",
+          "detail": "ml_home from Action Network odds row. Confirmed positive = underdog."
+        },
+        {
+          "label": "Bet volume filter",
+          "status": "ready",
+          "detail": "num_bets field from AN odds row. Filter: ≥ 200 bets."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "Action Network handle splits ingested via nba-handle.ts. qualifiesHomeUnderdogMajorityHandle() wired. Fires when home team is dog + ≥ 55% ML handle. Alert only.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "nba-home-super-majority-close-game",
+      "slug": "nba-home-super-majority-close-game",
+      "name": "Home Super-Majority Handle (Close Game)",
+      "league": "NBA",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NBA games where the home team attracts ≥ 65% of ML handle dollars AND the spread is within ±4 points. Super-majority public money on the home side in a genuinely competitive game.",
+      "definition": "Flag NBA games where: (1) the home team holds ≥ 65% of ML handle dollars (super-majority), AND (2) the game spread is ±4 points or tighter. A super-majority handle in a close game suggests either home-field public bias or legitimate sharp support on a tight matchup. Alert only.",
+      "qualifierRules": [
+        "Home team must hold ≥ 65% of ML handle dollars (ml_home_money from Action Network).",
+        "Spread must be ±4 or tighter: |homeSpread| ≤ 4 (homeSpread = -spreadAway).",
+        "Splits data must be marked splitsAvailable = true.",
+        "numBets threshold: minimum 200 bets tracked before firing.",
+        "Home team underdog status is NOT required (distinguishes from Home Dog system above)."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NBA public ML handle %",
+          "status": "ready",
+          "detail": "Live from Action Network scoreboard API (ml_home_money field). nba-handle.ts."
+        },
+        {
+          "label": "Game spread line",
+          "status": "ready",
+          "detail": "spread_away from Action Network odds row. Home spread = -spreadAway."
+        },
+        {
+          "label": "Bet volume filter",
+          "status": "ready",
+          "detail": "num_bets field. Filter: ≥ 200 bets."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "Action Network handle splits ingested via nba-handle.ts. qualifiesHomeSuperMajorityHandleCloseGame() wired. Fires when ≥ 65% ML handle + spread ≤ ±4.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "nhl-home-dog-majority-handle",
+      "slug": "nhl-home-dog-majority-handle",
+      "name": "NHL Home Dog — Majority Handle",
+      "league": "NHL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NHL home underdog receiving majority (≥ 60%) of ML handle dollars. Public money contradicts the road favorite — potential steam or narrative mis-pricing. Threshold tightened 2026-03-29 from 55%.",
+      "definition": "Flag NHL games where the home team is a moneyline underdog (homeML > 0 in American odds) AND attracts ≥ 60% of ML handle dollars. When public money flows to a home dog at this level, it either signals genuine sharp action or a market that has over-priced the road team. Alert only — not a directional pick without further context and historical validation.",
+      "qualifierRules": [
+        "Home team must be a moneyline underdog: bestHome.odds > 0 from aggregated NHL odds.",
+        "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 55% to reduce noise.",
+        "Splits data must be available: mlSplitsAvailable = true on the BettingSplitsSnapshot.",
+        "League must be NHL with a matching aggregated odds event for game-day price.",
+        "Line-move confirmation added as context note: getMarketHistoryRail() checked when aggregated event is found. Qualifier fires regardless of line history — but 'line-confirmed' label applied when >= 2 snapshots exist and ML odds have moved."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NHL public ML handle %",
+          "status": "ready",
+          "detail": "Live from Action Network via getBettingSplits(\"NHL\")."
+        },
+        {
+          "label": "NHL home ML price",
+          "status": "ready",
+          "detail": "Live from getAggregatedOddsForSport(\"NHL\"). bestHome.odds > 0 = underdog."
+        },
+        {
+          "label": "Intraday line-move history",
+          "status": "ready",
+          "detail": "getMarketHistoryRail() reads from Supabase market_snapshot_prices (all sports captured hourly). Attached as context note on each qualifying record."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "getBettingSplits(\"NHL\") + getAggregatedOddsForSport(\"NHL\") both connected. Fires when home team is dog + ≥ 55% ML handle.",
+      "recordCount": 1,
+      "recordKinds": [
+        "qualifier"
+      ],
+      "marketTypes": [
+        "moneyline"
+      ],
+      "sampleFields": [
+        "alertLabel",
+        "bet1Result",
+        "bet2Result",
+        "bullpenSummary",
+        "closingSpread",
+        "currentMoneyline",
+        "espnEventId",
+        "estimatedNetUnits",
+        "f5Summary",
+        "falconsScore",
+        "falconsScoreComponents",
+        "falconsScoreLabel",
+        "fatigueScore",
+        "firstQuarterHomeScore",
+        "firstQuarterRoadScore",
+        "firstQuarterSpread",
+        "freshnessSummary",
+        "gameDate",
+        "goalieStatus",
+        "homeTeam",
+        "id",
+        "lastSyncedAt",
+        "lineupStatus",
+        "marketAvailability",
+        "marketType",
+        "matchup",
+        "notes",
+        "oddsEventId",
+        "opponentFatigueScore",
+        "opponentGoalieStatus",
+        "opponentTeam",
+        "opponentXGoalsPercentage",
+        "parkFactorSummary",
+        "priorGameDate",
+        "priorStartSummary",
+        "qualifiedTeam",
+        "recordKind",
+        "roadTeam",
+        "sequenceResult",
+        "source",
+        "sourceHealthStatus",
+        "starterEra",
+        "starterName",
+        "thirdQuarterHomeScore",
+        "thirdQuarterRoadScore",
+        "thirdQuarterSpread",
+        "totalLine",
+        "urgencyTier",
+        "weatherSummary",
+        "xGoalsPercentage"
+      ]
+    },
+    {
+      "id": "nhl-under-majority-handle",
+      "slug": "nhl-under-majority-handle",
+      "name": "NHL Under — Majority Handle",
+      "league": "NHL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "NHL under handle system. When it passes the gate, it becomes a real stored full-game under pick.",
+      "definition": "Flag NHL games where the Under side attracts ≥ 62% of total (O/U) handle dollars. When that gate passes at 5.5, the full-game under becomes the stored system pick.",
+      "qualifierRules": [
+        "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Threshold tightened 2026-03-29 from 58% to improve signal quality.",
+        "Total splits must be available: totalSplitsAvailable = true on the BettingSplitsSnapshot.",
+        "League must be NHL.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NHL public total handle %",
+          "status": "ready",
+          "detail": "Live from Action Network via getBettingSplits(\"NHL\"). totalSplitsAvailable required."
+        },
+        {
+          "label": "Intraday line-move history",
+          "status": "ready",
+          "detail": "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "getBettingSplits(\"NHL\") connected. Fires when Under ≥ 58% of total handle.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "mlb-home-majority-handle",
+      "slug": "mlb-home-majority-handle",
+      "name": "MLB Home — Majority Handle",
+      "league": "MLB",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "MLB games where the home team receives ≥ 60% of ML handle dollars. Threshold tightened 2026-03-29 from 55% — 55% fires too broadly given home-team bias baseline. No stored pick yet. Fires only when the direction is validated and a real pick can be logged.",
+      "definition": "Flag MLB games where the home team holds ≥ 60% of ML handle dollars, regardless of whether they are a favourite or underdog. 60% is a meaningfully elevated signal over the typical home-team bias baseline. When handle majority reaches this level, the away team's price may be inflated by bias or the home side may carry genuine sharp interest. No stored pick yet. Fires only when the direction is validated and a real pick can be logged.",
+      "qualifierRules": [
+        "Home team must hold ≥ 60% of ML handle dollars (mlHomeHandlePct from Action Network splits). Tightened from 55% (2026-03-29) — 55% fires too broadly in MLB where home-team bias is structural.",
+        "Splits data must be available: mlSplitsAvailable = true.",
+        "League must be MLB.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "MLB public ML handle %",
+          "status": "ready",
+          "detail": "Live from Action Network via getBettingSplits(\"MLB\")."
+        },
+        {
+          "label": "Intraday line-move history",
+          "status": "ready",
+          "detail": "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "getBettingSplits(\"MLB\") connected. Fires when home team ≥ 55% ML handle.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "mlb-under-majority-handle",
+      "slug": "mlb-under-majority-handle",
+      "name": "MLB Under — Majority Handle",
+      "league": "MLB",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "tracking",
+      "trackabilityBucket": "trackable_now",
+      "summary": "MLB under handle system. When it passes the gate, it becomes a real stored full-game under pick.",
+      "definition": "Flag MLB games where the Under attracts ≥ 62% of total handle. When that gate passes, the full-game under becomes the stored system pick.",
+      "qualifierRules": [
+        "Under side must hold ≥ 62% of total handle (underHandlePct from Action Network splits). Tightened from 58% (2026-03-29) — 58% fires too broadly in MLB; 62% is a more distinct signal.",
+        "Total splits must be available: totalSplitsAvailable = true.",
+        "League must be MLB.",
+        "Line-move context note attached when aggregated event found and >= 2 Supabase snapshots exist."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "MLB public total handle %",
+          "status": "ready",
+          "detail": "Live from Action Network via getBettingSplits(\"MLB\"). totalSplitsAvailable required."
+        },
+        {
+          "label": "Intraday line-move history",
+          "status": "ready",
+          "detail": "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record."
+        }
+      ],
+      "automationStatusLabel": "Rail live — qualifying",
+      "automationStatusDetail": "getBettingSplits(\"MLB\") connected. Fires when Under ≥ 58% of total handle.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    },
+    {
+      "id": "nfl-home-dog-majority-handle",
+      "slug": "nfl-home-dog-majority-handle",
+      "name": "NFL Home Dog — Majority Handle",
+      "league": "NFL",
+      "category": "native",
+      "owner": "Goosalytics Lab",
+      "status": "paused",
+      "trackabilityBucket": "parked_definition_only",
+      "summary": "NFL home underdog receiving majority (≥ 55%) of ML handle. System logic is wired and ready; dormant during the off-season (no current NFL slate).",
+      "definition": "Flag NFL games where the home team is a moneyline underdog AND attracts ≥ 55% of ML handle dollars. Mirrors the NBA and NHL home-dog handle systems. NFL home-field advantage is meaningful and the public's bias toward road favourites can create mis-pricing in close matchups.",
+      "qualifierRules": [
+        "League must be NFL with active games on the current slate.",
+        "Home team must be a moneyline underdog: bestHome.odds > 0.",
+        "Home team must hold ≥ 55% of ML handle dollars from Action Network splits.",
+        "Total splits must be available (splitsAvailable = true).",
+        "System is dormant between end of Super Bowl and start of regular season (~Feb–Aug)."
+      ],
+      "progressionLogic": [],
+      "dataRequirements": [
+        {
+          "label": "NFL public ML handle %",
+          "status": "ready",
+          "detail": "getBettingSplits(\"NFL\") ready. Returns empty board during off-season."
+        },
+        {
+          "label": "NFL home ML price",
+          "status": "ready",
+          "detail": "getAggregatedOddsForSport(\"NFL\") ready. Returns empty during off-season."
+        }
+      ],
+      "automationStatusLabel": "Wired — dormant off-season",
+      "automationStatusDetail": "getBettingSplits(\"NFL\") connected. NFL slate empty Mar–Aug. Qualifier logic will fire automatically when September slate begins.",
+      "recordCount": 0,
+      "recordKinds": [],
+      "marketTypes": [],
+      "sampleFields": []
+    }
+  ]
+}
