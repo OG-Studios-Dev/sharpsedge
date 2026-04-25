@@ -114,6 +114,37 @@ async function writePostgrest<T>(path: string, body: unknown) {
   return await response.json() as T;
 }
 
+async function writeInteraction(payload: AskGooseResponsePayload) {
+  try {
+    const rows = await writePostgrest<Array<{ id: string }>>("/rest/v1/ask_goose_interactions_v1", {
+      league: payload.filters.league,
+      question: payload.question,
+      normalized_question: payload.interpretation.normalizedQuestion,
+      looks_like_betting_question: payload.interpretation.looksLikeBettingQuestion,
+      intent: payload.interpretation,
+      answer: {
+        ...payload.answer,
+        explanation: payload.explanation,
+      },
+      summary: payload.summary,
+      evidence_candidate_ids: payload.rows.map((row) => row.candidate_id).filter(Boolean),
+      warnings: payload.answer.warnings,
+      parser_version: "ask_goose_deterministic_v2_line_thresholds_llm_explainer",
+      source_layer_version: "ask_goose_query_layer_v1",
+      client_metadata: {
+        route: "/api/ask-goose",
+        empty: payload.empty,
+      },
+    });
+    return { interactionId: rows[0]?.id ?? null, loggingWarning: null as string | null };
+  } catch (error) {
+    return {
+      interactionId: null,
+      loggingWarning: toErrorMessage(error, "Ask Goose interaction logging failed"),
+    };
+  }
+}
+
 type AskGooseResponsePayload = {
   ok: true;
   question: string;
@@ -332,30 +363,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const payload = await buildAskGooseAnswer(request.url, body);
-    const interactionRows = await writePostgrest<Array<{ id: string }>>("/rest/v1/ask_goose_interactions_v1", {
-      league: payload.filters.league,
-      question: payload.question,
-      normalized_question: payload.interpretation.normalizedQuestion,
-      looks_like_betting_question: payload.interpretation.looksLikeBettingQuestion,
-      intent: payload.interpretation,
-      answer: {
-        ...payload.answer,
-        explanation: payload.explanation,
-      },
-      summary: payload.summary,
-      evidence_candidate_ids: payload.rows.map((row) => row.candidate_id).filter(Boolean),
-      warnings: payload.answer.warnings,
-      parser_version: "ask_goose_deterministic_v2_line_thresholds_llm_explainer",
-      source_layer_version: "ask_goose_query_layer_v1",
-      client_metadata: {
-        route: "/api/ask-goose",
-        empty: payload.empty,
-      },
-    });
+    const logging = await writeInteraction(payload);
 
     return NextResponse.json({
       ...payload,
-      interactionId: interactionRows[0]?.id ?? null,
+      interactionId: logging.interactionId,
+      loggingWarning: logging.loggingWarning,
     });
   } catch (error) {
     return NextResponse.json({
