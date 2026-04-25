@@ -24,6 +24,16 @@ export type ProfileRecord = {
   email?: string | null;
 };
 
+export type UserPreferenceRecord = {
+  user_id: string;
+  default_league: "All" | "NHL" | "NBA" | "NFL" | "MLB" | "PGA";
+  odds_format: "american";
+  notifications_enabled: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PickHistoryProvenance = "original" | "reconstructed" | "manual_repair";
 export type PickSlateStatus = "locked" | "incomplete";
 export type PickHistoryIntegrityStatus = "ok" | "reconstructed" | "incomplete";
@@ -222,6 +232,7 @@ export type AuthEnvelope = {
   session: BrowserSession | null;
   user: AuthUser | null;
   profile: ProfileRecord | null;
+  preferences?: UserPreferenceRecord | null;
 };
 
 export type AuthResponse = {

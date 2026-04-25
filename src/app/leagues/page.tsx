@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 import { League } from "@/lib/types";
 import { featuredLeagues, leagueMeta } from "@/lib/league-meta";
 import { useLeague } from "@/hooks/useLeague";
 import { getLeagueLogo } from "@/lib/visual-identity";
 
 const LEAGUE_ROUTES: Partial<Record<League, string>> = {
-  NHL: "/leagues/nhl",
-  NBA: "/props",
-  MLB: "/props",
+  NHL: "/schedule",
+  NBA: "/schedule",
+  MLB: "/schedule",
   NFL: "/schedule",
   EPL: "/schedule",
   "Serie A": "/schedule",
@@ -17,16 +18,25 @@ const LEAGUE_ROUTES: Partial<Record<League, string>> = {
   UFC: "/ufc",
 };
 
+const LEAGUE_CTA: Partial<Record<League, string>> = {
+  NHL: "Open NHL hub",
+  NBA: "Open NBA hub",
+  MLB: "Open MLB hub",
+  NFL: "Open NFL hub",
+  EPL: "Open EPL hub",
+  "Serie A": "Open Serie A hub",
+  PGA: "Open golf hub",
+  UFC: "Open UFC card",
+};
+
 export default function LeaguesPage() {
   const [league, setLeague] = useLeague();
 
   return (
     <div>
-      <header className="sticky top-0 z-40 bg-dark-bg/95 backdrop-blur-sm border-b border-dark-border px-4 py-4">
-        <h1 className="text-xl font-bold text-white text-center">Leagues</h1>
-      </header>
+      <PageHeader title="Leagues" subtitle="Pick the market you want Goosalytics to prioritize." />
 
-      <div className="px-4 py-6 space-y-5">
+      <div className="px-4 py-6 space-y-5 lg:px-0">
         <div className="rounded-2xl border border-dark-border bg-dark-surface p-4">
           <div className="text-xs uppercase tracking-[0.2em] text-gray-500 mb-2">Active league</div>
           <div className="flex items-center gap-3">
@@ -75,6 +85,9 @@ export default function LeaguesPage() {
                         <div className="text-sm text-gray-300 mt-1 max-w-[240px]">
                           {leagueMeta[item].subtitle}
                         </div>
+                        <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                          {comingSoon ? "Market not live yet" : LEAGUE_CTA[item] ?? "Open market"}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -97,7 +110,7 @@ export default function LeaguesPage() {
 
               if (route) {
                 return (
-                  <Link key={item} href={route} className={cls}>
+                  <Link key={item} href={route} onClick={() => setLeague(item)} className={cls}>
                     {card}
                   </Link>
                 );

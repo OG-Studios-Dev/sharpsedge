@@ -18,7 +18,7 @@ type UserProfile = {
   last_login_at: string | null;
 };
 
-const LEAGUES: League[] = ["NHL", "NBA", "MLB", "PGA"];
+const LEAGUES: League[] = ["NHL", "NBA", "MLB", "NFL", "PGA"];
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -41,6 +41,10 @@ export default function SettingsPage() {
             created_at: result.data.profile.created_at || "",
             last_login_at: result.data.profile.last_login_at || null,
           });
+          if (result.data.preferences?.default_league) {
+            setFavLeague(result.data.preferences.default_league);
+            writeDefaultLeague(result.data.preferences.default_league, { applyActive: false });
+          }
         }
       } catch {
         // Not logged in
@@ -54,6 +58,13 @@ export default function SettingsPage() {
   function handleFavLeague(league: League) {
     setFavLeague(league);
     writeDefaultLeague(league, { applyActive: true });
+    if (profile) {
+      void fetch("/api/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ default_league: league }),
+      });
+    }
   }
 
   async function handleLogout() {

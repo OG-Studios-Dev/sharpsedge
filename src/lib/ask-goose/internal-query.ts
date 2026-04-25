@@ -225,7 +225,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
           : null;
   const wantsTeamMarketFocus = Boolean(matchedTeam) || mentionedHome || mentionedAway || /underdog|\bdog\b|favorite|favou?rite/.test(normalizedQuestion) || marketType === "moneyline" || marketType === "spread";
 
-  const yearMatches = Array.from(normalizedQuestion.matchAll(/(20\d{2})/g)).map((match) => Number(match[1]));
+  const yearMatches = Array.from(normalizedQuestion.matchAll(/\b(20\d{2})\b/g)).map((match) => Number(match[1]));
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
   const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
   const wantsAbove500Teams = /(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);

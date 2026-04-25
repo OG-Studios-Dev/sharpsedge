@@ -33,7 +33,7 @@ export default function SearchPage() {
     if (!q) return [];
 
     return dashboards.props
-      .filter((prop) => normalize(`${prop.playerName} ${prop.team} ${prop.opponent} ${prop.propType}`).includes(q))
+      .filter((prop) => normalize(`${prop.playerName} ${prop.team} ${prop.opponent} ${prop.propType} ${prop.league}`).includes(q))
       .slice(0, 12)
       .map((prop) => ({
         id: `player-${prop.id}`,
@@ -137,8 +137,18 @@ export default function SearchPage() {
         kind: "game" as const,
       }));
 
-    return [...nhlGames, ...nbaGames, ...mlbGames, ...nflGames, ...eplGames, ...serieAGames].slice(0, 12);
-  }, [dashboards.eplSchedule, dashboards.mlbSchedule, dashboards.nbaSchedule, dashboards.nflSchedule, dashboards.nhlSchedule.games, dashboards.serieASchedule, query]);
+    const golfPlayers = (dashboards.golfDashboard?.predictions?.players ?? [])
+      .filter((player) => normalize(`${player.name} PGA golf`).includes(q))
+      .map((player, index) => ({
+        id: `pga-player-${player.id ?? index}`,
+        title: player.name,
+        subtitle: "PGA tournament profile",
+        href: dashboards.golfDashboard?.predictions?.tournament?.id ? `/golf/tournament/${dashboards.golfDashboard.predictions.tournament.id}` : "/golf",
+        kind: "player" as const,
+      }));
+
+    return [...nhlGames, ...nbaGames, ...mlbGames, ...nflGames, ...eplGames, ...serieAGames, ...golfPlayers].slice(0, 12);
+  }, [dashboards.eplSchedule, dashboards.golfDashboard, dashboards.mlbSchedule, dashboards.nbaSchedule, dashboards.nflSchedule, dashboards.nhlSchedule.games, dashboards.serieASchedule, query]);
 
   const results = [...playerResults, ...teamResults, ...gameResults];
   const hasQuery = query.trim().length > 0;
@@ -177,13 +187,13 @@ export default function SearchPage() {
           <EmptyStateCard
             eyebrow="Search"
             title="Start typing to search the live slate"
-            body="Search matches against player props, team trends, and game cards from the current NHL, NBA, and MLB dashboards."
+            body="Search matches against player props, team trends, game cards, and golf tournament profiles from the current NHL, NBA, MLB, NFL, soccer, and PGA surfaces."
           />
         ) : results.length === 0 ? (
           <EmptyStateCard
             eyebrow="No results"
             title={`No matches found for “${query.trim()}”`}
-            body="Try a player surname, team abbreviation, or matchup like BOS or Lakers."
+            body="Try a player surname, team abbreviation, league, or matchup like BOS, Lakers, NFL, or PGA."
           />
         ) : (
           <div className="space-y-3">

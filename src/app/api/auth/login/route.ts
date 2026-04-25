@@ -27,11 +27,14 @@ export async function POST(request: Request) {
           last_login_at: new Date().toISOString(),
         });
 
+        const preferences = await supabase.preferences.ensureForUser(session.user.id);
+
         const response = NextResponse.json({
           data: {
             session: normalizeBrowserSession(session),
             user: session.user,
             profile,
+            preferences,
           },
           error: null,
         });
@@ -67,11 +70,14 @@ export async function POST(request: Request) {
       last_login_at: new Date().toISOString(),
     });
 
+    const preferences = await supabase.preferences.ensureForUser(session.user.id);
+
     const response = NextResponse.json({
       data: {
         session: normalizeBrowserSession(session),
         user: session.user,
         profile,
+        preferences,
       },
       error: null,
     });

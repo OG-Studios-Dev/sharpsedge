@@ -35,11 +35,13 @@ export async function GET(request: Request) {
 
     const supabase = createServerClient();
     const profile = await supabase.profiles.ensureForUser(session.user);
+    const preferences = await supabase.preferences.ensureForUser(session.user.id);
     const response = NextResponse.json({
       data: {
         session: normalizeBrowserSession(session),
         user: session.user,
         profile,
+        preferences,
       },
       error: null,
     });

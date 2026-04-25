@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import type { AuthSession, AuthUser, PickHistoryRecord, ProfileRecord } from "@/lib/supabase-types";
+import type { AuthSession, AuthUser, PickHistoryRecord, ProfileRecord, UserPreferenceRecord } from "@/lib/supabase-types";
 import { listPickHistory as listAuthoritativePickHistory } from "@/lib/pick-history-store";
 import { normalizePickHistoryRow } from "@/lib/pick-history-integrity";
 import {
@@ -25,6 +25,14 @@ type ProfileUpsert = {
   subscription_status?: "none" | "trialing" | "active" | "past_due" | "canceled" | "incomplete" | "coming_soon";
   created_at?: string;
   last_login_at?: string | null;
+};
+
+type PreferenceUpsert = {
+  user_id: string;
+  default_league?: UserPreferenceRecord["default_league"];
+  odds_format?: UserPreferenceRecord["odds_format"];
+  notifications_enabled?: boolean;
+  metadata?: Record<string, unknown> | null;
 };
 
 function serviceHeaders(extra?: HeadersInit) {
@@ -93,6 +101,18 @@ async function listProfiles() {
 }
 
 async function upsertProfile(input: ProfileUpsert) {
+  const body: Record<string, unknown> = {
+    id: input.id,
+    name: input.name,
+    username: input.username ?? null,
+    role: input.role ?? "user",
+    last_login_at: input.last_login_at ?? null,
+  };
+
+  if (input.tier) body.tier = input.tier;
+  if (input.stripe_customer_id !== undefined) body.stripe_customer_id = input.stripe_customer_id;
+  if (input.subscription_status) body.subscription_status = input.subscription_status;
+
   const rows = await postgrest<any[]>(
     "/rest/v1/profiles?on_conflict=id",
     {
@@ -100,17 +120,62 @@ async function upsertProfile(input: ProfileUpsert) {
       headers: {
         Prefer: "resolution=merge-duplicates,return=representation",
       },
-      body: JSON.stringify({
-        id: input.id,
-        name: input.name,
-        username: input.username ?? null,
-        role: input.role ?? "user",
-        last_login_at: input.last_login_at ?? null,
-      }),
+      body: JSON.stringify(body),
     },
   );
 
   return rows[0] ? sanitizeProfile(rows[0]) : null;
+}
+
+function sanitizePreferences(raw: any): UserPreferenceRecord {
+  const defaultLeague = ["All", "NHL", "NBA", "NFL", "MLB", "PGA"].includes(raw?.default_league)
+    ? raw.default_league as UserPreferenceRecord["default_league"]
+    : "All";
+
+  return {
+    user_id: String(raw?.user_id ?? ""),
+    default_league: defaultLeague,
+    odds_format: "american",
+    notifications_enabled: Boolean(raw?.notifications_enabled),
+    metadata: raw?.metadata && typeof raw.metadata === "object" && !Array.isArray(raw.metadata) ? raw.metadata : null,
+    created_at: typeof raw?.created_at === "string" ? raw.created_at : new Date(0).toISOString(),
+    updated_at: typeof raw?.updated_at === "string" ? raw.updated_at : new Date(0).toISOString(),
+  };
+}
+
+async function getPreferencesByUserId(userId: string) {
+  const rows = await postgrest<any[]>(
+    `/rest/v1/user_preferences?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
+  );
+  return rows[0] ? sanitizePreferences(rows[0]) : null;
+}
+
+async function upsertPreferences(input: PreferenceUpsert) {
+  const rows = await postgrest<any[]>(
+    "/rest/v1/user_preferences?on_conflict=user_id",
+    {
+      method: "POST",
+      headers: {
+        Prefer: "resolution=merge-duplicates,return=representation",
+      },
+      body: JSON.stringify({
+        user_id: input.user_id,
+        default_league: input.default_league ?? "All",
+        odds_format: input.odds_format ?? "american",
+        notifications_enabled: input.notifications_enabled ?? false,
+        metadata: input.metadata ?? {},
+        updated_at: new Date().toISOString(),
+      }),
+    },
+  );
+
+  return rows[0] ? sanitizePreferences(rows[0]) : null;
+}
+
+async function ensurePreferencesForUser(userId: string) {
+  const existing = await getPreferencesByUserId(userId);
+  if (existing) return existing;
+  return upsertPreferences({ user_id: userId });
 }
 
 async function deleteAuthUserById(id: string) {
@@ -333,6 +398,16 @@ export function createServerClient() {
         }
         await deleteProfileById(id);
       },
+    },
+    preferences: {
+      getByUserId: getPreferencesByUserId,
+      getCurrent: async () => {
+        const session = await getCurrentSession();
+        if (!session) return null;
+        return getPreferencesByUserId(session.user.id);
+      },
+      upsert: upsertPreferences,
+      ensureForUser: ensurePreferencesForUser,
     },
     pickHistory: {
       list: listPickHistory,

@@ -144,6 +144,10 @@ export function AppChromeProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       const profile = result.data.profile;
+      if (result.data.preferences?.default_league) {
+        const { writeDefaultLeague } = await import("@/lib/league-storage");
+        writeDefaultLeague(result.data.preferences.default_league, { applyActive: false });
+      }
       setViewer({
         loading: false,
         session: result.data.session,

@@ -34,6 +34,13 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function calculateProfitUnits(status: UserPickStatus, units: number, odds?: number | null) {
+  if (status === "loss") return -Math.abs(units);
+  if (status !== "win") return 0;
+  if (typeof odds !== "number" || !Number.isFinite(odds) || odds === 0) return Math.abs(units);
+  return odds > 0 ? Math.abs(units) * (odds / 100) : Math.abs(units) * (100 / Math.abs(odds));
+}
+
 function parseJsonObject(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -108,6 +115,8 @@ export async function listCurrentUserPicks(limit = 250) {
 export async function createCurrentUserPick(input: CreateUserPickInput) {
   const userId = await requireUserId();
   const supabase = createServerClient();
+  const status = input.status ?? "pending";
+  const units = input.units ?? 1;
   const rows = await supabase.postgrest<any[]>("/rest/v1/user_picks", {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -117,7 +126,7 @@ export async function createCurrentUserPick(input: CreateUserPickInput) {
       source_id: input.source_id ?? null,
       parent_pick_id: input.parent_pick_id ?? null,
       kind: input.kind ?? "single",
-      status: input.status ?? "pending",
+      status,
       league: input.league,
       game_date: input.game_date ?? null,
       game_id: input.game_id ?? null,
@@ -131,9 +140,11 @@ export async function createCurrentUserPick(input: CreateUserPickInput) {
       line: input.line ?? null,
       odds: input.odds ?? null,
       book: input.book ?? null,
-      units: input.units ?? 1,
+      units,
       risk_amount: input.risk_amount ?? null,
       to_win_amount: input.to_win_amount ?? null,
+      profit_units: calculateProfitUnits(status, units, input.odds),
+      result_settled_at: status === "pending" ? null : new Date().toISOString(),
       metadata: input.metadata ?? {},
       locked_snapshot: input.locked_snapshot ?? null,
     }),
@@ -159,11 +170,14 @@ export async function createCurrentUserPick(input: CreateUserPickInput) {
 export async function updateCurrentUserPickStatus(id: string, status: UserPickStatus) {
   const userId = await requireUserId();
   const supabase = createServerClient();
+  const existingRows = await supabase.postgrest<any[]>(`/rest/v1/user_picks?select=*&id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const existing = existingRows[0] ? normalizeUserPickRow(existingRows[0]) : null;
   const rows = await supabase.postgrest<any[]>(`/rest/v1/user_picks?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(userId)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({
       status,
+      profit_units: existing ? calculateProfitUnits(status, existing.units, existing.odds) : 0,
       updated_at: new Date().toISOString(),
       result_settled_at: status === "pending" ? null : new Date().toISOString(),
     }),

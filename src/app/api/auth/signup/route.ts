@@ -50,14 +50,18 @@ export async function POST(request: Request) {
       name,
       username,
       role: "user",
+      tier: "free",
+      subscription_status: "none",
       last_login_at: session ? new Date().toISOString() : null,
     });
+    const preferences = await supabase.preferences.ensureForUser(user.id);
 
     const response = NextResponse.json({
       data: {
         session: normalizeBrowserSession(session),
         user,
         profile,
+        preferences,
       },
       error: null,
     });

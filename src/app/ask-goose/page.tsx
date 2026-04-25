@@ -127,6 +127,8 @@ function inferQuestionLeague(question: string, fallback: string) {
   return matched || "NHL";
 }
 
+export const dynamic = "force-dynamic";
+
 export default function AskGoosePage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
