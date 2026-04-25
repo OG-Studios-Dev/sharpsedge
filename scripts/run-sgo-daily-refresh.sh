@@ -21,13 +21,15 @@ cd "$ROOT"
   echo "[$(TZ=America/Toronto date)] Starting full-market daily warehouse refresh"
   echo "[$(TZ=America/Toronto date)] Using node at $NODE_BIN"
   echo "[$(TZ=America/Toronto date)] Sports: $SPORTS"
-  echo "[$(TZ=America/Toronto date)] Capture window: $START_UTC -> $END_UTC"
-  echo "[$(TZ=America/Toronto date)] Candidate limit per pull: $LIMIT"
+  echo "[$(TZ=America/Toronto date)] Daily archive rail: /api/odds/aggregated/snapshot?cron=true&sports=$SPORTS&reason=lm-daily-archive"
+  echo "[$(TZ=America/Toronto date)] Grade lookback days: $GRADE_LOOKBACK_DAYS"
+  echo "[$(TZ=America/Toronto date)] Legacy historical window (unused for daily warehouse): $START_UTC -> $END_UTC"
+  echo "[$(TZ=America/Toronto date)] Legacy candidate limit (unused for daily warehouse): $LIMIT"
 
-  "$NODE_BIN" scripts/sgo-run-backfill.mjs "$START_UTC" "$END_UTC" "$SPORTS" 1 "$LIMIT"
+  "$NODE_BIN" scripts/run-daily-warehouse-refresh.mjs
 
-  echo "[$(TZ=America/Toronto date)] Starting next-day grading pass"
-  "$NODE_BIN" scripts/run-goose2-grade.mjs "$(date -u +%Y-%m-%d)" "" "$GRADE_LOOKBACK_DAYS"
+  echo "[$(TZ=America/Toronto date)] Writing warehouse audit artifact"
+  "$NODE_BIN" scripts/goose-warehouse-completeness-audit.mjs
 
   echo "[$(TZ=America/Toronto date)] Finished full-market daily warehouse refresh"
 } >> "$OUT" 2>&1

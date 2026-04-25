@@ -28,12 +28,13 @@ function headers(extra = {}) {
   };
 }
 
-async function fetchJson(path, { count = false } = {}) {
+async function fetchJson(path, { count = false, head = false } = {}) {
   const res = await fetch(`${base}/rest/v1${path}`, {
-    headers: headers(count ? { Prefer: 'count=exact' } : {}),
+    method: head ? 'HEAD' : 'GET',
+    headers: headers(count ? { Prefer: `count=${process.env.GOOSE_AUDIT_COUNT_MODE || 'planned'}${head ? ',head=true' : ''}` } : {}),
     cache: 'no-store',
   });
-  const text = await res.text();
+  const text = head ? '' : await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status} ${path}: ${text.slice(0, 400)}`);
   const data = text ? JSON.parse(text) : null;
   const contentRange = res.headers.get('content-range');
@@ -93,18 +94,18 @@ async function main() {
     recentCandidates,
     recentResults,
   ] = await Promise.all([
-    fetchJson('/market_snapshots?select=id&limit=1', { count: true }),
-    fetchJson('/market_snapshot_events?select=id&limit=1', { count: true }),
-    fetchJson('/market_snapshot_prices?select=id&limit=1', { count: true }),
-    fetchJson('/goose_market_events?select=event_id&limit=1', { count: true }),
-    fetchJson('/goose_market_candidates?select=candidate_id&limit=1', { count: true }),
-    fetchJson('/goose_market_results?select=candidate_id&limit=1', { count: true }),
-    fetchJson('/goose_feature_rows?select=feature_row_id&limit=1', { count: true }),
-    fetchJson('/goose_decision_log?select=decision_id&limit=1', { count: true }),
+    fetchJson('/market_snapshots?select=id&limit=1', { count: true, head: true }),
+    fetchJson('/market_snapshot_events?select=id&limit=1', { count: true, head: true }),
+    fetchJson('/market_snapshot_prices?select=id&limit=1', { count: true, head: true }),
+    fetchJson('/goose_market_events?select=event_id&limit=1', { count: true, head: true }),
+    fetchJson('/goose_market_candidates?select=candidate_id&limit=1', { count: true, head: true }),
+    fetchJson('/goose_market_results?select=candidate_id&limit=1', { count: true, head: true }),
+    fetchJson('/goose_feature_rows?select=feature_row_id&limit=1', { count: true, head: true }),
+    fetchJson('/goose_decision_log?select=decision_id&limit=1', { count: true, head: true }),
     fetchJson('/market_snapshot_events?select=id,sport,captured_at&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=5000'),
-    fetchJson('/market_snapshot_prices?select=id,sport,book,market_type,captured_at&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=20000'),
-    fetchJson('/goose_market_candidates?select=candidate_id,sport,book,market_type,capture_ts&capture_ts=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=20000'),
-    fetchJson('/goose_market_results?select=candidate_id,settlement_ts,result,integrity_status,event_id&settlement_ts=gte.' + encodeURIComponent(last7) + '&order=settlement_ts.desc&limit=5000'),
+    fetchJson('/market_snapshot_prices?select=id,sport,book,market_type,captured_at&captured_at=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=2000'),
+    fetchJson('/goose_market_candidates?select=candidate_id,sport,book,market_type,capture_ts&capture_ts=gte.' + encodeURIComponent(last7) + '&sport=not.is.null&limit=2000'),
+    fetchJson('/goose_market_results?select=candidate_id,settlement_ts,result,integrity_status,event_id&settlement_ts=gte.' + encodeURIComponent(last7) + '&order=settlement_ts.desc&limit=1000'),
     fetchJson('/system_qualifiers?select=id,system_id,game_date,matchup,settlement_status,outcome&settlement_status=eq.pending&order=game_date.asc&limit=500'),
     fetchJson('/system_qualifiers?select=id,system_id,game_date,matchup,settlement_status,outcome,created_at&settlement_status=eq.pending&created_at=lt.' + encodeURIComponent(last24h) + '&order=game_date.asc&limit=500'),
     fetchJson('/system_qualifiers?select=system_id,count:id&outcome=eq.ungradeable'),
