@@ -368,3 +368,31 @@ Commands / file evidence:
 - `node -e "const p=require('./package.json')..."` showed package scripts: `goose2:export-training`, `goose2:train-baseline`, `goose2:score-shadow`, `goose2:refresh-feature-qualifiers`, `goose2:refresh-trackable-systems`, `goose:warehouse-audit`.
 - `python3` extraction of `scripts/backtest-systems.mjs` found hardcoded prototype systems: `swaggy-stretch-drive`, `bigcat-bonaza-puckluck`, `nhl-under-majority-handle`, `nhl-home-dog-majority-handle`, `nba-goose-system`, `nba-home-dog-majority-handle`, `nba-home-super-majority-close-game`, `falcons-fight-pummeled-pitchers`, `mlb-home-majority-handle`, `mlb-under-majority-handle`, `robbies-ripper-fast-5`, `coach-no-rest`, `fat-tonys-fade`.
 - `tmp/lm_ask_goose_data_audit_20260424.json` provided read-only row counts/date ranges for Ask Goose and learning tables.
+
+## Marco-provided named system seeds — 2026-04-24
+
+Marco clarified that “systems” means named Goosalytics betting-system identities, not just raw market filters. Seed examples to model/backtest explicitly:
+
+- Mattys 1Q Chase
+- Veal Banged Up Pitchers
+- Coach No Rest
+- Robbie’s Ripper Fast 5
+
+Implementation implication:
+
+Each named system needs a formal registry entry with:
+
+- `system_id`
+- display name
+- owner/source/persona if applicable
+- league(s)
+- market(s)
+- eligibility rules
+- required data fields
+- exclusion rules
+- minimum sample thresholds
+- backtest date range
+- yearly splits
+- output stats: record, win %, units, ROI, sample size, confidence/data-quality flags
+
+The first LM/year-over-year backtest runner should not treat these as generic “moneyline/spread/total” buckets. It should evaluate each named system independently, then compare system performance across seasons and leagues. Later discovery work can propose new systems, but proposed systems must be labeled as discovered/candidate until validated out-of-sample.
