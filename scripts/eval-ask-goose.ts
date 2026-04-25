@@ -33,6 +33,10 @@ function row(overrides: Partial<AskGooseRow> & { candidate_id: string }): AskGoo
     is_away_team_bet: overrides.is_away_team_bet ?? null,
     is_favorite: overrides.is_favorite ?? false,
     is_underdog: overrides.is_underdog ?? false,
+    team_win_pct_pre_game: overrides.team_win_pct_pre_game ?? null,
+    opponent_win_pct_pre_game: overrides.opponent_win_pct_pre_game ?? null,
+    team_above_500_pre_game: overrides.team_above_500_pre_game ?? null,
+    opponent_above_500_pre_game: overrides.opponent_above_500_pre_game ?? null,
   };
 }
 
@@ -63,4 +67,18 @@ assert(over55.evidenceRows.every((r) => r.side === 'over' && Number(r.line) >= 5
 const homeDogs = answerAskGooseQuestion('NHL home underdogs moneyline record and ROI', 'NHL', rows);
 assert.deepEqual(homeDogs.evidenceRows.map((r) => r.candidate_id), ['home-dog'], 'home underdogs must not include away dogs');
 
-console.log(JSON.stringify({ ok: true, cases: 4, summaries: { refusal: refusal.summaryText, under55: under55.summaryText, homeDogs: homeDogs.summaryText } }, null, 2));
+const nbaRows = [
+  row({ candidate_id: 'nba-over-loss-1', canonical_game_id: 'nba1', league: 'NBA' as any, event_date: '2024-11-01', side: 'over', result: 'loss', team_win_pct_pre_game: 0.7, opponent_win_pct_pre_game: 0.6 }),
+  row({ candidate_id: 'nba-over-loss-2', canonical_game_id: 'nba2', league: 'NBA' as any, event_date: '2025-01-01', side: 'over', result: 'loss', team_above_500_pre_game: true, opponent_above_500_pre_game: true }),
+  row({ candidate_id: 'nba-under-win-1', canonical_game_id: 'nba1', league: 'NBA' as any, event_date: '2024-11-01', side: 'under', result: 'win', team_win_pct_pre_game: 0.7, opponent_win_pct_pre_game: 0.6 }),
+  row({ candidate_id: 'nba-under-win-2', canonical_game_id: 'nba2', league: 'NBA' as any, event_date: '2025-01-01', side: 'under', result: 'win', team_above_500_pre_game: true, opponent_above_500_pre_game: true }),
+  row({ candidate_id: 'nba-over-bad-team', canonical_game_id: 'nba3', league: 'NBA' as any, event_date: '2025-01-02', side: 'over', result: 'win', team_win_pct_pre_game: 0.4, opponent_win_pct_pre_game: 0.7 }),
+];
+const above500Overs = answerAskGooseQuestion('How did the NBA overs do from 2024 to 2026 for over .500 teams?', 'NBA', nbaRows);
+assert.equal(above500Overs.gradedRows, 2, 'above .500 query should require both teams above .500 using flags or win pct fallback');
+assert.equal(above500Overs.wins, 0, 'over side should be isolated');
+assert.equal(above500Overs.counterSide?.side, 'under', 'opposite under should be checked for total over queries');
+assert.equal(above500Overs.counterSide?.wins, 2, 'opposite under performance should be summarized');
+assert(above500Overs.warnings.some((warning) => warning.includes('Opposite side check')), 'answer should call out when the opposite side is better');
+
+console.log(JSON.stringify({ ok: true, cases: 5, summaries: { refusal: refusal.summaryText, under55: under55.summaryText, homeDogs: homeDogs.summaryText, above500Overs: above500Overs.summaryText, opposite: above500Overs.counterSide } }, null, 2));

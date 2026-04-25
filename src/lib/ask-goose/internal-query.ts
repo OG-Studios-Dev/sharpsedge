@@ -28,6 +28,10 @@ export type AskGooseRow = {
   is_away_team_bet: boolean | null;
   is_favorite: boolean | null;
   is_underdog: boolean | null;
+  team_win_pct_pre_game?: number | null;
+  opponent_win_pct_pre_game?: number | null;
+  team_above_500_pre_game?: boolean | null;
+  opponent_above_500_pre_game?: boolean | null;
 };
 
 export type AskGooseIntent = {
@@ -50,6 +54,9 @@ export type AskGooseIntent = {
   mentionedAway: boolean;
   wantsTeamMarketFocus: boolean;
   wantsHeadToHead: boolean;
+  wantsAbove500Teams: boolean;
+  requestedSeasonStartYear: number | null;
+  requestedSeasonEndYear: number | null;
 };
 
 export type AskGooseAnswer = {
@@ -69,6 +76,15 @@ export type AskGooseAnswer = {
   evidenceRows: AskGooseRow[];
   warnings: string[];
   trustNotes: string[];
+  counterSide?: {
+    side: "over" | "under" | "home" | "away";
+    gradedRows: number;
+    wins: number;
+    losses: number;
+    pushes: number;
+    totalUnits: number;
+    avgRoi: number;
+  } | null;
 };
 
 const TEAM_ALIASES: Record<string, string[]> = {
@@ -209,6 +225,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
           : null;
   const wantsTeamMarketFocus = Boolean(matchedTeam) || mentionedHome || mentionedAway || /underdog|\bdog\b|favorite|favou?rite/.test(normalizedQuestion) || marketType === "moneyline" || marketType === "spread";
 
+  const yearMatches = Array.from(normalizedQuestion.matchAll(/(20\d{2})/g)).map((match) => Number(match[1]));
+  const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
+  const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
+  const wantsAbove500Teams = /(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);
+
   return {
     normalizedQuestion,
     looksLikeBettingQuestion,
@@ -229,6 +250,9 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     mentionedAway,
     wantsTeamMarketFocus,
     wantsHeadToHead,
+    wantsAbove500Teams,
+    requestedSeasonStartYear,
+    requestedSeasonEndYear,
   };
 }
 
@@ -282,6 +306,40 @@ function normalizedProfitUnits(row: AskGooseRow) {
   return odds! > 0 ? odds! / 100 : 100 / Math.abs(odds!);
 }
 
+function inferAbove500Flag(winPct: number | null | undefined) {
+  return typeof winPct === "number" && Number.isFinite(winPct) ? winPct > 0.5 : null;
+}
+
+function rowTeamAbove500(row: AskGooseRow) {
+  return row.team_above_500_pre_game ?? inferAbove500Flag(row.team_win_pct_pre_game);
+}
+
+function rowOpponentAbove500(row: AskGooseRow) {
+  return row.opponent_above_500_pre_game ?? inferAbove500Flag(row.opponent_win_pct_pre_game);
+}
+
+function rowMatchesSeasonWindow(row: AskGooseRow, startYear: number | null, endYear: number | null) {
+  if (!startYear && !endYear) return true;
+  const year = Number(String(row.event_date || "").slice(0, 4));
+  if (!Number.isFinite(year)) return false;
+  if (startYear && year < startYear) return false;
+  if (endYear && year > endYear) return false;
+  return true;
+}
+
+function summarizeGraded(rows: AskGooseRow[]) {
+  const graded = rows.filter((row) => row.graded === true && ["win", "loss", "push", "void", "cancelled", "dq"].includes(String(row.result || "").toLowerCase()));
+  const wins = graded.filter((row) => String(row.result || "").toLowerCase() === "win").length;
+  const losses = graded.filter((row) => String(row.result || "").toLowerCase() === "loss").length;
+  const pushes = graded.filter((row) => {
+    const result = String(row.result || "").toLowerCase();
+    return result === "push" || result === "void" || result === "cancelled" || result === "dq";
+  }).length;
+  const totalUnits = graded.reduce((sum, row) => sum + normalizedProfitUnits(row), 0);
+  const avgRoi = graded.length ? (totalUnits / graded.length) * 100 : 0;
+  return { graded, wins, losses, pushes, totalUnits, avgRoi };
+}
+
 function dedupeRows(rows: AskGooseRow[]) {
   const map = new Map<string, AskGooseRow>();
   for (const row of rows) {
@@ -327,6 +385,7 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
       evidenceRows: [],
       warnings: ["Rejected: non-betting or unsupported question."],
       trustNotes,
+      counterSide: null,
     };
   }
 
@@ -347,6 +406,8 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   } else {
     filtered = filtered.filter((row) => marketScopeMatches(row, intent.scope));
   }
+
+  const beforeSideFilter = [...filtered];
 
   if (intent.marketType === "total" && (intent.side === "over" || intent.side === "under")) {
     filtered = filtered.filter((row) => (row.side || "").toLowerCase().includes(intent.side!));
@@ -373,25 +434,51 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     filtered = filtered.filter((row) => isGameLevelTeamMarketRow(row));
   }
 
+  if (intent.wantsAbove500Teams) {
+    const beforeAbove500 = filtered.length;
+    filtered = filtered.filter((row) => rowTeamAbove500(row) === true && rowOpponentAbove500(row) === true);
+    if (beforeAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game .500 flags for this slice, so the .500 condition could not be proven from the database yet.");
+  }
+
+  if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) {
+    filtered = filtered.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
+  }
+
   filtered.sort((a, b) => String(b.event_date || "").localeCompare(String(a.event_date || "")));
   const deduped = dedupeRows(filtered);
   const sliced = intent.wantsRecentOnly ? deduped.slice(0, 10) : deduped;
-  const graded = sliced.filter((row) => row.graded === true && ["win", "loss", "push", "void", "cancelled", "dq"].includes(String(row.result || "").toLowerCase()));
-  const wins = graded.filter((row) => String(row.result || "").toLowerCase() === "win").length;
-  const losses = graded.filter((row) => String(row.result || "").toLowerCase() === "loss").length;
-  const pushes = graded.filter((row) => {
-    const result = String(row.result || "").toLowerCase();
-    return result === "push" || result === "void" || result === "cancelled" || result === "dq";
-  }).length;
-  const totalUnits = graded.reduce((sum, row) => sum + normalizedProfitUnits(row), 0);
+  const { graded, wins, losses, pushes, totalUnits, avgRoi } = summarizeGraded(sliced);
   const sourceUnits = graded.reduce((sum, row) => sum + Number(row.profit_units || 0), 0);
-  const avgRoi = graded.length ? (totalUnits / graded.length) * 100 : 0;
   const sourceAvgRoi = graded.length ? graded.reduce((sum, row) => sum + Number(row.roi_on_10_flat || 0), 0) / graded.length : 0;
+
+  let counterSide: AskGooseAnswer["counterSide"] = null;
+  if (intent.marketType === "total" && (intent.side === "over" || intent.side === "under")) {
+    const oppositeSide = intent.side === "over" ? "under" : "over";
+    let oppositeRows = beforeSideFilter.filter((row) => (row.side || "").toLowerCase().includes(oppositeSide));
+    if (intent.wantsTeamMarketFocus) oppositeRows = oppositeRows.filter((row) => isGameLevelTeamMarketRow(row));
+    if (intent.wantsAbove500Teams) oppositeRows = oppositeRows.filter((row) => rowTeamAbove500(row) === true && rowOpponentAbove500(row) === true);
+    if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) oppositeRows = oppositeRows.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
+    const oppositeDeduped = dedupeRows(oppositeRows);
+    const oppositeSliced = intent.wantsRecentOnly ? oppositeDeduped.slice(0, 10) : oppositeDeduped;
+    const opposite = summarizeGraded(oppositeSliced);
+    if (opposite.graded.length > 0) {
+      counterSide = {
+        side: oppositeSide,
+        gradedRows: opposite.graded.length,
+        wins: opposite.wins,
+        losses: opposite.losses,
+        pushes: opposite.pushes,
+        totalUnits: opposite.totalUnits,
+        avgRoi: opposite.avgRoi,
+      };
+    }
+  }
 
   if (filtered.length === 0) warnings.push("No rows matched the interpreted filters.");
   if (filtered.length !== deduped.length) warnings.push(`De-duped ${filtered.length} raw rows into ${deduped.length} betting decisions.`);
   if (graded.length < 10) warnings.push("Sample size is thin; treat this as directional, not a betting edge.");
   if (graded.some((row) => !oddsLooksSane(row.odds))) warnings.push("Some source odds were suspicious/missing, so normalized units used conservative fallback pricing for those rows.");
+  if (counterSide && counterSide.totalUnits > totalUnits) warnings.push(`Opposite side check: ${counterSide.side} performed better in this slice (${counterSide.wins}-${counterSide.losses}-${counterSide.pushes}, ${counterSide.totalUnits.toFixed(2)}u, ${counterSide.avgRoi.toFixed(1)}% ROI).`);
 
   const subjectBits = [league];
   if (intent.scope && intent.scope !== "full_game") subjectBits.push(intent.scope.replace(/_/g, " "));
@@ -429,5 +516,6 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     evidenceRows: sliced.slice(0, 12),
     warnings,
     trustNotes,
+    counterSide,
   };
 }

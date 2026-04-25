@@ -10,6 +10,8 @@ const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
 const BROADER_SAMPLE_LIMIT = 250;
 const TEAM_QUERY_SAMPLE_LIMIT = 1000;
+const BROAD_QUERY_PAGE_SIZE = 1000;
+const BROAD_QUERY_MAX_ROWS = 60000;
 
 const LEAGUE_TEAM_ALIASES: Record<string, string[]> = {
   NHL: [
@@ -114,6 +116,25 @@ async function writePostgrest<T>(path: string, body: unknown) {
   return await response.json() as T;
 }
 
+
+async function fetchPagedAskGooseRows(params: URLSearchParams, maxRows: number) {
+  const out: AskGooseRow[] = [];
+  let offset = Number(params.get("offset") || 0);
+  const pageSize = Math.min(Number(params.get("limit") || BROAD_QUERY_PAGE_SIZE), BROAD_QUERY_PAGE_SIZE);
+
+  while (out.length < maxRows) {
+    const pageParams = new URLSearchParams(params);
+    pageParams.set("limit", String(Math.min(pageSize, maxRows - out.length)));
+    pageParams.set("offset", String(offset));
+    const page = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${pageParams.toString()}`);
+    out.push(...page);
+    if (page.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return out;
+}
+
 async function writeInteraction(payload: AskGooseResponsePayload) {
   try {
     const rows = await writePostgrest<Array<{ id: string }>>("/rest/v1/ask_goose_interactions_v1", {
@@ -204,27 +225,38 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       "is_away_team_bet",
       "is_favorite",
       "is_underdog",
+      "team_win_pct_pre_game",
+      "opponent_win_pct_pre_game",
+      "team_above_500_pre_game",
+      "opponent_above_500_pre_game",
       "integrity_status"
     ].join(",");
 
+    const preliminaryIntent = parseAskGooseIntent(question, league, []);
     const gradedFirst = wantsRecentPerformance(question);
-    const wantsBroaderSample = gradedFirst || /how have|trend|team|vs\b|against\b/i.test(question);
+    const wantsFullHistorical = /last\s+two\s+years|last\s+2\s+years|2024|2025|2026|full\s+(sample|dataset|data)|all\s+(games|data|history)/i.test(question);
+    const wantsBroaderSample = wantsFullHistorical || gradedFirst || /how have|trend|team|vs\b|against\b/i.test(question);
     const teamQuestion = looksLikeTeamQuestion(question);
-    const fetchLimit = teamQuestion
-      ? Math.max(limit, TEAM_QUERY_SAMPLE_LIMIT)
-      : wantsBroaderSample
-        ? Math.max(limit, BROADER_SAMPLE_LIMIT)
-        : limit;
+    const fetchLimit = wantsFullHistorical
+      ? BROAD_QUERY_PAGE_SIZE
+      : teamQuestion
+        ? Math.max(limit, TEAM_QUERY_SAMPLE_LIMIT)
+        : wantsBroaderSample
+          ? Math.max(limit, BROADER_SAMPLE_LIMIT)
+          : limit;
     const primaryQuery = new URLSearchParams({
       select,
       league: `eq.${league}`,
-      order: gradedFirst ? "graded.desc,event_date.desc" : "event_date.desc",
+      order: gradedFirst && !wantsFullHistorical ? "graded.desc,event_date.desc" : "event_date.desc",
       limit: String(fetchLimit),
       offset: "0",
-      ...(gradedFirst ? { graded: "eq.true" } : {}),
+      ...(gradedFirst && !wantsFullHistorical ? { graded: "eq.true" } : {}),
     });
+    if (wantsFullHistorical && preliminaryIntent.marketType) primaryQuery.set("market_family", `eq.${preliminaryIntent.marketType}`);
 
-    let rows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+    let rows = wantsFullHistorical
+      ? await fetchPagedAskGooseRows(primaryQuery, BROAD_QUERY_MAX_ROWS)
+      : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
 
     if (gradedFirst && rows.length === 0) {
       const fallbackQuery = new URLSearchParams({
