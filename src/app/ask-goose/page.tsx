@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, MouseEvent, useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import LeagueDropdown from "@/components/LeagueDropdown";
@@ -120,6 +120,13 @@ function messageId() {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function inferQuestionLeague(question: string, fallback: string) {
+  if (["NHL", "NBA", "MLB", "NFL"].includes(fallback)) return fallback;
+  const upper = question.toUpperCase();
+  const matched = ["NHL", "NBA", "MLB", "NFL"].find((league) => upper.includes(league));
+  return matched || "NHL";
+}
+
 export default function AskGoosePage() {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
@@ -138,7 +145,8 @@ export default function AskGoosePage() {
 
   async function askGoose(nextQuestion = question) {
     const cleaned = nextQuestion.trim();
-    if (!cleaned || loading || !["NHL", "NBA", "MLB", "NFL"].includes(sportLeague)) return;
+    const requestLeague = inferQuestionLeague(cleaned, sportLeague);
+    if (!cleaned || loading) return;
 
     const userMessage: ChatMessage = { id: messageId(), role: "user", text: cleaned, question: cleaned };
     setMessages((current) => current.concat(userMessage));
@@ -149,7 +157,7 @@ export default function AskGoosePage() {
       const response = await fetch("/api/ask-goose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ league: sportLeague, limit: 50, question: cleaned }),
+        body: JSON.stringify({ league: requestLeague, limit: 50, question: cleaned }),
       });
       const payload = await response.json() as AskGooseResponse;
       setResult(payload);
@@ -177,6 +185,12 @@ export default function AskGoosePage() {
 
   function submitQuestion(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    void askGoose();
+  }
+
+  function sendQuestion(event?: MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
     void askGoose();
   }
 
@@ -257,7 +271,8 @@ export default function AskGoosePage() {
               />
               <button
                 type="button"
-                onClick={() => void askGoose()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={sendQuestion}
                 disabled={loading || !question.trim()}
                 className="tap-button rounded-2xl bg-accent-blue px-5 py-3 text-sm font-bold text-white shadow-lg shadow-accent-blue/20 disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label="Send Ask Goose question"
@@ -265,7 +280,7 @@ export default function AskGoosePage() {
                 {loading ? "…" : "Send"}
               </button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-gray-500">Send routes the question through Ask Goose, queries the database layer, then returns the LLM-backed answer.</p>
+            <p className="mt-2 text-center text-[11px] text-gray-500">Send routes the question through Ask Goose, infers NHL/NBA/MLB/NFL when the picker is All, queries the database layer, then returns the LLM-backed answer.</p>
           </form>
         </main>
 

@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const url = process.env.TEST_URL || 'http://localhost:3001/ask-goose';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage();
+const logs = [];
+page.on('console', msg => logs.push(`${msg.type()}: ${msg.text()}`));
+page.on('pageerror', err => logs.push(`pageerror: ${err.message}`));
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.fill('textarea[placeholder^="Ask Goose"]', 'NHL home underdogs moneyline record and ROI');
+await page.click('button[aria-label="Send Ask Goose question"]');
+await page.waitForFunction(() => document.body.innerText.includes('ROI per 1u risk') || document.body.innerText.includes('Goose could not') || document.body.innerText.includes('Failed to'), null, { timeout: 60000 });
+const textareaValue = await page.locator('textarea[placeholder^="Ask Goose"]').inputValue();
+const renderedText = await page.locator('body').innerText();
+console.log(JSON.stringify({ textareaValue, hasUserMessage: renderedText.includes('NHL home underdogs moneyline record and ROI'), hasAnswer: renderedText.includes('ROI per 1u risk'), answerLine: renderedText.split('\n').find(line => line.includes('ROI per 1u risk')) || null, logs }, null, 2));
+await browser.close();
