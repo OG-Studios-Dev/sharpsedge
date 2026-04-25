@@ -1,12 +1,12 @@
 {
   "summary": {
-    "generated_at": "2026-04-24T20:00:00-04:00",
+    "generated_at": "2026-04-24T20:30:00-04:00",
     "windows": 23,
     "rows": 211460,
-    "graded": 121077,
-    "ungradeable": 47453,
+    "graded": 128326,
+    "ungradeable": 40204,
     "failures": 0,
-    "grade_rate": 0.5726,
+    "grade_rate": 0.6069,
     "low_grade_windows": [
       {
         "league": "MLB",
@@ -15,37 +15,13 @@
         "ok": true,
         "days": 30,
         "totalAfterRows": 16931,
-        "totalGradedRows": 4586,
-        "totalUngradeableRows": 1783,
-        "avgGradeRate": 0.2709,
-        "failedRows": []
-      },
-      {
-        "league": "NBA",
-        "startDate": "2024-10-01",
-        "endDate": "2024-10-31",
-        "ok": true,
-        "days": 31,
-        "totalAfterRows": 7587,
-        "totalGradedRows": 2887,
-        "totalUngradeableRows": 1384,
-        "avgGradeRate": 0.3805,
-        "failedRows": []
-      },
-      {
-        "league": "NBA",
-        "startDate": "2024-11-01",
-        "endDate": "2024-11-30",
-        "ok": true,
-        "days": 30,
-        "totalAfterRows": 17115,
-        "totalGradedRows": 8299,
-        "totalUngradeableRows": 4082,
-        "avgGradeRate": 0.4849,
+        "totalGradedRows": 6369,
+        "totalUngradeableRows": 0,
+        "avgGradeRate": 0.3762,
         "failedRows": []
       }
     ],
-    "coverage_note": "NBA/MLB simple Ask Goose serving backfill ledgers only. NHL/NFL require separate pipelines/audits."
+    "coverage_note": "NBA/MLB simple Ask Goose serving backfill ledgers only. NHL/NFL require separate pipelines/audits. Spread rows repaired for NBA/MLB where raw payload contains spread line."
   },
   "windows": [
     {
@@ -139,9 +115,9 @@
       "ok": true,
       "days": 30,
       "totalAfterRows": 16931,
-      "totalGradedRows": 4586,
-      "totalUngradeableRows": 1783,
-      "avgGradeRate": 0.2709,
+      "totalGradedRows": 6369,
+      "totalUngradeableRows": 0,
+      "avgGradeRate": 0.3762,
       "failedRows": []
     },
     {
@@ -223,9 +199,9 @@
       "ok": true,
       "days": 31,
       "totalAfterRows": 7587,
-      "totalGradedRows": 2887,
-      "totalUngradeableRows": 1384,
-      "avgGradeRate": 0.3805,
+      "totalGradedRows": 4271,
+      "totalUngradeableRows": 0,
+      "avgGradeRate": 0.5629,
       "failedRows": []
     },
     {
@@ -235,9 +211,9 @@
       "ok": true,
       "days": 30,
       "totalAfterRows": 17115,
-      "totalGradedRows": 8299,
-      "totalUngradeableRows": 4082,
-      "avgGradeRate": 0.4849,
+      "totalGradedRows": 12381,
+      "totalUngradeableRows": 0,
+      "avgGradeRate": 0.7234,
       "failedRows": []
     },
     {
