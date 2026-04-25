@@ -1,0 +1,297 @@
+{
+  "generated_at": "2026-04-25T02:38:03.010Z",
+  "audits": {
+    "NBA": {
+      "volume": {
+        "total": 183492,
+        "graded": 111930,
+        "ungraded": 71562,
+        "missing_odds": 0,
+        "missing_team_market_team": 0
+      },
+      "markets": {
+        "moneyline": {
+          "total": 47657,
+          "graded": 40163,
+          "missing_line": 47657,
+          "missing_odds": 0
+        },
+        "spread": {
+          "total": 61470,
+          "graded": 5466,
+          "missing_line": 47308,
+          "missing_odds": 0
+        },
+        "total": {
+          "total": 74365,
+          "graded": 66301,
+          "missing_line": 0,
+          "missing_odds": 0
+        }
+      },
+      "integrity": {
+        "ok": 111930,
+        "unresolvable": 38468,
+        "null_status": 33094
+      }
+    },
+    "MLB": {
+      "volume": {
+        "total": 62498,
+        "graded": 39006,
+        "ungraded": 23492,
+        "missing_odds": 0,
+        "missing_team_market_team": 0
+      },
+      "markets": {
+        "moneyline": {
+          "total": 19370,
+          "graded": 14818,
+          "missing_line": 19370,
+          "missing_odds": 0
+        },
+        "spread": {
+          "total": 16077,
+          "graded": 1783,
+          "missing_line": 10278,
+          "missing_odds": 0
+        },
+        "total": {
+          "total": 27051,
+          "graded": 22405,
+          "missing_line": 0,
+          "missing_odds": 0
+        }
+      },
+      "integrity": {
+        "ok": 39006,
+        "unresolvable": 10200,
+        "null_status": 12150
+      }
+    },
+    "NHL": {
+      "volume": {
+        "total": 18602,
+        "graded": 18572,
+        "ungraded": 30,
+        "missing_odds": 0,
+        "missing_team_market_team": 0
+      },
+      "markets": {
+        "moneyline": {
+          "total": 8524,
+          "graded": 8509,
+          "missing_line": 8524,
+          "missing_odds": 0
+        },
+        "spread": {
+          "total": 1399,
+          "graded": 1399,
+          "missing_line": 0,
+          "missing_odds": 0
+        },
+        "total": {
+          "total": 8679,
+          "graded": 8664,
+          "missing_line": 0,
+          "missing_odds": 0
+        }
+      },
+      "integrity": {
+        "ok": 18572,
+        "unresolvable": 0,
+        "null_status": 30
+      }
+    },
+    "NFL": {
+      "volume": {
+        "total": 82346,
+        "graded": 65356,
+        "ungraded": 16990,
+        "missing_odds": 0,
+        "missing_team_market_team": 0
+      },
+      "markets": {
+        "moneyline": {
+          "total": 24818,
+          "graded": 19700,
+          "missing_line": 24818,
+          "missing_odds": 0
+        },
+        "spread": {
+          "total": 31496,
+          "graded": 25026,
+          "missing_line": 0,
+          "missing_odds": 0
+        },
+        "total": {
+          "total": 26032,
+          "graded": 20630,
+          "missing_line": 0,
+          "missing_odds": 0
+        }
+      },
+      "integrity": {
+        "ok": 65356,
+        "unresolvable": 0,
+        "null_status": 16990
+      }
+    }
+  },
+  "simulations": {
+    "NBA": {
+      "moneyline_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 499,
+        "losses": 501,
+        "pushes": 0,
+        "winRate": 0.499,
+        "units": -156.3418,
+        "roi": -0.1563
+      },
+      "spread_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 500,
+        "losses": 488,
+        "pushes": 12,
+        "winRate": 0.5061,
+        "units": -34.5785,
+        "roi": -0.0346
+      },
+      "total_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 499,
+        "losses": 501,
+        "pushes": 0,
+        "winRate": 0.499,
+        "units": -54.201,
+        "roi": -0.0542
+      }
+    },
+    "MLB": {
+      "moneyline_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 485,
+        "losses": 483,
+        "pushes": 32,
+        "winRate": 0.501,
+        "units": -200.5695,
+        "roi": -0.2006
+      },
+      "spread_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 498,
+        "losses": 502,
+        "pushes": 0,
+        "winRate": 0.498,
+        "units": -35.2008,
+        "roi": -0.0352
+      },
+      "total_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 486,
+        "losses": 486,
+        "pushes": 28,
+        "winRate": 0.5,
+        "units": -33.4086,
+        "roi": -0.0334
+      }
+    },
+    "NHL": {
+      "moneyline_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 516,
+        "losses": 484,
+        "pushes": 0,
+        "winRate": 0.516,
+        "units": 379.7513,
+        "roi": 0.3798
+      },
+      "spread_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 495,
+        "losses": 495,
+        "pushes": 10,
+        "winRate": 0.5,
+        "units": -106.6042,
+        "roi": -0.1066
+      },
+      "total_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 499,
+        "losses": 475,
+        "pushes": 26,
+        "winRate": 0.5123,
+        "units": 569.5124,
+        "roi": 0.5695
+      }
+    },
+    "NFL": {
+      "moneyline_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 446,
+        "losses": 554,
+        "pushes": 0,
+        "winRate": 0.446,
+        "units": -391.926,
+        "roi": -0.3919
+      },
+      "spread_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 436,
+        "losses": 554,
+        "pushes": 10,
+        "winRate": 0.4404,
+        "units": -156.3971,
+        "roi": -0.1564
+      },
+      "total_all": {
+        "sample": 1000,
+        "graded": 1000,
+        "wins": 500,
+        "losses": 500,
+        "pushes": 0,
+        "winRate": 0.5,
+        "units": -44.7475,
+        "roi": -0.0447
+      }
+    }
+  },
+  "readiness": {
+    "NBA": {
+      "self_training_ready": true,
+      "clean_db_ready": true,
+      "warnings": [
+        "spread grade rate weak"
+      ]
+    },
+    "MLB": {
+      "self_training_ready": true,
+      "clean_db_ready": true,
+      "warnings": [
+        "spread grade rate weak"
+      ]
+    },
+    "NHL": {
+      "self_training_ready": true,
+      "clean_db_ready": true,
+      "warnings": []
+    },
+    "NFL": {
+      "self_training_ready": true,
+      "clean_db_ready": true,
+      "warnings": []
+    }
+  }
+}
