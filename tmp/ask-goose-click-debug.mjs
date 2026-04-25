@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const url = process.env.TEST_URL || 'https://goosalytics.vercel.app/ask-goose';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage();
+const logs=[]; const requests=[];
+page.on('console', msg => logs.push(`${msg.type()}: ${msg.text()}`));
+page.on('pageerror', err => logs.push(`pageerror: ${err.message}`));
+page.on('response', async res => { if (res.url().includes('/api/ask-goose')) requests.push({url:res.url(),status:res.status(),body:(await res.text().catch(e=>String(e))).slice(0,500)}); });
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.fill('textarea[placeholder^="Ask Goose"]', 'NHL home underdogs moneyline record and ROI');
+await page.click('button[aria-label="Send Ask Goose question"]');
+await page.waitForTimeout(15000);
+const textareaValue = await page.locator('textarea[placeholder^="Ask Goose"]').inputValue().catch(e=>String(e));
+const text = await page.locator('body').innerText();
+console.log(JSON.stringify({textareaValue, requests, logs, bodyTail:text.slice(-2000)}, null, 2));
+await page.screenshot({path:'tmp/ask-goose-live-debug.png', fullPage:true});
+await browser.close();
