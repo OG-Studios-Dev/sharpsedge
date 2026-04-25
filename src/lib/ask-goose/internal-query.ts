@@ -358,7 +358,12 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.mentionedUnderdog) filtered = filtered.filter((row) => row.is_underdog === true);
 
   if (typeof intent.requestedLine === "number" && Number.isFinite(intent.requestedLine)) {
-    filtered = filtered.filter((row) => typeof row.line === "number" && Math.abs(row.line - intent.requestedLine!) < 0.001);
+    filtered = filtered.filter((row) => {
+      if (typeof row.line !== "number") return false;
+      if (intent.marketType === "total" && intent.side === "under") return row.line <= intent.requestedLine!;
+      if (intent.marketType === "total" && intent.side === "over") return row.line >= intent.requestedLine!;
+      return Math.abs(row.line - intent.requestedLine!) < 0.001;
+    });
   }
 
   if (typeof intent.minOdds === "number") filtered = filtered.filter((row) => typeof row.odds === "number" && row.odds >= intent.minOdds!);
@@ -396,7 +401,11 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.mentionedUnderdog) subjectBits.push("underdogs");
   if (intent.marketType) subjectBits.push(intent.marketType);
   if (intent.side === "over" || intent.side === "under") subjectBits.push(intent.side);
-  if (intent.requestedLine != null) subjectBits.push(String(intent.requestedLine));
+  if (intent.requestedLine != null) {
+    if (intent.marketType === "total" && intent.side === "under") subjectBits.push(`≤${intent.requestedLine}`);
+    else if (intent.marketType === "total" && intent.side === "over") subjectBits.push(`≥${intent.requestedLine}`);
+    else subjectBits.push(String(intent.requestedLine));
+  }
   const subject = intent.matchedTeam || subjectBits.join(" ");
   const winPct = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
   const summaryText = graded.length > 0

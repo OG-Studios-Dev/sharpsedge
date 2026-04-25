@@ -85,6 +85,12 @@ type AskGooseResponse = {
     warnings?: string[];
     trustNotes?: string[];
   };
+  explanation?: {
+    mode: "llm" | "deterministic";
+    text: string;
+    bullets: string[];
+    caveats: string[];
+  };
   rows: AskGooseRow[];
   empty?: boolean;
   message?: string;
@@ -258,8 +264,22 @@ export default function AskGoosePage() {
           {result?.ok && !result.empty && (
             <>
               <div className="mt-4 rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-accent-blue">Ask Goose answer</p>
-                <p className="mt-2 text-base font-semibold text-white">{result.answer?.summaryText || result.message}</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-accent-blue">Ask Goose answer</p>
+                  {result.explanation?.mode ? (
+                    <span className="rounded-full border border-accent-blue/25 bg-accent-blue/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-accent-blue">
+                      {result.explanation.mode === "llm" ? "LLM explanation" : "Deterministic explanation"}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-base font-semibold text-white">{result.explanation?.text || result.answer?.summaryText || result.message}</p>
+                {result.explanation?.bullets?.length ? (
+                  <ul className="mt-3 space-y-1 text-sm text-gray-200">
+                    {result.explanation.bullets.map((bullet) => (
+                      <li key={bullet}>• {bullet}</li>
+                    ))}
+                  </ul>
+                ) : null}
                 {result.answer?.trustNotes?.length ? (
                   <ul className="mt-3 space-y-1 text-xs text-gray-300">
                     {result.answer.trustNotes.map((note) => (

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
 import { answerAskGooseQuestion, parseAskGooseIntent, type AskGooseRow } from "@/lib/ask-goose/internal-query";
+import { explainAskGooseAnswer, type AskGooseExplanation } from "@/lib/ask-goose/explanation";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +137,7 @@ type AskGooseResponsePayload = {
     warnings: string[];
     trustNotes?: string[];
   };
+  explanation?: AskGooseExplanation;
   rows: AskGooseRow[];
   empty: boolean;
   message: string;
@@ -263,6 +265,8 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     const ungradeableRows = answer.evidenceRows.filter((row) => String(row.result || "").toLowerCase() === "ungradeable" || String(row.integrity_status || "").toLowerCase() === "unresolvable").length;
     const lineMissingRows = answer.evidenceRows.filter((row) => row.market_family === "spread" && (row.line === null || row.line === undefined)).length;
 
+    const explanation = await explainAskGooseAnswer(question, league, answer);
+
     const message = answer.sampleSize === 0
       ? `No persisted Ask Goose rows found for ${league} in the current materialized query layer.`
       : answer.gradedRows === 0 && lineMissingRows > 0
@@ -296,6 +300,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
         warnings: answer.warnings,
         trustNotes: answer.trustNotes,
       },
+      explanation,
       rows: answer.evidenceRows,
       empty: answer.sampleSize === 0,
       message,
@@ -333,11 +338,14 @@ export async function POST(request: NextRequest) {
       normalized_question: payload.interpretation.normalizedQuestion,
       looks_like_betting_question: payload.interpretation.looksLikeBettingQuestion,
       intent: payload.interpretation,
-      answer: payload.answer,
+      answer: {
+        ...payload.answer,
+        explanation: payload.explanation,
+      },
       summary: payload.summary,
       evidence_candidate_ids: payload.rows.map((row) => row.candidate_id).filter(Boolean),
       warnings: payload.answer.warnings,
-      parser_version: "ask_goose_deterministic_v1",
+      parser_version: "ask_goose_deterministic_v2_line_thresholds_llm_explainer",
       source_layer_version: "ask_goose_query_layer_v1",
       client_metadata: {
         route: "/api/ask-goose",
