@@ -127,6 +127,7 @@ export default function AskGoosePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AskGooseResponse | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [guideOpen, setGuideOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const normalizedExamples = useMemo(() => {
@@ -285,17 +286,38 @@ export default function AskGoosePage() {
         </main>
 
         <aside className="space-y-4">
-          <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
-            <p className="section-heading">What Goose will answer</p>
-            <ul className="mt-3 space-y-2 text-sm text-gray-300">
-              {SUPPORTED_TOPICS.map((item) => <li key={item} className="flex gap-2"><span className="text-accent-blue">•</span><span>{item}</span></li>)}
-            </ul>
-          </div>
-          <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-4">
-            <p className="section-heading">What Goose will reject</p>
-            <ul className="mt-3 space-y-2 text-sm text-gray-300">
-              {NOT_SUPPORTED.map((item) => <li key={item} className="flex gap-2"><span className="text-red-400">•</span><span>{item}</span></li>)}
-            </ul>
+          <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-3">
+            <button
+              type="button"
+              onClick={() => setGuideOpen((open) => !open)}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl px-2 py-2 text-left"
+              aria-expanded={guideOpen}
+            >
+              <div>
+                <p className="section-heading">How to use Goose</p>
+                <p className="mt-1 text-xs text-gray-500">What it can and can’t answer</p>
+              </div>
+              <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dark-border bg-dark-bg/70 text-lg font-semibold text-accent-blue">
+                {guideOpen ? "−" : "+"}
+              </span>
+            </button>
+
+            {guideOpen ? (
+              <div className="mt-2 space-y-3 border-t border-dark-border px-2 pt-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-accent-blue">Goose will answer</p>
+                  <ul className="mt-2 space-y-1.5 text-sm text-gray-300">
+                    {SUPPORTED_TOPICS.map((item) => <li key={item} className="flex gap-2"><span className="text-accent-blue">•</span><span>{item}</span></li>)}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-red-300">Goose will reject</p>
+                  <ul className="mt-2 space-y-1.5 text-sm text-gray-300">
+                    {NOT_SUPPORTED.map((item) => <li key={item} className="flex gap-2"><span className="text-red-400">•</span><span>{item}</span></li>)}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {latestResult?.ok && !latestResult.empty ? (
@@ -320,7 +342,7 @@ export default function AskGoosePage() {
           ) : latestResult ? (
             <EmptyStateCard
               className="mx-0"
-              eyebrow="Latest status"
+              eyebrow="Goose status"
               title={latestResult.ok ? "Goose refused or found no proven rows" : "Ask Goose read failed"}
               body={latestResult.error || latestResult.answer?.summaryText || latestResult.message || "Goose correctly refused to fake an answer."}
             />
