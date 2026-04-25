@@ -128,6 +128,7 @@ export default function AskGoosePage() {
   const [result, setResult] = useState<AskGooseResponse | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [examplesOpen, setExamplesOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const normalizedExamples = useMemo(() => {
@@ -209,20 +210,36 @@ export default function AskGoosePage() {
 
           <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
             {messages.length === 0 ? (
-              <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-5">
-                <p className="text-sm font-semibold text-white">Try one of these:</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {normalizedExamples.map((example) => (
-                    <button
-                      key={example}
-                      type="button"
-                      onClick={() => chooseExample(example)}
-                      className="tap-button rounded-2xl border border-dark-border bg-dark-bg/70 px-4 py-3 text-left text-sm text-gray-200 transition-colors hover:border-accent-blue/50 hover:text-white"
-                    >
-                      {example}
-                    </button>
-                  ))}
-                </div>
+              <div className="rounded-3xl border border-dark-border bg-dark-surface/70 p-3">
+                <button
+                  type="button"
+                  onClick={() => setExamplesOpen((open) => !open)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl px-2 py-2 text-left"
+                  aria-expanded={examplesOpen}
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">Example Questions</p>
+                    <p className="mt-1 text-xs text-gray-500">Tap to open proven starter prompts</p>
+                  </div>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dark-border bg-dark-bg/70 text-lg font-semibold text-accent-blue">
+                    {examplesOpen ? "−" : "+"}
+                  </span>
+                </button>
+
+                {examplesOpen ? (
+                  <div className="mt-2 grid gap-2 border-t border-dark-border px-2 pt-3 sm:grid-cols-2">
+                    {normalizedExamples.map((example) => (
+                      <button
+                        key={example}
+                        type="button"
+                        onClick={() => chooseExample(example)}
+                        className="tap-button rounded-2xl border border-dark-border bg-dark-bg/70 px-4 py-3 text-left text-sm text-gray-200 transition-colors hover:border-accent-blue/50 hover:text-white"
+                      >
+                        {example}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
