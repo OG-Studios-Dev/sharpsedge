@@ -51,6 +51,9 @@ export function NavIcon({
   className?: string;
   size?: number;
 }) {
+  if (id === "ask-goose") {
+    return <span className={className} style={{ fontSize: size, lineHeight: 1 }} aria-hidden="true">🪿</span>;
+  }
   const Icon = ICON_MAP[id] ?? Home;
   return <Icon size={size} className={className} />;
 }
