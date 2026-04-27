@@ -153,6 +153,10 @@ function hasUsableSuccess(row) {
   return row?.status === 'done' && (row?.pull?.ok !== false) && hasIngestedCandidates(row);
 }
 
+function isTerminalNoOddsWindow(row) {
+  return row?.status === 'skipped' && row?.skipReason === 'source_no_odds_available';
+}
+
 function hasRetryableRateLimit(row) {
   return row?.pull?.status === 429;
 }
@@ -175,6 +179,15 @@ function isEmptyWindowSuccess(row) {
   const normalizeCandidates = Number(((row?.normalize ?? {}).summary ?? {}).candidates ?? 0);
   const ingestedCandidates = Number((((row?.ingest ?? {}).inserted) ?? {}).candidates ?? 0);
   return pullEvents === 0 && normalizeCandidates === 0 && ingestedCandidates === 0;
+}
+
+function isNoOddsAvailableWindow(row) {
+  const pull = row?.pull ?? {};
+  const pullEvents = Number((pull.summary ?? {}).events ?? 0);
+  const totalOdds = Number((pull.summary ?? {}).totalOdds ?? 0);
+  const normalizeCandidates = Number(((row?.normalize ?? {}).summary ?? {}).candidates ?? 0);
+  const ingestedCandidates = Number((((row?.ingest ?? {}).inserted) ?? {}).candidates ?? 0);
+  return pullEvents > 0 && totalOdds === 0 && normalizeCandidates === 0 && ingestedCandidates === 0;
 }
 
 const LEAGUE_SEASON_DEFAULTS = {
@@ -302,6 +315,8 @@ function classifyBackfillError(row) {
   if (String(pullStatus).startsWith('5') || /PULL_FAILED 5\d\d/.test(errorText)) return 'source_server_error';
   if (/SUPABASE_UNHEALTHY/.test(errorText)) return 'supabase_unhealthy';
   if (/statement timeout|canceling statement due to statement timeout/i.test(errorText)) return 'supabase_timeout';
+  const totalOdds = Number(row?.pull?.summary?.totalOdds ?? 0);
+  if (/INGEST_MISSING/.test(errorText) && events > 0 && totalOdds === 0 && Number(candidates ?? 0) === 0) return 'source_no_odds_available';
   if (/INGEST_MISSING/.test(errorText) && events > 0 && Number(candidates ?? 0) === 0) return 'normalization_zero_candidates';
   if (/INGEST_MISSING/.test(errorText) && events > 0 && Number(candidates ?? 0) > 0 && Number(ingested ?? 0) === 0) return 'ingest_zero_inserted';
   if (/INGEST_MISSING/.test(errorText) && events === 0) return 'empty_window_incomplete_metadata';
@@ -406,11 +421,16 @@ for (const monthRow of plan) {
       }
 
       if (status === 'done' && !hasIngestedCandidates({ ingest: rowIngestMeta, pull: pullMeta, normalize: normalizeMeta }) && !isEmptyWindowSuccess({ ingest: rowIngestMeta, pull: pullMeta, normalize: normalizeMeta })) {
-        status = 'error';
-        error = error || `INGEST_MISSING for ${monthRow.league} ${chunk.startsAfter}..${chunk.startsBefore}`;
+        if (isNoOddsAvailableWindow({ ingest: rowIngestMeta, pull: pullMeta, normalize: normalizeMeta })) {
+          status = 'skipped';
+          error = null;
+        } else {
+          status = 'error';
+          error = error || `INGEST_MISSING for ${monthRow.league} ${chunk.startsAfter}..${chunk.startsBefore}`;
+        }
       }
 
-      if (status === 'done') seen.add(id);
+      if (status === 'done' || status === 'skipped') seen.add(id);
     } catch (err) {
       status = 'error';
       error = err?.stderr?.toString?.() || err?.message || String(err);
@@ -431,13 +451,14 @@ for (const monthRow of plan) {
       ingest: rowIngestMeta,
       status,
       error,
+      skipReason: status === 'skipped' ? 'source_no_odds_available' : null,
     };
     row.errorClass = classifyBackfillError(row);
 
     latestByKey.set(id, row);
     runRows.push(row);
     ledger = dedupeLedger([...latestByKey.values()]);
-    if (hasUsableSuccess(row)) seen.add(id);
+    if (hasUsableSuccess(row) || isTerminalNoOddsWindow(row)) seen.add(id);
     saveLedger(ledger);
     console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, errorClass: row.errorClass, error: row.error, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null, ingestedCandidates: rowIngestMeta?.inserted?.candidates ?? null }, null, 2));
   }
