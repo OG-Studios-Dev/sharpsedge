@@ -262,7 +262,7 @@ function buildFold(rows, trainEndYear, minFoldTest = Math.max(20, Math.floor(min
     testExamples: test.length,
     candidates: candidates.length,
     eligibleCandidates: candidates.filter((candidate) => candidate.promotion_status === 'eligible').length,
-    topCandidates: candidates.slice(0, 10).map((candidate) => ({
+    topCandidates: topReviewCandidates(candidates, 10).map((candidate) => ({
       signal_key: candidate.signal_key,
       train_sample: candidate.sample,
       train_roi: candidate.train_roi,
