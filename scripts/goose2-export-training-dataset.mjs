@@ -115,6 +115,41 @@ function safeNum(v) {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+function lineHealth(row) {
+  const sport = row.sport || row.league || 'UNKNOWN';
+  const market = row.market_type || 'unknown_market';
+  const line = Number(row.line);
+  if (market === 'moneyline') return 'no_line_expected';
+  if (!Number.isFinite(line)) return 'missing_line';
+  const abs = Math.abs(line);
+
+  if (market === 'total') {
+    if (sport === 'NBA') {
+      if (line < 150) return 'implausibly_low_full_game_total';
+      if (line > 290) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'MLB') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 20) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NHL') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 10) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+  }
+
+  if (market === 'spread') {
+    if (sport === 'NBA' && abs > 35) return 'implausibly_wide_spread';
+    if ((sport === 'MLB' || sport === 'NHL') && abs > 5) return 'implausibly_wide_spread';
+    return 'plausible_spread';
+  }
+
+  return 'unchecked_line_range';
+}
+
 function buildExclusionReason(row) {
   if (!SUPPORTED_SPORTS.has(row.sport)) return 'unsupported_sport';
   if (!SUPPORTED_MARKETS.has(row.market_type)) return 'unsupported_market';
@@ -125,6 +160,8 @@ function buildExclusionReason(row) {
   if (['void', 'cancelled'].includes(String(row.result))) return 'void_or_cancelled';
   if (['void', 'cancelled', 'postponed', 'unresolvable'].includes(String(row.integrity_status))) return 'bad_integrity_status';
   if (!['win', 'loss'].includes(String(row.result)) || row.integrity_status !== 'ok') return 'non_trainable_label';
+  const health = lineHealth(row);
+  if (String(health).startsWith('implausibly_')) return `implausible_line_range:${health}`;
   return null;
 }
 
@@ -167,6 +204,7 @@ async function main() {
       opponent_name: row.opponent_name,
       side: row.side,
       line: row.line,
+      line_health: lineHealth(row),
       odds: row.odds,
       implied_prob: impliedProb,
       book: row.book,
