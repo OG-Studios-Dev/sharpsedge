@@ -1,18 +1,29 @@
 import type { AskGooseAnswer } from "./internal-query";
 
+export type AskGooseLlmStatus = {
+  status: "used" | "not_configured" | "not_applicable" | "request_failed" | "bad_response";
+  model: string | null;
+  reason: string;
+};
+
 export type AskGooseExplanation = {
   mode: "llm" | "deterministic";
   text: string;
   bullets: string[];
   caveats: string[];
+  llmStatus: AskGooseLlmStatus;
 };
+
+function withLlmStatus(explanation: Omit<AskGooseExplanation, "llmStatus">, llmStatus: AskGooseLlmStatus): AskGooseExplanation {
+  return { ...explanation, llmStatus };
+}
 
 function formatPct(value: number) {
   if (!Number.isFinite(value)) return "0.0%";
   return `${value.toFixed(1)}%`;
 }
 
-function fallbackExplanation(question: string, league: string, answer: AskGooseAnswer): AskGooseExplanation {
+function fallbackExplanation(question: string, league: string, answer: AskGooseAnswer): Omit<AskGooseExplanation, "llmStatus"> {
   if (!answer.intent.looksLikeBettingQuestion || answer.gradedRows === 0) {
     return {
       mode: "deterministic",
@@ -93,8 +104,24 @@ function parseJsonObject(value: string): { text?: unknown; bullets?: unknown; ca
 
 export async function explainAskGooseAnswer(question: string, league: string, answer: AskGooseAnswer): Promise<AskGooseExplanation> {
   const fallback = fallbackExplanation(question, league, answer);
+  const model = process.env.ASK_GOOSE_LLM_MODEL || "gpt-4.1-mini";
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || !answer.intent.looksLikeBettingQuestion) return fallback;
+
+  if (!answer.intent.looksLikeBettingQuestion) {
+    return withLlmStatus(fallback, {
+      status: "not_applicable",
+      model: null,
+      reason: "Question did not look like a betting-analysis request, so Ask Goose used the deterministic database summary.",
+    });
+  }
+
+  if (!apiKey) {
+    return withLlmStatus(fallback, {
+      status: "not_configured",
+      model,
+      reason: "OPENAI_API_KEY is not configured, so Ask Goose returned the deterministic database explanation instead of silently pretending the LLM ran.",
+    });
+  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -104,25 +131,46 @@ export async function explainAskGooseAnswer(question: string, league: string, an
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.ASK_GOOSE_LLM_MODEL || "gpt-4.1-mini",
+        model,
         input: buildLlmPrompt(question, league, answer),
         temperature: 0.2,
         max_output_tokens: 500,
       }),
       cache: "no-store",
     });
-    if (!response.ok) return fallback;
+    if (!response.ok) {
+      return withLlmStatus(fallback, {
+        status: "request_failed",
+        model,
+        reason: `OpenAI request failed with HTTP ${response.status}, so Ask Goose returned the deterministic database explanation.`,
+      });
+    }
     const payload = await response.json() as any;
     const text = payload.output_text || payload.output?.flatMap?.((item: any) => item.content || [])?.map?.((content: any) => content.text || "")?.join?.("\n") || "";
     const parsed = parseJsonObject(String(text));
-    if (!parsed || typeof parsed.text !== "string") return fallback;
+    if (!parsed || typeof parsed.text !== "string") {
+      return withLlmStatus(fallback, {
+        status: "bad_response",
+        model,
+        reason: "OpenAI returned an unusable explanation payload, so Ask Goose returned the deterministic database explanation.",
+      });
+    }
     return {
       mode: "llm",
       text: parsed.text,
       bullets: Array.isArray(parsed.bullets) ? parsed.bullets.filter((v): v is string => typeof v === "string").slice(0, 4) : fallback.bullets,
       caveats: Array.isArray(parsed.caveats) ? parsed.caveats.filter((v): v is string => typeof v === "string").slice(0, 6) : fallback.caveats,
+      llmStatus: {
+        status: "used",
+        model,
+        reason: "LLM explanation generated from the computed database facts.",
+      },
     };
   } catch {
-    return fallback;
+    return withLlmStatus(fallback, {
+      status: "request_failed",
+      model,
+      reason: "OpenAI request threw an error, so Ask Goose returned the deterministic database explanation.",
+    });
   }
 }

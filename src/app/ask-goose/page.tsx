@@ -110,6 +110,11 @@ type AskGooseResponse = {
     text: string;
     bullets: string[];
     caveats: string[];
+    llmStatus?: {
+      status: "used" | "not_configured" | "not_applicable" | "request_failed" | "bad_response";
+      model: string | null;
+      reason: string;
+    };
   };
   rows: AskGooseRow[];
   empty?: boolean;
@@ -270,7 +275,12 @@ export default function AskGoosePage() {
               <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
                 <div className={message.role === "user" ? "max-w-[85%] rounded-3xl bg-accent-blue px-4 py-3 text-sm font-semibold text-white" : "max-w-[92%] rounded-3xl border border-dark-border bg-dark-surface/80 px-4 py-3 text-sm text-gray-100"}>
                   {message.role === "goose" && message.result?.explanation?.mode ? (
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-accent-blue">{message.result.explanation.mode === "llm" ? "LLM explanation" : "Deterministic explanation"}</p>
+                    <div className="mb-2 space-y-1">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-accent-blue">{message.result.explanation.mode === "llm" ? "LLM explanation" : "Deterministic explanation"}</p>
+                      {message.result.explanation.llmStatus?.status && message.result.explanation.llmStatus.status !== "used" ? (
+                        <p className="text-[11px] text-amber-200">LLM status: {message.result.explanation.llmStatus.reason}</p>
+                      ) : null}
+                    </div>
                   ) : null}
                   <p className="whitespace-pre-wrap leading-relaxed">{message.text}</p>
 
