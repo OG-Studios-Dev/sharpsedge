@@ -36,7 +36,7 @@ export default function PlayerHeader({
   const [imageError, setImageError] = useState(false);
   const displayHeadshot = useMemo(() => {
     if (!league || !player.playerId) {
-      return getPlayerHeadshot({
+      return imageError ? null : getPlayerHeadshot({
         league,
         playerId: player.playerId,
         playerName: name,

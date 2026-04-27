@@ -22,7 +22,7 @@ function main() {
   const playerResearch = readText("src/lib/player-research.ts");
 
   requireMatch(avatar, /useState/, "PlayerAvatar stateful fallback");
-  requireMatch(avatar, /imageError\s*\?\s*null\s*:\s*getPlayerHeadshot/, "PlayerAvatar broken-image fallback guard");
+  requireMatch(avatar, /const\s+displaySrc\s*=\s*imageError\s*\?\s*null\s*:\s*src/, "PlayerAvatar broken-image fallback guard");
   requireMatch(avatar, /onError=\{\(\) => setImageError\(true\)\}/, "PlayerAvatar onError fallback");
   requireMatch(avatar, /<TeamLogo[\s\S]*sport=\{league \?\? undefined\}/, "PlayerAvatar team logo fallback render");
 

@@ -319,15 +319,15 @@ function MLBStandings() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 type MainView = "Schedule" | "Standings" | "Leaderboard";
 
-export default function ScheduleStandingsContent() {
+export default function ScheduleStandingsContent({ initialView = "Schedule" }: { initialView?: MainView } = {}) {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
-  const [view, setView] = useState<MainView>("Schedule");
+  const [view, setView] = useState<MainView>(initialView);
 
   useEffect(() => {
-    setView(sportLeague === "PGA" ? "Leaderboard" : "Schedule");
-  }, [sportLeague]);
+    setView(sportLeague === "PGA" ? "Leaderboard" : initialView);
+  }, [sportLeague, initialView]);
 
   const viewTabs = sportLeague === "PGA"
     ? (["Leaderboard", "Schedule"] as const)
