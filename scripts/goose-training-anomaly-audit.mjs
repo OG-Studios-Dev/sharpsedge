@@ -211,12 +211,12 @@ function lineHealth(row) {
       return 'plausible_full_game_total';
     }
     if (sport === 'MLB') {
-      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line < 6) return 'implausibly_low_full_game_total';
       if (line > 20) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }
     if (sport === 'NHL') {
-      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line < 4.5) return 'implausibly_low_full_game_total';
       if (line > 10) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }

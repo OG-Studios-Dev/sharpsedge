@@ -308,8 +308,8 @@ function fullGameLineHealth(row: AskGooseRow) {
   if (market === "total") {
     if (sport === "NBA") return line < 150 ? "implausibly_low_full_game_total" : line > 290 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
     if (sport === "NFL") return line < 25 ? "implausibly_low_full_game_total" : line > 75 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
-    if (sport === "MLB") return line < 3 ? "implausibly_low_full_game_total" : line > 20 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
-    if (sport === "NHL") return line < 3 ? "implausibly_low_full_game_total" : line > 10 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+    if (sport === "MLB") return line < 6 ? "implausibly_low_full_game_total" : line > 20 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+    if (sport === "NHL") return line < 4.5 ? "implausibly_low_full_game_total" : line > 10 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
   }
 
   if (market === "spread") {
