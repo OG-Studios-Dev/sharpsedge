@@ -21,7 +21,8 @@
     "goose:training-anomaly-audit": "node scripts/goose-training-anomaly-audit.mjs",
     "goose:learning-status": "node scripts/goose-learning-lab-status.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
-    "qa:assets": "node scripts/qa-asset-fallbacks.mjs"
+    "qa:assets": "node scripts/qa-asset-fallbacks.mjs",
+    "launch:gate": "node scripts/launch-gate.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^7.4.3",
