@@ -3,16 +3,36 @@
 import { FormEvent, MouseEvent, useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import EmptyStateCard from "@/components/EmptyStateCard";
-import LeagueDropdown from "@/components/LeagueDropdown";
 import { useLeague } from "@/hooks/useLeague";
 import { normalizeSportsLeague } from "@/lib/insights";
+import { League } from "@/lib/types";
 
-const EXAMPLE_QUESTIONS = [
-  "NHL full-game under 5.5 record and units",
-  "NHL home underdogs moneyline record and ROI",
-  "NBA Q1 away favorites -5 or more, how often do they cover?",
-  "MLB road teams above .500 vs teams below .500, units won?",
-];
+type AskGooseLeague = Extract<League, "NHL" | "NBA" | "MLB" | "NFL">;
+
+const ASK_GOOSE_LEAGUES: AskGooseLeague[] = ["NHL", "NBA", "MLB", "NFL"];
+
+const EXAMPLE_QUESTIONS: Record<AskGooseLeague, string[]> = {
+  NHL: [
+    "Full-game under 5.5 record and units",
+    "Home underdogs moneyline record and ROI",
+    "P1 favorites -0.5, how often do they cover?",
+  ],
+  NBA: [
+    "Q1 away favorites -5 or more, how often do they cover?",
+    "Home underdogs moneyline record and ROI",
+    "Full-game under 218.5 record and units",
+  ],
+  MLB: [
+    "Road teams above .500 vs teams below .500, units won?",
+    "Full-game under 8.5 record and units",
+    "F5 unders 4.5 record and ROI",
+  ],
+  NFL: [
+    "Home underdogs moneyline record and ROI",
+    "Road favorites spread record and units",
+    "Full-game under 44.5 record and units",
+  ],
+};
 
 const SUPPORTED_TOPICS = [
   "Records, win rate, units, and ROI",
@@ -120,18 +140,37 @@ function messageId() {
   return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function inferQuestionLeague(question: string, fallback: string) {
-  if (["NHL", "NBA", "MLB", "NFL"].includes(fallback)) return fallback;
-  const upper = question.toUpperCase();
-  const matched = ["NHL", "NBA", "MLB", "NFL"].find((league) => upper.includes(league));
-  return matched || "NHL";
+function normalizeAskGooseLeague(league: string): AskGooseLeague {
+  return ASK_GOOSE_LEAGUES.includes(league as AskGooseLeague) ? league as AskGooseLeague : "NHL";
+}
+
+function LeaguePills({ active, onChange }: { active: AskGooseLeague; onChange: (league: AskGooseLeague) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2" aria-label="Ask Goose league scope">
+      {ASK_GOOSE_LEAGUES.map((league) => (
+        <button
+          key={league}
+          type="button"
+          onClick={() => onChange(league)}
+          aria-pressed={active === league}
+          className={`tap-button rounded-full border px-4 py-2 text-xs font-bold tracking-[0.12em] transition-colors ${
+            active === league
+              ? "border-accent-blue bg-accent-blue text-white shadow-lg shadow-accent-blue/20"
+              : "border-dark-border bg-dark-surface/80 text-gray-300 hover:border-accent-blue/50 hover:text-white"
+          }`}
+        >
+          {league}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export const dynamic = "force-dynamic";
 
 export default function AskGoosePage() {
   const [league, setLeague] = useLeague();
-  const sportLeague = normalizeSportsLeague(league);
+  const sportLeague = normalizeAskGooseLeague(normalizeSportsLeague(league));
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AskGooseResponse | null>(null);
@@ -141,13 +180,12 @@ export default function AskGoosePage() {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const normalizedExamples = useMemo(() => {
-    if (sportLeague === "NHL") return EXAMPLE_QUESTIONS.map((q) => q.replace("Q1", "P1"));
-    return EXAMPLE_QUESTIONS;
+    return EXAMPLE_QUESTIONS[sportLeague].map((question) => `${sportLeague} ${question}`);
   }, [sportLeague]);
 
   async function askGoose(nextQuestion = question) {
     const cleaned = nextQuestion.trim();
-    const requestLeague = inferQuestionLeague(cleaned, sportLeague);
+    const requestLeague = sportLeague;
     if (!cleaned || loading) return;
 
     const userMessage: ChatMessage = { id: messageId(), role: "user", text: cleaned, question: cleaned };
@@ -208,7 +246,7 @@ export default function AskGoosePage() {
       <PageHeader
         title="Ask Goose"
         subtitle="Beta chat for database-backed betting research. Goose answers only what the data can prove."
-        right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
+        right={<span className="rounded-full border border-accent-blue/25 bg-accent-blue/10 px-3 py-1 text-xs font-semibold text-accent-blue">{sportLeague} scoped</span>}
       />
 
       <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr),340px] lg:px-0">
@@ -218,9 +256,12 @@ export default function AskGoosePage() {
               <div>
                 <p className="section-heading text-accent-blue">Ask Goose beta</p>
                 <h2 className="mt-2 text-xl font-semibold text-white md:text-2xl">Start a betting research chat</h2>
-                <p className="mt-1 text-sm text-gray-400">Press Enter or tap Send. Shift+Enter adds a new line.</p>
+                <p className="mt-1 text-sm text-gray-400">Pick a league first so Goose queries only that league’s betting database. Press Enter or tap Send.</p>
               </div>
               <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">Beta ready</span>
+            </div>
+            <div className="mt-4">
+              <LeaguePills active={sportLeague} onChange={(nextLeague) => setLeague(nextLeague)} />
             </div>
           </div>
 
@@ -268,7 +309,7 @@ export default function AskGoosePage() {
                   }
                 }}
                 rows={1}
-                placeholder="Ask Goose… e.g. NHL under 5.5 record and units"
+                placeholder={`Ask ${sportLeague} Goose… e.g. ${normalizedExamples[0]}`}
                 className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-3 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none"
               />
               <button
@@ -282,7 +323,7 @@ export default function AskGoosePage() {
                 {loading ? "…" : "Send"}
               </button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-gray-500">Send routes the question through Ask Goose, infers NHL/NBA/MLB/NFL when the picker is All, queries the database layer, then returns the LLM-backed answer.</p>
+            <p className="mt-2 text-center text-[11px] text-gray-500">Send queries only the selected {sportLeague} data layer, then returns a database-backed answer with an LLM explanation when available.</p>
           </form>
         </main>
 
