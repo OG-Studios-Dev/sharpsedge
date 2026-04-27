@@ -83,6 +83,7 @@ async function smoke(route) {
 const checks = [];
 
 checks.push(run("asset_fallbacks", "npm", ["run", "qa:assets"]));
+checks.push(run("ask_goose_quality", "npm", ["run", "qa:ask-goose"]));
 if (RUN_BUILD) checks.push(run("build", "npm", ["run", "build"]));
 
 const routeSmokes = [];

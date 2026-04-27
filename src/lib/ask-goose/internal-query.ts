@@ -509,6 +509,7 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (filtered.length === 0) warnings.push("No rows matched the interpreted filters.");
   if (filtered.length !== deduped.length) warnings.push(`De-duped ${filtered.length} raw rows into ${deduped.length} betting decisions.`);
   if (graded.length < 10) warnings.push("Sample size is thin; treat this as directional, not a betting edge.");
+  if (league === "NFL" && graded.length < 25) warnings.push("NFL historical coverage is currently limited in Ask Goose, so treat NFL answers as coverage diagnostics until more graded rows are loaded.");
   if (graded.some((row) => !oddsLooksSane(row.odds))) warnings.push("Some source odds were suspicious/missing, so normalized units used conservative fallback pricing for those rows.");
   if (counterSide && counterSide.totalUnits > totalUnits) warnings.push(`Opposite side check: ${counterSide.side} performed better in this slice (${counterSide.wins}-${counterSide.losses}-${counterSide.pushes}, ${counterSide.totalUnits.toFixed(2)}u, ${counterSide.avgRoi.toFixed(1)}% ROI).`);
 
