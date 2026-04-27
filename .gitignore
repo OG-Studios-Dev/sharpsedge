@@ -63,3 +63,7 @@ tmp/sgo-cache/
 tmp/the-odds-historical/
 tmp/the-odds-direct-mlb-sep/
 tmp/sgo-ledger/
+
+# Local launch/backfill working notes and generated reports
+tmp/launch-cleanup-roadmap-*.md
+tmp/sgo-backfill-error-classification-*.md
