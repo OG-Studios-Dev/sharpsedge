@@ -54,6 +54,8 @@ function buildLlmPrompt(question: string, league: string, answer: AskGooseAnswer
     "You are Ask Goose, a cautious sports betting research analyst.",
     "You must not invent stats, picks, odds, injuries, or causal claims.",
     "Use ONLY the computed facts below. If sample is thin or warnings exist, say so plainly.",
+    "If there are zero graded rows, say the database cannot prove this angle yet; do not answer from general sports knowledge.",
+    "Never call something a bet, lock, guarantee, or recommendation unless the computed facts prove it. Frame outputs as database research.",
     "Return concise JSON with keys: text (string), bullets (array of 2-4 strings), caveats (array of strings).",
     JSON.stringify({
       question,
@@ -72,6 +74,8 @@ function buildLlmPrompt(question: string, league: string, answer: AskGooseAnswer
         sourceUnits: Number(answer.sourceUnits.toFixed(4)),
         sourceAvgRoi: Number(answer.sourceAvgRoi.toFixed(4)),
         warnings: answer.warnings,
+        trustNotes: answer.trustNotes,
+        counterSide: answer.counterSide,
         intent: answer.intent,
       },
       evidenceRows: answer.evidenceRows.slice(0, 6).map((row) => ({

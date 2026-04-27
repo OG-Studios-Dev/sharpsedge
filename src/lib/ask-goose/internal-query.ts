@@ -296,6 +296,35 @@ function oddsLooksSane(odds: number | null | undefined) {
   return typeof odds === "number" && Number.isFinite(odds) && Math.abs(odds) >= 80 && Math.abs(odds) <= 5000;
 }
 
+function fullGameLineHealth(row: AskGooseRow) {
+  if (!isFullGameRow(row)) return "non_full_game_scope";
+  const sport = String(row.league || "UNKNOWN").toUpperCase();
+  const market = row.market_type || row.market_family || "unknown_market";
+  const line = Number(row.line);
+  if (market === "moneyline") return "no_line_expected";
+  if (!Number.isFinite(line)) return "missing_line";
+  const abs = Math.abs(line);
+
+  if (market === "total") {
+    if (sport === "NBA") return line < 150 ? "implausibly_low_full_game_total" : line > 290 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+    if (sport === "NFL") return line < 25 ? "implausibly_low_full_game_total" : line > 75 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+    if (sport === "MLB") return line < 3 ? "implausibly_low_full_game_total" : line > 20 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+    if (sport === "NHL") return line < 3 ? "implausibly_low_full_game_total" : line > 10 ? "implausibly_high_full_game_total" : "plausible_full_game_total";
+  }
+
+  if (market === "spread") {
+    if ((sport === "NBA" || sport === "NFL") && abs > 35) return "implausibly_wide_spread";
+    if ((sport === "MLB" || sport === "NHL") && abs > 5) return "implausibly_wide_spread";
+    return "plausible_spread";
+  }
+
+  return "unchecked_line_range";
+}
+
+function hasImplausibleFullGameLine(row: AskGooseRow) {
+  return fullGameLineHealth(row).startsWith("implausibly_");
+}
+
 function normalizedProfitUnits(row: AskGooseRow) {
   const result = String(row.result || "").toLowerCase();
   if (result === "loss") return -1;
@@ -405,6 +434,13 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     filtered = filtered.filter((row) => marketScopeMatches(row, null));
   } else {
     filtered = filtered.filter((row) => marketScopeMatches(row, intent.scope));
+  }
+
+  if (!intent.scope || intent.scope === "full_game") {
+    const beforeLineHealth = filtered.length;
+    filtered = filtered.filter((row) => !hasImplausibleFullGameLine(row));
+    const excluded = beforeLineHealth - filtered.length;
+    if (excluded > 0) warnings.push(`Excluded ${excluded} rows with implausible full-game lines so period/team/alternate markets do not contaminate the answer.`);
   }
 
   const beforeSideFilter = [...filtered];
