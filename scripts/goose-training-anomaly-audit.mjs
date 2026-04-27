@@ -37,6 +37,7 @@ const maxRows = Number(args.maxRows || 200000);
 const top = Number(args.top || 25);
 const failOnCritical = args.failOnCritical === 'true' || args.failOnCritical === '1';
 const minDeepDiveRows = Number(args.minDeepDiveRows || 75);
+const chunkMode = args.chunk || 'month';
 
 function assertDate(value, name) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${name} must be YYYY-MM-DD`);
@@ -55,23 +56,66 @@ async function rest(pathname, options = {}) {
   try { return JSON.parse(text); } catch { return text; }
 }
 
-async function fetchExamples() {
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function dateOnly(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function nextMonthStart(date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
+}
+
+function buildDateChunks(startDate, endDate) {
+  if (chunkMode === 'none') return [{ start: startDate, end: endDate }];
+  if (chunkMode !== 'month') throw new Error('--chunk must be month or none');
+
+  const chunks = [];
+  let cursor = new Date(`${startDate}T00:00:00Z`);
+  const final = new Date(`${endDate}T00:00:00Z`);
+  while (cursor <= final) {
+    const monthEnd = addDays(nextMonthStart(cursor), -1);
+    const chunkEnd = monthEnd < final ? monthEnd : final;
+    chunks.push({ start: dateOnly(cursor), end: dateOnly(chunkEnd) });
+    cursor = addDays(chunkEnd, 1);
+  }
+  return chunks;
+}
+
+async function fetchExamplesForWindow(windowStart, windowEnd, remainingRows) {
   const out = [];
   let offset = 0;
   const pageSize = 1000;
-  while (out.length < maxRows) {
+  while (out.length < remainingRows) {
     const q = new URLSearchParams({
       select: 'example_id,candidate_id,canonical_game_id,event_id,sport,league,event_date,home_team,away_team,team_name,opponent_name,team_role,market_family,market_type,side,line,odds,sportsbook,result,profit_units',
-      event_date: `gte.${start}`,
+      event_date: `gte.${windowStart}`,
       order: 'event_date.asc',
-      limit: String(Math.min(pageSize, maxRows - out.length)),
+      limit: String(Math.min(pageSize, remainingRows - out.length)),
       offset: String(offset),
     });
-    q.append('event_date', `lte.${end}`);
+    q.append('event_date', `lte.${windowEnd}`);
     const page = await rest(`/rest/v1/goose_training_examples_v1?${q.toString()}`);
     out.push(...page);
     if (page.length < pageSize) break;
     offset += pageSize;
+  }
+  return out;
+}
+
+async function fetchExamples() {
+  const out = [];
+  const chunks = buildDateChunks(start, end);
+  for (const chunk of chunks) {
+    if (out.length >= maxRows) break;
+    const remainingRows = maxRows - out.length;
+    const page = await fetchExamplesForWindow(chunk.start, chunk.end, remainingRows);
+    out.push(...page);
+    console.error(JSON.stringify({ progress: 'training_anomaly_fetch', chunk, rows: page.length, totalRows: out.length, maxRows }));
   }
   return out;
 }
