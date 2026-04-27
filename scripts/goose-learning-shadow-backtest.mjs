@@ -44,6 +44,7 @@ const walkForward = args.walkForward === 'true' || args.walkForward === '1';
 const maxSaneRoi = Number(args.maxSaneRoi || 0.18);
 const maxSaneWinRate = Number(args.maxSaneWinRate || 0.68);
 const minIndependentEvents = Number(args.minIndependentEvents || Math.max(minSample, 75));
+const excludeImplausibleLines = args.excludeImplausibleLines !== 'false';
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
 if (![trainStart, trainEnd, testStart, testEnd].every(isoDateOk)) throw new Error('Dates must be YYYY-MM-DD');
@@ -97,6 +98,56 @@ function oddsBucket(odds) {
   if (n < 150) return 'odds_short_dog';
   if (n < 250) return 'odds_mid_dog';
   return 'odds_long_dog';
+}
+
+function lineHealth(row) {
+  const sport = row.sport || row.league || 'UNKNOWN';
+  const market = row.market_family || 'unknown_market';
+  const line = Number(row.line);
+  if (market === 'moneyline') return 'no_line_expected';
+  if (!Number.isFinite(line)) return 'missing_line';
+  const abs = Math.abs(line);
+
+  if (market === 'total') {
+    if (sport === 'NBA') {
+      if (line < 150) return 'implausibly_low_full_game_total';
+      if (line > 290) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NFL') {
+      if (line < 25) return 'implausibly_low_full_game_total';
+      if (line > 75) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'MLB') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 20) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NHL') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 10) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+  }
+
+  if (market === 'spread') {
+    if ((sport === 'NBA' || sport === 'NFL') && abs > 35) return 'implausibly_wide_spread';
+    if ((sport === 'MLB' || sport === 'NHL') && abs > 5) return 'implausibly_wide_spread';
+    return 'plausible_spread';
+  }
+
+  return 'unchecked_line_range';
+}
+
+function isImplausibleLine(row) {
+  return String(lineHealth(row)).startsWith('implausibly_');
+}
+
+function countLineHealth(rows) {
+  const counts = new Map();
+  for (const row of rows) counts.set(lineHealth(row), (counts.get(lineHealth(row)) || 0) + 1);
+  return Object.fromEntries(Array.from(counts.entries()).sort((a, b) => b[1] - a[1]));
 }
 
 function boolSignal(name, value) { return value === true ? name : null; }
@@ -281,7 +332,7 @@ async function writeResults(candidates, summary) {
       sports: Array.from(new Set(candidates.map((c) => c.sport))).sort(),
       markets: Array.from(new Set(candidates.map((c) => c.market_family))).sort(),
       min_sample: minSample,
-      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, generator: 'goose-learning-shadow-backtest' },
+      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, excludeImplausibleLines, generator: 'goose-learning-shadow-backtest' },
       metrics: summary,
       notes: 'Shadow learning run only. Does not affect production pick generation.',
     }),
@@ -339,12 +390,17 @@ async function writeResults(candidates, summary) {
 
 const rawTrainRows = await fetchExamples(trainStart, trainEnd);
 const rawTestRows = await fetchExamples(testStart, testEnd);
-const trainRows = dedupeEventLevel ? dedupeExamples(rawTrainRows) : rawTrainRows;
-const testRows = dedupeEventLevel ? dedupeExamples(rawTestRows) : rawTestRows;
+const dedupedTrainRows = dedupeEventLevel ? dedupeExamples(rawTrainRows) : rawTrainRows;
+const dedupedTestRows = dedupeEventLevel ? dedupeExamples(rawTestRows) : rawTestRows;
+const excludedTrainRows = excludeImplausibleLines ? dedupedTrainRows.filter(isImplausibleLine) : [];
+const excludedTestRows = excludeImplausibleLines ? dedupedTestRows.filter(isImplausibleLine) : [];
+const trainRows = excludeImplausibleLines ? dedupedTrainRows.filter((row) => !isImplausibleLine(row)) : dedupedTrainRows;
+const testRows = excludeImplausibleLines ? dedupedTestRows.filter((row) => !isImplausibleLine(row)) : dedupedTestRows;
 let candidates = finalize(accumulate(trainRows), accumulate(testRows));
 let walkForwardFolds = [];
 if (walkForward) {
-  const allRows = dedupeEventLevel ? dedupeExamples([...rawTrainRows, ...rawTestRows]) : [...rawTrainRows, ...rawTestRows];
+  const allDedupedRows = dedupeEventLevel ? dedupeExamples([...rawTrainRows, ...rawTestRows]) : [...rawTrainRows, ...rawTestRows];
+  const allRows = excludeImplausibleLines ? allDedupedRows.filter((row) => !isImplausibleLine(row)) : allDedupedRows;
   const years = Array.from(new Set(allRows.map((row) => new Date(row.event_date).getUTCFullYear()).filter(Number.isFinite))).sort((a, b) => a - b);
   walkForwardFolds = years.slice(1).map((year) => buildFold(allRows, year));
   if (walkForwardFolds.some((fold) => fold.eligibleCandidates === 0)) {
@@ -370,10 +426,15 @@ const summary = {
   maxSaneRoi,
   maxSaneWinRate,
   minIndependentEvents,
+  excludeImplausibleLines,
   rawTrainExamples: rawTrainRows.length,
   rawTestExamples: rawTestRows.length,
-  dedupedTrainExamples: rawTrainRows.length - trainRows.length,
-  dedupedTestExamples: rawTestRows.length - testRows.length,
+  dedupedTrainExamples: rawTrainRows.length - dedupedTrainRows.length,
+  dedupedTestExamples: rawTestRows.length - dedupedTestRows.length,
+  excludedImplausibleTrainLines: excludedTrainRows.length,
+  excludedImplausibleTestLines: excludedTestRows.length,
+  excludedTrainLineHealth: countLineHealth(excludedTrainRows),
+  excludedTestLineHealth: countLineHealth(excludedTestRows),
   trainExamples: trainRows.length,
   testExamples: testRows.length,
   candidates: candidates.length,
