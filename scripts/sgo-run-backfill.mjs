@@ -282,6 +282,32 @@ for (const row of [...basePlan, ...extraPlan]) planMap.set(`${row.league}|${row.
 const plan = [...planMap.values()].sort((a, b) => `${a.league}|${a.startsAfter}`.localeCompare(`${b.league}|${b.startsAfter}`));
 const supabaseHealth = await checkSupabaseHealth();
 const oddsApiPhase1Preflight = await runOddsApiPhase1Preflight(leagues, startIso, endIso);
+const runRows = [];
+
+function classifyBackfillError(row) {
+  if (row.status !== 'error') return null;
+  const errorText = String(row.error || '');
+  const pullStatus = row?.pull?.status;
+  const events = Number(row?.pull?.summary?.events ?? 0);
+  const candidates = row?.normalize?.summary?.candidates;
+  const ingested = row?.ingest?.inserted?.candidates;
+
+  const usage = row?.pull?.usageAfter || row?.pull?.usageBefore;
+  const maxEntities = Number(usage?.['max-entities'] ?? usage?.maxEntities ?? usage?.limit ?? 0);
+  const currentEntities = Number(usage?.['current-entities'] ?? usage?.currentEntities ?? usage?.used ?? 0);
+
+  if ((pullStatus === 401 || /PULL_FAILED 401/.test(errorText)) && maxEntities > 0 && currentEntities >= maxEntities) return 'source_quota_exhausted';
+  if (pullStatus === 401 || /PULL_FAILED 401/.test(errorText)) return 'source_auth_error';
+  if (pullStatus === 429 || /PULL_FAILED 429/.test(errorText)) return 'source_rate_limited';
+  if (String(pullStatus).startsWith('5') || /PULL_FAILED 5\d\d/.test(errorText)) return 'source_server_error';
+  if (/SUPABASE_UNHEALTHY/.test(errorText)) return 'supabase_unhealthy';
+  if (/statement timeout|canceling statement due to statement timeout/i.test(errorText)) return 'supabase_timeout';
+  if (/INGEST_MISSING/.test(errorText) && events > 0 && Number(candidates ?? 0) === 0) return 'normalization_zero_candidates';
+  if (/INGEST_MISSING/.test(errorText) && events > 0 && Number(candidates ?? 0) > 0 && Number(ingested ?? 0) === 0) return 'ingest_zero_inserted';
+  if (/INGEST_MISSING/.test(errorText) && events === 0) return 'empty_window_incomplete_metadata';
+  if (/Unexpected token|JSON/.test(errorText)) return 'child_json_parse_error';
+  return 'unknown_error';
+}
 
 if (
   ENABLE_ODDS_API_PHASE1_PREFLIGHT
@@ -406,19 +432,38 @@ for (const monthRow of plan) {
       status,
       error,
     };
+    row.errorClass = classifyBackfillError(row);
 
     latestByKey.set(id, row);
+    runRows.push(row);
     ledger = dedupeLedger([...latestByKey.values()]);
     if (hasUsableSuccess(row)) seen.add(id);
     saveLedger(ledger);
-    console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null, ingestedCandidates: rowIngestMeta?.inserted?.candidates ?? null }, null, 2));
+    console.log(JSON.stringify({ league: monthRow.league, month: monthRow.month, startsAfter: chunk.startsAfter, startsBefore: chunk.startsBefore, status, errorClass: row.errorClass, error: row.error, events: pullMeta?.summary?.events ?? null, candidates: normalizeMeta?.summary?.candidates ?? null, ingestedCandidates: rowIngestMeta?.inserted?.candidates ?? null }, null, 2));
   }
 }
 
+const chunkStatusCounts = runRows.reduce((acc, row) => {
+  acc[row.status] = (acc[row.status] || 0) + 1;
+  return acc;
+}, {});
+const errorClassCounts = runRows.reduce((acc, row) => {
+  if (!row.errorClass) return acc;
+  acc[row.errorClass] = (acc[row.errorClass] || 0) + 1;
+  return acc;
+}, {});
+const failedChunks = runRows.filter((row) => row.status === 'error').length;
+const partial = failedChunks > 0;
+
 console.log(JSON.stringify({
-  ok: true,
+  ok: !partial,
+  status: partial ? 'partial' : 'done',
   ledgerPath,
   rows: ledger.length,
+  chunksProcessed: runRows.length,
+  chunkStatusCounts,
+  failedChunks,
+  errorClassCounts,
   mode,
   preflightGate: {
     enabled: ENABLE_ODDS_API_PHASE1_PREFLIGHT,
@@ -429,3 +474,5 @@ console.log(JSON.stringify({
   supabaseHealth,
   oddsApiPhase1Preflight,
 }, null, 2));
+
+process.exit(partial ? 1 : 0);

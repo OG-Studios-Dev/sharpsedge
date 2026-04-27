@@ -118,7 +118,7 @@ async function fetchWithRotation(targetUrl) {
     try { data = text ? JSON.parse(text) : null; } catch {}
     last = { ok: res.ok, status: res.status, data, text, keyIndex: index + 1 };
     if (res.ok) return last;
-    if (res.status !== 429) return last;
+    if (![401, 403, 429].includes(res.status)) return last;
   }
   return last;
 }

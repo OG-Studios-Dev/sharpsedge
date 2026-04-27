@@ -83,7 +83,7 @@ async function sgFetch<T>(path: string): Promise<SportsGameOddsFetchResult<T>> {
 
       if (res.ok) return result;
       lastResult = result;
-      if (res.status !== 429) return result;
+      if (![401, 403, 429].includes(res.status)) return result;
     } catch (error) {
       lastResult = {
         ok: false,
