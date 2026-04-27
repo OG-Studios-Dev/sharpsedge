@@ -36,6 +36,7 @@ const end = args.end || '2026-12-31';
 const maxRows = Number(args.maxRows || 200000);
 const top = Number(args.top || 25);
 const failOnCritical = args.failOnCritical === 'true' || args.failOnCritical === '1';
+const minDeepDiveRows = Number(args.minDeepDiveRows || 75);
 
 function assertDate(value, name) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${name} must be YYYY-MM-DD`);
@@ -98,6 +99,223 @@ function groupBy(rows, keyFn) {
   }));
 }
 
+function groupRows(rows, keyFn) {
+  const map = new Map();
+  for (const row of rows) {
+    const key = keyFn(row);
+    const bucket = map.get(key) || [];
+    bucket.push(row);
+    map.set(key, bucket);
+  }
+  return map;
+}
+
+function normalizeTeam(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function matchupKey(row) {
+  return [
+    row.sport || row.league || 'UNKNOWN',
+    row.event_date || 'unknown_date',
+    normalizeTeam(row.away_team),
+    normalizeTeam(row.home_team),
+  ].join('|');
+}
+
+function americanProfit(odds) {
+  const n = Number(odds);
+  if (!Number.isFinite(n) || n === 0) return null;
+  return n > 0 ? n / 100 : 100 / Math.abs(n);
+}
+
+function avg(values) {
+  const clean = values.map(Number).filter(Number.isFinite);
+  return clean.length ? clean.reduce((sum, value) => sum + value, 0) / clean.length : null;
+}
+
+function quantile(values, q) {
+  const clean = values.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!clean.length) return null;
+  const idx = Math.min(clean.length - 1, Math.max(0, Math.floor((clean.length - 1) * q)));
+  return clean[idx];
+}
+
+function topCounts(values, limit = 10) {
+  const counts = new Map();
+  for (const value of values) counts.set(String(value ?? 'null'), (counts.get(String(value ?? 'null')) || 0) + 1);
+  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit).map(([value, count]) => ({ value, count }));
+}
+
+function lineHealth(row) {
+  const sport = row.sport || row.league || 'UNKNOWN';
+  const market = row.market_family || 'unknown_market';
+  const line = Number(row.line);
+  if (market === 'moneyline') return 'no_line_expected';
+  if (!Number.isFinite(line)) return 'missing_line';
+  const abs = Math.abs(line);
+
+  if (market === 'total') {
+    if (sport === 'NBA') {
+      if (line < 150) return 'implausibly_low_full_game_total';
+      if (line > 290) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NFL') {
+      if (line < 25) return 'implausibly_low_full_game_total';
+      if (line > 75) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'MLB') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 20) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NHL') {
+      if (line < 3) return 'implausibly_low_full_game_total';
+      if (line > 10) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+  }
+
+  if (market === 'spread') {
+    if ((sport === 'NBA' || sport === 'NFL') && abs > 35) return 'implausibly_wide_spread';
+    if ((sport === 'MLB' || sport === 'NHL') && abs > 5) return 'implausibly_wide_spread';
+    return 'plausible_spread';
+  }
+
+  return 'unchecked_line_range';
+}
+
+function summarizeRows(bucketRows) {
+  const settled = bucketRows.filter((row) => row.result === 'win' || row.result === 'loss');
+  const wins = bucketRows.filter((row) => row.result === 'win');
+  const losses = bucketRows.filter((row) => row.result === 'loss');
+  const units = bucketRows.reduce((sum, row) => sum + Number(row.profit_units || 0), 0);
+  const lines = bucketRows.map((row) => row.line).filter((value) => value != null).map(Number).filter(Number.isFinite);
+  const healthCounts = topCounts(bucketRows.map(lineHealth), 12);
+  const implausibleLineRows = bucketRows.filter((row) => String(lineHealth(row)).startsWith('implausibly_')).length;
+  const byEventBook = groupRows(bucketRows, (row) => [eventKeyForRow(row), row.sportsbook || 'unknown_book'].join('|'));
+  const uniqueLinesPerEventBook = Array.from(byEventBook.values()).map((rowsForEventBook) => new Set(rowsForEventBook.map((row) => row.line == null ? 'no_line' : Number(row.line).toFixed(2))).size);
+  const fragmentedMatchups = Array.from(groupRows(bucketRows, matchupKey).entries()).map(([key, rowsForMatchup]) => {
+    const eventIds = new Set(rowsForMatchup.map((row) => row.canonical_game_id || row.event_id).filter(Boolean));
+    return { key, rows: rowsForMatchup.length, eventIds: eventIds.size };
+  }).filter((row) => row.eventIds > 1).sort((a, b) => b.eventIds - a.eventIds || b.rows - a.rows);
+  const sideStats = groupBy(bucketRows, (row) => row.side || 'unknown_side').sort((a, b) => b.rows - a.rows);
+  const bookStats = groupBy(bucketRows, (row) => row.sportsbook || 'unknown_book').sort((a, b) => Math.abs(b.roiPerExample) - Math.abs(a.roiPerExample));
+
+  return {
+    rows: bucketRows.length,
+    wins: wins.length,
+    losses: losses.length,
+    pushes: bucketRows.length - wins.length - losses.length,
+    winRate: pct(wins.length, settled.length),
+    units: Number(units.toFixed(6)),
+    roiPerExample: pct(units, bucketRows.length),
+    avgOdds: avg(bucketRows.map((row) => row.odds)),
+    avgWinOdds: avg(wins.map((row) => row.odds)),
+    avgLossOdds: avg(losses.map((row) => row.odds)),
+    avgWinPayout: avg(wins.map((row) => americanProfit(row.odds))),
+    line: {
+      min: lines.length ? Math.min(...lines) : null,
+      p25: quantile(lines, 0.25),
+      median: quantile(lines, 0.5),
+      p75: quantile(lines, 0.75),
+      max: lines.length ? Math.max(...lines) : null,
+      healthCounts,
+      implausibleLineRows,
+      implausibleLineShare: pct(implausibleLineRows, bucketRows.length),
+      topLines: topCounts(lines, 12),
+      medianUniqueLinesPerEventBook: quantile(uniqueLinesPerEventBook, 0.5),
+      p90UniqueLinesPerEventBook: quantile(uniqueLinesPerEventBook, 0.9),
+    },
+    eventIdentity: {
+      fragmentedMatchupCount: fragmentedMatchups.length,
+      topFragmentedMatchups: fragmentedMatchups.slice(0, 8),
+    },
+    sideStats: sideStats.slice(0, 8),
+    bookStats: bookStats.slice(0, 8),
+    sampleRows: bucketRows.slice(0, 8).map((row) => ({
+      example_id: row.example_id,
+      candidate_id: row.candidate_id,
+      event: row.canonical_game_id || row.event_id,
+      event_date: row.event_date,
+      matchup: `${row.away_team || '?'} @ ${row.home_team || '?'}`,
+      market_family: row.market_family,
+      market_type: row.market_type,
+      side: row.side,
+      line: row.line,
+      odds: row.odds,
+      sportsbook: row.sportsbook,
+      result: row.result,
+      profit_units: row.profit_units,
+      line_health: lineHealth(row),
+    })),
+  };
+}
+
+function diagnoseBucket(bucketRows, stat) {
+  const diagnostics = summarizeRows(bucketRows);
+  const hypotheses = [];
+  if (diagnostics.line.implausibleLineShare >= 0.2) {
+    hypotheses.push({
+      code: 'market_line_contamination',
+      confidence: diagnostics.line.implausibleLineShare >= 0.5 ? 'high' : 'medium',
+      explanation: 'A large share of rows have lines outside the expected full-game range for this sport/market. This usually means quarter, team-total, period, or alternate markets are being grouped into a broad market bucket.',
+      evidence: {
+        implausibleLineRows: diagnostics.line.implausibleLineRows,
+        implausibleLineShare: diagnostics.line.implausibleLineShare,
+        healthCounts: diagnostics.line.healthCounts,
+        topLines: diagnostics.line.topLines,
+      },
+    });
+  }
+  if ((diagnostics.line.p90UniqueLinesPerEventBook || 0) >= 6) {
+    hypotheses.push({
+      code: 'alternate_line_ladder_overweight',
+      confidence: (diagnostics.line.p90UniqueLinesPerEventBook || 0) >= 10 ? 'high' : 'medium',
+      explanation: 'Many different lines exist for the same event/book. Treating every alternate line as an independent training example can make easy alt lines dominate ROI.',
+      evidence: {
+        medianUniqueLinesPerEventBook: diagnostics.line.medianUniqueLinesPerEventBook,
+        p90UniqueLinesPerEventBook: diagnostics.line.p90UniqueLinesPerEventBook,
+      },
+    });
+  }
+  if (diagnostics.eventIdentity.fragmentedMatchupCount > 0) {
+    hypotheses.push({
+      code: 'event_identity_fragmentation',
+      confidence: diagnostics.eventIdentity.fragmentedMatchupCount >= 5 ? 'high' : 'medium',
+      explanation: 'The same date/team matchup appears under multiple event IDs. That can duplicate one real game into multiple “independent” examples and inflate confidence.',
+      evidence: diagnostics.eventIdentity,
+    });
+  }
+  if (diagnostics.avgWinPayout != null && diagnostics.avgWinPayout > 1.2 && diagnostics.winRate < 0.45 && diagnostics.roiPerExample > 0.1) {
+    hypotheses.push({
+      code: 'longshot_payout_asymmetry',
+      confidence: 'medium',
+      explanation: 'ROI is being driven by long-shot payouts despite a low hit rate. This can be valid only after source/closing-line/settlement checks; otherwise it is often odds-source or selection bias.',
+      evidence: { avgWinOdds: diagnostics.avgWinOdds, avgWinPayout: diagnostics.avgWinPayout, winRate: diagnostics.winRate, roiPerExample: diagnostics.roiPerExample },
+    });
+  }
+  if (Math.abs(stat.roiPerExample || diagnostics.roiPerExample) > 0.18 && diagnostics.winRate > 0.45 && diagnostics.winRate < 0.55 && Math.abs((diagnostics.avgWinPayout || 0.9) - 0.9) > 0.3) {
+    hypotheses.push({
+      code: 'odds_payout_distribution',
+      confidence: 'medium',
+      explanation: 'Win rate is near coin-flip but ROI is extreme, so the issue is probably odds/payout distribution rather than directional prediction skill.',
+      evidence: { avgOdds: diagnostics.avgOdds, avgWinOdds: diagnostics.avgWinOdds, avgLossOdds: diagnostics.avgLossOdds, avgWinPayout: diagnostics.avgWinPayout },
+    });
+  }
+  if (!hypotheses.length) {
+    hypotheses.push({
+      code: 'needs_manual_source_review',
+      confidence: 'low',
+      explanation: 'The bucket is statistically suspicious, but this audit did not find a single dominant mechanical cause. Review source odds, market taxonomy, and settlement joins manually.',
+      evidence: { winRate: diagnostics.winRate, roiPerExample: diagnostics.roiPerExample, rows: diagnostics.rows },
+    });
+  }
+  return { ...stat, diagnostics, hypotheses };
+}
+
 function decisionKey(row) {
   const eventKey = row.canonical_game_id || row.event_id || `${row.league || row.sport || 'UNKNOWN'}:${row.event_date || 'unknown'}:${row.away_team || ''}@${row.home_team || ''}`;
   return [
@@ -110,6 +328,10 @@ function decisionKey(row) {
     row.team_role || '',
     row.line == null ? 'no_line' : Number(row.line).toFixed(2),
   ].join('|');
+}
+
+function eventKeyForRow(row) {
+  return row.canonical_game_id || row.event_id || `${row.league || row.sport || 'UNKNOWN'}:${row.event_date || 'unknown'}:${row.away_team || ''}@${row.home_team || ''}`;
 }
 
 function addIssue(issues, severity, code, message, evidence = {}) {
@@ -151,6 +373,59 @@ for (const stat of byBook.filter((row) => row.rows >= 100).slice(0, top)) {
   }
 }
 
+const deepDiveSpecs = [
+  {
+    dimension: 'sport_market_side',
+    keyFn: (row) => `${row.sport || row.league || 'UNKNOWN'}:${row.market_family || 'unknown_market'}:${row.side || 'unknown_side'}`,
+  },
+  {
+    dimension: 'sport_market_side_book',
+    keyFn: (row) => `${row.sport || row.league || 'UNKNOWN'}:${row.market_family || 'unknown_market'}:${row.side || 'unknown_side'}:book:${row.sportsbook || 'unknown_book'}`,
+  },
+  {
+    dimension: 'sport_market_side_line_health',
+    keyFn: (row) => `${row.sport || row.league || 'UNKNOWN'}:${row.market_family || 'unknown_market'}:${row.side || 'unknown_side'}:line_health:${lineHealth(row)}`,
+  },
+];
+
+const deepDives = [];
+for (const spec of deepDiveSpecs) {
+  const grouped = groupRows(rows, spec.keyFn);
+  for (const [key, bucketRows] of grouped.entries()) {
+    if (bucketRows.length < minDeepDiveRows) continue;
+    const [stat] = groupBy(bucketRows, () => key);
+    const suspicious = Math.abs(stat.roiPerExample) > 0.18 || stat.winRate > 0.68 || stat.winRate < 0.32;
+    if (!suspicious) continue;
+    deepDives.push({
+      dimension: spec.dimension,
+      ...diagnoseBucket(bucketRows, stat),
+      suspicionScore: Number((Math.abs(stat.roiPerExample) + Math.abs(stat.winRate - 0.5)).toFixed(6)),
+    });
+  }
+}
+
+deepDives.sort((a, b) => b.suspicionScore - a.suspicionScore || b.rows - a.rows);
+
+if (deepDives.some((dive) => dive.hypotheses.some((hypothesis) => hypothesis.code === 'market_line_contamination'))) {
+  addIssue(
+    issues,
+    'critical',
+    'market_line_contamination',
+    'Deep ROI audit found sport/market/side buckets where implausible full-game line ranges explain suspicious ROI. These rows should be excluded or remapped before any signal promotion.',
+    { affectedBuckets: deepDives.filter((dive) => dive.hypotheses.some((hypothesis) => hypothesis.code === 'market_line_contamination')).slice(0, top).map((dive) => ({ dimension: dive.dimension, key: dive.key, rows: dive.rows, winRate: dive.winRate, roiPerExample: dive.roiPerExample, topHypotheses: dive.hypotheses.slice(0, 3) })) },
+  );
+}
+
+if (deepDives.some((dive) => dive.hypotheses.some((hypothesis) => hypothesis.code === 'event_identity_fragmentation'))) {
+  addIssue(
+    issues,
+    'warning',
+    'event_identity_fragmentation',
+    'Deep ROI audit found same-day matchups split across multiple event IDs. This can inflate apparent independent sample size.',
+    { affectedBuckets: deepDives.filter((dive) => dive.hypotheses.some((hypothesis) => hypothesis.code === 'event_identity_fragmentation')).slice(0, top).map((dive) => ({ dimension: dive.dimension, key: dive.key, rows: dive.rows, winRate: dive.winRate, roiPerExample: dive.roiPerExample, eventIdentity: dive.diagnostics.eventIdentity })) },
+  );
+}
+
 const summary = {
   start,
   end,
@@ -161,14 +436,24 @@ const summary = {
   duplicateDecisionShare,
   missing,
   issueCounts: issues.reduce((acc, issue) => ({ ...acc, [issue.severity]: (acc[issue.severity] || 0) + 1 }), {}),
+  deepDiveDimensions: deepDiveSpecs.map((spec) => spec.dimension),
+  suspiciousDeepDiveBuckets: deepDives.length,
   topMarkets: byMarket.slice(0, top),
+  topDeepDives: deepDives.slice(0, top).map((dive) => ({
+    dimension: dive.dimension,
+    key: dive.key,
+    rows: dive.rows,
+    winRate: dive.winRate,
+    roiPerExample: dive.roiPerExample,
+    hypotheses: dive.hypotheses.slice(0, 4),
+  })),
   topDuplicateDecisions: byDecision.filter((row) => row.rows > 1).slice(0, top),
 };
 
 fs.mkdirSync(path.join(process.cwd(), 'tmp'), { recursive: true });
 const outPath = path.join(process.cwd(), 'tmp', `goose-training-anomaly-audit-${start}-to-${end}.json`);
-fs.writeFileSync(outPath, JSON.stringify({ summary, issues }, null, 2));
+fs.writeFileSync(outPath, JSON.stringify({ summary, issues, deepDives: deepDives.slice(0, Math.max(top, 100)) }, null, 2));
 
 const criticalCount = issues.filter((issue) => issue.severity === 'critical').length;
-console.log(JSON.stringify({ ok: !failOnCritical || criticalCount === 0, outPath, summary, issues: issues.slice(0, top) }, null, 2));
+console.log(JSON.stringify({ ok: !failOnCritical || criticalCount === 0, outPath, summary, issues: issues.slice(0, top), deepDives: deepDives.slice(0, top) }, null, 2));
 if (failOnCritical && criticalCount > 0) process.exit(2);
