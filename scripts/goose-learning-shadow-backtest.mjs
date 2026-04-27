@@ -45,6 +45,7 @@ const maxSaneRoi = Number(args.maxSaneRoi || 0.18);
 const maxSaneWinRate = Number(args.maxSaneWinRate || 0.68);
 const minIndependentEvents = Number(args.minIndependentEvents || Math.max(minSample, 75));
 const excludeImplausibleLines = args.excludeImplausibleLines !== 'false';
+const activateModel = args.activate === 'true' || args.activate === '1';
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
 if (![trainStart, trainEnd, testStart, testEnd].every(isoDateOk)) throw new Error('Dates must be YYYY-MM-DD');
@@ -318,6 +319,15 @@ function finalize(trainMap, testMap) {
   return rows.sort((a, b) => (b.edge_score * b.confidence_score) - (a.edge_score * a.confidence_score));
 }
 
+function isSanityRejected(candidate) {
+  return String(candidate.rejection_reason || '').startsWith('Rejected by sanity gate:');
+}
+
+function topReviewCandidates(candidates, limit = 20) {
+  const reviewable = candidates.filter((candidate) => !isSanityRejected(candidate));
+  return (reviewable.length ? reviewable : candidates).slice(0, limit);
+}
+
 async function writeResults(candidates, summary) {
   await rest('/rest/v1/goose_learning_model_versions?on_conflict=model_version', {
     method: 'POST',
@@ -332,7 +342,7 @@ async function writeResults(candidates, summary) {
       sports: Array.from(new Set(candidates.map((c) => c.sport))).sort(),
       markets: Array.from(new Set(candidates.map((c) => c.market_family))).sort(),
       min_sample: minSample,
-      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, excludeImplausibleLines, generator: 'goose-learning-shadow-backtest' },
+      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, excludeImplausibleLines, activateModel, generator: 'goose-learning-shadow-backtest' },
       metrics: summary,
       notes: 'Shadow learning run only. Does not affect production pick generation.',
     }),
@@ -386,6 +396,14 @@ async function writeResults(candidates, summary) {
       summary,
     }),
   });
+
+  if (activateModel) {
+    await rest('/rest/v1/goose_learning_lab_spaces?slug=eq.goose-shadow-lab', {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ active_model_version: modelVersion, updated_at: new Date().toISOString() }),
+    });
+  }
 }
 
 const rawTrainRows = await fetchExamples(trainStart, trainEnd);
@@ -427,6 +445,7 @@ const summary = {
   maxSaneWinRate,
   minIndependentEvents,
   excludeImplausibleLines,
+  activateModel,
   rawTrainExamples: rawTrainRows.length,
   rawTestExamples: rawTestRows.length,
   dedupedTrainExamples: rawTrainRows.length - dedupedTrainRows.length,
@@ -440,7 +459,24 @@ const summary = {
   candidates: candidates.length,
   eligibleCandidates: candidates.filter((c) => c.promotion_status === 'eligible').length,
   walkForwardFolds,
-  topCandidates: candidates.slice(0, 20).map((c) => ({
+  artifactCandidates: candidates.filter(isSanityRejected).slice(0, 20).map((c) => ({
+    signal_key: c.signal_key,
+    sport: c.sport,
+    market_family: c.market_family,
+    side: c.side,
+    train_sample: c.sample,
+    train_independent_events: c.independent_events,
+    train_win_rate: c.train_win_rate,
+    train_roi: c.train_roi,
+    test_sample: c.test_sample,
+    test_independent_events: c.test_independent_events,
+    test_win_rate: c.test_win_rate,
+    test_roi: c.test_roi,
+    edge_score: c.edge_score,
+    confidence_score: c.confidence_score,
+    promotion_status: c.promotion_status,
+  })),
+  topCandidates: topReviewCandidates(candidates).map((c) => ({
     signal_key: c.signal_key,
     sport: c.sport,
     market_family: c.market_family,
