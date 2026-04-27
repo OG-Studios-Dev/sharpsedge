@@ -1,7 +1,10 @@
 import type { AskGooseAnswer } from "./internal-query";
 
+export type AskGooseLlmProvider = "openai" | "ollama";
+
 export type AskGooseLlmStatus = {
   status: "used" | "not_configured" | "not_applicable" | "request_failed" | "bad_response";
+  provider: AskGooseLlmProvider | "none";
   model: string | null;
   reason: string;
 };
@@ -106,22 +109,31 @@ function parseJsonObject(value: string): { text?: unknown; bullets?: unknown; ca
   }
 }
 
-export async function explainAskGooseAnswer(question: string, league: string, answer: AskGooseAnswer): Promise<AskGooseExplanation> {
-  const fallback = fallbackExplanation(question, league, answer);
+function providerFromEnv(): AskGooseLlmProvider {
+  return process.env.ASK_GOOSE_EXPLAINER_PROVIDER === "ollama" ? "ollama" : "openai";
+}
+
+function normalizeParsedExplanation(
+  parsed: { text?: unknown; bullets?: unknown; caveats?: unknown },
+  fallback: Omit<AskGooseExplanation, "llmStatus">,
+) {
+  if (typeof parsed.text !== "string" || parsed.text.trim().length < 20) return null;
+  return {
+    mode: "llm" as const,
+    text: parsed.text.trim(),
+    bullets: Array.isArray(parsed.bullets) ? parsed.bullets.filter((v): v is string => typeof v === "string").slice(0, 4) : fallback.bullets,
+    caveats: Array.isArray(parsed.caveats) ? parsed.caveats.filter((v): v is string => typeof v === "string").slice(0, 6) : fallback.caveats,
+  };
+}
+
+async function explainWithOpenAi(question: string, league: string, answer: AskGooseAnswer, fallback: Omit<AskGooseExplanation, "llmStatus">): Promise<AskGooseExplanation> {
   const model = process.env.ASK_GOOSE_LLM_MODEL || "gpt-4.1-mini";
   const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!answer.intent.looksLikeBettingQuestion) {
-    return withLlmStatus(fallback, {
-      status: "not_applicable",
-      model: null,
-      reason: "Question did not look like a betting-analysis request, so Ask Goose used the deterministic database summary.",
-    });
-  }
 
   if (!apiKey) {
     return withLlmStatus(fallback, {
       status: "not_configured",
+      provider: "openai",
       model,
       reason: "OPENAI_API_KEY is not configured, so Ask Goose returned the deterministic database explanation instead of silently pretending the LLM ran.",
     });
@@ -145,6 +157,7 @@ export async function explainAskGooseAnswer(question: string, league: string, an
     if (!response.ok) {
       return withLlmStatus(fallback, {
         status: "request_failed",
+        provider: "openai",
         model,
         reason: `OpenAI request failed with HTTP ${response.status}, so Ask Goose returned the deterministic database explanation.`,
       });
@@ -152,29 +165,109 @@ export async function explainAskGooseAnswer(question: string, league: string, an
     const payload = await response.json() as any;
     const text = payload.output_text || payload.output?.flatMap?.((item: any) => item.content || [])?.map?.((content: any) => content.text || "")?.join?.("\n") || "";
     const parsed = parseJsonObject(String(text));
-    if (!parsed || typeof parsed.text !== "string") {
+    const explanation = parsed ? normalizeParsedExplanation(parsed, fallback) : null;
+    if (!explanation) {
       return withLlmStatus(fallback, {
         status: "bad_response",
+        provider: "openai",
         model,
         reason: "OpenAI returned an unusable explanation payload, so Ask Goose returned the deterministic database explanation.",
       });
     }
     return {
-      mode: "llm",
-      text: parsed.text,
-      bullets: Array.isArray(parsed.bullets) ? parsed.bullets.filter((v): v is string => typeof v === "string").slice(0, 4) : fallback.bullets,
-      caveats: Array.isArray(parsed.caveats) ? parsed.caveats.filter((v): v is string => typeof v === "string").slice(0, 6) : fallback.caveats,
+      ...explanation,
       llmStatus: {
         status: "used",
+        provider: "openai",
         model,
-        reason: "LLM explanation generated from the computed database facts.",
+        reason: "OpenAI explanation generated from the computed database facts.",
       },
     };
   } catch {
     return withLlmStatus(fallback, {
       status: "request_failed",
+      provider: "openai",
       model,
       reason: "OpenAI request threw an error, so Ask Goose returned the deterministic database explanation.",
     });
   }
+}
+
+async function explainWithOllama(question: string, league: string, answer: AskGooseAnswer, fallback: Omit<AskGooseExplanation, "llmStatus">): Promise<AskGooseExplanation> {
+  const model = process.env.ASK_GOOSE_LOCAL_MODEL || process.env.ASK_GOOSE_LLM_MODEL || "qwen2.5:7b-instruct";
+  const baseUrl = (process.env.ASK_GOOSE_OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
+  const timeoutMs = Number(process.env.ASK_GOOSE_LOCAL_TIMEOUT_MS || 8000);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));
+
+  try {
+    const response = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        prompt: buildLlmPrompt(question, league, answer),
+        stream: false,
+        format: "json",
+        options: { temperature: 0.1, num_predict: 500 },
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return withLlmStatus(fallback, {
+        status: "request_failed",
+        provider: "ollama",
+        model,
+        reason: `Ollama request failed with HTTP ${response.status}, so Ask Goose returned the deterministic database explanation.`,
+      });
+    }
+    const payload = await response.json() as { response?: unknown };
+    const parsed = parseJsonObject(String(payload.response || ""));
+    const explanation = parsed ? normalizeParsedExplanation(parsed, fallback) : null;
+    if (!explanation) {
+      return withLlmStatus(fallback, {
+        status: "bad_response",
+        provider: "ollama",
+        model,
+        reason: "Ollama returned an unusable explanation payload, so Ask Goose returned the deterministic database explanation.",
+      });
+    }
+    return {
+      ...explanation,
+      llmStatus: {
+        status: "used",
+        provider: "ollama",
+        model,
+        reason: "Local Ollama explanation generated from the computed database facts.",
+      },
+    };
+  } catch {
+    return withLlmStatus(fallback, {
+      status: "request_failed",
+      provider: "ollama",
+      model,
+      reason: "Ollama request threw or timed out, so Ask Goose returned the deterministic database explanation.",
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function explainAskGooseAnswer(question: string, league: string, answer: AskGooseAnswer): Promise<AskGooseExplanation> {
+  const fallback = fallbackExplanation(question, league, answer);
+
+  if (!answer.intent.looksLikeBettingQuestion) {
+    return withLlmStatus(fallback, {
+      status: "not_applicable",
+      provider: "none",
+      model: null,
+      reason: "Question did not look like a betting-analysis request, so Ask Goose used the deterministic database summary.",
+    });
+  }
+
+  const provider = providerFromEnv();
+  return provider === "ollama"
+    ? explainWithOllama(question, league, answer, fallback)
+    : explainWithOpenAi(question, league, answer, fallback);
 }
