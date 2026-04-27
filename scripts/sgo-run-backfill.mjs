@@ -23,9 +23,11 @@ const ledgerDir = path.join(cwd, 'tmp', 'sgo-ledger');
 const ledgerPath = path.join(ledgerDir, 'historical-backfill-ledger.json');
 const eventCap = Number(process.env.SGO_EVENT_CAP || 50);
 const minWindowMinutes = Math.max(1, Number(process.env.SGO_MIN_WINDOW_MINUTES || 60));
-const ENABLE_ODDS_API_PHASE1_PREFLIGHT = String(process.env.ENABLE_ODDS_API_PHASE1_PREFLIGHT || '').trim() === '1';
-const ODDS_API_PREFLIGHT_WINDOWS = Math.max(1, Number(process.env.ODDS_API_PHASE1_WINDOWS || 2));
-const ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT = String(process.env.ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT || '').trim() === '1';
+let ENABLE_ODDS_API_PHASE1_PREFLIGHT = false;
+let ODDS_API_PREFLIGHT_WINDOWS = 2;
+let ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT = false;
+let MIN_SGO_QUOTA_REMAINING = 1;
+let ALLOW_SGO_QUOTA_EXHAUSTED = false;
 
 mkdirSync(cacheDir, { recursive: true });
 mkdirSync(ledgerDir, { recursive: true });
@@ -46,6 +48,11 @@ function loadEnvFile() {
 }
 
 loadEnvFile();
+ENABLE_ODDS_API_PHASE1_PREFLIGHT = String(process.env.ENABLE_ODDS_API_PHASE1_PREFLIGHT || '').trim() === '1';
+ODDS_API_PREFLIGHT_WINDOWS = Math.max(1, Number(process.env.ODDS_API_PHASE1_WINDOWS || 2));
+ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT = String(process.env.ALLOW_UNTRUSTED_ODDS_API_PREFLIGHT || '').trim() === '1';
+MIN_SGO_QUOTA_REMAINING = Math.max(1, Number(process.env.MIN_SGO_QUOTA_REMAINING || 1));
+ALLOW_SGO_QUOTA_EXHAUSTED = String(process.env.ALLOW_SGO_QUOTA_EXHAUSTED || '').trim() === '1';
 
 function monthStart(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0)); }
 function nextMonth(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1, 0, 0, 0)); }
@@ -273,6 +280,62 @@ async function checkSupabaseHealth() {
   return { ok: true, status: 200, endpoint: `${supabaseUrl}/rest/v1/`, body: 'healthy' };
 }
 
+function getSgoApiKeys() {
+  return Array.from(new Set(
+    [process.env.SPORTSGAMEODDS_API_KEYS, process.env.SPORTSGAMEODDS_API_KEY]
+      .filter(Boolean)
+      .join(',')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  ));
+}
+
+async function checkSgoQuota() {
+  const keys = getSgoApiKeys();
+  if (!keys.length) {
+    return { ok: false, blocked: true, reason: 'missing_sgo_keys', minRemainingRequired: MIN_SGO_QUOTA_REMAINING, keys: 0, ranked: [] };
+  }
+
+  const ranked = [];
+  for (let index = 0; index < keys.length; index += 1) {
+    try {
+      const res = await fetch('https://api.sportsgameodds.com/v2/account/usage', {
+        headers: { accept: 'application/json', 'x-api-key': keys[index] },
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch {}
+      const usage = data?.data?.rateLimits?.['per-month'] ?? null;
+      const maxEntities = Number(usage?.['max-entities'] ?? 0);
+      const currentEntities = Number(usage?.['current-entities'] ?? 0);
+      ranked.push({
+        keyIndex: index + 1,
+        ok: res.ok,
+        status: res.status,
+        usage,
+        remainingApprox: usage ? maxEntities - currentEntities : null,
+      });
+    } catch (error) {
+      ranked.push({ keyIndex: index + 1, ok: false, status: 'fetch_error', usage: null, remainingApprox: null, error: String(error?.message || error) });
+    }
+  }
+
+  ranked.sort((a, b) => (b.remainingApprox ?? -Infinity) - (a.remainingApprox ?? -Infinity));
+  const bestRemaining = ranked[0]?.remainingApprox ?? null;
+  const usable = ranked.some((row) => row.ok && Number(row.remainingApprox ?? -Infinity) >= MIN_SGO_QUOTA_REMAINING);
+  return {
+    ok: usable,
+    blocked: !usable,
+    reason: usable ? null : 'source_quota_exhausted',
+    overrideUsed: ALLOW_SGO_QUOTA_EXHAUSTED,
+    minRemainingRequired: MIN_SGO_QUOTA_REMAINING,
+    keys: ranked.length,
+    bestRemaining,
+    ranked,
+  };
+}
+
 let ledger = dedupeLedger(loadLedger());
 const latestByKey = new Map(ledger.map((r) => [rowKey(r), r]));
 const seen = new Set(
@@ -294,8 +357,26 @@ const planMap = new Map();
 for (const row of [...basePlan, ...extraPlan]) planMap.set(`${row.league}|${row.startsAfter}|${row.startsBefore}`, row);
 const plan = [...planMap.values()].sort((a, b) => `${a.league}|${a.startsAfter}`.localeCompare(`${b.league}|${b.startsAfter}`));
 const supabaseHealth = await checkSupabaseHealth();
+const sgoQuotaPreflight = await checkSgoQuota();
 const oddsApiPhase1Preflight = await runOddsApiPhase1Preflight(leagues, startIso, endIso);
 const runRows = [];
+
+if (sgoQuotaPreflight.blocked && !ALLOW_SGO_QUOTA_EXHAUSTED) {
+  console.error(JSON.stringify({
+    ok: false,
+    status: 'blocked',
+    blocked: true,
+    reason: 'SGO_QUOTA_EXHAUSTED',
+    message: 'SportsGameOdds historical backfill aborted before event pulls because no configured key has enough monthly entity quota remaining. Set ALLOW_SGO_QUOTA_EXHAUSTED=1 to override deliberately.',
+    ledgerPath,
+    rows: ledger.length,
+    mode,
+    supabaseHealth,
+    sgoQuotaPreflight,
+    oddsApiPhase1Preflight,
+  }, null, 2));
+  process.exit(3);
+}
 
 function classifyBackfillError(row) {
   if (row.status !== 'error') return null;
@@ -493,6 +574,7 @@ console.log(JSON.stringify({
     blocked: false,
   },
   supabaseHealth,
+  sgoQuotaPreflight,
   oddsApiPhase1Preflight,
 }, null, 2));
 
