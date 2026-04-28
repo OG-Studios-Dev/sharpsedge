@@ -118,11 +118,14 @@ function normalizeParsedExplanation(
   fallback: Omit<AskGooseExplanation, "llmStatus">,
 ) {
   if (typeof parsed.text !== "string" || parsed.text.trim().length < 20) return null;
+  const parsedBullets = Array.isArray(parsed.bullets) ? parsed.bullets.filter((v): v is string => typeof v === "string" && v.trim().length > 0).slice(0, 4) : [];
+  const parsedCaveats = Array.isArray(parsed.caveats) ? parsed.caveats.filter((v): v is string => typeof v === "string" && v.trim().length > 0).slice(0, 6) : [];
+  const caveats = Array.from(new Set([...parsedCaveats, ...fallback.caveats])).slice(0, 8);
   return {
     mode: "llm" as const,
     text: parsed.text.trim(),
-    bullets: Array.isArray(parsed.bullets) ? parsed.bullets.filter((v): v is string => typeof v === "string").slice(0, 4) : fallback.bullets,
-    caveats: Array.isArray(parsed.caveats) ? parsed.caveats.filter((v): v is string => typeof v === "string").slice(0, 6) : fallback.caveats,
+    bullets: parsedBullets.length >= 2 ? parsedBullets : fallback.bullets,
+    caveats: caveats.length ? caveats : fallback.caveats,
   };
 }
 
