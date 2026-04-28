@@ -11,7 +11,7 @@ const MAX_LIMIT = 100;
 const BROADER_SAMPLE_LIMIT = 250;
 const TEAM_QUERY_SAMPLE_LIMIT = 1000;
 const BROAD_QUERY_PAGE_SIZE = 1000;
-const BROAD_QUERY_MAX_ROWS = 60000;
+const FULL_HISTORICAL_MAX_ROWS = 250000;
 
 const LEAGUE_TEAM_ALIASES: Record<string, string[]> = {
   NHL: [
@@ -71,6 +71,21 @@ function wantsRecentPerformance(question: string) {
 function looksLikeTeamQuestion(question: string) {
   const q = question.toLowerCase();
   return /how have|\bvs\b|against|head to head|moneyline|spread|total|over|under|favorite|underdogs?|\bdogs?\b/.test(q);
+}
+
+function appendHistoricalDateWindow(params: URLSearchParams, intent: ReturnType<typeof parseAskGooseIntent>) {
+  if (intent.requestedSeasonStartYear) params.append("event_date", `gte.${intent.requestedSeasonStartYear}-01-01`);
+  if (intent.requestedSeasonEndYear) params.append("event_date", `lte.${intent.requestedSeasonEndYear}-12-31`);
+}
+
+function appendIntentDbFilters(params: URLSearchParams, intent: ReturnType<typeof parseAskGooseIntent>) {
+  if (intent.marketType) params.set("market_family", `eq.${intent.marketType}`);
+  if (intent.marketType === "total" && (intent.side === "over" || intent.side === "under")) params.set("side", `ilike.*${intent.side}*`);
+  if (intent.mentionedFavorite) params.set("is_favorite", "eq.true");
+  if (intent.mentionedUnderdog) params.set("is_underdog", "eq.true");
+  if (intent.mentionedHome) params.set("is_home_team_bet", "eq.true");
+  if (intent.mentionedAway) params.set("is_away_team_bet", "eq.true");
+  if (intent.requestedLine != null) params.set("line", `eq.${intent.requestedLine}`);
 }
 
 async function postgrest<T>(path: string) {
@@ -206,6 +221,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       "canonical_game_id",
       "event_id",
       "league",
+      "season",
       "event_date",
       "home_team",
       "away_team",
@@ -260,9 +276,15 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
 
     const preliminaryIntent = parseAskGooseIntent(question, league, []);
     const gradedFirst = wantsRecentPerformance(question);
-    const wantsFullHistorical = /last\s+two\s+years|last\s+2\s+years|2024|2025|2026|full\s+(sample|dataset|data)|all\s+(games|data|history)/i.test(question);
+    const explicitlyHistorical = /last\s+two\s+years|last\s+2\s+years|2024|2025|2026|full\s+(sample|dataset|data)|all\s+(games|data|history)|historical|history|database/i.test(question);
+    const wantsFullHistorical = preliminaryIntent.looksLikeBettingQuestion && (!preliminaryIntent.wantsRecentOnly || explicitlyHistorical);
     const wantsBroaderSample = wantsFullHistorical || gradedFirst || /how have|trend|team|vs\b|against\b/i.test(question);
     const teamQuestion = looksLikeTeamQuestion(question);
+    const questionNormForFetch = normalizeLoose(question);
+    const aliasNeedlesForFetch = Array.from(new Set((LEAGUE_TEAM_ALIASES[league] || [])
+      .filter((alias) => questionNormForFetch.includes(normalizeLoose(alias)))
+      .map((value) => value.toLowerCase())));
+    const useTeamScopedFullFetch = wantsFullHistorical && teamQuestion && aliasNeedlesForFetch.length > 0;
     const fetchLimit = wantsFullHistorical
       ? BROAD_QUERY_PAGE_SIZE
       : teamQuestion
@@ -278,10 +300,15 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       offset: "0",
       ...(gradedFirst && !wantsFullHistorical ? { graded: "eq.true" } : {}),
     });
-    if (wantsFullHistorical && preliminaryIntent.marketType) primaryQuery.set("market_family", `eq.${preliminaryIntent.marketType}`);
+    if (wantsFullHistorical) {
+      appendIntentDbFilters(primaryQuery, preliminaryIntent);
+      appendHistoricalDateWindow(primaryQuery, preliminaryIntent);
+    }
 
-    let rows = wantsFullHistorical
-      ? await fetchPagedAskGooseRows(primaryQuery, BROAD_QUERY_MAX_ROWS)
+    let rows = useTeamScopedFullFetch
+      ? []
+      : wantsFullHistorical
+      ? await fetchPagedAskGooseRows(primaryQuery, FULL_HISTORICAL_MAX_ROWS)
       : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
 
     if (gradedFirst && rows.length === 0) {
@@ -296,35 +323,29 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     }
 
     if (teamQuestion) {
-      const targetedQuery = new URLSearchParams({
-        select,
-        league: `eq.${league}`,
-        order: "graded.desc,event_date.desc",
-        limit: String(TEAM_QUERY_SAMPLE_LIMIT),
-        offset: "0",
-      });
-      const targetedRows = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${targetedQuery.toString()}`);
-
-      const questionNorm = normalizeLoose(question);
-      const aliasNeedles = (LEAGUE_TEAM_ALIASES[league] || []).filter((alias) => questionNorm.includes(normalizeLoose(alias)));
-      const directQuestionNeedles = questionNorm.split(" ").filter(Boolean);
-      const allNeedles = Array.from(new Set(aliasNeedles.map((value) => value.toLowerCase()).concat(directQuestionNeedles)));
+      const allNeedles = aliasNeedlesForFetch;
       const extraRows: AskGooseRow[] = [];
 
       for (const needle of allNeedles) {
         const teamQuery = new URLSearchParams({
           select,
           league: `eq.${league}`,
-          order: "graded.desc,event_date.desc",
-          limit: String(TEAM_QUERY_SAMPLE_LIMIT),
+          order: wantsFullHistorical ? "event_date.desc" : "graded.desc,event_date.desc",
+          limit: String(wantsFullHistorical ? BROAD_QUERY_PAGE_SIZE : TEAM_QUERY_SAMPLE_LIMIT),
           offset: "0",
         });
+        if (wantsFullHistorical) {
+          appendIntentDbFilters(teamQuery, preliminaryIntent);
+          appendHistoricalDateWindow(teamQuery, preliminaryIntent);
+        }
         teamQuery.set("or", `(team_name.ilike.*${needle}*,opponent_name.ilike.*${needle}*)`);
-        const fetched = await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${teamQuery.toString()}`);
+        const fetched = wantsFullHistorical
+          ? await fetchPagedAskGooseRows(teamQuery, FULL_HISTORICAL_MAX_ROWS)
+          : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${teamQuery.toString()}`);
         extraRows.push(...fetched);
       }
 
-      const mergedRows = Array.from(new Map(targetedRows.concat(extraRows).map((row) => [row.candidate_id, row])).values());
+      const mergedRows = Array.from(new Map(rows.concat(extraRows).map((row) => [row.candidate_id, row])).values());
 
       if (allNeedles.length > 0) {
         rows = mergedRows.filter((row) => {

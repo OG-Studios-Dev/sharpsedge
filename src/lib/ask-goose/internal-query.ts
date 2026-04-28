@@ -3,6 +3,7 @@ export type AskGooseRow = {
   canonical_game_id?: string | null;
   event_id?: string | null;
   league: string;
+  season?: string | null;
   event_date: string;
   home_team?: string | null;
   away_team?: string | null;
