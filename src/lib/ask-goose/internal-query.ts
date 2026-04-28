@@ -83,6 +83,9 @@ export type AskGooseIntent = {
   wantsTeamMarketFocus: boolean;
   wantsHeadToHead: boolean;
   wantsAbove500Teams: boolean;
+  wantsBelow500Teams: boolean;
+  wantsOpponentAbove500: boolean;
+  wantsOpponentBelow500: boolean;
   publicSplitLean: "on_bet" | "against_bet" | null;
   publicSplitMetric: "bets" | "handle" | "either";
   minTeamWinStreakPreGame: number | null;
@@ -175,8 +178,8 @@ function extractStreakLength(question: string, kind: "win" | "loss") {
 
 function extractOddsRange(question: string) {
   const q = question.toLowerCase();
-  const shorter = q.match(/([+-]?\d{2,5})\s*(?:or\s*)?(shorter|better)/);
-  const longer = q.match(/([+-]?\d{2,5})\s*(?:or\s*)?(longer|worse)/);
+  const shorter = q.match(/([+-]?\d{2,5})\s*(?:or\s*)?(shorter|better)|(?:shorter|better)\s+than\s*([+-]?\d{2,5})/);
+  const longer = q.match(/([+-]?\d{2,5})\s*(?:or\s*)?(longer|worse)|(?:longer|worse)\s+than\s*([+-]?\d{2,5})/);
   const between = q.match(/between\s*([+-]?\d{2,5})\s*(?:and|to|-)\s*([+-]?\d{2,5})/);
   if (between) {
     const a = Number(between[1]);
@@ -184,12 +187,12 @@ function extractOddsRange(question: string) {
     return { minOdds: Math.min(a, b), maxOdds: Math.max(a, b) };
   }
   if (shorter) {
-    const odds = Number(shorter[1]);
-    return odds < 0 ? { minOdds: odds, maxOdds: 100000 } : { minOdds: -100000, maxOdds: odds };
+    const odds = Number(shorter[1] ?? shorter[3]);
+    return { minOdds: -100000, maxOdds: odds };
   }
   if (longer) {
-    const odds = Number(longer[1]);
-    return odds < 0 ? { minOdds: -100000, maxOdds: odds } : { minOdds: odds, maxOdds: 100000 };
+    const odds = Number(longer[1] ?? longer[3]);
+    return { minOdds: odds, maxOdds: 100000 };
   }
   return { minOdds: null, maxOdds: null };
 }
@@ -276,7 +279,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const yearMatches = Array.from(normalizedQuestion.matchAll(/\b(20\d{2})\b/g)).map((match) => Number(match[1]));
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
   const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
-  const wantsAbove500Teams = /(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);
+  const wantsBothTeamsAbove500 = /both\s+teams?.{0,30}(above|over|greater than|better than)\s*\.?500|both\s+teams?.{0,30}\.500/.test(normalizedQuestion);
+  const wantsAbove500Teams = wantsBothTeamsAbove500 || /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);
+  const wantsBelow500Teams = /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(below|under|worse than|less than)\s*\.?500|below\s*\.?500|under\s*\.?500/.test(normalizedQuestion) && !/against\s+teams?.{0,20}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
+  const wantsOpponentAbove500 = wantsBothTeamsAbove500 || /(against|versus|vs|opponent)s?.{0,30}(above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion);
+  const wantsOpponentBelow500 = /(against|versus|vs|opponent)s?.{0,30}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
   const mentionedPublic = /public|handle|money|tickets?|bets?|betting split|split/.test(normalizedQuestion);
   const publicSplitMetric: AskGooseIntent["publicSplitMetric"] = /\bhandle\b|public\s+money|sharp\s+money/.test(normalizedQuestion)
     ? "handle"
@@ -287,7 +294,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     ? null
     : /public\s+(?:is\s+)?(?:on|backing|betting)\s+(?:the\s+)?(?:opponent|other side)|public\s+(?:is\s+)?against|fading|fade/.test(normalizedQuestion)
       ? "against_bet"
-      : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support/.test(normalizedQuestion)
+      : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support|public\s+money\s+(?:was\s+)?on\s+(?:the\s+)?(?:over|under|home|away)|public.{0,20}on\s+(?:the\s+)?(?:over|under|home|away)/.test(normalizedQuestion)
         ? "on_bet"
         : null;
   const minTeamWinStreakPreGame = extractStreakLength(normalizedQuestion, "win");
@@ -314,6 +321,9 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     wantsTeamMarketFocus,
     wantsHeadToHead,
     wantsAbove500Teams,
+    wantsBelow500Teams,
+    wantsOpponentAbove500,
+    wantsOpponentBelow500,
     publicSplitLean,
     publicSplitMetric,
     minTeamWinStreakPreGame,
@@ -412,6 +422,16 @@ function rowTeamAbove500(row: AskGooseRow) {
 
 function rowOpponentAbove500(row: AskGooseRow) {
   return row.opponent_above_500_pre_game ?? inferAbove500Flag(row.opponent_win_pct_pre_game);
+}
+
+function rowTeamBelow500(row: AskGooseRow) {
+  const above = rowTeamAbove500(row);
+  return typeof above === "boolean" ? !above : null;
+}
+
+function rowOpponentBelow500(row: AskGooseRow) {
+  const above = rowOpponentAbove500(row);
+  return typeof above === "boolean" ? !above : null;
 }
 
 function rowMatchesSeasonWindow(row: AskGooseRow, startYear: number | null, endYear: number | null) {
@@ -553,6 +573,24 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     if (beforeAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game .500 flags for the bet team in this slice, so the .500 condition could not be proven from the database yet.");
   }
 
+  if (intent.wantsBelow500Teams) {
+    const beforeBelow500 = filtered.length;
+    filtered = filtered.filter((row) => rowTeamBelow500(row) === true);
+    if (beforeBelow500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game below-.500 flags for the bet team in this slice, so the below-.500 condition could not be proven from the database yet.");
+  }
+
+  if (intent.wantsOpponentAbove500) {
+    const beforeOpponentAbove500 = filtered.length;
+    filtered = filtered.filter((row) => rowOpponentAbove500(row) === true);
+    if (beforeOpponentAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching opponent above-.500 context for this slice.");
+  }
+
+  if (intent.wantsOpponentBelow500) {
+    const beforeOpponentBelow500 = filtered.length;
+    filtered = filtered.filter((row) => rowOpponentBelow500(row) === true);
+    if (beforeOpponentBelow500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching opponent below-.500 context for this slice.");
+  }
+
   if (intent.publicSplitLean) {
     const beforePublic = filtered.length;
     filtered = filtered.filter((row) => rowMatchesPublicLean(row, intent.publicSplitLean, intent.publicSplitMetric));
@@ -588,7 +626,10 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     let oppositeRows = beforeSideFilter.filter((row) => (row.side || "").toLowerCase().includes(oppositeSide));
     if (typeof intent.requestedLine === "number" && Number.isFinite(intent.requestedLine)) oppositeRows = oppositeRows.filter((row) => typeof row.line === "number" && Math.abs(row.line - intent.requestedLine!) < 0.001);
     if (intent.wantsTeamMarketFocus) oppositeRows = oppositeRows.filter((row) => isGameLevelTeamMarketRow(row));
-    if (intent.wantsAbove500Teams) oppositeRows = oppositeRows.filter((row) => rowTeamAbove500(row) === true && rowOpponentAbove500(row) === true);
+    if (intent.wantsAbove500Teams) oppositeRows = oppositeRows.filter((row) => rowTeamAbove500(row) === true);
+    if (intent.wantsBelow500Teams) oppositeRows = oppositeRows.filter((row) => rowTeamBelow500(row) === true);
+    if (intent.wantsOpponentAbove500) oppositeRows = oppositeRows.filter((row) => rowOpponentAbove500(row) === true);
+    if (intent.wantsOpponentBelow500) oppositeRows = oppositeRows.filter((row) => rowOpponentBelow500(row) === true);
     if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) oppositeRows = oppositeRows.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
     const oppositeDeduped = dedupeRows(oppositeRows);
     const oppositeSliced = intent.wantsRecentOnly ? oppositeDeduped.slice(0, 10) : oppositeDeduped;
@@ -632,6 +673,9 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.publicSplitLean === "against_bet") subjectBits.push("with public against bet side");
   if (intent.minTeamWinStreakPreGame) subjectBits.push(`on ${intent.minTeamWinStreakPreGame}+ game win streak`);
   if (intent.minTeamLossStreakPreGame) subjectBits.push(`on ${intent.minTeamLossStreakPreGame}+ game losing streak`);
+  if (intent.wantsBelow500Teams) subjectBits.push("below .500");
+  if (intent.wantsOpponentBelow500) subjectBits.push("against below .500 opponent");
+  if (intent.wantsOpponentAbove500) subjectBits.push("against above .500 opponent");
   const subject = intent.matchedTeam || subjectBits.join(" ");
   const winPct = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
   const summaryText = graded.length > 0
