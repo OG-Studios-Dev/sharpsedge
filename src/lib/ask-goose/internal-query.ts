@@ -38,10 +38,16 @@ export type AskGooseRow = {
   team_losses_pre_game?: number | null;
   team_pushes_pre_game?: number | null;
   team_games_played_pre_game?: number | null;
+  team_current_streak_pre_game?: number | null;
+  team_win_streak_pre_game?: number | null;
+  team_loss_streak_pre_game?: number | null;
   opponent_wins_pre_game?: number | null;
   opponent_losses_pre_game?: number | null;
   opponent_pushes_pre_game?: number | null;
   opponent_games_played_pre_game?: number | null;
+  opponent_current_streak_pre_game?: number | null;
+  opponent_win_streak_pre_game?: number | null;
+  opponent_loss_streak_pre_game?: number | null;
   team_win_pct_pre_game?: number | null;
   opponent_win_pct_pre_game?: number | null;
   team_above_500_pre_game?: boolean | null;
@@ -79,6 +85,8 @@ export type AskGooseIntent = {
   wantsAbove500Teams: boolean;
   publicSplitLean: "on_bet" | "against_bet" | null;
   publicSplitMetric: "bets" | "handle" | "either";
+  minTeamWinStreakPreGame: number | null;
+  minTeamLossStreakPreGame: number | null;
   requestedSeasonStartYear: number | null;
   requestedSeasonEndYear: number | null;
 };
@@ -147,6 +155,22 @@ function extractRequestedLine(question: string) {
   if (explicit) return Number(explicit[1]);
   const anyHalfLine = q.match(/\b([+-]?\d+\.5)\b/);
   return anyHalfLine ? Number(anyHalfLine[1]) : null;
+}
+
+function extractStreakLength(question: string, kind: "win" | "loss") {
+  const word = kind === "win" ? "win(?:ning)?|won" : "los(?:ing|t)|loss";
+  const patterns = [
+    new RegExp(`(?:on\\s+(?:a\\s+)?)?(\\d+)\\s*(?:game|gm)?[-\\s]*(?:${word})\\s*streak`),
+    new RegExp(`(?:${word})\\s*(?:streak\\s*)?(?:of\\s*)?(\\d+)`),
+    new RegExp(`(?:${kind === "win" ? "won" : "lost"})\\s+(?:their\\s+)?last\\s+(\\d+)`),
+  ];
+  for (const pattern of patterns) {
+    const match = question.match(pattern);
+    if (match?.[1]) return Number(match[1]);
+  }
+  if (kind === "win" && /win(?:ning)?\s*streak/.test(question)) return 1;
+  if (kind === "loss" && /los(?:ing|t)|loss\s*streak/.test(question)) return 1;
+  return null;
 }
 
 function extractOddsRange(question: string) {
@@ -266,6 +290,8 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
       : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support/.test(normalizedQuestion)
         ? "on_bet"
         : null;
+  const minTeamWinStreakPreGame = extractStreakLength(normalizedQuestion, "win");
+  const minTeamLossStreakPreGame = extractStreakLength(normalizedQuestion, "loss");
 
   return {
     normalizedQuestion,
@@ -290,6 +316,8 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     wantsAbove500Teams,
     publicSplitLean,
     publicSplitMetric,
+    minTeamWinStreakPreGame,
+    minTeamLossStreakPreGame,
     requestedSeasonStartYear,
     requestedSeasonEndYear,
   };
@@ -403,6 +431,11 @@ function rowMatchesPublicLean(row: AskGooseRow, lean: AskGooseIntent["publicSpli
   if (lean === "on_bet") return values.some((value) => typeof value === "number" && value > 50);
   if (lean === "against_bet") return values.some((value) => typeof value === "number" && value < 50);
   return true;
+}
+
+function rowStreakValue(row: AskGooseRow, kind: "win" | "loss") {
+  const value = kind === "win" ? row.team_win_streak_pre_game : row.team_loss_streak_pre_game;
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function summarizeGraded(rows: AskGooseRow[]) {
@@ -526,6 +559,18 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     if (beforePublic > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching public betting split coverage for this slice yet.");
   }
 
+  if (typeof intent.minTeamWinStreakPreGame === "number") {
+    const beforeStreak = filtered.length;
+    filtered = filtered.filter((row) => rowStreakValue(row, "win") >= intent.minTeamWinStreakPreGame!);
+    if (beforeStreak > 0 && filtered.length === 0) warnings.push(`No rows matched a pre-game win streak of ${intent.minTeamWinStreakPreGame}+ in this slice.`);
+  }
+
+  if (typeof intent.minTeamLossStreakPreGame === "number") {
+    const beforeStreak = filtered.length;
+    filtered = filtered.filter((row) => rowStreakValue(row, "loss") >= intent.minTeamLossStreakPreGame!);
+    if (beforeStreak > 0 && filtered.length === 0) warnings.push(`No rows matched a pre-game losing streak of ${intent.minTeamLossStreakPreGame}+ in this slice.`);
+  }
+
   if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) {
     filtered = filtered.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
   }
@@ -585,6 +630,8 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   }
   if (intent.publicSplitLean === "on_bet") subjectBits.push("with public on bet side");
   if (intent.publicSplitLean === "against_bet") subjectBits.push("with public against bet side");
+  if (intent.minTeamWinStreakPreGame) subjectBits.push(`on ${intent.minTeamWinStreakPreGame}+ game win streak`);
+  if (intent.minTeamLossStreakPreGame) subjectBits.push(`on ${intent.minTeamLossStreakPreGame}+ game losing streak`);
   const subject = intent.matchedTeam || subjectBits.join(" ");
   const winPct = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
   const summaryText = graded.length > 0
