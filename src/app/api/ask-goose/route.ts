@@ -85,6 +85,12 @@ function appendIntentDbFilters(params: URLSearchParams, intent: ReturnType<typeo
   if (intent.mentionedUnderdog) params.set("is_underdog", "eq.true");
   if (intent.mentionedHome) params.set("is_home_team_bet", "eq.true");
   if (intent.mentionedAway) params.set("is_away_team_bet", "eq.true");
+  if (intent.wantsAbove500Teams) params.set("team_above_500_pre_game", "eq.true");
+  if (intent.wantsBelow500Teams) params.set("team_above_500_pre_game", "eq.false");
+  if (intent.wantsOpponentAbove500) params.set("opponent_above_500_pre_game", "eq.true");
+  if (intent.wantsOpponentBelow500) params.set("opponent_above_500_pre_game", "eq.false");
+  if (intent.minTeamWinStreakPreGame != null) params.set("team_win_streak_pre_game", `gte.${intent.minTeamWinStreakPreGame}`);
+  if (intent.minTeamLossStreakPreGame != null) params.set("team_loss_streak_pre_game", `gte.${intent.minTeamLossStreakPreGame}`);
   if (intent.requestedLine != null) params.set("line", `eq.${intent.requestedLine}`);
 }
 
