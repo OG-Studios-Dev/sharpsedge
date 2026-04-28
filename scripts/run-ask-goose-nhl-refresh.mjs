@@ -32,6 +32,8 @@ const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
 const startDate = args.startDate || '2026-03-01';
 const endDate = args.endDate || '2026-03-07';
 const chunkSize = Number(args.chunkSize || 1000);
+const grade = args.grade === '1' || args.grade === 'true';
+const hydrateCache = args.hydrateCache !== 'false' && args.hydrateCache !== '0';
 
 function headers(extra={}) {
   return {
@@ -71,13 +73,10 @@ function enumerateDates(start, end) {
   return out;
 }
 
-for (const eventDate of enumerateDates(startDate, endDate)) {
-  const dayStart = eventDate;
-  const dayEnd = eventDate;
-  const servingRows = Number(await rpc('refresh_ask_goose_nhl_serving_source_v2', { p_start_date: dayStart, p_end_date: dayEnd }) || 0);
+async function writeQueryLayerForDay(eventDate) {
   const countsByDate = await rpc('count_ask_goose_nhl_serving_rows_by_date', {
-    p_start_date: dayStart,
-    p_end_date: dayEnd,
+    p_start_date: eventDate,
+    p_end_date: eventDate,
   });
   const totalRows = Number((countsByDate || [])[0]?.row_count || 0);
   let chunkStart = 1;
@@ -96,11 +95,22 @@ for (const eventDate of enumerateDates(startDate, endDate)) {
     first = false;
     chunkStart += chunkSize;
   }
-  console.log(JSON.stringify({ eventDate, servingRows, totalRows, chunks, rowsWritten }));
+  return { totalRows, chunks, rowsWritten };
+}
+
+for (const eventDate of enumerateDates(startDate, endDate)) {
+  const dayStart = eventDate;
+  const dayEnd = eventDate;
+  const cacheRows = hydrateCache ? Number(await rpc('refresh_ask_goose_nhl_candidate_cache_v1_batch', { p_start_date: dayStart, p_end_date: dayEnd }) || 0) : 0;
+  const servingRows = Number(await rpc('refresh_ask_goose_nhl_serving_source_v2', { p_start_date: dayStart, p_end_date: dayEnd }) || 0);
+  const beforeGrade = await writeQueryLayerForDay(eventDate);
+  const graded = grade ? Number(await rpc('grade_ask_goose_game_markets_from_event_scores_v1', { p_league: 'NHL', p_start_date: dayStart, p_end_date: dayEnd }) || 0) : 0;
+  const afterGrade = grade ? await writeQueryLayerForDay(eventDate) : null;
+  console.log(JSON.stringify({ eventDate, cacheRows, servingRows, beforeGrade, graded, afterGrade }));
 }
 
 const countRes = await fetch(`${SUPABASE_URL}/rest/v1/ask_goose_query_layer_v1?league=eq.NHL&event_date=gte.${startDate}&event_date=lte.${endDate}&select=candidate_id`, {
   headers: headers({ Prefer: 'count=exact', Range: '0-0' }),
 });
 const contentRange = countRes.headers.get('content-range') || '*/0';
-console.log(JSON.stringify({ ok: true, startDate, endDate, queryLayerCount: Number(contentRange.split('/')[1] || 0) }));
+console.log(JSON.stringify({ ok: true, startDate, endDate, grade, hydrateCache, queryLayerCount: Number(contentRange.split('/')[1] || 0) }));
