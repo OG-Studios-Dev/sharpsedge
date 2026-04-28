@@ -1,5 +1,7 @@
 import type { AskGooseAnswer } from "./internal-query";
 
+export const DEFAULT_ASK_GOOSE_LOCAL_MODEL = "qwen2.5:7b-instruct";
+
 export type AskGooseLlmProvider = "openai" | "ollama";
 
 export type AskGooseLlmStatus = {
@@ -197,7 +199,7 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
 }
 
 async function explainWithOllama(question: string, league: string, answer: AskGooseAnswer, fallback: Omit<AskGooseExplanation, "llmStatus">): Promise<AskGooseExplanation> {
-  const model = process.env.ASK_GOOSE_LOCAL_MODEL || process.env.ASK_GOOSE_LLM_MODEL || "qwen2.5:7b-instruct";
+  const model = process.env.ASK_GOOSE_LOCAL_MODEL || process.env.ASK_GOOSE_LLM_MODEL || DEFAULT_ASK_GOOSE_LOCAL_MODEL;
   const baseUrl = (process.env.ASK_GOOSE_OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
   const timeoutMs = Number(process.env.ASK_GOOSE_LOCAL_TIMEOUT_MS || 8000);
   const controller = new AbortController();

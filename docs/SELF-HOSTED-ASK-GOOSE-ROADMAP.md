@@ -144,3 +144,13 @@ ASK_GOOSE_OLLAMA_URL=http://127.0.0.1:11434
 If Ollama is unavailable, times out, or returns invalid JSON, Ask Goose must return the deterministic database explanation.
 
 Default provider remains the existing behavior until explicitly changed.
+
+### Current local model candidate
+
+Qwen is the preferred local/internal explainer candidate after local comparison against Gemma4 on Tony’s Mac mini.
+
+- Preferred model: `qwen2.5:7b-instruct`
+- Why: smaller local footprint, faster observed responses, cleaner JSON/schema behavior, concise fact-preserving explanations
+- Backup: `gemma4:e4b-it-q8_0`
+- Production rule: do not switch public behavior unless `ASK_GOOSE_EXPLAINER_PROVIDER=ollama` is explicitly configured and QA/user testing approve rollout
+- Regression check: run `npm run qa:ask-goose-local` before changing local explainer behavior

@@ -23,6 +23,7 @@
     "qa:audit": "node scripts/qa-audit.mjs",
     "qa:assets": "node scripts/qa-asset-fallbacks.mjs",
     "qa:ask-goose": "node scripts/qa-ask-goose-live.mjs",
+    "qa:ask-goose-local": "tsx scripts/qa-ask-goose-local-llm.ts",
     "launch:gate": "node scripts/launch-gate.mjs"
   },
   "dependencies": {
