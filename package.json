@@ -25,6 +25,9 @@
     "qa:ask-goose": "node scripts/qa-ask-goose-live.mjs",
     "qa:ask-goose-local": "tsx scripts/qa-ask-goose-local-llm.ts",
     "eval:ask-goose-local": "tsx scripts/eval-ask-goose-local-llm.ts",
+    "ask-goose:api": "node scripts/ask-goose-switch-mode.mjs api",
+    "ask-goose:qwen": "node scripts/ask-goose-switch-mode.mjs qwen",
+    "smoke:ask-goose-switch": "node scripts/smoke-ask-goose-switch.mjs",
     "launch:gate": "node scripts/launch-gate.mjs"
   },
   "dependencies": {

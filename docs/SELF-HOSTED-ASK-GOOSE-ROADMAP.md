@@ -157,3 +157,15 @@ Qwen is the preferred local/internal explainer candidate after local comparison 
 - Live local model eval: run `npm run eval:ask-goose-local` with Ollama running to measure Qwen latency, cache behavior, and deterministic no-data skip
 - Telemetry now exposed on explanation status: `promptVersion`, `durationMs`, and `cacheStatus`
 - Local explanation cache is short-lived and fact-packet keyed; tune with `ASK_GOOSE_LOCAL_CACHE_TTL_MS` (default 5 minutes, capped at 15 minutes, set `0` to disable)
+
+### Operator switch commands
+
+For internal/local testing on the Mac mini:
+
+```bash
+npm run ask-goose:api   # current API-style path on http://localhost:3040
+npm run ask-goose:qwen  # local Ollama Qwen path on http://localhost:3040
+npm run smoke:ask-goose-switch -- http://localhost:3040 qwen
+```
+
+Important: Vercel production cannot call `127.0.0.1` Ollama on the Mac mini. Public production should stay on the API/default path until a hosted/local runtime bridge is deliberately designed and QA-approved.
