@@ -154,3 +154,6 @@ Qwen is the preferred local/internal explainer candidate after local comparison 
 - Backup: `gemma4:e4b-it-q8_0`
 - Production rule: do not switch public behavior unless `ASK_GOOSE_EXPLAINER_PROVIDER=ollama` is explicitly configured and QA/user testing approve rollout
 - Regression check: run `npm run qa:ask-goose-local` before changing local explainer behavior
+- Live local model eval: run `npm run eval:ask-goose-local` with Ollama running to measure Qwen latency, cache behavior, and deterministic no-data skip
+- Telemetry now exposed on explanation status: `promptVersion`, `durationMs`, and `cacheStatus`
+- Local explanation cache is short-lived and fact-packet keyed; tune with `ASK_GOOSE_LOCAL_CACHE_TTL_MS` (default 5 minutes, capped at 15 minutes, set `0` to disable)

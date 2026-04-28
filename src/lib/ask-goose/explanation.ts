@@ -1,6 +1,7 @@
 import type { AskGooseAnswer } from "./internal-query";
 
 export const DEFAULT_ASK_GOOSE_LOCAL_MODEL = "qwen2.5:7b-instruct";
+export const ASK_GOOSE_EXPLAINER_PROMPT_VERSION = "ask_goose_explainer_v2_fact_packet_json";
 
 export type AskGooseLlmProvider = "openai" | "ollama";
 
@@ -9,6 +10,9 @@ export type AskGooseLlmStatus = {
   provider: AskGooseLlmProvider | "none";
   model: string | null;
   reason: string;
+  promptVersion?: string;
+  durationMs?: number;
+  cacheStatus?: "hit" | "miss" | "bypass";
 };
 
 export type AskGooseExplanation = {
@@ -21,6 +25,32 @@ export type AskGooseExplanation = {
 
 function withLlmStatus(explanation: Omit<AskGooseExplanation, "llmStatus">, llmStatus: AskGooseLlmStatus): AskGooseExplanation {
   return { ...explanation, llmStatus };
+}
+
+type LocalExplanationCacheEntry = {
+  createdAt: number;
+  explanation: Omit<AskGooseExplanation, "llmStatus">;
+};
+
+const localExplanationCache = new Map<string, LocalExplanationCacheEntry>();
+
+function stableHash(input: string) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function localCacheTtlMs() {
+  const parsed = Number(process.env.ASK_GOOSE_LOCAL_CACHE_TTL_MS || 300000);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(parsed, 15 * 60 * 1000);
+}
+
+function buildLocalExplanationCacheKey(model: string, prompt: string) {
+  return `${ASK_GOOSE_EXPLAINER_PROMPT_VERSION}:${model}:${stableHash(prompt)}`;
 }
 
 function formatPct(value: number) {
@@ -132,6 +162,7 @@ function normalizeParsedExplanation(
 }
 
 async function explainWithOpenAi(question: string, league: string, answer: AskGooseAnswer, fallback: Omit<AskGooseExplanation, "llmStatus">): Promise<AskGooseExplanation> {
+  const startedAt = Date.now();
   const model = process.env.ASK_GOOSE_LLM_MODEL || "gpt-4.1-mini";
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -141,6 +172,9 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
       provider: "openai",
       model,
       reason: "OPENAI_API_KEY is not configured, so Ask Goose returned the deterministic database explanation instead of silently pretending the LLM ran.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      durationMs: Date.now() - startedAt,
+      cacheStatus: "bypass",
     });
   }
 
@@ -165,6 +199,9 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
         provider: "openai",
         model,
         reason: `OpenAI request failed with HTTP ${response.status}, so Ask Goose returned the deterministic database explanation.`,
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: "bypass",
       });
     }
     const payload = await response.json() as any;
@@ -177,6 +214,9 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
         provider: "openai",
         model,
         reason: "OpenAI returned an unusable explanation payload, so Ask Goose returned the deterministic database explanation.",
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: "bypass",
       });
     }
     return {
@@ -186,6 +226,9 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
         provider: "openai",
         model,
         reason: "OpenAI explanation generated from the computed database facts.",
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: "bypass",
       },
     };
   } catch {
@@ -194,14 +237,40 @@ async function explainWithOpenAi(question: string, league: string, answer: AskGo
       provider: "openai",
       model,
       reason: "OpenAI request threw an error, so Ask Goose returned the deterministic database explanation.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      durationMs: Date.now() - startedAt,
+      cacheStatus: "bypass",
     });
   }
 }
 
 async function explainWithOllama(question: string, league: string, answer: AskGooseAnswer, fallback: Omit<AskGooseExplanation, "llmStatus">): Promise<AskGooseExplanation> {
+  const startedAt = Date.now();
   const model = process.env.ASK_GOOSE_LOCAL_MODEL || process.env.ASK_GOOSE_LLM_MODEL || DEFAULT_ASK_GOOSE_LOCAL_MODEL;
   const baseUrl = (process.env.ASK_GOOSE_OLLAMA_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
   const timeoutMs = Number(process.env.ASK_GOOSE_LOCAL_TIMEOUT_MS || 8000);
+  const prompt = buildLlmPrompt(question, league, answer);
+  const cacheTtlMs = localCacheTtlMs();
+  const cacheKey = buildLocalExplanationCacheKey(model, prompt);
+  const cached = cacheTtlMs > 0 ? localExplanationCache.get(cacheKey) : null;
+
+  if (cached && Date.now() - cached.createdAt <= cacheTtlMs) {
+    return {
+      ...cached.explanation,
+      llmStatus: {
+        status: "used",
+        provider: "ollama",
+        model,
+        reason: "Local Ollama explanation served from the short-lived fact-packet cache.",
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: "hit",
+      },
+    };
+  }
+
+  if (cached) localExplanationCache.delete(cacheKey);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Math.max(1000, timeoutMs));
 
@@ -211,7 +280,7 @@ async function explainWithOllama(question: string, league: string, answer: AskGo
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model,
-        prompt: buildLlmPrompt(question, league, answer),
+        prompt,
         stream: false,
         format: "json",
         options: { temperature: 0.1, num_predict: 500 },
@@ -225,6 +294,9 @@ async function explainWithOllama(question: string, league: string, answer: AskGo
         provider: "ollama",
         model,
         reason: `Ollama request failed with HTTP ${response.status}, so Ask Goose returned the deterministic database explanation.`,
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: cacheTtlMs > 0 ? "miss" : "bypass",
       });
     }
     const payload = await response.json() as { response?: unknown };
@@ -236,8 +308,16 @@ async function explainWithOllama(question: string, league: string, answer: AskGo
         provider: "ollama",
         model,
         reason: "Ollama returned an unusable explanation payload, so Ask Goose returned the deterministic database explanation.",
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: cacheTtlMs > 0 ? "miss" : "bypass",
       });
     }
+
+    if (cacheTtlMs > 0) {
+      localExplanationCache.set(cacheKey, { createdAt: Date.now(), explanation });
+    }
+
     return {
       ...explanation,
       llmStatus: {
@@ -245,6 +325,9 @@ async function explainWithOllama(question: string, league: string, answer: AskGo
         provider: "ollama",
         model,
         reason: "Local Ollama explanation generated from the computed database facts.",
+        promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+        durationMs: Date.now() - startedAt,
+        cacheStatus: cacheTtlMs > 0 ? "miss" : "bypass",
       },
     };
   } catch {
@@ -253,6 +336,9 @@ async function explainWithOllama(question: string, league: string, answer: AskGo
       provider: "ollama",
       model,
       reason: "Ollama request threw or timed out, so Ask Goose returned the deterministic database explanation.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      durationMs: Date.now() - startedAt,
+      cacheStatus: cacheTtlMs > 0 ? "miss" : "bypass",
     });
   } finally {
     clearTimeout(timeout);
@@ -268,6 +354,8 @@ export async function explainAskGooseAnswer(question: string, league: string, an
       provider: "none",
       model: null,
       reason: "Question did not look like a betting-analysis request, so Ask Goose used the deterministic database summary.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      cacheStatus: "bypass",
     });
   }
 
@@ -277,6 +365,8 @@ export async function explainAskGooseAnswer(question: string, league: string, an
       provider: "none",
       model: null,
       reason: "No graded database rows matched this query, so Ask Goose skipped the LLM and returned the deterministic no-data explanation.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      cacheStatus: "bypass",
     });
   }
 

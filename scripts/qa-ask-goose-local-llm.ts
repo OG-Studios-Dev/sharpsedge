@@ -92,7 +92,9 @@ async function run() {
 
   resetEnv();
   process.env.ASK_GOOSE_EXPLAINER_PROVIDER = "ollama";
+  let qwenFetchCalls = 0;
   mockFetch(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    qwenFetchCalls += 1;
     const body = JSON.parse(String(init?.body || "{}"));
     assert.equal(body.model, "qwen2.5:7b-instruct");
     assert.equal(body.stream, false);
@@ -111,9 +113,17 @@ async function run() {
     assert.equal(explanation.llmStatus.provider, "ollama");
     assert.equal(explanation.llmStatus.status, "used");
     assert.equal(explanation.llmStatus.model, "qwen2.5:7b-instruct");
+    assert.equal(explanation.llmStatus.cacheStatus, "miss");
+    assert.equal(explanation.llmStatus.promptVersion, "ask_goose_explainer_v2_fact_packet_json");
+    assert.ok(typeof explanation.llmStatus.durationMs === "number");
     assert.ok(explanation.bullets.some((bullet) => bullet.includes("58-46-2")));
     assert.ok(explanation.caveats.some((caveat) => caveat.includes("Database-backed only")));
-    results.push({ name: "Qwen is the default Ollama model and preserves trust caveats", ok: true });
+
+    const cachedExplanation = await explainAskGooseAnswer("NBA full-game unders record and units since 2024", "NBA", baseAnswer());
+    assert.equal(qwenFetchCalls, 1);
+    assert.equal(cachedExplanation.mode, "llm");
+    assert.equal(cachedExplanation.llmStatus.cacheStatus, "hit");
+    results.push({ name: "Qwen is the default Ollama model and short-lived fact-packet cache works", ok: true });
   }
 
   resetEnv();
