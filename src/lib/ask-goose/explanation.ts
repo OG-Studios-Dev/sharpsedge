@@ -269,6 +269,15 @@ export async function explainAskGooseAnswer(question: string, league: string, an
     });
   }
 
+  if (answer.gradedRows === 0) {
+    return withLlmStatus(fallback, {
+      status: "not_applicable",
+      provider: "none",
+      model: null,
+      reason: "No graded database rows matched this query, so Ask Goose skipped the LLM and returned the deterministic no-data explanation.",
+    });
+  }
+
   const provider = providerFromEnv();
   return provider === "ollama"
     ? explainWithOllama(question, league, answer, fallback)
