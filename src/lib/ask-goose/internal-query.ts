@@ -77,6 +77,8 @@ export type AskGooseIntent = {
   wantsTeamMarketFocus: boolean;
   wantsHeadToHead: boolean;
   wantsAbove500Teams: boolean;
+  publicSplitLean: "on_bet" | "against_bet" | null;
+  publicSplitMetric: "bets" | "handle" | "either";
   requestedSeasonStartYear: number | null;
   requestedSeasonEndYear: number | null;
 };
@@ -251,6 +253,19 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
   const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
   const wantsAbove500Teams = /(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);
+  const mentionedPublic = /public|handle|money|tickets?|bets?|betting split|split/.test(normalizedQuestion);
+  const publicSplitMetric: AskGooseIntent["publicSplitMetric"] = /\bhandle\b|public\s+money|sharp\s+money/.test(normalizedQuestion)
+    ? "handle"
+    : /tickets?|bets?/.test(normalizedQuestion)
+      ? "bets"
+      : "either";
+  const publicSplitLean: AskGooseIntent["publicSplitLean"] = !mentionedPublic
+    ? null
+    : /public\s+(?:is\s+)?(?:on|backing|betting)\s+(?:the\s+)?(?:opponent|other side)|public\s+(?:is\s+)?against|fading|fade/.test(normalizedQuestion)
+      ? "against_bet"
+      : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support/.test(normalizedQuestion)
+        ? "on_bet"
+        : null;
 
   return {
     normalizedQuestion,
@@ -273,6 +288,8 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     wantsTeamMarketFocus,
     wantsHeadToHead,
     wantsAbove500Teams,
+    publicSplitLean,
+    publicSplitMetric,
     requestedSeasonStartYear,
     requestedSeasonEndYear,
   };
@@ -375,6 +392,16 @@ function rowMatchesSeasonWindow(row: AskGooseRow, startYear: number | null, endY
   if (!Number.isFinite(year)) return false;
   if (startYear && year < startYear) return false;
   if (endYear && year > endYear) return false;
+  return true;
+}
+
+function rowMatchesPublicLean(row: AskGooseRow, lean: AskGooseIntent["publicSplitLean"], metric: AskGooseIntent["publicSplitMetric"]) {
+  if (!lean) return true;
+  const bets = typeof row.public_bets_pct === "number" && Number.isFinite(row.public_bets_pct) ? row.public_bets_pct : null;
+  const handle = typeof row.public_handle_pct === "number" && Number.isFinite(row.public_handle_pct) ? row.public_handle_pct : null;
+  const values = metric === "bets" ? [bets] : metric === "handle" ? [handle] : [bets, handle];
+  if (lean === "on_bet") return values.some((value) => typeof value === "number" && value > 50);
+  if (lean === "against_bet") return values.some((value) => typeof value === "number" && value < 50);
   return true;
 }
 
@@ -493,6 +520,12 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     if (beforeAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game .500 flags for the bet team in this slice, so the .500 condition could not be proven from the database yet.");
   }
 
+  if (intent.publicSplitLean) {
+    const beforePublic = filtered.length;
+    filtered = filtered.filter((row) => rowMatchesPublicLean(row, intent.publicSplitLean, intent.publicSplitMetric));
+    if (beforePublic > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching public betting split coverage for this slice yet.");
+  }
+
   if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) {
     filtered = filtered.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
   }
@@ -550,6 +583,8 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.requestedLine != null) {
     subjectBits.push(String(intent.requestedLine));
   }
+  if (intent.publicSplitLean === "on_bet") subjectBits.push("with public on bet side");
+  if (intent.publicSplitLean === "against_bet") subjectBits.push("with public against bet side");
   const subject = intent.matchedTeam || subjectBits.join(" ");
   const winPct = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
   const summaryText = graded.length > 0
