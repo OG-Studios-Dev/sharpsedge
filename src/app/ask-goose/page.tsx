@@ -277,8 +277,12 @@ export default function AskGoosePage() {
                   {message.role === "goose" && message.result?.explanation?.mode ? (
                     <div className="mb-2 space-y-1">
                       <p className="text-[10px] uppercase tracking-[0.18em] text-accent-blue">{message.result.explanation.mode === "llm" ? "LLM explanation" : "Deterministic explanation"}</p>
-                      {message.result.explanation.llmStatus?.status && message.result.explanation.llmStatus.status !== "used" ? (
-                        <p className="text-[11px] text-amber-200">LLM status: {message.result.explanation.llmStatus.reason}</p>
+                      {message.result.explanation.llmStatus?.status ? (
+                        <p className={message.result.explanation.llmStatus.status === "used" ? "text-[11px] text-emerald-200" : "text-[11px] text-amber-200"}>
+                          LLM status: {message.result.explanation.llmStatus.status === "used"
+                            ? `used${message.result.explanation.llmStatus.model ? ` · ${message.result.explanation.llmStatus.model}` : ""}`
+                            : message.result.explanation.llmStatus.reason}
+                        </p>
                       ) : null}
                     </div>
                   ) : null}
@@ -290,11 +294,15 @@ export default function AskGoosePage() {
                     </ul>
                   ) : null}
 
-                  {message.role === "goose" && message.result?.answer?.warnings?.length ? (
-                    <ul className="mt-3 space-y-1 text-xs text-yellow-200">
-                      {message.result.answer.warnings.map((warning) => <li key={warning}>⚠ {warning}</li>)}
-                    </ul>
-                  ) : null}
+                  {message.role === "goose" && message.result?.answer?.warnings?.length ? (() => {
+                    const bulletSet = new Set(message.result.explanation?.bullets ?? []);
+                    const visibleWarnings = message.result.answer.warnings.filter((warning) => !bulletSet.has(warning));
+                    return visibleWarnings.length ? (
+                      <ul className="mt-3 space-y-1 text-xs text-yellow-200">
+                        {visibleWarnings.map((warning) => <li key={warning}>⚠ {warning}</li>)}
+                      </ul>
+                    ) : null;
+                  })() : null}
                 </div>
               </div>
             ))}

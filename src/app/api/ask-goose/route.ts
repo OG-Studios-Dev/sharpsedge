@@ -70,7 +70,7 @@ function wantsRecentPerformance(question: string) {
 
 function looksLikeTeamQuestion(question: string) {
   const q = question.toLowerCase();
-  return /how have|\bvs\b|against|head to head|moneyline|spread|total|over|under|favorite|underdog/.test(q);
+  return /how have|\bvs\b|against|head to head|moneyline|spread|total|over|under|favorite|underdogs?|\bdogs?\b/.test(q);
 }
 
 async function postgrest<T>(path: string) {
@@ -203,8 +203,13 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
 
     const select = [
       "candidate_id",
+      "canonical_game_id",
+      "event_id",
       "league",
       "event_date",
+      "home_team",
+      "away_team",
+      "team_role",
       "team_name",
       "opponent_name",
       "market_type",
@@ -225,10 +230,31 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       "is_away_team_bet",
       "is_favorite",
       "is_underdog",
+      "is_home_favorite",
+      "is_away_favorite",
+      "is_home_underdog",
+      "is_road_underdog",
+      "is_road_favorite",
+      "team_wins_pre_game",
+      "team_losses_pre_game",
+      "team_pushes_pre_game",
+      "team_games_played_pre_game",
+      "opponent_wins_pre_game",
+      "opponent_losses_pre_game",
+      "opponent_pushes_pre_game",
+      "opponent_games_played_pre_game",
       "team_win_pct_pre_game",
       "opponent_win_pct_pre_game",
       "team_above_500_pre_game",
       "opponent_above_500_pre_game",
+      "team_league_rank_pre_game",
+      "opponent_league_rank_pre_game",
+      "favorite_team_role",
+      "underdog_team_role",
+      "public_bets_pct",
+      "public_handle_pct",
+      "public_split_source",
+      "public_split_snapshot_at",
       "integrity_status"
     ].join(",");
 
@@ -319,7 +345,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     }
 
     const normalizedQuestion = question.toLowerCase();
-    if (teamQuestion && (normalizedQuestion.includes("underdog") || normalizedQuestion.includes(" as dogs") || normalizedQuestion.includes(" as dog") || normalizedQuestion.includes(" as an underdog"))) {
+    if (teamQuestion && (/underdogs?|\bdogs?\b/.test(normalizedQuestion) || normalizedQuestion.includes(" as an underdog"))) {
       rows = rows.filter((row) => row.is_underdog === true);
     }
 

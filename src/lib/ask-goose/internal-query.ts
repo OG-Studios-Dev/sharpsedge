@@ -28,10 +28,31 @@ export type AskGooseRow = {
   is_away_team_bet: boolean | null;
   is_favorite: boolean | null;
   is_underdog: boolean | null;
+  is_home_favorite?: boolean | null;
+  is_away_favorite?: boolean | null;
+  is_home_underdog?: boolean | null;
+  is_road_underdog?: boolean | null;
+  is_road_favorite?: boolean | null;
+  team_wins_pre_game?: number | null;
+  team_losses_pre_game?: number | null;
+  team_pushes_pre_game?: number | null;
+  team_games_played_pre_game?: number | null;
+  opponent_wins_pre_game?: number | null;
+  opponent_losses_pre_game?: number | null;
+  opponent_pushes_pre_game?: number | null;
+  opponent_games_played_pre_game?: number | null;
   team_win_pct_pre_game?: number | null;
   opponent_win_pct_pre_game?: number | null;
   team_above_500_pre_game?: boolean | null;
   opponent_above_500_pre_game?: boolean | null;
+  team_league_rank_pre_game?: number | null;
+  opponent_league_rank_pre_game?: number | null;
+  favorite_team_role?: string | null;
+  underdog_team_role?: string | null;
+  public_bets_pct?: number | null;
+  public_handle_pct?: number | null;
+  public_split_source?: string | null;
+  public_split_snapshot_at?: string | null;
 };
 
 export type AskGooseIntent = {
@@ -181,7 +202,7 @@ function isFullGameRow(row: AskGooseRow) {
 
 export function parseAskGooseIntent(question: string, league: string, rows: AskGooseRow[]): AskGooseIntent {
   const normalizedQuestion = question.replace(/\s+/g, " ").trim().toLowerCase();
-  const looksLikeBettingQuestion = /(win rate|roi|unit|profit|record|system|trend|cover|favorite|favou?rite|underdog|dog|over|under|moneyline|\bml\b|spread|ats|perform|performance|lately|recent|against|head to head|total|puckline|runline|odds|price|bet|wager|parlay|pick)/.test(normalizedQuestion);
+  const looksLikeBettingQuestion = /(win rate|roi|unit|profit|record|system|trend|cover|favorite|favou?rite|underdogs?|\bdogs?\b|over|under|moneyline|\bml\b|spread|ats|perform|performance|lately|recent|against|head to head|total|puckline|runline|odds|price|bet|wager|parlay|pick)/.test(normalizedQuestion);
   const refusalReason = looksLikeBettingQuestion ? null : "Ask Goose only answers database-backed betting research questions. Try asking about a league, market, side, line, odds range, record, units, or ROI.";
   const candidates = TEAM_ALIASES[league] ?? [];
   const matchedTeams = candidates
@@ -191,7 +212,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   let marketType: AskGooseIntent["marketType"] = null;
   if (/\bmoneyline\b|\bml\b/.test(normalizedQuestion)) marketType = "moneyline";
   else if (/\bspread\b|\bats\b|\bcover\b|puckline|runline/.test(normalizedQuestion)) marketType = "spread";
-  else if (/\btotal\b|\bover\b|\bunder\b/.test(normalizedQuestion) && !/underdog|\bdog\b/.test(normalizedQuestion)) marketType = "total";
+  else if (/\btotal\b|\bover\b|\bunder\b/.test(normalizedQuestion) && !/underdogs?|\bdogs?\b/.test(normalizedQuestion)) marketType = "total";
 
   const rowTeamMatches = rows
     .flatMap((row) => [row.team_name, row.opponent_name, row.home_team, row.away_team])
@@ -223,7 +244,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
         : mentionedAway
           ? "away"
           : null;
-  const wantsTeamMarketFocus = Boolean(matchedTeam) || mentionedHome || mentionedAway || /underdog|\bdog\b|favorite|favou?rite/.test(normalizedQuestion) || marketType === "moneyline" || marketType === "spread";
+  const wantsTeamMarketFocus = Boolean(matchedTeam) || mentionedHome || mentionedAway || /underdogs?|\bdogs?\b|favorite|favou?rite/.test(normalizedQuestion) || marketType === "moneyline" || marketType === "spread";
 
   const yearMatches = Array.from(normalizedQuestion.matchAll(/\b(20\d{2})\b/g)).map((match) => Number(match[1]));
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
@@ -245,7 +266,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     wantsRecentOnly: /last\s+(5|10|25)|recent/.test(normalizedQuestion),
     wantsBroaderSample: /lately|recent|performance|perform|record|trend|how have/.test(normalizedQuestion) || matchedTeams.length > 0 || matchedRowNames.length > 0,
     mentionedFavorite: /favorite|favou?rite/.test(normalizedQuestion),
-    mentionedUnderdog: /underdog|\bdog\b/.test(normalizedQuestion),
+    mentionedUnderdog: /underdogs?|\bdogs?\b/.test(normalizedQuestion),
     mentionedHome,
     mentionedAway,
     wantsTeamMarketFocus,
@@ -467,8 +488,8 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
 
   if (intent.wantsAbove500Teams) {
     const beforeAbove500 = filtered.length;
-    filtered = filtered.filter((row) => rowTeamAbove500(row) === true && rowOpponentAbove500(row) === true);
-    if (beforeAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game .500 flags for this slice, so the .500 condition could not be proven from the database yet.");
+    filtered = filtered.filter((row) => rowTeamAbove500(row) === true);
+    if (beforeAbove500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no populated pre-game .500 flags for the bet team in this slice, so the .500 condition could not be proven from the database yet.");
   }
 
   if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) {
@@ -512,6 +533,10 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (league === "NFL" && graded.length < 25) warnings.push("NFL historical coverage is currently limited in Ask Goose, so treat NFL answers as coverage diagnostics until more graded rows are loaded.");
   if (graded.some((row) => !oddsLooksSane(row.odds))) warnings.push("Some source odds were suspicious/missing, so normalized units used conservative fallback pricing for those rows.");
   if (counterSide && counterSide.totalUnits > totalUnits) warnings.push(`Opposite side check: ${counterSide.side} performed better in this slice (${counterSide.wins}-${counterSide.losses}-${counterSide.pushes}, ${counterSide.totalUnits.toFixed(2)}u, ${counterSide.avgRoi.toFixed(1)}% ROI).`);
+  const selectedLeague = league.toLowerCase();
+  const mentionedLeagues = ["nba", "nhl", "mlb", "nfl"].filter((candidate) => new RegExp(`\\b${candidate}\\b`, "i").test(question));
+  const offScopeLeagues = mentionedLeagues.filter((candidate) => candidate !== selectedLeague);
+  if (offScopeLeagues.length > 0) warnings.push(`This answer only ran the selected ${league} database. Run ${offScopeLeagues.map((candidate) => candidate.toUpperCase()).join("/")} separately or switch league to compare.`);
 
   const subjectBits = [league];
   if (intent.scope && intent.scope !== "full_game") subjectBits.push(intent.scope.replace(/_/g, " "));
