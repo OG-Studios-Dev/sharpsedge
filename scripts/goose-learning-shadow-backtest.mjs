@@ -46,6 +46,14 @@ const maxSaneWinRate = Number(args.maxSaneWinRate || 0.68);
 const minIndependentEvents = Number(args.minIndependentEvents || Math.max(minSample, 75));
 const excludeImplausibleLines = args.excludeImplausibleLines !== 'false';
 const activateModel = args.activate === 'true' || args.activate === '1';
+const sourceFile = args.sourceFile || '';
+let sourceRows = null;
+if (sourceFile) {
+  const resolvedSourceFile = path.resolve(process.cwd(), sourceFile);
+  const parsed = JSON.parse(fs.readFileSync(resolvedSourceFile, 'utf8'));
+  sourceRows = Array.isArray(parsed.rows) ? parsed.rows : Array.isArray(parsed) ? parsed : [];
+  if (!sourceRows.length) throw new Error(`Source file has no rows: ${sourceFile}`);
+}
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
 if (![trainStart, trainEnd, testStart, testEnd].every(isoDateOk)) throw new Error('Dates must be YYYY-MM-DD');
@@ -62,6 +70,9 @@ async function rest(pathname, options = {}) {
 }
 
 async function fetchExamples(startDate, endDate) {
+  if (sourceRows) {
+    return sourceRows.filter((row) => String(row.event_date || '') >= startDate && String(row.event_date || '') <= endDate);
+  }
   const out = [];
   let offset = 0;
   const pageSize = 1000;
@@ -342,7 +353,7 @@ async function writeResults(candidates, summary) {
       sports: Array.from(new Set(candidates.map((c) => c.sport))).sort(),
       markets: Array.from(new Set(candidates.map((c) => c.market_family))).sort(),
       min_sample: minSample,
-      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, excludeImplausibleLines, activateModel, generator: 'goose-learning-shadow-backtest' },
+      config: { maxRows, dedupeEventLevel, walkForward, maxSaneRoi, maxSaneWinRate, minIndependentEvents, excludeImplausibleLines, activateModel, sourceFile: sourceFile || null, generator: 'goose-learning-shadow-backtest' },
       metrics: summary,
       notes: 'Shadow learning run only. Does not affect production pick generation.',
     }),
@@ -446,6 +457,7 @@ const summary = {
   minIndependentEvents,
   excludeImplausibleLines,
   activateModel,
+  sourceFile: sourceFile || null,
   rawTrainExamples: rawTrainRows.length,
   rawTestExamples: rawTestRows.length,
   dedupedTrainExamples: rawTrainRows.length - dedupedTrainRows.length,
