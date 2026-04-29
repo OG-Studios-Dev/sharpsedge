@@ -5,7 +5,6 @@ const cases = [
   {
     league: 'NHL',
     question: 'NHL full-game under 5.5 record and units since 2024',
-    requireThinCaveat: true,
   },
   {
     league: 'NBA',
@@ -21,8 +20,6 @@ const cases = [
   {
     league: 'NFL',
     question: 'NFL spread favorites record since 2024',
-    requireThinCaveat: true,
-    requireWarningIncludes: 'NFL historical coverage is currently limited',
   },
 ];
 

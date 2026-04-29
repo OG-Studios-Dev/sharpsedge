@@ -280,7 +280,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
   const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
   const wantsBothTeamsAbove500 = /both\s+teams?.{0,30}(above|over|greater than|better than)\s*\.?500|both\s+teams?.{0,30}\.500/.test(normalizedQuestion);
-  const wantsAbove500Teams = wantsBothTeamsAbove500 || /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion);
+  const wantsAbove500Teams = wantsBothTeamsAbove500 || /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)|(above|over|greater than|better than)\s*\.?500\s+teams?/.test(normalizedQuestion);
   const wantsBelow500Teams = /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(below|under|worse than|less than)\s*\.?500|below\s*\.?500|under\s*\.?500/.test(normalizedQuestion) && !/against\s+teams?.{0,20}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentAbove500 = wantsBothTeamsAbove500 || /(against|versus|vs|opponent)s?.{0,30}(above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentBelow500 = /(against|versus|vs|opponent)s?.{0,30}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);

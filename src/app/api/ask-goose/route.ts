@@ -11,7 +11,7 @@ const MAX_LIMIT = 100;
 const BROADER_SAMPLE_LIMIT = 250;
 const TEAM_QUERY_SAMPLE_LIMIT = 1000;
 const BROAD_QUERY_PAGE_SIZE = 1000;
-const FULL_HISTORICAL_MAX_ROWS = 250000;
+const FULL_HISTORICAL_MAX_ROWS = 8000;
 
 const LEAGUE_TEAM_ALIASES: Record<string, string[]> = {
   NHL: [
@@ -317,11 +317,33 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       appendHistoricalDateWindow(primaryQuery, preliminaryIntent);
     }
 
+    const needsContextFallback = Boolean(
+      preliminaryIntent.wantsAbove500Teams ||
+      preliminaryIntent.wantsBelow500Teams ||
+      preliminaryIntent.wantsOpponentAbove500 ||
+      preliminaryIntent.wantsOpponentBelow500 ||
+      preliminaryIntent.publicSplitLean
+    );
+
     let rows = useTeamScopedFullFetch
       ? []
       : wantsFullHistorical
       ? await fetchPagedAskGooseRows(primaryQuery, FULL_HISTORICAL_MAX_ROWS)
       : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+
+    if (wantsFullHistorical && rows.length === 0 && needsContextFallback) {
+      const fallbackHistoricalQuery = new URLSearchParams({
+        select,
+        league: `eq.${league}`,
+        order: "event_date.desc",
+        limit: String(fetchLimit),
+        offset: "0",
+      });
+      if (preliminaryIntent.marketType) fallbackHistoricalQuery.set("market_family", `eq.${preliminaryIntent.marketType}`);
+      if (preliminaryIntent.marketType === "total" && (preliminaryIntent.side === "over" || preliminaryIntent.side === "under")) fallbackHistoricalQuery.set("side", `ilike.*${preliminaryIntent.side}*`);
+      appendHistoricalDateWindow(fallbackHistoricalQuery, preliminaryIntent);
+      rows = await fetchPagedAskGooseRows(fallbackHistoricalQuery, FULL_HISTORICAL_MAX_ROWS);
+    }
 
     if (gradedFirst && rows.length === 0) {
       const fallbackQuery = new URLSearchParams({
@@ -383,6 +405,9 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     }
 
     const answer = answerAskGooseQuestion(question, league, rows);
+    if (wantsFullHistorical && rows.length >= FULL_HISTORICAL_MAX_ROWS) {
+      answer.warnings.push(`Large historical query capped at ${FULL_HISTORICAL_MAX_ROWS.toLocaleString()} source rows to keep chat responsive.`);
+    }
 
     const ungradeableRows = answer.evidenceRows.filter((row) => String(row.result || "").toLowerCase() === "ungradeable" || String(row.integrity_status || "").toLowerCase() === "unresolvable").length;
     const lineMissingRows = answer.evidenceRows.filter((row) => row.market_family === "spread" && (row.line === null || row.line === undefined)).length;
