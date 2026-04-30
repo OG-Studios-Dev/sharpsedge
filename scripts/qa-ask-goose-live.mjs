@@ -9,8 +9,8 @@ const cases = [
   {
     league: 'NBA',
     question: 'How did NBA overs do from 2024 to 2026 for over .500 teams?',
-    requireThinCaveat: true,
-    requireWarningIncludes: '.500 condition could not be proven',
+    requireContextRows: true,
+    forbidWarningIncludes: '.500 condition could not be proven',
   },
   {
     league: 'MLB',
@@ -31,7 +31,7 @@ function assert(condition, message, evidence = {}) {
   }
 }
 
-async function checkAskGoose({ league, question, requireThinCaveat, requireWarningIncludes, requireDedupedSummaryFields }) {
+async function checkAskGoose({ league, question, requireThinCaveat, requireWarningIncludes, forbidWarningIncludes, requireContextRows, requireDedupedSummaryFields }) {
   const url = new URL('/api/ask-goose', BASE_URL);
   url.searchParams.set('league', league);
   url.searchParams.set('q', question);
@@ -57,6 +57,12 @@ async function checkAskGoose({ league, question, requireThinCaveat, requireWarni
   }
   if (requireWarningIncludes) {
     assert(payload.answer.warnings.some((warning) => String(warning).includes(requireWarningIncludes)), `${league} Ask Goose missing required warning: ${requireWarningIncludes}`, { question, warnings: payload.answer.warnings });
+  }
+  if (forbidWarningIncludes) {
+    assert(!payload.answer.warnings.some((warning) => String(warning).includes(forbidWarningIncludes)), `${league} Ask Goose still has forbidden warning: ${forbidWarningIncludes}`, { question, warnings: payload.answer.warnings });
+  }
+  if (requireContextRows) {
+    assert(payload.summary.gradedRows > 0, `${league} Ask Goose context query returned no graded rows`, { question, summary: payload.summary, warnings: payload.answer.warnings });
   }
   if (requireDedupedSummaryFields) {
     assert(typeof payload.summary.rawRows === 'number' && typeof payload.summary.dedupedRows === 'number', `${league} Ask Goose missing raw/deduped row fields`, { question, summary: payload.summary });

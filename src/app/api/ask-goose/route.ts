@@ -325,11 +325,19 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       preliminaryIntent.publicSplitLean
     );
 
-    let rows = useTeamScopedFullFetch
-      ? []
-      : wantsFullHistorical
-      ? await fetchPagedAskGooseRows(primaryQuery, FULL_HISTORICAL_MAX_ROWS)
-      : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+    let primaryContextQueryWarning: string | null = null;
+    let rows: AskGooseRow[] = [];
+    try {
+      rows = useTeamScopedFullFetch
+        ? []
+        : wantsFullHistorical
+        ? await fetchPagedAskGooseRows(primaryQuery, FULL_HISTORICAL_MAX_ROWS)
+        : await postgrest<AskGooseRow[]>(`/rest/v1/ask_goose_query_layer_v1?${primaryQuery.toString()}`);
+    } catch (error) {
+      if (!wantsFullHistorical || !needsContextFallback) throw error;
+      primaryContextQueryWarning = `The direct context-filtered historical query was too expensive (${toErrorMessage(error, "query failed")}), so Ask Goose used the capped historical sample and applied/proved context filters in the answer layer.`;
+      rows = [];
+    }
 
     if (wantsFullHistorical && rows.length === 0 && needsContextFallback) {
       const fallbackHistoricalQuery = new URLSearchParams({
@@ -405,6 +413,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
     }
 
     const answer = answerAskGooseQuestion(question, league, rows);
+    if (primaryContextQueryWarning) answer.warnings.push(primaryContextQueryWarning);
     if (wantsFullHistorical && rows.length >= FULL_HISTORICAL_MAX_ROWS) {
       answer.warnings.push(`Large historical query capped at ${FULL_HISTORICAL_MAX_ROWS.toLocaleString()} source rows to keep chat responsive.`);
     }

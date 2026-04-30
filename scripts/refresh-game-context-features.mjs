@@ -59,35 +59,115 @@ function addDays(dateKey, days) {
   return d.toISOString().slice(0, 10);
 }
 
+function monthEnd(dateKey) {
+  const d = new Date(`${dateKey.slice(0, 7)}-01T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  d.setUTCDate(0);
+  return d.toISOString().slice(0, 10);
+}
+
 function minDate(a, b) {
   return a <= b ? a : b;
 }
 
-async function oneDate(league, dir) {
-  const rows = await sample(`ask_goose_query_layer_v1?select=event_date&league=eq.${league}&event_date=not.is.null&order=event_date.${dir}&limit=1`);
-  return rows[0]?.event_date ?? null;
+function maxDate(a, b) {
+  return a >= b ? a : b;
+}
+
+function sourceRows() {
+  const defaultPath = path.join(process.cwd(), 'tmp', 'goose-training-examples-chunked-2024-01-01-to-2026-04-29.json');
+  const sourcePath = process.env.GOOSE_CONTEXT_SOURCE_FILE || defaultPath;
+  if (!fs.existsSync(sourcePath)) return [];
+  const parsed = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+  return Array.isArray(parsed.rows) ? parsed.rows : [];
+}
+
+async function dateWindowForLeague(league, localRows) {
+  const dates = localRows
+    .filter((row) => String(row.league || row.sport || '').toUpperCase() === league && row.event_date)
+    .map((row) => String(row.event_date));
+  if (dates.length) {
+    return {
+      start: dates.reduce((a, b) => minDate(a, b)),
+      end: dates.reduce((a, b) => maxDate(a, b)),
+      source: 'local_export',
+    };
+  }
+  const [first, last] = await Promise.all([
+    sample(`ask_goose_query_layer_v1?select=event_date&league=eq.${league}&event_date=not.is.null&order=event_date.asc&limit=1`),
+    sample(`ask_goose_query_layer_v1?select=event_date&league=eq.${league}&event_date=not.is.null&order=event_date.desc&limit=1`),
+  ]);
+  return {
+    start: first[0]?.event_date ?? null,
+    end: last[0]?.event_date ?? null,
+    source: 'remote_sample',
+  };
+}
+
+function monthWindows(start, end) {
+  const windows = [];
+  let cursor = `${start.slice(0, 7)}-01`;
+  while (cursor <= end) {
+    windows.push({ start: maxDate(cursor, start), end: minDate(monthEnd(cursor), end) });
+    cursor = addDays(monthEnd(cursor), 1);
+  }
+  return windows;
+}
+
+function weekWindows(start, end) {
+  const windows = [];
+  let cursor = start;
+  while (cursor <= end) {
+    const chunkEnd = minDate(addDays(cursor, 6), end);
+    windows.push({ start: cursor, end: chunkEnd });
+    cursor = addDays(chunkEnd, 1);
+  }
+  return windows;
+}
+
+async function refreshRangeWithFallback(league, window) {
+  try {
+    const rows = await rpc('refresh_game_context_features_v1_range', {
+      p_league: league,
+      p_start_date: window.start,
+      p_end_date: window.end,
+    });
+    return [{ ...window, rows, ok: true, mode: 'month' }];
+  } catch (error) {
+    const chunks = [];
+    for (const week of weekWindows(window.start, window.end)) {
+      try {
+        const rows = await rpc('refresh_game_context_features_v1_range', {
+          p_league: league,
+          p_start_date: week.start,
+          p_end_date: week.end,
+        });
+        chunks.push({ ...week, rows, ok: true, mode: 'week_retry' });
+      } catch (retryError) {
+        chunks.push({
+          ...week,
+          rows: 0,
+          ok: false,
+          mode: 'week_retry',
+          error: retryError instanceof Error ? retryError.message : String(retryError),
+        });
+      }
+    }
+    return chunks;
+  }
 }
 
 async function main() {
   const leagues = process.argv.slice(2).map((v) => v.toUpperCase());
   const targets = leagues.length ? leagues : ['NBA', 'NHL', 'MLB', 'NFL'];
-  const chunkDays = Number(process.env.GAME_CONTEXT_CHUNK_DAYS || 14);
+  const localRows = sourceRows();
   const refreshed = {};
   for (const league of targets) {
-    const start = await oneDate(league, 'asc');
-    const end = await oneDate(league, 'desc');
-    refreshed[league] = { start, end, chunks: [] };
-    if (!start || !end) continue;
-    let cursor = start;
-    while (cursor <= end) {
-      const chunkEnd = minDate(addDays(cursor, chunkDays - 1), end);
-      const rows = await rpc('refresh_game_context_features_v1_range', {
-        p_league: league,
-        p_start_date: cursor,
-        p_end_date: chunkEnd,
-      });
-      refreshed[league].chunks.push({ start: cursor, end: chunkEnd, rows });
-      cursor = addDays(chunkEnd, 1);
+    const dateWindow = await dateWindowForLeague(league, localRows);
+    refreshed[league] = { ...dateWindow, chunks: [] };
+    if (!dateWindow.start || !dateWindow.end) continue;
+    for (const window of monthWindows(dateWindow.start, dateWindow.end)) {
+      refreshed[league].chunks.push(...await refreshRangeWithFallback(league, window));
     }
   }
   const audit = {};
