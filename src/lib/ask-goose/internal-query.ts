@@ -302,7 +302,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     ? null
     : /public\s+(?:is\s+)?(?:on|backing|betting)\s+(?:the\s+)?(?:opponent|other side)|public\s+(?:is\s+)?against|fading|fade/.test(normalizedQuestion)
       ? "against_bet"
-      : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support|public\s+money\s+(?:was\s+)?on\s+(?:the\s+)?(?:over|under|home|away)|public.{0,20}on\s+(?:the\s+)?(?:over|under|home|away)/.test(normalizedQuestion)
+      : /public\s+(?:is\s+)?(?:on|backing|betting)|with\s+public|public\s+support|public\s+money\s+(?:(?:was\s+)?on\s+(?:the\s+)?)?(?:over|under|home|away)|public.{0,20}on\s+(?:the\s+)?(?:over|under|home|away)/.test(normalizedQuestion)
         ? "on_bet"
         : null;
   const minTeamWinStreakPreGame = extractStreakLength(normalizedQuestion, "win");
