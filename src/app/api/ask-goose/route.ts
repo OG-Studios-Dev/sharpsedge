@@ -78,9 +78,17 @@ function appendHistoricalDateWindow(params: URLSearchParams, intent: ReturnType<
   if (intent.requestedSeasonEndYear) params.append("event_date", `lte.${intent.requestedSeasonEndYear}-12-31`);
 }
 
+function appendPublicSplitAvailabilityFilter(params: URLSearchParams, intent: ReturnType<typeof parseAskGooseIntent>) {
+  if (!intent.publicSplitRequested) return;
+  if (intent.publicSplitMetric === "handle") params.set("public_handle_pct", "not.is.null");
+  else if (intent.publicSplitMetric === "bets") params.set("public_bets_pct", "not.is.null");
+  else params.set("public_bets_pct", "not.is.null");
+}
+
 function appendIntentDbFilters(params: URLSearchParams, intent: ReturnType<typeof parseAskGooseIntent>) {
   if (intent.marketType) params.set("market_family", `eq.${intent.marketType}`);
   if (intent.marketType === "total" && (intent.side === "over" || intent.side === "under")) params.set("side", `ilike.*${intent.side}*`);
+  appendPublicSplitAvailabilityFilter(params, intent);
   if (intent.mentionedFavorite) params.set("is_favorite", "eq.true");
   if (intent.mentionedUnderdog) params.set("is_underdog", "eq.true");
   if (intent.mentionedHome) params.set("is_home_team_bet", "eq.true");
@@ -349,6 +357,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       });
       if (preliminaryIntent.marketType) fallbackHistoricalQuery.set("market_family", `eq.${preliminaryIntent.marketType}`);
       if (preliminaryIntent.marketType === "total" && (preliminaryIntent.side === "over" || preliminaryIntent.side === "under")) fallbackHistoricalQuery.set("side", `ilike.*${preliminaryIntent.side}*`);
+      appendPublicSplitAvailabilityFilter(fallbackHistoricalQuery, preliminaryIntent);
       appendHistoricalDateWindow(fallbackHistoricalQuery, preliminaryIntent);
       rows = await fetchPagedAskGooseRows(fallbackHistoricalQuery, FULL_HISTORICAL_MAX_ROWS);
     }
