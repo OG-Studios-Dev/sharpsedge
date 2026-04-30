@@ -12,7 +12,27 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const auditPath = args.audit || 'tmp/goose-learning-signal-audit.json';
+
+function latestAuditPath() {
+  const dir = 'tmp';
+  if (!fs.existsSync(dir)) return 'tmp/goose-learning-signal-audit.json';
+  const files = fs.readdirSync(dir)
+    .filter((name) => name.startsWith('goose-learning-signal-audit') && name.endsWith('.json'))
+    .filter((name) => !name.includes('promotion-gate'))
+    .map((name) => {
+      const filePath = path.join(dir, name);
+      const stat = fs.statSync(filePath);
+      return {
+        filePath,
+        mtimeMs: stat.mtimeMs,
+        cleanedRank: name.includes('cleaned') ? 1 : 0,
+      };
+    })
+    .sort((a, b) => (b.cleanedRank - a.cleanedRank) || (b.mtimeMs - a.mtimeMs));
+  return files[0]?.filePath || 'tmp/goose-learning-signal-audit.json';
+}
+
+const auditPath = args.audit || latestAuditPath();
 const outPath = args.out || auditPath.replace(/\.json$/, '-promotion-gate.json');
 const failOnBlock = args.failOnBlock === 'true' || args.failOnBlock === '1';
 

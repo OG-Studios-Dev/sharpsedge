@@ -12,8 +12,37 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const backtestPath = args.backtest || 'tmp/goose-learning-shadow-shadow-2026-04-29-chunked-full.json';
-const sourcePath = args.source || 'tmp/goose-training-examples-chunked-2024-01-01-to-2026-04-29.json';
+
+function latestTmpArtifact({ prefix, includes = [], excludes = [] }) {
+  const dir = 'tmp';
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir)
+    .filter((name) => name.startsWith(prefix) && name.endsWith('.json'))
+    .filter((name) => includes.every((part) => name.includes(part)))
+    .filter((name) => excludes.every((part) => !name.includes(part)))
+    .map((name) => {
+      const filePath = path.join(dir, name);
+      const stat = fs.statSync(filePath);
+      return { filePath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return files[0]?.filePath || null;
+}
+
+function defaultBacktestPath() {
+  return latestTmpArtifact({ prefix: 'goose-learning-shadow-', includes: ['cleaned'] })
+    || latestTmpArtifact({ prefix: 'goose-learning-shadow-' })
+    || 'tmp/goose-learning-shadow-shadow-2026-04-29-chunked-full.json';
+}
+
+function defaultSourcePath() {
+  return latestTmpArtifact({ prefix: 'goose-training-examples-chunked-', includes: ['cleaned'] })
+    || latestTmpArtifact({ prefix: 'goose-training-examples-chunked-' })
+    || 'tmp/goose-training-examples-chunked-2024-01-01-to-2026-04-29.json';
+}
+
+const backtestPath = args.backtest || defaultBacktestPath();
+const sourcePath = args.source || defaultSourcePath();
 const outPath = args.out || 'tmp/goose-learning-signal-audit.json';
 const mdPath = args.md || outPath.replace(/\.json$/, '.md');
 
