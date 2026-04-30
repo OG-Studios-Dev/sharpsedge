@@ -322,7 +322,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
       preliminaryIntent.wantsBelow500Teams ||
       preliminaryIntent.wantsOpponentAbove500 ||
       preliminaryIntent.wantsOpponentBelow500 ||
-      preliminaryIntent.publicSplitLean
+      preliminaryIntent.publicSplitRequested
     );
 
     let primaryContextQueryWarning: string | null = null;

@@ -86,6 +86,7 @@ export type AskGooseIntent = {
   wantsBelow500Teams: boolean;
   wantsOpponentAbove500: boolean;
   wantsOpponentBelow500: boolean;
+  publicSplitRequested: boolean;
   publicSplitLean: "on_bet" | "against_bet" | null;
   publicSplitMetric: "bets" | "handle" | "either";
   minTeamWinStreakPreGame: number | null;
@@ -239,10 +240,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     .filter((team) => normalizedQuestion.includes(normalizeName(team)))
     .sort((a, b) => b.length - a.length);
 
+  const hasTotalsLanguage = /\btotals?\b|\btotal\s+(?:was|were|is|are|line|of|at)?\b|\bovers?\b|\bunders?\b|\bover\s+[+-]?\d+(?:\.\d+)?\b|\bunder\s+[+-]?\d+(?:\.\d+)?\b|\btotals?\s+(?:over|under)\b|\b(?:over|under)\s+when\b|\b(?:over|under)\s+performed\b/.test(normalizedQuestion);
   let marketType: AskGooseIntent["marketType"] = null;
   if (/\bmoneyline\b|\bml\b/.test(normalizedQuestion)) marketType = "moneyline";
   else if (/\bspread\b|\bats\b|\bcover\b|puckline|runline/.test(normalizedQuestion)) marketType = "spread";
-  else if (/\btotal\b|\bover\b|\bunder\b/.test(normalizedQuestion) && !/underdogs?|\bdogs?\b/.test(normalizedQuestion)) marketType = "total";
+  else if (hasTotalsLanguage) marketType = "total";
 
   const rowTeamMatches = rows
     .flatMap((row) => [row.team_name, row.opponent_name, row.home_team, row.away_team])
@@ -265,9 +267,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const mentionedAway = /\baway\b|\broad\b|on the road/.test(normalizedQuestion);
   const oddsRange = extractOddsRange(normalizedQuestion);
   const requestedLine = extractRequestedLine(normalizedQuestion);
-  const side = /\bover\b/.test(normalizedQuestion)
+  const hasOverSideLanguage = /\bovers?\b|\bover\s+[+-]?\d+(?:\.\d+)?\b|\btotals?\s+(?:gone\s+)?over\b|\btotals?\s+over\b|\bover\s+when\b|\bover\s+performed\b|\bpublic\s+money\s+(?:was\s+)?on\s+(?:the\s+)?over\b/.test(normalizedQuestion);
+  const hasUnderSideLanguage = /\bunders?\b|\bunder\s+[+-]?\d+(?:\.\d+)?\b|\btotals?\s+(?:gone\s+)?under\b|\btotals?\s+under\b|\bunder\s+when\b|\bunder\s+performed\b|\bpublic\s+money\s+(?:was\s+)?on\s+(?:the\s+)?under\b/.test(normalizedQuestion);
+  const side = marketType === "total" && hasOverSideLanguage
     ? "over"
-    : /\bunder\b/.test(normalizedQuestion) && !/underdog(s)?\b/.test(normalizedQuestion)
+    : marketType === "total" && hasUnderSideLanguage
       ? "under"
       : mentionedHome
         ? "home"
@@ -280,7 +284,11 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const requestedSeasonStartYear = yearMatches.length ? Math.min(...yearMatches) : null;
   const requestedSeasonEndYear = yearMatches.length ? Math.max(...yearMatches) : null;
   const wantsBothTeamsAbove500 = /both\s+teams?.{0,30}(above|over|greater than|better than)\s*\.?500|both\s+teams?.{0,30}\.500/.test(normalizedQuestion);
-  const wantsAbove500Teams = wantsBothTeamsAbove500 || /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(above|over|greater than|better than)\s*\.?500|\.500\s*(and\s*)?(above|over|plus|\+)|(above|over|greater than|better than)\s*\.?500\s+teams?/.test(normalizedQuestion);
+  const wantsAbove500Teams = wantsBothTeamsAbove500
+    || /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion)
+    || /(?:they|team|teams|it|club|side)\s+(?:were|was|are|is)\s+(?:above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion)
+    || /\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion)
+    || /(above|over|greater than|better than)\s*\.?500\s+teams?/.test(normalizedQuestion);
   const wantsBelow500Teams = /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(below|under|worse than|less than)\s*\.?500|below\s*\.?500|under\s*\.?500/.test(normalizedQuestion) && !/against\s+teams?.{0,20}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentAbove500 = wantsBothTeamsAbove500 || /(against|versus|vs|opponent)s?.{0,30}(above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentBelow500 = /(against|versus|vs|opponent)s?.{0,30}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
@@ -324,6 +332,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     wantsBelow500Teams,
     wantsOpponentAbove500,
     wantsOpponentBelow500,
+    publicSplitRequested: mentionedPublic,
     publicSplitLean,
     publicSplitMetric,
     minTeamWinStreakPreGame,
@@ -591,10 +600,16 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     if (beforeOpponentBelow500 > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching opponent below-.500 context for this slice.");
   }
 
+  if (intent.publicSplitRequested && !intent.publicSplitLean) {
+    warnings.push("Public split context was requested, but Ask Goose could not safely determine whether the question meant public on the bet side or against it. Rephrase with 'public on the bet' or 'public against the bet'.");
+  }
+
   if (intent.publicSplitLean) {
     const beforePublic = filtered.length;
+    const rowsWithPublicSplits = filtered.filter((row) => row.public_bets_pct != null || row.public_handle_pct != null).length;
     filtered = filtered.filter((row) => rowMatchesPublicLean(row, intent.publicSplitLean, intent.publicSplitMetric));
-    if (beforePublic > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has no matching public betting split coverage for this slice yet.");
+    if (beforePublic > 0 && rowsWithPublicSplits === 0) warnings.push("Public betting split data is unavailable for this slice in the current Ask Goose serving layer.");
+    else if (beforePublic > 0 && filtered.length === 0) warnings.push("The current Ask Goose serving layer has public split rows, but none matched the requested public betting direction for this slice.");
   }
 
   if (typeof intent.minTeamWinStreakPreGame === "number") {
@@ -630,6 +645,10 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
     if (intent.wantsBelow500Teams) oppositeRows = oppositeRows.filter((row) => rowTeamBelow500(row) === true);
     if (intent.wantsOpponentAbove500) oppositeRows = oppositeRows.filter((row) => rowOpponentAbove500(row) === true);
     if (intent.wantsOpponentBelow500) oppositeRows = oppositeRows.filter((row) => rowOpponentBelow500(row) === true);
+    if (intent.mentionedHome) oppositeRows = oppositeRows.filter((row) => row.is_home_team_bet === true || String(row.team_role || "").toLowerCase() === "home");
+    if (intent.mentionedAway) oppositeRows = oppositeRows.filter((row) => row.is_away_team_bet === true || String(row.team_role || "").toLowerCase() === "away");
+    if (intent.mentionedFavorite) oppositeRows = oppositeRows.filter((row) => row.is_favorite === true);
+    if (intent.mentionedUnderdog) oppositeRows = oppositeRows.filter((row) => row.is_underdog === true);
     if (intent.requestedSeasonStartYear || intent.requestedSeasonEndYear) oppositeRows = oppositeRows.filter((row) => rowMatchesSeasonWindow(row, intent.requestedSeasonStartYear, intent.requestedSeasonEndYear));
     const oppositeDeduped = dedupeRows(oppositeRows);
     const oppositeSliced = intent.wantsRecentOnly ? oppositeDeduped.slice(0, 10) : oppositeDeduped;
@@ -673,6 +692,7 @@ export function answerAskGooseQuestion(question: string, league: string, rows: A
   if (intent.publicSplitLean === "against_bet") subjectBits.push("with public against bet side");
   if (intent.minTeamWinStreakPreGame) subjectBits.push(`on ${intent.minTeamWinStreakPreGame}+ game win streak`);
   if (intent.minTeamLossStreakPreGame) subjectBits.push(`on ${intent.minTeamLossStreakPreGame}+ game losing streak`);
+  if (intent.wantsAbove500Teams) subjectBits.push("above .500");
   if (intent.wantsBelow500Teams) subjectBits.push("below .500");
   if (intent.wantsOpponentBelow500) subjectBits.push("against below .500 opponent");
   if (intent.wantsOpponentAbove500) subjectBits.push("against above .500 opponent");
