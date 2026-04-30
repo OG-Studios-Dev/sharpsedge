@@ -122,22 +122,22 @@ function lineHealth(row) {
 
   if (market === 'total') {
     if (sport === 'NBA') {
-      if (line < 150) return 'implausibly_low_full_game_total';
+      if (line < 150) return 'unsupported_team_or_period_total';
       if (line > 290) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }
     if (sport === 'NFL') {
-      if (line < 25) return 'implausibly_low_full_game_total';
+      if (line < 25) return 'unsupported_team_or_period_total';
       if (line > 75) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }
     if (sport === 'MLB') {
-      if (line < 6) return 'implausibly_low_full_game_total';
+      if (line < 6) return 'unsupported_team_or_period_total';
       if (line > 20) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }
     if (sport === 'NHL') {
-      if (line < 4.5) return 'implausibly_low_full_game_total';
+      if (line < 4.5) return 'unsupported_team_or_period_total';
       if (line > 10) return 'implausibly_high_full_game_total';
       return 'plausible_full_game_total';
     }
@@ -153,7 +153,8 @@ function lineHealth(row) {
 }
 
 function isImplausibleLine(row) {
-  return String(lineHealth(row)).startsWith('implausibly_');
+  const health = String(lineHealth(row));
+  return health.startsWith('implausibly_') || health.startsWith('unsupported_');
 }
 
 function countLineHealth(rows) {

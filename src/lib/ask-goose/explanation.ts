@@ -370,6 +370,17 @@ export async function explainAskGooseAnswer(question: string, league: string, an
     });
   }
 
+  if (answer.rawRows >= 1000 || answer.gradedRows >= 250) {
+    return withLlmStatus(fallback, {
+      status: "not_applicable",
+      provider: "none",
+      model: null,
+      reason: "Large historical aggregate answered deterministically to keep Ask Goose responsive and avoid adding unproven narrative to database facts.",
+      promptVersion: ASK_GOOSE_EXPLAINER_PROMPT_VERSION,
+      cacheStatus: "bypass",
+    });
+  }
+
   const provider = providerFromEnv();
   return provider === "ollama"
     ? explainWithOllama(question, league, answer, fallback)

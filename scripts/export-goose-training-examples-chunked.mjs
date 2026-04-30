@@ -41,6 +41,7 @@ const endDate = args.end || '2026-12-31';
 const sports = String(args.sports || 'NBA,NHL,MLB,NFL').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 const pageSize = Number(args.pageSize || 750);
 const maxRows = Number(args.maxRows || 250000);
+const includeUnsupportedLines = args.includeUnsupportedLines === 'true' || args.includeUnsupportedLines === '1';
 const outPath = args.out || path.join('tmp', `goose-training-examples-chunked-${startDate}-to-${endDate}.json`);
 
 function isoDateOk(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value); }
@@ -129,6 +130,65 @@ function decisionKey(row) {
   ].join('|');
 }
 
+function lineHealth(row) {
+  const sport = row.sport || row.league || 'UNKNOWN';
+  const market = row.market_family || 'unknown_market';
+  const line = Number(row.line);
+  if (market === 'moneyline') return 'no_line_expected';
+  if (!Number.isFinite(line)) return 'missing_line';
+  const abs = Math.abs(line);
+
+  if (market === 'total') {
+    if (sport === 'NBA') {
+      if (line < 150) return 'unsupported_team_or_period_total';
+      if (line > 290) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NFL') {
+      if (line < 25) return 'unsupported_team_or_period_total';
+      if (line > 75) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'MLB') {
+      if (line < 6) return 'unsupported_team_or_period_total';
+      if (line > 20) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+    if (sport === 'NHL') {
+      if (line < 4.5) return 'unsupported_team_or_period_total';
+      if (line > 10) return 'implausibly_high_full_game_total';
+      return 'plausible_full_game_total';
+    }
+  }
+
+  if (market === 'spread') {
+    if ((sport === 'NBA' || sport === 'NFL') && abs > 35) return 'implausibly_wide_spread';
+    if ((sport === 'MLB' || sport === 'NHL') && abs > 5) return 'implausibly_wide_spread';
+    return 'plausible_spread';
+  }
+
+  return 'unchecked_line_range';
+}
+
+function oddsHealth(row) {
+  const odds = Number(row.odds);
+  if (!Number.isFinite(odds)) return 'missing_odds';
+  if (odds === 0 || Math.abs(odds) > 2000) return 'implausible_odds';
+  return 'plausible_odds';
+}
+
+function isSupportedLearningRow(row) {
+  if (oddsHealth(row) !== 'plausible_odds') return false;
+  const health = lineHealth(row);
+  return health === 'no_line_expected' || health === 'plausible_full_game_total' || health === 'plausible_spread' || health === 'unchecked_line_range';
+}
+
+function countBy(rows, fn) {
+  const out = new Map();
+  for (const row of rows) out.set(fn(row), (out.get(fn(row)) || 0) + 1);
+  return Object.fromEntries(Array.from(out.entries()).sort((a, b) => b[1] - a[1]));
+}
+
 function bookRank(book) {
   const preferred = ['pinnacle', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet'];
   const normalized = String(book || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -199,7 +259,9 @@ for (const sport of sports) {
   }
 }
 
-const dedupedRows = dedupe(rawRows).map((row) => ({
+const unsupportedRows = includeUnsupportedLines ? [] : rawRows.filter((row) => !isSupportedLearningRow(row));
+const supportedRows = includeUnsupportedLines ? rawRows : rawRows.filter(isSupportedLearningRow);
+const dedupedRows = dedupe(supportedRows).map((row) => ({
   example_id: row.candidate_id,
   ...row,
   sport: row.sport || row.league,
@@ -217,6 +279,9 @@ const artifact = {
     chunks: chunkSummaries.length,
     failedChunks: chunkSummaries.filter((c) => !c.ok),
     rawRows: rawRows.length,
+    unsupportedRowsExcluded: unsupportedRows.length,
+    unsupportedLineHealth: countBy(unsupportedRows, lineHealth),
+    unsupportedOddsHealth: countBy(unsupportedRows, oddsHealth),
     dedupedRows: dedupedRows.length,
   },
   chunks: chunkSummaries,
