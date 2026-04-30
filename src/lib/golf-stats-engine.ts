@@ -782,7 +782,7 @@ function buildGolfPickReasoning(
   if (market === "Tournament Winner" && player.bookOdds !== null && player.bookProb !== null) {
     parts.push(`Outright price ${bookLabel} ${formatOdds(player.bookOdds)} implies ${formatProbability(player.bookProb)}.`);
   } else if (bookProbability !== null) {
-    parts.push(`Placement edge uses an outright-derived free-data proxy from ${bookLabel}: ${formatProbability(bookProbability)} baseline.`);
+    parts.push(`Placement edge uses real ${bookLabel} top-finish odds: ${formatProbability(bookProbability)} implied.`);
   } else {
     parts.push("No matching book number is available, so this is model-only.");
   }
@@ -948,8 +948,6 @@ function getTopFinishEdge(
 }
 
 function normalizeTopFinishMarket(market: GolfPredictionMarket): GolfPredictionMarket {
-  if (market === "Top 20 Finish") return "Top 10 Finish";
-  if (market === "Top 10 Finish") return "Top 5 Finish";
   return market;
 }
 
@@ -1083,9 +1081,9 @@ export function buildGolfTournamentPicks(
     { market: "Tournament Winner", targetCount: 5, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
   ];
   const topFinishRules: PGAMarketRule[] = [
-    { market: "Top 5 Finish", targetCount: 1, minEdge: 0.01, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 10 Finish", targetCount: 1, minEdge: 0.008, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 20 Finish", targetCount: 2, minEdge: 0.006, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 5 Finish", targetCount: 1, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 10 Finish", targetCount: 1, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 20 Finish", targetCount: 2, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
   ];
 
   for (const rule of outrightRules) {
@@ -1130,8 +1128,31 @@ export function buildGolfTournamentPicks(
     usedH2HPlayers.add(other);
   }
 
+  const calibrateTopFinishPlayers = (inputPlayers: GolfPrediction[]) => {
+    const totals = inputPlayers.reduce((sum, player) => ({
+      top5: sum.top5 + (player.top5Prob || 0),
+      top10: sum.top10 + (player.top10Prob || 0),
+      top20: sum.top20 + (player.top20Prob || 0),
+    }), { top5: 0, top10: 0, top20: 0 });
+
+    const scale = {
+      top5: totals.top5 > 0 ? 5 / totals.top5 : 1,
+      top10: totals.top10 > 0 ? 10 / totals.top10 : 1,
+      top20: totals.top20 > 0 ? 20 / totals.top20 : 1,
+    };
+
+    return inputPlayers.map((player) => {
+      const top5Prob = round(clamp((player.top5Prob || 0) * scale.top5, player.modelProb, 0.75), 4);
+      const top10Prob = round(clamp((player.top10Prob || 0) * scale.top10, top5Prob + 0.02, 0.88), 4);
+      const top20Prob = round(clamp((player.top20Prob || 0) * scale.top20, top10Prob + 0.03, 0.94), 4);
+      return { ...player, top5Prob, top10Prob, top20Prob };
+    });
+  };
+
+  const calibratedTopFinishPlayers = calibrateTopFinishPlayers(players);
+
   for (const rule of topFinishRules) {
-    const marketCandidates = buildPGAMarketCandidates(players, rule.market, bovadaTopFinishOdds);
+    const marketCandidates = buildPGAMarketCandidates(calibratedTopFinishPlayers, rule.market, bovadaTopFinishOdds);
     const candidates = marketCandidates
       .filter((candidate) => candidate.edge >= rule.minEdge)
       .filter((candidate) => candidate.confidence >= rule.minConfidence)

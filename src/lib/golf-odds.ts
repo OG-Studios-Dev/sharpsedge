@@ -274,6 +274,18 @@ interface StoredGolfOddsSnapshot {
   };
 }
 
+interface StoredPgaFinishOddsSnapshot {
+  tournament: string;
+  captured_at: string;
+  source: string;
+  snapshot: {
+    tournament?: string;
+    top5?: Array<{ player: string; odds: number }>;
+    top10?: Array<{ player: string; odds: number }>;
+    top20?: Array<{ player: string; odds: number }>;
+  };
+}
+
 interface LocalGolfOddsSnapshotFile {
   snapshotDate?: string;
   scrapedAt?: string;
@@ -351,6 +363,31 @@ async function readLatestLocalGolfSnapshot(): Promise<LocalGolfOddsSnapshotFile 
 }
 
 async function getLocalTopFinishOddsFallback(): Promise<BovadaTopFinishOddsMap | null> {
+  try {
+    const seedDir = path.join(process.cwd(), "data", "manual-dk-seeds");
+    const files = (await fs.readdir(seedDir))
+      .filter((file) => file.endsWith(".json"))
+      .sort()
+      .reverse();
+
+    for (const file of files) {
+      const raw = await fs.readFile(path.join(seedDir, file), "utf8");
+      const parsed = JSON.parse(raw) as { tournament?: string; generatedAt?: string; top5?: Array<{ player: string; odds: number }>; top10?: Array<{ player: string; odds: number }>; top20?: Array<{ player: string; odds: number }>; source?: string };
+      const top5 = parsed.top5 ?? [];
+      const top10 = parsed.top10 ?? [];
+      const top20 = parsed.top20 ?? [];
+      if (top5.length === 0 && top10.length === 0 && top20.length === 0) continue;
+
+      return buildTopFinishMap({
+        tournament: parsed.tournament ?? file.replace(/\.json$/, ""),
+        scrapedAt: parsed.generatedAt ?? new Date().toISOString(),
+        markets: { top5, top10, top20 },
+      }, parsed.source === "draftkings-manual" ? "DraftKings" : "Manual");
+    }
+  } catch {
+    // manual seed fallback is best-effort only
+  }
+
   const snap = await readLatestLocalGolfSnapshot();
 
   if (snap?.markets) {
@@ -402,6 +439,34 @@ export async function getBovadaTopFinishOdds(): Promise<BovadaTopFinishOddsMap |
   }
 
   try {
+    const manualRes = await fetch(
+      `${supabaseUrl}/rest/v1/pga_finish_odds?select=tournament,captured_at,source,snapshot&source=in.(oddschecker-manual,draftkings-manual)&order=captured_at.desc&limit=1`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (manualRes.ok) {
+      const manualRows = await manualRes.json() as StoredPgaFinishOddsSnapshot[];
+      const manual = manualRows[0];
+      if (manual?.snapshot) {
+        const manualMap = buildTopFinishMap({
+          tournament: manual.snapshot.tournament ?? manual.tournament,
+          scrapedAt: manual.captured_at,
+          markets: {
+            top5: manual.snapshot.top5 ?? [],
+            top10: manual.snapshot.top10 ?? [],
+            top20: manual.snapshot.top20 ?? [],
+          },
+        }, manual.source.includes("draftkings") || manual.source.includes("oddschecker") ? "DraftKings" : "Manual");
+        if (manualMap) return manualMap;
+      }
+    }
+
     const res = await fetch(
       `${supabaseUrl}/rest/v1/golf_odds_snapshots?select=tournament,scraped_at,markets&order=scraped_at.desc&limit=1`,
       {
