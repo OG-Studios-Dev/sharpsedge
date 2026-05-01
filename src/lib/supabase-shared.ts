@@ -37,6 +37,31 @@ export function toErrorMessage(error: unknown, fallback = "Request failed") {
   return fallback;
 }
 
+export function getAuthErrorStatus(error: unknown, fallback = 500) {
+  const message = toErrorMessage(error, "").toLowerCase();
+
+  if (
+    message.includes("invalid login credentials") ||
+    message.includes("invalid refresh token") ||
+    message.includes("jwt") ||
+    message.includes("token")
+  ) {
+    return 401;
+  }
+
+  if (
+    message.includes("password") ||
+    message.includes("email") ||
+    message.includes("already registered") ||
+    message.includes("invalid") ||
+    message.includes("required")
+  ) {
+    return 400;
+  }
+
+  return fallback;
+}
+
 function base64UrlDecode(input: string) {
   const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);

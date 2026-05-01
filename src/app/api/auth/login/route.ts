@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase-server";
 import { setProfileCookies, setSessionCookies } from "@/lib/session-cookies";
-import { normalizeBrowserSession, signInWithPassword, toErrorMessage } from "@/lib/supabase-shared";
+import { getAuthErrorStatus, normalizeBrowserSession, signInWithPassword, toErrorMessage } from "@/lib/supabase-shared";
 
 export async function POST(request: Request) {
   try {
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         data: { session: null, user: null, profile: null },
         error: { message: toErrorMessage(error, "Sign-in failed") },
       },
-      { status: 500 },
+      { status: getAuthErrorStatus(error) },
     );
   }
 }

@@ -6,6 +6,7 @@ import {
   normalizeBrowserSession,
   signUpWithPassword,
   slugifyUsername,
+  getAuthErrorStatus,
   toErrorMessage,
 } from "@/lib/supabase-shared";
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
         data: { session: null, user: null, profile: null },
         error: { message: toErrorMessage(error, "Sign-up failed") },
       },
-      { status: 500 },
+      { status: getAuthErrorStatus(error) },
     );
   }
 }
