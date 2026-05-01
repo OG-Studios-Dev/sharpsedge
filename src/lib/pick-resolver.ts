@@ -26,6 +26,7 @@ const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const PGA_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard";
 const PGA_FINAL_RESULTS_SNAPSHOT = join(process.cwd(), "data/pga/final-results.snapshot.json");
+const PGA_MIN_SETTLEMENT_DAYS_AFTER_START = 3;
 
 // ── normalizers ──────────────────────────────────────────────
 
@@ -577,6 +578,24 @@ function parseRelativeGolfScore(score: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseISODateOnly(value?: string | null) {
+  const match = String(value ?? "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function hasPGATournamentSettlementWindowElapsed(eventDate: string, now = new Date()) {
+  const start = parseISODateOnly(eventDate);
+  if (!start) return false;
+  const earliestSettlement = new Date(start.getTime());
+  earliestSettlement.setUTCDate(earliestSettlement.getUTCDate() + PGA_MIN_SETTLEMENT_DAYS_AFTER_START);
+  return now.getTime() >= earliestSettlement.getTime();
+}
+
 function readHistoricalPGAPlacements(eventDate: string): Record<string, number> | null {
   try {
     const raw = readFileSync(PGA_FINAL_RESULTS_SNAPSHOT, "utf8");
@@ -611,6 +630,13 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
     return { result: "pending", actual_place: null, near_miss: null };
   }
 
+  // PGA outright / placement / tournament matchup markets are tournament-final markets.
+  // Do not settle from an in-progress leaderboard: PGA events normally run Thursday-Sunday,
+  // and early round standings can look like winners/top-10s long before the final result.
+  if (!hasPGATournamentSettlementWindowElapsed(pick.date)) {
+    return { result: "pending", actual_place: null, near_miss: null };
+  }
+
   const historicalPlacements = readHistoricalPGAPlacements(pick.date);
   let place: number | null = null;
   let opponentPlace: number | null = null;
@@ -623,7 +649,7 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
     const event = Array.isArray(scoreboard?.events) ? scoreboard.events.find((candidate: any) => {
       const startDate = String(candidate?.date ?? "").slice(0, 10);
       return startDate === pick.date;
-    }) ?? scoreboard?.events?.[0] : null;
+    }) : null;
     const competition = event?.competitions?.[0];
     const statusType = competition?.status?.type ?? event?.status?.type ?? {};
     if (!event || statusType?.completed !== true) {
@@ -648,6 +674,11 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
   const lowerBetType = String(pick.betType || "").toLowerCase();
   const threshold = parseGolfFinishThreshold(pick.pickLabel);
 
+  if (!place) {
+    logResolverIssue(pick, "pga_final_placement_unavailable", { pickLabel: pick.pickLabel, playerName: pick.playerName ?? "" });
+    return { result: "pending", actual_place: place, near_miss: null };
+  }
+
   if (lowerLabel.includes("to win") || lowerBetType.includes("tournament winner") || lowerBetType.includes("outright")) {
     const result: AIPick["result"] = place === 1 ? "win" : "loss";
     return { result, actual_place: place, near_miss: null };
@@ -667,7 +698,7 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
     return { result: "pending", actual_place: place, near_miss: null };
   }
 
-  const result: AIPick["result"] = !place ? "loss" : place <= threshold ? "win" : "loss";
+  const result: AIPick["result"] = place <= threshold ? "win" : "loss";
 
   const marketType = detectPGAMarketType(pick.pickLabel);
   const nearMiss = result === "loss"
