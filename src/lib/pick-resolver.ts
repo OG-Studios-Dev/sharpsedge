@@ -596,6 +596,15 @@ function hasPGATournamentSettlementWindowElapsed(eventDate: string, now = new Da
   return now.getTime() >= earliestSettlement.getTime();
 }
 
+function isPGATournamentFinalStatus(statusType: any) {
+  if (statusType?.completed !== true) return false;
+  const detail = String(statusType?.detail ?? statusType?.shortDetail ?? statusType?.description ?? statusType?.name ?? "").toLowerCase();
+  // ESPN can mark an individual round as completed (e.g. "Round 2 - Play Complete") while
+  // the tournament is still live. Only final tournament states are safe to grade outright,
+  // top-finish, and tournament-matchup bets.
+  return detail.includes("final") || detail.includes("tournament complete");
+}
+
 function readHistoricalPGAPlacements(eventDate: string): Record<string, number> | null {
   try {
     const raw = readFileSync(PGA_FINAL_RESULTS_SNAPSHOT, "utf8");
@@ -652,7 +661,7 @@ export async function resolvePGAPickWithMeta(pick: AIPick): Promise<PGAResolveRe
     }) : null;
     const competition = event?.competitions?.[0];
     const statusType = competition?.status?.type ?? event?.status?.type ?? {};
-    if (!event || statusType?.completed !== true) {
+    if (!event || !isPGATournamentFinalStatus(statusType)) {
       return { result: "pending", actual_place: null, near_miss: null };
     }
 

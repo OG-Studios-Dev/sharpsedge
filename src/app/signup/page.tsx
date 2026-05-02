@@ -21,7 +21,7 @@ function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const nextParam = searchParams.get("next");
-  const next = nextParam || "/";
+  const next = nextParam || "/picks?welcome=1";
   const loginHref = nextParam ? `/login?next=${encodeURIComponent(nextParam)}` : "/login";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -74,8 +74,21 @@ function SignupForm() {
           <img src="/logo.jpg" alt="Goosalytics" className="w-36 h-auto mx-auto rounded-2xl" />
           <h1 className="text-2xl font-bold text-white">Create account</h1>
           <p className="text-sm text-gray-400">
-            Join Goosalytics — AI-powered sports picks and trends.
+            Join Goosalytics and land directly on today&apos;s best picks, odds, and reasoning.
           </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 text-center">
+          {[
+            ["1", "Create account"],
+            ["2", "See top picks"],
+            ["3", "Track results"],
+          ].map(([step, label]) => (
+            <div key={step} className="rounded-2xl border border-dark-border bg-dark-surface/70 px-2 py-3">
+              <div className="mx-auto mb-1 flex h-6 w-6 items-center justify-center rounded-full bg-accent-blue/15 text-xs font-bold text-accent-blue">{step}</div>
+              <p className="text-[11px] font-semibold text-gray-300">{label}</p>
+            </div>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-3xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.28)]">

@@ -34,7 +34,8 @@
     "ask-goose:qwen": "node scripts/ask-goose-switch-mode.mjs qwen",
     "smoke:ask-goose-switch": "node scripts/smoke-ask-goose-switch.mjs",
     "launch:gate": "node scripts/launch-gate.mjs",
-    "test:ask-goose-parser": "tsx --test src/lib/ask-goose/internal-query.test.mts"
+    "test:ask-goose-parser": "tsx --test src/lib/ask-goose/internal-query.test.mts",
+    "audit:pick-lifecycle": "node scripts/audit-pick-lifecycle.mjs"
   },
   "dependencies": {
     "@capacitor/core": "^7.4.3",

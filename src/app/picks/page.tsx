@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Clock, ChevronDown, Flag } from "lucide-react";
 import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
@@ -326,6 +327,7 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
 }
 
 export default function PicksPage() {
+  const searchParams = useSearchParams();
   const [league, setLeague] = useLeague();
   const sportLeague = (league as string) === "Soccer" ? "All" : normalizeSportsLeague(league);
   const [viewMode, setViewMode] = useState<"ai" | "my">("ai");
@@ -415,6 +417,7 @@ export default function PicksPage() {
 
   const golfTournament = resolveGolfTournament(golfDashboard);
   const golfBannerCopy = buildGolfBannerCopy(golfDashboard, golfTournament);
+  const showWelcome = searchParams.get("welcome") === "1";
 
   const nhlFlat = Object.values(nhlAll).flat();
   const nbaFlat = Object.values(nbaAll).flat();
@@ -504,6 +507,13 @@ export default function PicksPage() {
       />
 
       <div className="px-4 pt-4 lg:px-0">
+        {showWelcome && (
+          <div className="mb-4 rounded-3xl border border-accent-blue/30 bg-[radial-gradient(circle_at_top_left,rgba(74,158,255,0.18),transparent_34%),linear-gradient(180deg,rgba(21,24,33,0.95),rgba(16,19,27,0.95))] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-blue">Welcome to Goosalytics</p>
+            <h2 className="mt-2 text-xl font-bold text-white">Start here: today&apos;s best AI picks.</h2>
+            <p className="mt-1 text-sm text-gray-400">Open a card for the reasoning, compare the odds, then use My Picks to track your own card and units.</p>
+          </div>
+        )}
         <div className="mb-4 inline-flex rounded-2xl border border-dark-border bg-dark-surface/70 p-1">
           <button type="button" onClick={() => setViewMode("ai")} className={`tap-button rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${viewMode === "ai" ? "bg-accent-blue/15 text-accent-blue border border-accent-blue/30" : "text-gray-400"}`}>
             AI Picks
