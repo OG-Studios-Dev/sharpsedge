@@ -1,4 +1,5 @@
 import AdminOpsBoard from "@/components/AdminOpsBoard";
+import AdminSourceHealthPanel from "@/components/AdminSourceHealthPanel";
 import { readAdminOpsData } from "@/lib/admin-ops-store";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function AdminOpsPage() {
         </p>
       </section>
 
+      <AdminSourceHealthPanel />
       <AdminOpsBoard initialData={data} />
     </div>
   );
