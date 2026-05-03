@@ -5,6 +5,8 @@ import path from "node:path";
 const ROOT = process.cwd();
 const BASE_URL = process.env.LAUNCH_GATE_BASE_URL || "https://goosalytics.vercel.app";
 const RUN_BUILD = !process.argv.includes("--skip-build");
+const SMOKE_TIMEOUT_MS = Number(process.env.LAUNCH_GATE_SMOKE_TIMEOUT_MS || 25000);
+const SMOKE_RETRIES = Number(process.env.LAUNCH_GATE_SMOKE_RETRIES || 1);
 const now = new Date();
 const stamp = now.toISOString().replace(/[:.]/g, "-");
 const reportDir = path.join(ROOT, "logs", "launch-qa");
@@ -53,14 +55,17 @@ function extractJson(text) {
   }
 }
 
-async function smoke(route) {
+async function smokeAttempt(route, attempt) {
   const url = `${BASE_URL}${route}`;
   const started = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error(`smoke timeout after ${SMOKE_TIMEOUT_MS}ms`)), SMOKE_TIMEOUT_MS);
   try {
-    const response = await fetch(url, { redirect: "follow" });
+    const response = await fetch(url, { redirect: "follow", signal: controller.signal });
     const body = await response.arrayBuffer();
     return {
       route,
+      attempt,
       url: response.url,
       status: response.status,
       ok: response.status >= 200 && response.status < 400,
@@ -70,6 +75,7 @@ async function smoke(route) {
   } catch (error) {
     return {
       route,
+      attempt,
       url,
       status: 0,
       ok: false,
@@ -77,7 +83,19 @@ async function smoke(route) {
       durationMs: Date.now() - started,
       error: error instanceof Error ? error.message : String(error),
     };
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+async function smoke(route) {
+  const attempts = [];
+  for (let attempt = 1; attempt <= SMOKE_RETRIES + 1; attempt += 1) {
+    const result = await smokeAttempt(route, attempt);
+    attempts.push(result);
+    if (result.ok) return { ...result, attempts };
+  }
+  return { ...attempts[attempts.length - 1], attempts };
 }
 
 const checks = [];
@@ -129,6 +147,8 @@ const report = {
     stdoutTail: check.stdout.split("\n").slice(-30).join("\n"),
     stderrTail: check.stderr.split("\n").slice(-30).join("\n"),
   })),
+  route_smoke_timeout_ms: SMOKE_TIMEOUT_MS,
+  route_smoke_retries: SMOKE_RETRIES,
   routeSmokes,
 };
 
@@ -163,7 +183,7 @@ const summaryLines = [
   ...(report.model_reasons.length ? report.model_reasons.map((reason) => `- ${reason}`) : ["- none"]),
   "",
   "## Route smokes",
-  ...report.routeSmokes.map((route) => `- ${route.route}: ${route.ok ? "PASS" : "FAIL"} HTTP ${route.status}, ${route.bytes} bytes, ${route.durationMs}ms`),
+  ...report.routeSmokes.map((route) => `- ${route.route}: ${route.ok ? "PASS" : "FAIL"} HTTP ${route.status}, ${route.bytes} bytes, ${route.durationMs}ms${route.attempt > 1 ? ` after ${route.attempt} attempts` : ""}`),
   "",
   `Full JSON report: ${reportPath}`,
 ];
