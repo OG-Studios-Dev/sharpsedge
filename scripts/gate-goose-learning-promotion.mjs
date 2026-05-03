@@ -39,6 +39,7 @@ const allowProduction = args.allowProduction === 'true' || args.allowProduction 
 const maxDuplicateRatio = Number(args.maxDuplicateRatio ?? 0.35);
 const maxBookShare = Number(args.maxBookShare ?? 0.7);
 const maxTeamShare = Number(args.maxTeamShare ?? 0.15);
+const maxArtifactAgeHours = Number(args.maxArtifactAgeHours ?? 24);
 
 if (!fs.existsSync(auditPath)) {
   const artifact = {
@@ -64,6 +65,18 @@ if (!fs.existsSync(auditPath)) {
 
 const audit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
 const candidates = Array.isArray(audit.eligible) ? audit.eligible : [];
+const generatedAtMs = Date.parse(audit.generated_at || '');
+const artifactAgeHours = Number.isFinite(generatedAtMs) ? (Date.now() - generatedAtMs) / 36e5 : Infinity;
+const artifactFresh = artifactAgeHours <= maxArtifactAgeHours;
+let auditModelVersion = null;
+if (audit.backtestPath && fs.existsSync(audit.backtestPath)) {
+  try {
+    const backtest = JSON.parse(fs.readFileSync(audit.backtestPath, 'utf8'));
+    auditModelVersion = backtest.summary?.modelVersion || null;
+  } catch {
+    auditModelVersion = null;
+  }
+}
 const hardBlockFlags = new Set([
   'odds_quality_issue',
   'implausible_roi',
@@ -111,8 +124,12 @@ function gateCandidate(candidate) {
 }
 
 const gated = candidates.map(gateCandidate);
-const approved = gated.filter((row) => row.approved);
-const blocked = gated.filter((row) => !row.approved);
+const approved = artifactFresh ? gated.filter((row) => row.approved) : [];
+const blocked = artifactFresh ? gated.filter((row) => !row.approved) : gated.map((row) => ({
+  ...row,
+  approved: false,
+  blockers: Array.from(new Set([...(row.blockers || []), `stale_or_invalid_audit_artifact>${maxArtifactAgeHours}h`])),
+}));
 const artifact = {
   ok: approved.length > 0,
   generated_at: new Date().toISOString(),
@@ -125,6 +142,11 @@ const artifact = {
     manualApprovalRequired: approved.length > 0,
     productionPromotionAllowed: approved.length > 0 && allowProduction,
     promotionMode: approved.length > 0 ? 'approved_subset_only' : 'none',
+    auditModelVersion,
+    auditGeneratedAt: audit.generated_at || null,
+    artifactAgeHours: Number.isFinite(artifactAgeHours) ? Number(artifactAgeHours.toFixed(3)) : null,
+    maxArtifactAgeHours,
+    artifactFresh,
   },
   approved,
   blocked,

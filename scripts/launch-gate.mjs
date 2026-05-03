@@ -97,6 +97,7 @@ const signalGate = run("signal_promotion_gate", "npm", ["run", "goose:promotion-
 checks.push(signalGate);
 const learningJson = extractJson(learning.stdout);
 const signalGateJson = extractJson(signalGate.stdout);
+const activeLabModelVersion = learningJson?.snapshot?.model_version || "unknown";
 const modelStatus = learningJson?.snapshot?.status || "unknown";
 const modelReady = ["production_candidate", "production_live"].includes(modelStatus);
 const modelReasons = learningJson?.snapshot?.reasons || [];
@@ -114,6 +115,7 @@ const report = {
   generatedAt: now.toISOString(),
   baseUrl: BASE_URL,
   site_status: siteOk ? "pass" : "fail",
+  active_lab_model_version: activeLabModelVersion,
   model_status: modelStatus,
   model_launch_ready: modelOk,
   model_reasons: modelReasons,
@@ -147,8 +149,11 @@ const summaryLines = [
   "",
   `- Overall launch gate: ${report.ok ? "PASS" : "FAIL"}`,
   `- Site status: ${report.site_status.toUpperCase()}`,
+  `- Active DB lab model: ${report.active_lab_model_version}`,
   `- Model status: ${report.model_status}`,
   `- Model launch ready: ${report.model_launch_ready ? "yes" : "no"}`,
+  `- Artifact signal model: ${report.signal_gate?.auditModelVersion ?? "unknown"}`,
+  `- Artifact freshness: ${report.signal_gate?.artifactFresh === true ? "fresh" : report.signal_gate?.artifactFresh === false ? "stale/invalid" : "unknown"}`,
   `- Signal gate approved candidates: ${report.signal_gate?.approved ?? "unknown"}`,
   `- Signal gate production allowed: ${report.signal_gate?.productionPromotionAllowed ? "yes" : "no"}`,
   `- Failed checks: ${failedChecks.length ? failedChecks.join(", ") : "none"}`,
@@ -167,6 +172,7 @@ fs.writeFileSync(summaryPath, `${summaryLines.join("\n")}\n`);
 console.log(JSON.stringify({
   ok: report.ok,
   site_status: report.site_status,
+  active_lab_model_version: report.active_lab_model_version,
   model_status: report.model_status,
   model_launch_ready: report.model_launch_ready,
   signal_gate: report.signal_gate,
