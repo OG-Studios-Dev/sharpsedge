@@ -35,6 +35,31 @@ function latestAuditPath() {
 const auditPath = args.audit || latestAuditPath();
 const outPath = args.out || auditPath.replace(/\.json$/, '-promotion-gate.json');
 const failOnBlock = args.failOnBlock === 'true' || args.failOnBlock === '1';
+const maxDuplicateRatio = Number(args.maxDuplicateRatio ?? 0.35);
+const maxBookShare = Number(args.maxBookShare ?? 0.7);
+const maxTeamShare = Number(args.maxTeamShare ?? 0.15);
+
+if (!fs.existsSync(auditPath)) {
+  const artifact = {
+    ok: false,
+    generated_at: new Date().toISOString(),
+    auditPath,
+    summary: {
+      candidates: 0,
+      approved: 0,
+      blocked: 0,
+      productionPromotionAllowed: false,
+      promotionMode: 'none',
+    },
+    blocker: `Missing learning signal audit artifact: ${auditPath}`,
+    next_action: 'Run `npm run goose:audit-learning-signals` after generating/exporting the required shadow backtest and training-example artifacts.',
+  };
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(artifact, null, 2));
+  console.log(JSON.stringify({ ok: false, outPath, summary: artifact.summary, blocker: artifact.blocker, next_action: artifact.next_action }, null, 2));
+  if (failOnBlock) process.exit(1);
+  process.exit(0);
+}
 
 const audit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
 const candidates = Array.isArray(audit.eligible) ? audit.eligible : [];
@@ -61,6 +86,9 @@ function gateCandidate(candidate) {
   if (Number(candidate.test_events) < 75) blockers.push('fewer than 75 independent test events');
   if (Number(candidate.active_months) < 4) blockers.push('fewer than 4 active months');
   if (Number(candidate.active_months) && Number(candidate.positive_months) / Number(candidate.active_months) < 0.55) blockers.push('weak month consistency');
+  if (Number(candidate.duplicate_ratio) > maxDuplicateRatio) blockers.push(`duplicate ratio over ${(maxDuplicateRatio * 100).toFixed(0)}%`);
+  if (Number(candidate.max_book_share) > maxBookShare) blockers.push(`book concentration over ${(maxBookShare * 100).toFixed(0)}%`);
+  if (Number(candidate.max_team_share) > maxTeamShare) blockers.push(`team concentration over ${(maxTeamShare * 100).toFixed(0)}%`);
   for (const flag of flags) if (hardBlockFlags.has(flag)) blockers.push(`flag:${flag}`);
   return {
     signal_key: candidate.signal_key,
@@ -85,14 +113,15 @@ const gated = candidates.map(gateCandidate);
 const approved = gated.filter((row) => row.approved);
 const blocked = gated.filter((row) => !row.approved);
 const artifact = {
-  ok: blocked.length === 0 && approved.length > 0,
+  ok: approved.length > 0,
   generated_at: new Date().toISOString(),
   auditPath,
   summary: {
     candidates: gated.length,
     approved: approved.length,
     blocked: blocked.length,
-    productionPromotionAllowed: approved.length > 0 && blocked.length === 0,
+    productionPromotionAllowed: approved.length > 0,
+    promotionMode: approved.length > 0 ? 'approved_subset_only' : 'none',
   },
   approved,
   blocked,
