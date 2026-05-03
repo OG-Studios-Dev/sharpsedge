@@ -101,7 +101,8 @@ function gateCandidate(candidate) {
   if (Number(candidate.active_months) < 4) blockers.push('fewer than 4 active months');
   if (Number(candidate.active_months) && Number(candidate.positive_months) / Number(candidate.active_months) < 0.55) blockers.push('weak month consistency');
   if (Number(candidate.duplicate_ratio) > maxDuplicateRatio) blockers.push(`duplicate ratio over ${(maxDuplicateRatio * 100).toFixed(0)}%`);
-  if (Number(candidate.max_book_share) > maxBookShare) blockers.push(`book concentration over ${(maxBookShare * 100).toFixed(0)}%`);
+  const isBookScopedSignal = String(candidate.signal_key || '').includes(':book:');
+  if (!isBookScopedSignal && Number(candidate.max_book_share) > maxBookShare) blockers.push(`book concentration over ${(maxBookShare * 100).toFixed(0)}%`);
   if (Number(candidate.max_team_share) > maxTeamShare) blockers.push(`team concentration over ${(maxTeamShare * 100).toFixed(0)}%`);
   for (const flag of flags) if (hardBlockFlags.has(flag)) blockers.push(`flag:${flag}`);
   return {

@@ -117,8 +117,10 @@ const learningJson = extractJson(learning.stdout);
 const signalGateJson = extractJson(signalGate.stdout);
 const activeLabModelVersion = learningJson?.snapshot?.model_version || "unknown";
 const modelStatus = learningJson?.snapshot?.status || "unknown";
-const modelReady = ["production_candidate", "production_live"].includes(modelStatus);
 const signalGateSummary = signalGateJson?.summary || null;
+const readinessReady = Boolean(learningJson?.snapshot?.ready_to_record && learningJson?.snapshot?.ready_to_compare);
+const signalGateReady = Boolean(signalGateSummary?.technicalGateApproved);
+const modelReady = readinessReady && signalGateReady;
 const modelArtifactMismatch = Boolean(
   signalGateSummary?.auditModelVersion
   && activeLabModelVersion !== "unknown"
@@ -133,7 +135,7 @@ const siteOk = checks
   .filter((check) => check.label !== "learning_status")
   .every((check) => check.ok) && routeSmokes.every((route) => route.ok);
 
-const modelOk = learning.ok && modelReady;
+const modelOk = learning.ok && signalGate.ok && modelReady;
 const launchOk = siteOk && modelOk;
 
 const report = {
@@ -145,6 +147,8 @@ const report = {
   model_status: modelStatus,
   model_launch_ready: modelOk,
   model_reasons: modelReasons,
+  readiness_ready: readinessReady,
+  signal_gate_ready: signalGateReady,
   signal_gate: signalGateSummary,
   checks: checks.map((check) => ({
     label: check.label,
@@ -182,6 +186,8 @@ const summaryLines = [
   `- Model launch ready: ${report.model_launch_ready ? "yes" : "no"}`,
   `- Artifact signal model: ${report.signal_gate?.auditModelVersion ?? "unknown"}`,
   `- Artifact freshness: ${report.signal_gate?.artifactFresh === true ? "fresh" : report.signal_gate?.artifactFresh === false ? "stale/invalid" : "unknown"}`,
+  `- Lab readiness clear: ${report.readiness_ready ? "yes" : "no"}`,
+  `- Signal technical gate clear: ${report.signal_gate_ready ? "yes" : "no"}`,
   `- Signal gate approved candidates: ${report.signal_gate?.approved ?? "unknown"}`,
   `- Signal gate production allowed: ${report.signal_gate?.productionPromotionAllowed ? "yes" : "no"}`,
   `- Failed checks: ${failedChecks.length ? failedChecks.join(", ") : "none"}`,
@@ -203,6 +209,8 @@ console.log(JSON.stringify({
   active_lab_model_version: report.active_lab_model_version,
   model_status: report.model_status,
   model_launch_ready: report.model_launch_ready,
+  readiness_ready: report.readiness_ready,
+  signal_gate_ready: report.signal_gate_ready,
   signal_gate: report.signal_gate,
   reportPath,
   summaryPath,

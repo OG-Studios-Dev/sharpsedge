@@ -49,6 +49,7 @@ const mdPath = args.md || outPath.replace(/\.json$/, '.md');
 const backtest = JSON.parse(fs.readFileSync(backtestPath, 'utf8'));
 const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
 const rows = Array.isArray(source.rows) ? source.rows : [];
+const eventLevelSignalAggregation = backtest.summary?.eventLevelSignalAggregation === true || backtest.summary?.config?.eventLevelSignalAggregation === true;
 const eligible = (backtest.candidates || []).filter((candidate) => candidate.promotion_status === 'eligible');
 const topRejected = (backtest.candidates || [])
   .filter((candidate) => candidate.rejection_reason)
@@ -58,21 +59,46 @@ const topRejected = (backtest.candidates || [])
 function oddsBucket(odds) {
   const n = Number(odds);
   if (!Number.isFinite(n)) return 'odds_unknown';
-  if (n <= -150) return 'odds_favorite';
-  if (n < 0) return 'odds_short_favorite';
-  if (n <= 150) return 'odds_short_dog';
+  if (n <= -200) return 'odds_heavy_favorite';
+  if (n < 0) return 'odds_favorite';
+  if (n < 150) return 'odds_short_dog';
+  if (n < 250) return 'odds_mid_dog';
   return 'odds_long_dog';
 }
 
 function lineBucket(line) {
+  if (line == null || !Number.isFinite(Number(line))) return 'no_line';
   const n = Number(line);
-  if (!Number.isFinite(n)) return 'no_line';
-  const abs = Math.abs(n);
-  if (abs < 0.5) return 'line_0';
-  if (abs <= 2.5) return 'line_0_to_2_5';
-  if (abs <= 5.5) return 'line_3_to_5_5';
-  if (abs <= 9.5) return 'line_6_to_9_5';
-  return 'line_10_plus';
+  if (Math.abs(n) <= 2.5) return 'line_0_to_2_5';
+  if (Math.abs(n) <= 5.5) return 'line_3_to_5_5';
+  if (Math.abs(n) <= 8.5) return 'line_6_to_8_5';
+  return 'line_9_plus';
+}
+
+function totalLineBucket(sport, line) {
+  if (line == null || !Number.isFinite(Number(line))) return 'total_no_line';
+  const n = Number(line);
+  if (sport === 'NFL') {
+    if (n < 42) return 'total_low';
+    if (n <= 47.5) return 'total_mid';
+    return 'total_high';
+  }
+  if (sport === 'NBA') {
+    if (n < 220) return 'total_low';
+    if (n <= 230) return 'total_mid';
+    return 'total_high';
+  }
+  if (sport === 'MLB') {
+    if (n < 8) return 'total_low';
+    if (n <= 9) return 'total_mid';
+    return 'total_high';
+  }
+  if (sport === 'NHL') {
+    if (n < 6) return 'total_low';
+    if (n <= 6.5) return 'total_mid';
+    return 'total_high';
+  }
+  return 'total_unknown_range';
 }
 
 function signalsFor(row) {
@@ -82,12 +108,13 @@ function signalsFor(row) {
   const side = row.side || 'unknown_side';
   signals.add(`${sport}:${market}:${side}`);
   signals.add(`${sport}:${market}:${side}:${oddsBucket(row.odds)}`);
-  signals.add(`${sport}:${market}:${side}:${lineBucket(row.line)}`);
+  if (market === 'spread') signals.add(`${sport}:${market}:${side}:${lineBucket(row.line)}`);
+  if (market === 'total') signals.add(`${sport}:${market}:${side}:${totalLineBucket(sport, row.line)}`);
   signals.add(`${sport}:${market}:${side}:book:${row.sportsbook || 'unknown_book'}`);
-  if (row.is_favorite === true) signals.add(`${sport}:${market}:${side}:favorite`);
-  if (row.is_underdog === true) signals.add(`${sport}:${market}:${side}:underdog`);
-  if (row.is_home_team_bet === true) signals.add(`${sport}:${market}:${side}:home_bet`);
-  if (row.is_away_team_bet === true) signals.add(`${sport}:${market}:${side}:away_bet`);
+  if (market !== 'total' && row.is_favorite === true) signals.add(`${sport}:${market}:${side}:favorite`);
+  if (market !== 'total' && row.is_underdog === true) signals.add(`${sport}:${market}:${side}:underdog`);
+  if (market !== 'total' && row.is_home_team_bet === true) signals.add(`${sport}:${market}:${side}:home_bet`);
+  if (market !== 'total' && row.is_away_team_bet === true) signals.add(`${sport}:${market}:${side}:away_bet`);
   if (row.team_above_500_pre_game === true && row.opponent_above_500_pre_game === true) signals.add(`${sport}:${market}:${side}:both_teams_above_500`);
   if (row.is_back_to_back === true) signals.add(`${sport}:${market}:${side}:back_to_back`);
   if (row.is_prime_time === true) signals.add(`${sport}:${market}:${side}:prime_time`);
@@ -99,16 +126,78 @@ function eventKey(row) {
   return row.canonical_game_id || row.event_id || `${row.league || row.sport || 'UNKNOWN'}:${row.event_date || 'unknown'}:${row.away_team || ''}@${row.home_team || ''}`;
 }
 
+function decisionKey(row) {
+  return [
+    eventKey(row),
+    row.market_family || 'unknown_market',
+    row.market_type || '',
+    row.side || 'unknown_side',
+    row.team_name || '',
+    row.opponent_name || '',
+    row.team_role || '',
+    row.line == null ? 'no_line' : Number(row.line).toFixed(2),
+  ].join('|');
+}
+
+const preferredBooks = ['pinnacle', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet'];
+function rankBook(book) {
+  const normalized = String(book || '').toLowerCase().replace(/[^a-z]/g, '');
+  const idx = preferredBooks.findIndex((preferred) => normalized.includes(preferred));
+  return idx === -1 ? preferredBooks.length : idx;
+}
+
+function betterAuditRow(next, current) {
+  if (!current) return next;
+  const currentRank = rankBook(current.sportsbook);
+  const nextRank = rankBook(next.sportsbook);
+  if (nextRank < currentRank) return next;
+  if (nextRank > currentRank) return current;
+  const currentAbsLine = Math.abs(Number(current.line || 0));
+  const nextAbsLine = Math.abs(Number(next.line || 0));
+  if (nextAbsLine < currentAbsLine) return next;
+  if (nextAbsLine > currentAbsLine) return current;
+  return String(next.example_id || next.candidate_id || '') < String(current.example_id || current.candidate_id || '') ? next : current;
+}
+
+function dedupeRowsForAudit(inputRows) {
+  const best = new Map();
+  for (const row of inputRows) {
+    const key = decisionKey(row);
+    const current = best.get(key);
+    if (!current) {
+      best.set(key, row);
+      continue;
+    }
+    const picked = betterAuditRow(row, current);
+    if (picked !== current) best.set(key, picked);
+  }
+  return Array.from(best.values());
+}
+
+function dedupeRowsForAuditByEvent(inputRows) {
+  const best = new Map();
+  for (const row of inputRows) {
+    const key = eventKey(row);
+    const current = best.get(key);
+    const picked = betterAuditRow(row, current);
+    if (picked !== current) best.set(key, picked);
+  }
+  return Array.from(best.values());
+}
+
 function monthKey(date) { return String(date || '').slice(0, 7) || 'unknown'; }
 function pct(n, d) { return d ? n / d : 0; }
 function round(n, places = 4) { return Number.isFinite(Number(n)) ? Number(Number(n).toFixed(places)) : null; }
 
 function summarizeSignal(candidate) {
-  const matched = rows.filter((row) => signalsFor(row).includes(candidate.signal_key));
+  const matchedDecisions = dedupeRowsForAudit(rows.filter((row) => signalsFor(row).includes(candidate.signal_key)));
+  const matched = dedupeRowsForAuditByEvent(matchedDecisions);
+  const testDecisionRows = matchedDecisions.filter((row) => String(row.event_date || '') >= String(backtest.summary?.testStart || '9999-12-31'));
   const testRows = matched.filter((row) => String(row.event_date || '') >= String(backtest.summary?.testStart || '9999-12-31'));
   const trainRows = matched.filter((row) => String(row.event_date || '') <= String(backtest.summary?.trainEnd || '0000-01-01'));
   const byMonth = new Map();
   const byBook = new Map();
+  const byDecisionBook = new Map();
   const byTeam = new Map();
   const odds = [];
   let missingOdds = 0;
@@ -133,6 +222,10 @@ function summarizeSignal(candidate) {
       if (Math.abs(odd) > 2000 || odd === 0) weirdOdds += 1;
     }
   }
+  for (const row of testDecisionRows) {
+    const book = row.sportsbook || 'unknown_book';
+    byDecisionBook.set(book, (byDecisionBook.get(book) || 0) + 1);
+  }
   const months = Array.from(byMonth.entries()).map(([month, stat]) => ({
     month,
     rows: stat.rows,
@@ -143,19 +236,28 @@ function summarizeSignal(candidate) {
   const positiveMonths = months.filter((m) => Number(m.roi) > 0).length;
   const activeMonths = months.filter((m) => m.rows >= 10).length;
   const bookEntries = Array.from(byBook.entries()).sort((a, b) => b[1] - a[1]);
+  const decisionBookEntries = Array.from(byDecisionBook.entries()).sort((a, b) => b[1] - a[1]);
   const teamEntries = Array.from(byTeam.entries()).sort((a, b) => b[1] - a[1]);
   const testEvents = new Set(testRows.map(eventKey));
   const trainEvents = new Set(trainRows.map(eventKey));
-  const duplicateRatio = 1 - pct(testEvents.size, testRows.length);
-  const maxBookShare = pct(bookEntries[0]?.[1] || 0, testRows.length);
+  const duplicateRatio = 1 - pct(testEvents.size, testDecisionRows.length || testRows.length);
+  const maxBookShare = pct(decisionBookEntries[0]?.[1] || 0, testDecisionRows.length || testRows.length);
   const maxTeamShare = pct(teamEntries[0]?.[1] || 0, testRows.length);
   const flags = [];
   if (candidate.test_roi < 0.01) flags.push('test_roi_under_1pct');
   if (candidate.train_roi < 0.01) flags.push('train_roi_under_1pct');
   if (activeMonths < 4) flags.push('not_enough_active_months');
   if (activeMonths && positiveMonths / activeMonths < 0.55) flags.push('weak_monthly_consistency');
-  if (maxBookShare > 0.7) flags.push('book_concentration_over_70pct');
+  const isBookScopedSignal = String(candidate.signal_key || '').includes(':book:');
+  // Book-scoped signals are intentionally constrained to one sportsbook. Treating
+  // that as generic book concentration incorrectly blocks the exact hypothesis
+  // being tested (for example, `NHL:spread:away:book:bovada`). Broad signals still
+  // fail on book concentration because those can be source-selection artifacts.
+  if (!isBookScopedSignal && maxBookShare > 0.7) flags.push('book_concentration_over_70pct');
   if (maxTeamShare > 0.15) flags.push('team_concentration_over_15pct');
+  // Promotion confidence must come from independent events, not repeated sportsbook/line variants.
+  // Event-level aggregation reduces downstream duplication, but it does not make a high raw
+  // decision duplication profile safe for production promotion.
   if (duplicateRatio > 0.35) flags.push('decision_duplication_over_35pct');
   if (missingOdds > 0 || weirdOdds > 0) flags.push('odds_quality_issue');
   if (Math.abs(candidate.test_roi) > 0.18 || Math.abs(candidate.train_roi) > 0.18) flags.push('implausible_roi');
@@ -175,7 +277,7 @@ function summarizeSignal(candidate) {
     active_months: activeMonths,
     positive_months: positiveMonths,
     max_book_share: round(maxBookShare),
-    top_books: bookEntries.slice(0, 5).map(([book, count]) => ({ book, count })),
+    top_books: decisionBookEntries.slice(0, 5).map(([book, count]) => ({ book, count })),
     max_team_share: round(maxTeamShare),
     top_teams: teamEntries.slice(0, 5).map(([team, count]) => ({ team, count })),
     duplicate_ratio: round(duplicateRatio),
