@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ChevronDown, CheckCircle2, Clock, FlaskConical, Lock, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronDown, CheckCircle2, Clock, FlaskConical, Lock, ShieldCheck, X } from "lucide-react";
 
 type LabStatus = {
   lab_slug: string;
@@ -37,6 +37,22 @@ type RecordSummary = {
   roi: number | null;
 };
 
+type SignalExplanation = {
+  signalKey: string;
+  trainSample: number | null;
+  trainRecord: string;
+  trainWinRate: number | null;
+  trainRoi: number | null;
+  testSample: number | null;
+  testRecord: string;
+  testWinRate: number | null;
+  testRoi: number | null;
+  edgeScore: number | null;
+  confidenceScore: number | null;
+  promotionStatus: string | null;
+  rejectionReason: string | null;
+};
+
 type RecordPick = {
   id: string;
   source: "learning" | "production";
@@ -56,6 +72,9 @@ type RecordPick = {
   modelScore?: number | null;
   confidenceScore?: number | null;
   signalCount?: number;
+  signals?: string[];
+  signalExplanations?: SignalExplanation[];
+  edgeSummary?: string | null;
   comparisonBucket?: string | null;
   productionPickLabel?: string | null;
 };
@@ -94,6 +113,10 @@ function fmtNumber(value: unknown) {
 
 function fmtPct(value: number | null | undefined) {
   return value == null ? "—" : `${value.toFixed(1)}%`;
+}
+
+function fmtRoi(value: number | null | undefined) {
+  return value == null ? "—" : `${(value * 100).toFixed(1)}%`;
 }
 
 function fmtUnits(value: number | null | undefined) {
@@ -150,7 +173,7 @@ function RecordStrip({ title, record, tone = "learning" }: { title: string; reco
   );
 }
 
-function PickRow({ pick }: { pick: RecordPick }) {
+function PickRow({ pick, onExplain }: { pick: RecordPick; onExplain?: (pick: RecordPick) => void }) {
   return (
     <div className={`flex items-center gap-2 px-4 py-2.5 text-left ${pick.result === "win" ? "border-l-2 border-l-emerald-500" : pick.result === "loss" ? "border-l-2 border-l-red-500" : pick.result === "push" || pick.result === "void" ? "border-l-2 border-l-yellow-500" : "border-l-2 border-l-gray-600"}`}>
       <div className="min-w-0 flex-1">
@@ -158,8 +181,10 @@ function PickRow({ pick }: { pick: RecordPick }) {
         <p className="mt-0.5 truncate text-[10px] text-gray-500">
           {pick.league} · {pick.market || "market"}{pick.side ? ` · ${pick.side}` : ""}{pick.team ? ` · ${pick.team}` : ""}{pick.opponent ? ` vs ${pick.opponent}` : ""}
         </p>
+        {pick.edgeSummary && <p className="mt-0.5 truncate text-[10px] text-accent-blue">{pick.edgeSummary}</p>}
         {pick.productionPickLabel && <p className="mt-0.5 truncate text-[10px] text-purple-300">Prod match: {pick.productionPickLabel}</p>}
       </div>
+      {pick.source === "learning" && onExplain && <button type="button" onClick={() => onExplain(pick)} className="shrink-0 rounded-full border border-accent-blue/30 bg-accent-blue/10 px-2 py-1 text-[10px] font-bold text-accent-blue">Why?</button>}
       {pick.signalCount != null && <span className="shrink-0 text-[10px] text-gray-500">{pick.signalCount} sig</span>}
       {fmtOdds(pick.odds) && <span className="shrink-0 text-[10px] text-gray-500">{fmtOdds(pick.odds)}</span>}
       <span className={`shrink-0 text-[10px] font-bold ${pick.profitUnits >= 0 ? "text-emerald-400" : "text-red-400"}`}>{fmtUnits(pick.profitUnits)}</span>
@@ -168,7 +193,61 @@ function PickRow({ pick }: { pick: RecordPick }) {
   );
 }
 
-function DailyBucket({ bucket }: { bucket: RecordBucket }) {
+function ExplainDrawer({ pick, onClose }: { pick: RecordPick | null; onClose: () => void }) {
+  if (!pick) return null;
+  const primary = pick.signalExplanations?.[0];
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="ml-auto flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-dark-border bg-[#10131b] shadow-[0_24px_80px_rgba(0,0,0,0.55)]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 border-b border-dark-border p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-blue">What the model saw</p>
+            <h2 className="mt-2 text-xl font-bold text-white">{pick.pickLabel}</h2>
+            <p className="mt-1 text-sm text-gray-500">{pick.date} · {pick.league} · {pick.market || "market"}{fmtOdds(pick.odds) ? ` · ${fmtOdds(pick.odds)}` : ""}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full border border-dark-border p-2 text-gray-400 hover:text-white"><X size={16} /></button>
+        </div>
+        <div className="space-y-4 overflow-y-auto p-5">
+          <div className="rounded-2xl border border-accent-blue/20 bg-accent-blue/10 p-4">
+            <p className="text-sm font-semibold text-white">Edge summary</p>
+            <p className="mt-2 text-sm leading-relaxed text-gray-300">{pick.edgeSummary || "This pick matched learned historical signals, but no detailed signal stat was available for this row."}</p>
+          </div>
+
+          {primary && (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <StatCard label="OOS record" value={primary.testRecord} tone="text-white" hint={`${fmtPct(primary.testWinRate)} win · ${primary.testSample ?? "—"} picks`} />
+              <StatCard label="OOS ROI" value={fmtRoi(primary.testRoi)} tone={(primary.testRoi ?? 0) >= 0 ? "text-emerald-300" : "text-red-300"} hint="Out-of-sample" />
+              <StatCard label="Edge score" value={primary.edgeScore == null ? "—" : primary.edgeScore.toFixed(3)} tone="text-accent-blue" hint={`Confidence ${primary.confidenceScore == null ? "—" : primary.confidenceScore.toFixed(2)}`} />
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-dark-border bg-dark-bg/50 p-4">
+            <p className="text-sm font-semibold text-white">Matched signals</p>
+            <div className="mt-3 space-y-3">
+              {(pick.signalExplanations || []).map((signal) => (
+                <div key={signal.signalKey} className="rounded-xl border border-dark-border/70 bg-dark-surface/60 p-3">
+                  <p className="break-all text-xs font-semibold text-white">{signal.signalKey}</p>
+                  <div className="mt-2 grid gap-2 text-[11px] text-gray-400 sm:grid-cols-2">
+                    <p>Train: <span className="text-gray-200">{signal.trainRecord}</span> · {fmtPct(signal.trainWinRate)} · ROI {fmtRoi(signal.trainRoi)}</p>
+                    <p>Test: <span className="text-gray-200">{signal.testRecord}</span> · {fmtPct(signal.testWinRate)} · ROI {fmtRoi(signal.testRoi)}</p>
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-500">Status: {signal.promotionStatus || "—"}{signal.rejectionReason ? ` · ${signal.rejectionReason}` : ""}</p>
+                </div>
+              ))}
+              {!pick.signalExplanations?.length && (pick.signals || []).map((signal) => <p key={signal} className="break-all rounded-xl border border-dark-border/70 bg-dark-surface/60 p-3 text-xs text-gray-300">{signal}</p>)}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+            This is an explanation of the historical pattern match, not proof the bet is good. Promotion still needs manual review and production safety gates.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyBucket({ bucket, onExplain }: { bucket: RecordBucket; onExplain: (pick: RecordPick) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="overflow-hidden rounded-2xl border border-dark-border/70 bg-dark-surface/40">
@@ -187,7 +266,7 @@ function DailyBucket({ bucket }: { bucket: RecordBucket }) {
           <ChevronDown size={12} className={`text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} />
         </div>
       </button>
-      {open && <div className="divide-y divide-dark-border/30 border-t border-dark-border/40">{bucket.picks.map((pick) => <PickRow key={pick.id} pick={pick} />)}</div>}
+      {open && <div className="divide-y divide-dark-border/30 border-t border-dark-border/40">{bucket.picks.map((pick) => <PickRow key={pick.id} pick={pick} onExplain={onExplain} />)}</div>}
     </div>
   );
 }
@@ -196,6 +275,7 @@ export default function GooseLearningPage() {
   const [statusPayload, setStatusPayload] = useState<StatusPayload | null>(null);
   const [records, setRecords] = useState<RecordsPayload | null>(null);
   const [league, setLeague] = useState("ALL");
+  const [explainedPick, setExplainedPick] = useState<RecordPick | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -308,7 +388,7 @@ export default function GooseLearningPage() {
           <section className="rounded-2xl border border-dark-border bg-dark-surface p-4">
             <h2 className="text-lg font-semibold text-white">Goose Learning picks by day</h2>
             <p className="mt-1 text-sm text-gray-500">Each pick, with daily total and graded record.</p>
-            <div className="mt-4 space-y-3">{learningDays.map((bucket) => <DailyBucket key={bucket.key} bucket={bucket} />)}</div>
+            <div className="mt-4 space-y-3">{learningDays.map((bucket) => <DailyBucket key={bucket.key} bucket={bucket} onExplain={setExplainedPick} />)}</div>
           </section>
 
           <section className="grid gap-3 md:grid-cols-2">
@@ -331,6 +411,7 @@ export default function GooseLearningPage() {
           </section>
         </>
       )}
+      <ExplainDrawer pick={explainedPick} onClose={() => setExplainedPick(null)} />
     </div>
   );
 }

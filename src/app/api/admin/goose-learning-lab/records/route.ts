@@ -26,6 +26,7 @@ type LearningPickRow = {
   signal_keys: string[] | null;
   model_score: number | string | null;
   confidence_score: number | string | null;
+  evidence_snapshot: Record<string, unknown> | null;
   status: string | null;
   result: PickResult;
   profit_units: number | string | null;
@@ -34,6 +35,24 @@ type LearningPickRow = {
   comparison_bucket: string | null;
   recorded_at: string | null;
   settled_at: string | null;
+};
+
+type SignalCandidateRow = {
+  signal_key: string;
+  train_sample: number | string | null;
+  train_wins: number | string | null;
+  train_losses: number | string | null;
+  train_pushes: number | string | null;
+  train_roi: number | string | null;
+  test_sample: number | string | null;
+  test_wins: number | string | null;
+  test_losses: number | string | null;
+  test_pushes: number | string | null;
+  test_roi: number | string | null;
+  edge_score: number | string | null;
+  confidence_score: number | string | null;
+  promotion_status: string | null;
+  rejection_reason: string | null;
 };
 
 type ProductionPickRow = {
@@ -65,6 +84,22 @@ type RecordSummary = {
   roi: number | null;
 };
 
+type SignalExplanation = {
+  signalKey: string;
+  trainSample: number | null;
+  trainRecord: string;
+  trainWinRate: number | null;
+  trainRoi: number | null;
+  testSample: number | null;
+  testRecord: string;
+  testWinRate: number | null;
+  testRoi: number | null;
+  edgeScore: number | null;
+  confidenceScore: number | null;
+  promotionStatus: string | null;
+  rejectionReason: string | null;
+};
+
 type NormalizedPick = {
   id: string;
   source: "learning" | "production";
@@ -84,6 +119,10 @@ type NormalizedPick = {
   modelScore?: number | null;
   confidenceScore?: number | null;
   signalCount?: number;
+  signals?: string[];
+  signalExplanations?: SignalExplanation[];
+  edgeSummary?: string | null;
+  evidenceSnapshot?: Record<string, unknown> | null;
   comparisonBucket?: string | null;
   productionPickLabel?: string | null;
   recordedAt?: string | null;
@@ -174,9 +213,45 @@ function groupRecords(picks: NormalizedPick[], keyFn: (pick: NormalizedPick) => 
   }));
 }
 
-function normalizeLearning(row: LearningPickRow): NormalizedPick {
+function winRate(wins: unknown, losses: unknown): number | null {
+  const w = num(wins) || 0;
+  const l = num(losses) || 0;
+  return w + l ? Number(((w / (w + l)) * 100).toFixed(1)) : null;
+}
+
+function explainSignal(row: SignalCandidateRow): SignalExplanation {
+  const tw = num(row.train_wins) || 0;
+  const tl = num(row.train_losses) || 0;
+  const tp = num(row.train_pushes) || 0;
+  const ow = num(row.test_wins) || 0;
+  const ol = num(row.test_losses) || 0;
+  const op = num(row.test_pushes) || 0;
+  return {
+    signalKey: row.signal_key,
+    trainSample: num(row.train_sample),
+    trainRecord: `${tw}-${tl}-${tp}`,
+    trainWinRate: winRate(row.train_wins, row.train_losses),
+    trainRoi: num(row.train_roi),
+    testSample: num(row.test_sample),
+    testRecord: `${ow}-${ol}-${op}`,
+    testWinRate: winRate(row.test_wins, row.test_losses),
+    testRoi: num(row.test_roi),
+    edgeScore: num(row.edge_score),
+    confidenceScore: num(row.confidence_score),
+    promotionStatus: row.promotion_status,
+    rejectionReason: row.rejection_reason,
+  };
+}
+
+function normalizeLearning(row: LearningPickRow, signalMap: Map<string, SignalExplanation> = new Map()): NormalizedPick {
   const odds = num(row.odds);
   const suppliedProfit = num(row.profit_units);
+  const signals = Array.isArray(row.signal_keys) ? row.signal_keys : [];
+  const signalExplanations = signals.map((key) => signalMap.get(key)).filter(Boolean) as SignalExplanation[];
+  const primary = signalExplanations[0];
+  const edgeSummary = primary
+    ? `Primary signal ${primary.signalKey} was ${primary.testRecord} out-of-sample (${primary.testSample ?? "—"} picks), ${primary.testWinRate ?? "—"}% win rate, ROI ${(Number(primary.testRoi || 0) * 100).toFixed(1)}%.`
+    : typeof row.evidence_snapshot?.note === "string" ? row.evidence_snapshot.note : null;
   return {
     id: row.id,
     source: "learning",
@@ -195,7 +270,11 @@ function normalizeLearning(row: LearningPickRow): NormalizedPick {
     status: row.status,
     modelScore: num(row.model_score),
     confidenceScore: num(row.confidence_score),
-    signalCount: Array.isArray(row.signal_keys) ? row.signal_keys.length : 0,
+    signalCount: signals.length,
+    signals,
+    signalExplanations,
+    edgeSummary,
+    evidenceSnapshot: row.evidence_snapshot,
     comparisonBucket: row.comparison_bucket,
     productionPickLabel: row.production_pick_label,
     recordedAt: row.recorded_at,
@@ -252,7 +331,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.max(1, Math.min(Number(searchParams.get("limit") || 1000), 5000));
 
     const learningParams = [
-      "select=id,lab_slug,model_version,pick_date,sport,league,candidate_id,pick_label,market_family,market_type,side,line,odds,sportsbook,team_name,opponent_name,signal_keys,model_score,confidence_score,status,result,profit_units,production_pick_id,production_pick_label,comparison_bucket,recorded_at,settled_at",
+      "select=id,lab_slug,model_version,pick_date,sport,league,candidate_id,pick_label,market_family,market_type,side,line,odds,sportsbook,team_name,opponent_name,signal_keys,model_score,confidence_score,evidence_snapshot,status,result,profit_units,production_pick_id,production_pick_label,comparison_bucket,recorded_at,settled_at",
       `lab_slug=eq.${encodeURIComponent(lab)}`,
       modelVersion ? `model_version=eq.${encodeURIComponent(modelVersion)}` : null,
       league !== "ALL" ? `sport=eq.${encodeURIComponent(league)}` : null,
@@ -261,7 +340,12 @@ export async function GET(request: NextRequest) {
     ].filter(Boolean).join("&");
 
     const learningRows = await postgrest<LearningPickRow[]>(`/rest/v1/goose_learning_shadow_picks?${learningParams}`);
-    const learningPicks = learningRows.map(normalizeLearning);
+    const signalKeys = Array.from(new Set(learningRows.flatMap((row) => Array.isArray(row.signal_keys) ? row.signal_keys : [])));
+    const signalRows = signalKeys.length
+      ? await postgrest<SignalCandidateRow[]>(`/rest/v1/goose_signal_candidates_v1?select=signal_key,train_sample,train_wins,train_losses,train_pushes,train_roi,test_sample,test_wins,test_losses,test_pushes,test_roi,edge_score,confidence_score,promotion_status,rejection_reason&model_version=eq.${encodeURIComponent(modelVersion || "shadow-2026-05-03-expanded-oos")}&signal_key=in.(${signalKeys.map((key) => `"${key.replace(/"/g, "\\\"")}"`).join(",")})`).catch(() => [])
+      : [];
+    const signalMap = new Map(signalRows.map((row) => [row.signal_key, explainSignal(row)]));
+    const learningPicks = learningRows.map((row) => normalizeLearning(row, signalMap));
     const earliestDate = learningPicks.length ? learningPicks.map((pick) => pick.date).sort()[0] : "2025-12-01";
 
     const productionParams = [
