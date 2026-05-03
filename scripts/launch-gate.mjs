@@ -125,9 +125,37 @@ const report = {
   routeSmokes,
 };
 
+const failedChecks = report.checks.filter((check) => !check.ok).map((check) => check.label);
+const failedRoutes = report.routeSmokes.filter((route) => !route.ok).map((route) => ({ route: route.route, status: route.status }));
 const reportPath = path.join(reportDir, `${stamp}-launch-gate.json`);
+const summaryPath = path.join(ROOT, "tmp", "latest-launch-gate.md");
+const latestJsonPath = path.join(ROOT, "tmp", "latest-launch-gate.json");
+
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
-fs.writeFileSync(path.join(ROOT, "tmp", "latest-launch-gate.json"), JSON.stringify(report, null, 2));
+fs.writeFileSync(latestJsonPath, JSON.stringify(report, null, 2));
+
+const summaryLines = [
+  "# Goosalytics Launch Gate",
+  "",
+  `Generated: ${report.generatedAt}`,
+  `Base URL: ${report.baseUrl}`,
+  "",
+  `- Overall launch gate: ${report.ok ? "PASS" : "FAIL"}`,
+  `- Site status: ${report.site_status.toUpperCase()}`,
+  `- Model status: ${report.model_status}`,
+  `- Model launch ready: ${report.model_launch_ready ? "yes" : "no"}`,
+  `- Failed checks: ${failedChecks.length ? failedChecks.join(", ") : "none"}`,
+  `- Failed routes: ${failedRoutes.length ? failedRoutes.map((route) => `${route.route} (${route.status})`).join(", ") : "none"}`,
+  "",
+  "## Model readiness reasons",
+  ...(report.model_reasons.length ? report.model_reasons.map((reason) => `- ${reason}`) : ["- none"]),
+  "",
+  "## Route smokes",
+  ...report.routeSmokes.map((route) => `- ${route.route}: ${route.ok ? "PASS" : "FAIL"} HTTP ${route.status}, ${route.bytes} bytes, ${route.durationMs}ms`),
+  "",
+  `Full JSON report: ${reportPath}`,
+];
+fs.writeFileSync(summaryPath, `${summaryLines.join("\n")}\n`);
 
 console.log(JSON.stringify({
   ok: report.ok,
@@ -135,8 +163,9 @@ console.log(JSON.stringify({
   model_status: report.model_status,
   model_launch_ready: report.model_launch_ready,
   reportPath,
-  failedChecks: report.checks.filter((check) => !check.ok).map((check) => check.label),
-  failedRoutes: report.routeSmokes.filter((route) => !route.ok).map((route) => ({ route: route.route, status: route.status })),
+  summaryPath,
+  failedChecks,
+  failedRoutes,
   model_reasons: report.model_reasons,
 }, null, 2));
 
