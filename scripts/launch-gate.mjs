@@ -118,8 +118,16 @@ const signalGateJson = extractJson(signalGate.stdout);
 const activeLabModelVersion = learningJson?.snapshot?.model_version || "unknown";
 const modelStatus = learningJson?.snapshot?.status || "unknown";
 const modelReady = ["production_candidate", "production_live"].includes(modelStatus);
-const modelReasons = learningJson?.snapshot?.reasons || [];
 const signalGateSummary = signalGateJson?.summary || null;
+const modelArtifactMismatch = Boolean(
+  signalGateSummary?.auditModelVersion
+  && activeLabModelVersion !== "unknown"
+  && signalGateSummary.auditModelVersion !== activeLabModelVersion
+);
+const modelReasons = [
+  ...(learningJson?.snapshot?.reasons || []),
+  ...(modelArtifactMismatch ? [`Latest signal gate artifact (${signalGateSummary.auditModelVersion}) is not the active DB lab model (${activeLabModelVersion})`] : []),
+];
 
 const siteOk = checks
   .filter((check) => check.label !== "learning_status")
