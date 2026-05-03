@@ -35,6 +35,7 @@ function latestAuditPath() {
 const auditPath = args.audit || latestAuditPath();
 const outPath = args.out || auditPath.replace(/\.json$/, '-promotion-gate.json');
 const failOnBlock = args.failOnBlock === 'true' || args.failOnBlock === '1';
+const allowProduction = args.allowProduction === 'true' || args.allowProduction === '1';
 const maxDuplicateRatio = Number(args.maxDuplicateRatio ?? 0.35);
 const maxBookShare = Number(args.maxBookShare ?? 0.7);
 const maxTeamShare = Number(args.maxTeamShare ?? 0.15);
@@ -120,7 +121,9 @@ const artifact = {
     candidates: gated.length,
     approved: approved.length,
     blocked: blocked.length,
-    productionPromotionAllowed: approved.length > 0,
+    technicalGateApproved: approved.length > 0,
+    manualApprovalRequired: approved.length > 0,
+    productionPromotionAllowed: approved.length > 0 && allowProduction,
     promotionMode: approved.length > 0 ? 'approved_subset_only' : 'none',
   },
   approved,

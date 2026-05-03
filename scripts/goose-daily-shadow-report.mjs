@@ -32,7 +32,8 @@ lines.push('');
 lines.push(`Generated: ${new Date().toISOString()}`);
 lines.push('');
 lines.push('## Readiness');
-lines.push(`- Production promotion allowed: ${gate?.summary?.productionPromotionAllowed ? 'YES' : 'NO'}`);
+lines.push(`- Technical gate approved candidates: ${gate?.summary?.technicalGateApproved ? 'YES' : 'NO'}`);
+lines.push(`- Production promotion allowed: ${gate?.summary?.productionPromotionAllowed ? 'YES' : 'NO — manual approval required'}`);
 lines.push(`- Shadow-daily candidates: ${daily.length}`);
 lines.push(`- Keep shadow-only: ${keep.length}`);
 lines.push(`- Rejected until data repair: ${rejected.length}`);
@@ -60,4 +61,13 @@ lines.push('No production picks are promoted from this report. Promotion require
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, `${lines.join('\n')}\n`);
-console.log(JSON.stringify({ ok: true, outPath, shadowDaily: daily.length, keepShadowOnly: keep.length, rejectedUntilRepair: rejected.length, promotionAllowed: Boolean(gate?.summary?.productionPromotionAllowed) }, null, 2));
+console.log(JSON.stringify({
+  ok: true,
+  outPath,
+  shadowDaily: daily.length,
+  keepShadowOnly: keep.length,
+  rejectedUntilRepair: rejected.length,
+  technicalGateApproved: Boolean(gate?.summary?.technicalGateApproved),
+  promotionAllowed: Boolean(gate?.summary?.productionPromotionAllowed),
+  manualApprovalRequired: Boolean(gate?.summary?.manualApprovalRequired),
+}, null, 2));
