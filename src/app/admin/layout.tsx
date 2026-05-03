@@ -8,6 +8,7 @@ const links = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/picks", label: "Picks" },
   { href: "/admin/sandbox", label: "📋 Daily Board" },
+  { href: "/admin/goose-learning", label: "🧠 Goose Learning" },
   { href: "/admin/goose-model", label: "🔬 Signal Lab" },
   { href: "/admin/systems", label: "📊 Systems" },
   { href: "/admin/system", label: "System" },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentViewer } from "@/lib/auth";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,11 @@ async function postgrest<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export async function GET(request: NextRequest) {
   try {
+    const viewer = await getCurrentViewer();
+    if (!viewer || viewer.profile?.role !== "admin") {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const lab = searchParams.get("lab") || "goose-shadow-lab";
     const rows = await postgrest<any[]>(`/rest/v1/goose_learning_lab_status_v1?lab_slug=eq.${encodeURIComponent(lab)}&select=*&limit=1`);
