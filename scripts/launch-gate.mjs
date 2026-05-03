@@ -93,10 +93,14 @@ for (const route of routes) {
 
 const learning = run("learning_status", "npm", ["run", "goose:learning-status"]);
 checks.push(learning);
+const signalGate = run("signal_promotion_gate", "npm", ["run", "goose:promotion-gate", "--", "--failOnBlock=false"]);
+checks.push(signalGate);
 const learningJson = extractJson(learning.stdout);
+const signalGateJson = extractJson(signalGate.stdout);
 const modelStatus = learningJson?.snapshot?.status || "unknown";
 const modelReady = ["production_candidate", "production_live"].includes(modelStatus);
 const modelReasons = learningJson?.snapshot?.reasons || [];
+const signalGateSummary = signalGateJson?.summary || null;
 
 const siteOk = checks
   .filter((check) => check.label !== "learning_status")
@@ -113,6 +117,7 @@ const report = {
   model_status: modelStatus,
   model_launch_ready: modelOk,
   model_reasons: modelReasons,
+  signal_gate: signalGateSummary,
   checks: checks.map((check) => ({
     label: check.label,
     ok: check.ok,
@@ -144,6 +149,8 @@ const summaryLines = [
   `- Site status: ${report.site_status.toUpperCase()}`,
   `- Model status: ${report.model_status}`,
   `- Model launch ready: ${report.model_launch_ready ? "yes" : "no"}`,
+  `- Signal gate approved candidates: ${report.signal_gate?.approved ?? "unknown"}`,
+  `- Signal gate production allowed: ${report.signal_gate?.productionPromotionAllowed ? "yes" : "no"}`,
   `- Failed checks: ${failedChecks.length ? failedChecks.join(", ") : "none"}`,
   `- Failed routes: ${failedRoutes.length ? failedRoutes.map((route) => `${route.route} (${route.status})`).join(", ") : "none"}`,
   "",
@@ -162,6 +169,7 @@ console.log(JSON.stringify({
   site_status: report.site_status,
   model_status: report.model_status,
   model_launch_ready: report.model_launch_ready,
+  signal_gate: report.signal_gate,
   reportPath,
   summaryPath,
   failedChecks,
