@@ -233,7 +233,11 @@ function isFullGameRow(row: AskGooseRow) {
 
 export function parseAskGooseIntent(question: string, league: string, rows: AskGooseRow[]): AskGooseIntent {
   const normalizedQuestion = question.replace(/\s+/g, " ").trim().toLowerCase();
-  const looksLikeBettingQuestion = /(win rate|roi|unit|profit|record|system|trend|cover|favorite|favou?rite|underdogs?|\bdogs?\b|over|under|moneyline|\bml\b|spread|ats|perform|performance|lately|recent|against|head to head|total|puckline|runline|odds|price|bet|wager|parlay|pick)/.test(normalizedQuestion);
+  const hasExplicitBettingLanguage = /(win rate|roi|unit|profit|record|system|trend|cover|favorite|favou?rite|underdogs?|\bdogs?\b|over|under|moneyline|\bml\b|spread|ats|perform|performance|lately|recent|against|head to head|total|puckline|runline|odds|price|bet|wager|parlay|pick)/.test(normalizedQuestion);
+  const hasHistoricalResultLanguage = /\b(how many times|how often|what(?:'s| is)? the record|record)\b/.test(normalizedQuestion)
+    && /\b(win|won|wins|winning|loss|lost|lose|cover|covered|hit|cash|cashed)\b/.test(normalizedQuestion)
+    && /\b(home|away|road|visitor|visiting|team|teams|favorite|favou?rite|underdog|dog)s?\b|\.?500\b/.test(normalizedQuestion);
+  const looksLikeBettingQuestion = hasExplicitBettingLanguage || hasHistoricalResultLanguage;
   const refusalReason = looksLikeBettingQuestion ? null : "Ask Goose only answers database-backed betting research questions. Try asking about a league, market, side, line, odds range, record, units, or ROI.";
   const candidates = TEAM_ALIASES[league] ?? [];
   const matchedTeams = candidates
@@ -245,6 +249,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   if (/\bmoneyline\b|\bml\b/.test(normalizedQuestion)) marketType = "moneyline";
   else if (/\bspread\b|\bats\b|\bcover\b|puckline|runline/.test(normalizedQuestion)) marketType = "spread";
   else if (hasTotalsLanguage) marketType = "total";
+  else if (/\b(win|won|wins|winning)\b/.test(normalizedQuestion) && /\b(home|away|road|visitor|visiting|team|teams|favorite|favou?rite|underdog|dog)s?\b|\.?500\b/.test(normalizedQuestion)) marketType = "moneyline";
 
   const rowTeamMatches = rows
     .flatMap((row) => [row.team_name, row.opponent_name, row.home_team, row.away_team])
@@ -264,7 +269,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
   const matchedOpponent = matchedRowNames[1] ?? matchedTeams[1] ?? null;
   const wantsHeadToHead = /\bvs\b|against|head to head/.test(normalizedQuestion) || Boolean(matchedTeam && matchedOpponent);
   const mentionedHome = /\bhome\b|at home/.test(normalizedQuestion);
-  const mentionedAway = /\baway\b|\broad\b|on the road/.test(normalizedQuestion);
+  const mentionedAway = /\baway\b|\broad\b|on the road|\bvisitor(?:s)?\b|\bvisiting\b/.test(normalizedQuestion);
   const oddsRange = extractOddsRange(normalizedQuestion);
   const requestedLine = extractRequestedLine(normalizedQuestion);
   const hasOverSideLanguage = /\bovers?\b|\bover\s+[+-]?\d+(?:\.\d+)?\b|\btotals?\s+(?:gone\s+)?over\b|\btotals?\s+over\b|\bover\s+when\b|\bover\s+performed\b|\bpublic\s+money\s+(?:was\s+)?on\s+(?:the\s+)?over\b/.test(normalizedQuestion);
@@ -289,7 +294,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     || /(?:they|team|teams|it|club|side)\s+(?:were|was|are|is)\s+(?:above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion)
     || /\.500\s*(and\s*)?(above|over|plus|\+)/.test(normalizedQuestion)
     || /(above|over|greater than|better than)\s*\.?500\s+teams?/.test(normalizedQuestion);
-  const wantsBelow500Teams = /(team|teams|home|road|away|favorite|underdog|dog)s?.{0,30}(below|under|worse than|less than)\s*\.?500|below\s*\.?500|under\s*\.?500/.test(normalizedQuestion) && !/against\s+teams?.{0,20}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
+  const wantsBelow500Teams = /(team|teams|home|road|away|visitor|visiting|favorite|underdog|dog)s?.{0,30}(below|under|worse than|less than)\s*\.?500|below\s*\.?500|under\s*\.?500/.test(normalizedQuestion) && !/against\s+teams?.{0,20}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentAbove500 = wantsBothTeamsAbove500 || /(against|versus|vs|opponent)s?.{0,30}(above|over|greater than|better than)\s*\.?500/.test(normalizedQuestion);
   const wantsOpponentBelow500 = /(against|versus|vs|opponent)s?.{0,30}(below|under|worse than|less than)\s*\.?500/.test(normalizedQuestion);
   const mentionedPublic = /public|handle|money|tickets?|bets?|betting split|split/.test(normalizedQuestion);
@@ -321,7 +326,7 @@ export function parseAskGooseIntent(question: string, league: string, rows: AskG
     maxOdds: oddsRange.maxOdds,
     scope: detectScope(normalizedQuestion),
     wantsRecentOnly: /last\s+(5|10|25)|recent/.test(normalizedQuestion),
-    wantsBroaderSample: /lately|recent|performance|perform|record|trend|how have/.test(normalizedQuestion) || matchedTeams.length > 0 || matchedRowNames.length > 0,
+    wantsBroaderSample: /lately|recent|performance|perform|record|trend|how have|how many times|how often/.test(normalizedQuestion) || matchedTeams.length > 0 || matchedRowNames.length > 0,
     mentionedFavorite: /favorite|favou?rite/.test(normalizedQuestion),
     mentionedUnderdog: /underdogs?|\bdogs?\b/.test(normalizedQuestion),
     mentionedHome,

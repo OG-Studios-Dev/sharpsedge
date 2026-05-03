@@ -35,3 +35,15 @@ test("parses public against bet as public split leaning against bet", () => {
   assert.equal(intent.publicSplitRequested, true);
   assert.equal(intent.publicSplitLean, "against_bet");
 });
+
+test("accepts historical visiting below-.500 win queries as moneyline research", () => {
+  const intent = parseAskGooseIntent("How many times did visiting teams that were below .500 win in NBA last two years", "NBA", []);
+
+  assert.equal(intent.looksLikeBettingQuestion, true);
+  assert.equal(intent.refusalReason, null);
+  assert.equal(intent.marketType, "moneyline");
+  assert.equal(intent.side, "away");
+  assert.equal(intent.mentionedAway, true);
+  assert.equal(intent.wantsBelow500Teams, true);
+  assert.equal(intent.wantsBroaderSample, true);
+});
