@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, MouseEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import EmptyStateCard from "@/components/EmptyStateCard";
 import { useLeague } from "@/hooks/useLeague";
@@ -183,10 +183,21 @@ export default function AskGoosePage() {
   const [guideOpen, setGuideOpen] = useState(false);
   const [examplesOpen, setExamplesOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedExamples = useMemo(() => {
     return EXAMPLE_QUESTIONS[sportLeague].map((question) => `${sportLeague} ${question}`);
   }, [sportLeague]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      if (chatScrollRef.current) chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [messages.length, loading]);
 
   async function askGoose(nextQuestion = question) {
     const cleaned = nextQuestion.trim();
@@ -210,7 +221,7 @@ export default function AskGoosePage() {
         id: messageId(),
         role: "goose",
         question: cleaned,
-        text: payload.explanation?.text || payload.answer?.summaryText || payload.error || payload.message || "Goose could not answer that yet.",
+        text: payload.answer?.summaryText || payload.message || payload.explanation?.text || payload.error || "Goose could not answer that yet.",
         result: payload,
       }));
     } catch {
@@ -270,7 +281,7 @@ export default function AskGoosePage() {
             </div>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto p-4 md:p-5">
+          <div ref={chatScrollRef} className="flex-1 space-y-4 overflow-y-auto scroll-smooth p-4 md:p-5">
             {messages.map((message) => (
               <div key={message.id} className={message.role === "user" ? "flex justify-end" : "flex justify-start"}>
                 <div className={message.role === "user" ? "max-w-[85%] rounded-3xl bg-accent-blue px-4 py-3 text-sm font-semibold text-white" : "max-w-[92%] rounded-3xl border border-dark-border bg-dark-surface/80 px-4 py-3 text-sm text-gray-100"}>
@@ -312,6 +323,7 @@ export default function AskGoosePage() {
                 <div className="rounded-3xl border border-dark-border bg-dark-surface/80 px-4 py-3 text-sm text-gray-300">Goose is checking the database…</div>
               </div>
             ) : null}
+            <div ref={chatBottomRef} aria-hidden="true" className="h-1" />
           </div>
 
           <form onSubmit={submitQuestion} className="sticky bottom-16 z-[90] border-t border-dark-border bg-dark-bg/95 p-3 backdrop-blur md:p-4 lg:bottom-0">

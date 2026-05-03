@@ -228,7 +228,7 @@ async function buildAskGooseAnswer(requestUrl: string, body?: { league?: unknown
   const { searchParams } = new URL(requestUrl);
   const league = normalizeLeague(String(body?.league ?? searchParams.get("league") ?? ""));
   const limit = normalizeLimit(String(body?.limit ?? searchParams.get("limit") ?? ""));
-  const question = buildQuestionPreview(String(body?.question ?? body?.q ?? searchParams.get("q") ?? ""));
+  const question = buildQuestionPreview(String(body?.question ?? body?.q ?? searchParams.get("question") ?? searchParams.get("q") ?? ""));
 
     const select = [
       "candidate_id",
