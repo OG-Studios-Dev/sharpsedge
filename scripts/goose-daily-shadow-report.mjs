@@ -12,9 +12,30 @@ function parseArgs(argv) {
 }
 function pct(n) { return Number.isFinite(Number(n)) ? `${(Number(n) * 100).toFixed(2)}%` : 'n/a'; }
 
+function latestTmpArtifact({ prefix, includes = [], excludes = [] }) {
+  const dir = 'tmp';
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir)
+    .filter((name) => name.startsWith(prefix) && name.endsWith('.json'))
+    .filter((name) => includes.every((part) => name.includes(part)))
+    .filter((name) => excludes.every((part) => !name.includes(part)))
+    .map((name) => {
+      const filePath = path.join(dir, name);
+      const stat = fs.statSync(filePath);
+      return { filePath, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return files[0]?.filePath || null;
+}
+
 const args = parseArgs(process.argv.slice(2));
-const auditPath = args.audit || 'tmp/goose-learning-signal-audit.json';
-const backtestPath = args.backtest || 'tmp/goose-learning-shadow-shadow-2026-04-29-cleaned.json';
+const auditPath = args.audit
+  || latestTmpArtifact({ prefix: 'goose-learning-signal-audit', excludes: ['promotion-gate'] })
+  || 'tmp/goose-learning-signal-audit.json';
+const backtestPath = args.backtest
+  || latestTmpArtifact({ prefix: 'goose-learning-shadow-', includes: ['cleaned'] })
+  || latestTmpArtifact({ prefix: 'goose-learning-shadow-' })
+  || 'tmp/goose-learning-shadow-shadow-2026-04-29-cleaned.json';
 const gatePath = args.gate || auditPath.replace(/\.json$/, '-promotion-gate.json');
 const outPath = args.out || `tmp/goose-daily-shadow-report-${new Date().toISOString().slice(0, 10)}.md`;
 
