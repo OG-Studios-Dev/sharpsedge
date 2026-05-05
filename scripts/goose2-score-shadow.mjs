@@ -35,13 +35,15 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const MODEL_VERSION = args.modelVersion || process.env.GOOSE_SHADOW_MODEL_VERSION || 'shadow-2026-04-25-v2-strict';
+const MODEL_VERSION_ARG = args.modelVersion || process.env.GOOSE_SHADOW_MODEL_VERSION || '';
+const DEFAULT_MODEL_VERSION = 'shadow-2026-05-03-expanded-oos';
 const POLICY_VERSION = 'phase2-shadow-selective';
-const HIGH_CONFIDENCE_MIN = 0.60;
+const LEARNING_CONFIDENCE_MIN = 0.45;
 const MIN_EDGE = 0.035;
 const MAX_PLAYS_PER_SPORT = 3;
 const EXCLUDE_IMPLAUSIBLE_LINES = args.excludeImplausibleLines !== 'false';
 const ALLOWED_MARKETS = new Set(['moneyline', 'spread', 'total', 'first_five_total', 'first_five_side']);
+const FORCE_RESCORE = args.force === 'true' || args.force === '1';
 
 const trainPath = path.join(process.cwd(), 'tmp', 'goose2-training-dataset-v1.json');
 if (!fs.existsSync(trainPath)) throw new Error('Missing training dataset. Run npm run goose2:export-training first.');
@@ -86,6 +88,70 @@ function dot(a, b) {
 }
 function normalizeToken(value) {
   return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'na';
+}
+function compactToken(value) {
+  return String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '') || 'na';
+}
+function nameKey(value) {
+  return compactToken(value).replace(/^(the)/, '');
+}
+function oddsBucket(odds) {
+  const n = Number(odds);
+  if (!Number.isFinite(n)) return 'odds_unknown';
+  if (n <= -200) return 'odds_heavy_favorite';
+  if (n < 0) return 'odds_favorite';
+  if (n < 150) return 'odds_short_dog';
+  if (n < 250) return 'odds_mid_dog';
+  return 'odds_long_dog';
+}
+function spreadLineBucket(line) {
+  if (line == null || !Number.isFinite(Number(line))) return 'no_line';
+  const n = Math.abs(Number(line));
+  if (n <= 2.5) return 'line_0_to_2_5';
+  if (n <= 5.5) return 'line_3_to_5_5';
+  if (n <= 8.5) return 'line_6_to_8_5';
+  return 'line_9_plus';
+}
+function totalLineBucket(sport, line) {
+  if (line == null || !Number.isFinite(Number(line))) return 'total_no_line';
+  const n = Number(line);
+  if (sport === 'NFL') return n < 42 ? 'total_low' : n <= 47.5 ? 'total_mid' : 'total_high';
+  if (sport === 'NBA') return n < 220 ? 'total_low' : n <= 230 ? 'total_mid' : 'total_high';
+  if (sport === 'MLB') return n < 8 ? 'total_low' : n <= 9 ? 'total_mid' : 'total_high';
+  if (sport === 'NHL') return n < 6 ? 'total_low' : n <= 6.5 ? 'total_mid' : 'total_high';
+  return 'total_unknown_range';
+}
+function sideRole(row, event) {
+  const market = String(row.market_type || '').toLowerCase();
+  const side = String(row.side || '').toLowerCase();
+  if (market.includes('total')) {
+    if (side.includes('over')) return 'over';
+    if (side.includes('under')) return 'under';
+  }
+  const raw = nameKey(row.participant_name || row.side);
+  const home = nameKey(event?.home_team);
+  const away = nameKey(event?.away_team);
+  if (raw && home && raw === home) return 'home';
+  if (raw && away && raw === away) return 'away';
+  return compactToken(row.side || row.participant_name || 'unknown_side');
+}
+function signalsForCandidate(row, event) {
+  const sport = String(row.sport || row.league || 'UNKNOWN').toUpperCase();
+  const market = String(row.market_type || 'unknown_market');
+  const role = sideRole(row, event);
+  const signals = new Set();
+  signals.add(`${sport}:${market}:${role}`);
+  signals.add(`${sport}:${market}:${role}:${oddsBucket(row.odds)}`);
+  if (market === 'spread') signals.add(`${sport}:${market}:${role}:${spreadLineBucket(row.line)}`);
+  if (market === 'total') signals.add(`${sport}:${market}:${role}:${totalLineBucket(sport, row.line)}`);
+  signals.add(`${sport}:${market}:${role}:book:${compactToken(row.book)}`);
+  if (market !== 'total') {
+    if (Number(row.odds) < 0) signals.add(`${sport}:${market}:${role}:favorite`);
+    if (Number(row.odds) > 0) signals.add(`${sport}:${market}:${role}:underdog`);
+    if (role === 'home') signals.add(`${sport}:${market}:${role}:home_bet`);
+    if (role === 'away') signals.add(`${sport}:${market}:${role}:away_bet`);
+  }
+  return Array.from(signals);
 }
 function minuteBucket(value) {
   const d = value ? new Date(value) : new Date();
@@ -218,6 +284,34 @@ async function rest(pathname, options = {}) {
   return res.json().catch(() => null);
 }
 
+async function resolveModelVersion() {
+  if (MODEL_VERSION_ARG && MODEL_VERSION_ARG !== 'active') return MODEL_VERSION_ARG;
+  try {
+    const rows = await rest('/goose_learning_lab_spaces?slug=eq.goose-shadow-lab&select=active_model_version&limit=1');
+    const active = rows?.[0]?.active_model_version;
+    if (active) return active;
+  } catch (err) {
+    console.warn(`[goose2-score-shadow] Could not resolve active learning model, using ${DEFAULT_MODEL_VERSION}: ${err instanceof Error ? err.message : err}`);
+  }
+  return DEFAULT_MODEL_VERSION;
+}
+
+const MODEL_VERSION = await resolveModelVersion();
+
+async function loadLearningSignals(modelVersion) {
+  try {
+    const rows = await rest(`/goose_signal_candidates_v1?select=signal_key,train_sample,train_wins,train_losses,train_pushes,train_roi,test_sample,test_wins,test_losses,test_pushes,test_roi,edge_score,confidence_score,promotion_status,rejection_reason&model_version=eq.${encodeURIComponent(modelVersion)}&promotion_status=eq.eligible&order=edge_score.desc&limit=1000`);
+    return new Map((rows || [])
+      .filter((row) => Number(row.test_sample || 0) >= 50)
+      .map((row) => [row.signal_key, row]));
+  } catch (err) {
+    console.warn(`[goose2-score-shadow] Could not load learning signals for ${modelVersion}: ${err instanceof Error ? err.message : err}`);
+    return new Map();
+  }
+}
+
+const learningSignals = await loadLearningSignals(MODEL_VERSION);
+
 const targetDate = args.date || args.positional[0] || new Date().toISOString().slice(0, 10);
 const select = [
   'candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing',
@@ -227,16 +321,18 @@ const select = [
 ].join(',');
 const rows = await rest(`/goose_market_candidates?select=${encodeURIComponent(select)}&event_date=eq.${targetDate}&order=capture_ts.desc&limit=5000`);
 
-const latestByCandidate = new Map();
+const latestByEventMarketSide = new Map();
 for (const row of rows) {
   const decisions = Array.isArray(row.goose_decision_log) ? row.goose_decision_log : [];
-  if (decisions.some((d) => d.policy_version === POLICY_VERSION)) continue;
-  const existing = latestByCandidate.get(row.candidate_id);
-  if (!existing || String(row.capture_ts) > String(existing.capture_ts)) latestByCandidate.set(row.candidate_id, row);
+  if (!FORCE_RESCORE && decisions.some((d) => d.policy_version === POLICY_VERSION)) continue;
+  const event = Array.isArray(row.goose_market_events) ? row.goose_market_events[0] : row.goose_market_events;
+  const dedupeKey = [row.event_id, row.market_type, sideRole(row, event)].join('|');
+  const existing = latestByEventMarketSide.get(dedupeKey);
+  if (!existing || String(row.capture_ts) > String(existing.capture_ts)) latestByEventMarketSide.set(dedupeKey, row);
 }
 
 const scored = [];
-for (const row of latestByCandidate.values()) {
+for (const row of latestByEventMarketSide.values()) {
   if (!ALLOWED_MARKETS.has(row.market_type)) continue;
   const feature = Array.isArray(row.goose_feature_rows) ? row.goose_feature_rows[0] : row.goose_feature_rows;
   const event = Array.isArray(row.goose_market_events) ? row.goose_market_events[0] : row.goose_market_events;
@@ -249,12 +345,20 @@ for (const row of latestByCandidate.values()) {
   }).map((v, j) => (v - means[j]) / stds[j]);
   const pTrue = sigmoid(dot(weights, vector) + bias);
   const calibrated = pTrue;
-  const edge = calibrated - implied;
-  const confidenceBand = calibrated >= 0.67 ? 'A' : calibrated >= 0.60 ? 'B' : calibrated >= 0.55 ? 'C' : 'D';
+  const modelEdge = calibrated - implied;
+  const signalKeys = signalsForCandidate(row, event);
+  const matchedSignals = signalKeys.map((key) => learningSignals.get(key)).filter(Boolean);
+  matchedSignals.sort((a, b) => Number(b.edge_score || 0) - Number(a.edge_score || 0));
+  const primarySignal = matchedSignals[0] || null;
+  const learnedEdge = Number(primarySignal?.edge_score ?? Number.NaN);
+  const learnedConfidence = Number(primarySignal?.confidence_score ?? Number.NaN);
+  const edge = Number.isFinite(learnedEdge) ? learnedEdge : modelEdge;
+  const confidenceScore = Number.isFinite(learnedConfidence) ? learnedConfidence : Math.max(0, Math.min(1, modelEdge / 0.2));
+  const confidenceBand = confidenceScore >= 0.85 ? 'A' : confidenceScore >= 0.65 ? 'B' : confidenceScore >= 0.45 ? 'C' : 'D';
   const rejectionReasons = [];
   const candidateLineHealth = lineHealth(row);
-  if (qualifierCount < 1) rejectionReasons.push('no_linked_system_qualifier');
-  if (calibrated < HIGH_CONFIDENCE_MIN) rejectionReasons.push('below_confidence_floor');
+  if (!matchedSignals.length) rejectionReasons.push('no_matched_learning_signal');
+  if (confidenceScore < LEARNING_CONFIDENCE_MIN) rejectionReasons.push('below_learning_confidence_floor');
   if (edge < MIN_EDGE) rejectionReasons.push('edge_below_floor');
   if (EXCLUDE_IMPLAUSIBLE_LINES && isImplausibleLine(row)) rejectionReasons.push(`implausible_line:${candidateLineHealth}`);
   if (!['scheduled', 'unknown'].includes(String(event?.status ?? 'unknown'))) rejectionReasons.push('event_not_pregame');
@@ -276,7 +380,12 @@ for (const row of latestByCandidate.values()) {
     p_true: pTrue,
     calibrated_p_true: calibrated,
     edge,
+    model_edge: modelEdge,
+    confidence_score: confidenceScore,
     qualifier_count: qualifierCount,
+    signal_keys: signalKeys,
+    matched_signal_keys: matchedSignals.map((signal) => signal.signal_key),
+    primary_signal: primarySignal,
     capture_ts: row.capture_ts,
     confidence_band: confidenceBand,
     rejection_reasons: rejectionReasons,
@@ -325,9 +434,11 @@ const decisionRows = scored.map((row) => ({
     mode: 'shadow_selective',
     philosophy: 'low_volume_high_confidence',
     max_plays_per_sport: MAX_PLAYS_PER_SPORT,
-    min_confidence: HIGH_CONFIDENCE_MIN,
+    min_learning_confidence: LEARNING_CONFIDENCE_MIN,
     min_edge: MIN_EDGE,
     qualifier_count: row.qualifier_count,
+    matched_learning_signals: row.matched_signal_keys,
+    primary_learning_signal: row.primary_signal?.signal_key ?? null,
     implied_prob: row.implied_prob,
     market_type: row.market_type,
     participant_name: row.participant_name,
@@ -361,26 +472,42 @@ const shadowPickRows = scored.filter((row) => row.bet_decision).map((row) => ({
   sportsbook: row.book,
   team_name: row.participant_name || row.home_team || null,
   opponent_name: row.opponent_name || row.away_team || null,
-  signal_keys: [
-    `${row.sport}:${row.market_type}:${normalizeToken(row.side)}`,
-    `${row.sport}:${row.market_type}:book:${normalizeToken(row.book)}`,
-  ],
+  signal_keys: row.matched_signal_keys,
   model_score: Number(row.calibrated_p_true.toFixed(6)),
-  confidence_score: Number(Math.max(0, Math.min(1, row.edge / 0.2)).toFixed(6)),
+  confidence_score: Number(row.confidence_score.toFixed(6)),
   evidence_snapshot: {
     source: 'goose2-score-shadow',
     policy_version: POLICY_VERSION,
     confidence_band: row.confidence_band,
     edge: Number(row.edge.toFixed(6)),
+    model_edge: Number(row.model_edge.toFixed(6)),
     p_true: Number(row.p_true.toFixed(6)),
     calibrated_p_true: Number(row.calibrated_p_true.toFixed(6)),
     implied_prob: Number(row.implied_prob.toFixed(6)),
     qualifier_count: row.qualifier_count,
+    matched_learning_signals: row.matched_signal_keys,
+    primary_learning_signal: row.primary_signal ? {
+      signal_key: row.primary_signal.signal_key,
+      promotion_status: row.primary_signal.promotion_status,
+      test_sample: Number(row.primary_signal.test_sample || 0),
+      test_wins: Number(row.primary_signal.test_wins || 0),
+      test_losses: Number(row.primary_signal.test_losses || 0),
+      test_pushes: Number(row.primary_signal.test_pushes || 0),
+      test_roi: Number(row.primary_signal.test_roi || 0),
+      edge_score: Number(row.primary_signal.edge_score || 0),
+      confidence_score: Number(row.primary_signal.confidence_score || 0),
+    } : null,
     line_health: row.line_health,
   },
   status: 'recorded',
   result: 'pending',
 }));
+
+if (FORCE_RESCORE) {
+  await rest(`/goose_learning_shadow_picks?lab_slug=eq.goose-shadow-lab&model_version=eq.${encodeURIComponent(MODEL_VERSION)}&pick_date=eq.${encodeURIComponent(targetDate)}`, {
+    method: 'DELETE',
+  });
+}
 
 if (shadowPickRows.length) {
   await rest('/goose_learning_shadow_picks?on_conflict=lab_slug,model_version,candidate_id', {
@@ -396,7 +523,7 @@ const report = {
   policy_version: POLICY_VERSION,
   philosophy: 'low_volume_high_confidence',
   thresholds: {
-    high_confidence_min: HIGH_CONFIDENCE_MIN,
+    min_learning_confidence: LEARNING_CONFIDENCE_MIN,
     min_edge: MIN_EDGE,
     max_plays_per_sport: MAX_PLAYS_PER_SPORT,
     exclude_implausible_lines: EXCLUDE_IMPLAUSIBLE_LINES,
