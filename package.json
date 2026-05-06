@@ -24,6 +24,7 @@
     "goose:audit-learning-signals": "node scripts/audit-goose-learning-signals.mjs",
     "goose:promotion-gate": "node scripts/gate-goose-learning-promotion.mjs",
     "goose:daily-shadow-report": "node scripts/goose-daily-shadow-report.mjs",
+    "goose:learning-goal-check": "node scripts/check-goose-learning-goal.mjs",
     "ask-goose:repair-context": "node scripts/repair-ask-goose-context-chunked.mjs",
     "goose:learning-status": "node scripts/goose-learning-lab-status.mjs",
     "qa:audit": "node scripts/qa-audit.mjs",
