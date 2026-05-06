@@ -122,6 +122,30 @@ type HistoryItem = {
   teamColor?: string;
 };
 
+type LearningResultsSummary = {
+  total: number;
+  settled: number;
+  pending: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  units: number;
+  winRate: number | null;
+  roi: number | null;
+};
+
+type LearningResultsPayload = {
+  ok: boolean;
+  locked: boolean;
+  league: string;
+  modelVersion: string;
+  latestDate: string | null;
+  earliestDate: string | null;
+  overall: LearningResultsSummary;
+  settled: LearningResultsSummary;
+  disclosure: string;
+};
+
 const SPORT_ICONS: Record<string, { label: string }> = {
   All: { label: "All" },
   NHL: { label: "NHL" },
@@ -152,6 +176,88 @@ function computeHistoryRecord(items: HistoryItem[]) {
     }
     return record;
   }, { wins: 0, losses: 0, pushes: 0, pending: 0, profitUnits: 0 });
+}
+
+function formatUnits(value: number): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}u`;
+}
+
+function LearningModelResultsBar({
+  results,
+  loading,
+  officialWinPct,
+}: {
+  results: LearningResultsPayload | null;
+  loading: boolean;
+  officialWinPct: number;
+}) {
+  const summary = results?.overall ?? null;
+  const winRate = summary?.winRate ?? null;
+  const delta = winRate != null && Number.isFinite(officialWinPct) ? Number((winRate - officialWinPct).toFixed(1)) : null;
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-500/25 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.18),transparent_35%),linear-gradient(180deg,rgba(16,19,27,0.95),rgba(11,14,20,0.95))]">
+      <div className="border-b border-emerald-500/10 px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Goose Learning Picks</p>
+            <p className="mt-1 text-xs text-gray-400">Results only · picks stay locked</p>
+          </div>
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold uppercase text-emerald-300">
+            Add-on
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3 px-4 py-4">
+          <div className="h-8 rounded-xl bg-dark-border/40 animate-pulse" />
+          <div className="h-3 rounded-full bg-dark-border/30 animate-pulse" />
+        </div>
+      ) : !summary || summary.total === 0 ? (
+        <div className="px-4 py-4">
+          <p className="text-sm font-semibold text-white">Learning results are warming up.</p>
+          <p className="mt-1 text-xs text-gray-500">Once the shadow model logs settled picks, this bar will show the premium record without exposing the plays.</p>
+        </div>
+      ) : (
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-5 overflow-x-auto">
+            <div className="text-center"><p className="text-lg font-bold text-emerald-400">{summary.wins}</p><p className="text-[10px] uppercase text-gray-500">W</p></div>
+            <div className="text-center"><p className="text-lg font-bold text-red-400">{summary.losses}</p><p className="text-[10px] uppercase text-gray-500">L</p></div>
+            <div className="text-center"><p className="text-lg font-bold text-yellow-400">{summary.pushes}</p><p className="text-[10px] uppercase text-gray-500">Push</p></div>
+            <div className="text-center"><p className="text-lg font-bold text-gray-400">{summary.pending}</p><p className="text-[10px] uppercase text-gray-500">Pending</p></div>
+            <div className="ml-auto flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-lg font-bold text-white">{winRate != null ? `${winRate.toFixed(1)}%` : "—"}</p>
+                <p className="text-[10px] uppercase text-gray-500">Win % · {summary.settled}</p>
+              </div>
+              <div className="text-right">
+                <p className={`text-lg font-bold ${summary.units > 0 ? "text-emerald-400" : summary.units < 0 ? "text-red-400" : "text-gray-400"}`}>{formatUnits(summary.units)}</p>
+                <p className="text-[10px] uppercase text-gray-500">Net Units</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-dark-border/60 bg-dark-bg/50 p-3">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="text-gray-400">Vs official AI record</span>
+              <span className={delta == null ? "text-gray-500" : delta >= 0 ? "text-emerald-300" : "text-red-300"}>
+                {delta == null ? "Pending comparison" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} pts`}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-dark-border/60">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-accent-blue" style={{ width: `${Math.max(6, Math.min(100, winRate ?? 0))}%` }} />
+            </div>
+            <p className="mt-2 text-[10px] text-gray-500">Latest shadow day: {results?.latestDate ?? "—"}. No learning-model pick details are shown.</p>
+          </div>
+
+          <Link href="/upgrade" className="tap-button mt-3 inline-flex w-full justify-center rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 transition-colors hover:border-emerald-300/60 hover:text-white">
+            Unlock Learning Model add-on →
+          </Link>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function mapLocalPickToHistoryItem(date: string, pick: AIPick): HistoryItem {
@@ -336,6 +442,8 @@ export default function PicksPage() {
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [recordSport, setRecordSport] = useState(sportLeague === "All" ? "All" : sportLeague);
   const [golfDashboard, setGolfDashboard] = useState<GolfDashboardData | null>(null);
+  const [learningResults, setLearningResults] = useState<LearningResultsPayload | null>(null);
+  const [learningResultsLoading, setLearningResultsLoading] = useState(false);
 
   const { todayPicks: nhlToday, allPicks: nhlAll, loadingPicks: nhlLoading, picksError: nhlPicksError, stalePickCount: nhlStalePickCount, clearStalePicks: clearNHLStalePicks } = usePicks();
   const { todayPicks: nbaToday, allPicks: nbaAll, loadingPicks: nbaLoading, picksError: nbaPicksError, stalePickCount: nbaStalePickCount, clearStalePicks: clearNBAStalePicks } = useNBAPicks();
@@ -354,6 +462,34 @@ export default function PicksPage() {
       })
       .catch(() => {
         if (!cancelled) setGolfDashboard(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sportLeague]);
+
+  useEffect(() => {
+    if (sportLeague === "PGA" || sportLeague === "NFL" || sportLeague === "EPL" || sportLeague === "Serie A") {
+      setLearningResults(null);
+      setLearningResultsLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const resultLeague = sportLeague === "All" ? "ALL" : sportLeague;
+    setLearningResultsLoading(true);
+
+    fetch(`/api/goose-learning/results?league=${encodeURIComponent(resultLeague)}`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload: LearningResultsPayload | null) => {
+        if (!cancelled) setLearningResults(payload?.ok ? payload : null);
+      })
+      .catch(() => {
+        if (!cancelled) setLearningResults(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLearningResultsLoading(false);
       });
 
     return () => {
@@ -566,6 +702,14 @@ export default function PicksPage() {
                   <p className="text-[11px] text-amber-400">{activeStalePickCount} legacy pending pick{activeStalePickCount === 1 ? "" : "s"} missing a valid game ID.</p>
                   <button onClick={handleClearStalePicks} className="tap-button rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[10px] font-semibold uppercase text-amber-300">Clear stale picks</button>
                 </div>
+              )}
+
+              {sportLeague !== "PGA" && (
+                <LearningModelResultsBar
+                  results={learningResults}
+                  loading={learningResultsLoading}
+                  officialWinPct={currentSeasonWinStats.winPct}
+                />
               )}
             </div>
 
