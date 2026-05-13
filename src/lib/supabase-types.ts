@@ -240,6 +240,85 @@ export type AuthResponse = {
   error: { message: string } | null;
 };
 
+// ─── Tournament Analysis ──────────────────────────────────────────────────────
+
+export type TournamentAnalysisTierPlayer = {
+  name: string;
+  odds: number;
+  book: string;
+  note: string;
+  tag: "value" | "fade" | null;
+};
+
+export type TournamentAnalysisTier = {
+  label: string;
+  players: TournamentAnalysisTierPlayer[];
+};
+
+export type TournamentAnalysisMatchup = {
+  label: string;
+  edge: string;
+  note: string;
+  strength: "strong" | "moderate";
+};
+
+export type TournamentAnalysisParlay = {
+  label: string;
+  odds: string;
+  note: string;
+};
+
+export type TournamentAnalysisLongshot = {
+  name: string;
+  odds: number;
+  book: string;
+  note: string;
+};
+
+export type TournamentAnalysisTopFinish = {
+  name: string;
+  market: string;
+  odds: number;
+  book: string;
+  note: string;
+};
+
+export type TournamentAnalysisCourseKey = {
+  rank: number;
+  factor: string;
+  detail: string;
+};
+
+export type TournamentAnalysisData = {
+  tournamentName: string;
+  courseName: string;
+  dates: string;
+  isMajor: boolean;
+  fieldSize: number;
+  courseProfile: TournamentAnalysisCourseKey[];
+  tiers: TournamentAnalysisTier[];
+  topFinishes: TournamentAnalysisTopFinish[];
+  parlays: TournamentAnalysisParlay[];
+  matchups: TournamentAnalysisMatchup[];
+  longshots: TournamentAnalysisLongshot[];
+  provenance: {
+    sources: string[];
+    capturedAt: string;
+    notes: string;
+  };
+  generatedAt: string;
+};
+
+export type TournamentAnalysisRecord = {
+  id: string;
+  tournament_id: string;
+  league: string;
+  tournament_name: string;
+  analysis: TournamentAnalysisData;
+  created_at: string;
+  updated_at: string;
+};
+
 export type SystemHealthCheck = {
   name: string;
   ok: boolean;

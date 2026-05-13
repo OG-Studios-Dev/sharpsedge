@@ -1,6 +1,7 @@
 import Link from "next/link";
 import GolfMarketEdgesSection from "@/components/GolfMarketEdgesSection";
 import GolfTopFinishOddsRail from "@/components/GolfTopFinishOddsRail";
+import GolfTournamentAnalysis from "@/components/GolfTournamentAnalysis";
 import GolfTournamentTabs from "@/components/GolfTournamentTabs";
 import MastersAnalysisSection from "@/components/MastersAnalysisSection";
 import { getPGALeaderboard, getPGATournamentById, getPGATournamentLeaderboard, getLocalMastersOddsSnapshot } from "@/lib/golf-api";
@@ -95,6 +96,9 @@ export default async function GolfTournamentDetailPage({ params }: { params: { i
         {(isGolfMajor(tournament.name) || tournament.name.toLowerCase().includes("master") || tournament.course.toLowerCase().includes("augusta")) && mastersLocalOdds && Date.now() < new Date("2026-04-14T12:00:00Z").getTime() ? (
           <MastersAnalysisSection mastersLocalOdds={mastersLocalOdds} />
         ) : null}
+
+        {/* AI Analysis — expandable deep-dive for every tournament */}
+        <GolfTournamentAnalysis tournamentId={eventId} />
 
         <GolfMarketEdgesSection predictions={predictions} />
 
