@@ -403,6 +403,12 @@ export async function buildNBAStatsPropFeed(
   for (const task of playerTasks) {
     const logs = getPlayerStatsCached(task.name, task.team);
     if (logs.length < 3) { skippedLowLogs++; continue; }
+    // Injury/scratch filter: skip players whose most recent game is too stale (>10 days)
+    const lastNBAGameDate = logs[0]?.gameDate;
+    if (lastNBAGameDate) {
+      const daysSince = Math.floor((Date.now() - new Date(lastNBAGameDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSince > 10) { skippedLowLogs++; continue; }
+    }
     const color = NBA_TEAM_COLORS[task.team] ?? "#4a9eff";
     const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
     for (const propDef of NBA_PROP_DEFS) {

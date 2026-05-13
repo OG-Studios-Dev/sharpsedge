@@ -490,6 +490,12 @@ export async function buildMLBStatsPropFeed(
   for (const task of tasks) {
     const logs = logCache.get(buildPlayerLogCacheKey(task.playerId, task.role, season)) ?? [];
     if (logs.length < 5) continue;
+    // Injury/scratch filter: skip players whose most recent game is too stale (>10 days)
+    const lastMLBDate = logs[0]?.gameDate;
+    if (lastMLBDate) {
+      const daysSince = Math.floor((Date.now() - new Date(lastMLBDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSince > 10) continue;
+    }
 
     const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
     for (const propDef of MLB_PROP_DEFS.filter((def) => def.role === task.role)) {

@@ -214,6 +214,18 @@ function makeProps(
 ): PlayerProp[] {
   if (logs.length < 3) return [];
 
+  // Injury/scratch filter: skip players whose most recent game is too stale.
+  // During playoffs games are every 2-3 days; regular season every 2-3 days.
+  // If a player hasn't appeared in a game in >10 days, they're almost certainly
+  // injured or scratched and should not be picked.
+  const lastGameDate = logs[0]?.gameDate;
+  if (lastGameDate) {
+    const daysSinceLastGame = Math.floor(
+      (Date.now() - new Date(lastGameDate).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    if (daysSinceLastGame > 10) return [];
+  }
+
   const recentLogs = logs.slice(0, 10); // last 10 for hit rate
   const trendLogs = logs.slice(0, 20);
   const recent5 = logs.slice(0, 5);
