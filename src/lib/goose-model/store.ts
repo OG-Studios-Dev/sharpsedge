@@ -596,28 +596,80 @@ export async function fetchUngradedYesterdayPicks(): Promise<GooseModelPick[]> {
 
 // ── model score helper ────────────────────────────────────────
 
+/** Breakeven threshold — signals at or below this are coin-flip noise. */
+const SIGNAL_BREAKEVEN = 0.50;
+
+/**
+ * Minimum appearances before a signal's anti-edge is enforced.
+ * Positive signals still use 5 appearances, but we need more data
+ * to confidently penalise — avoids punishing on thin samples.
+ */
+const ANTI_SIGNAL_MIN_APPEARANCES = 15;
+
+/**
+ * If ANY single signal has >= this many appearances AND win_rate
+ * below this threshold, the pick is flagged as toxic — the generator
+ * can hard-reject it.
+ */
+export const TOXIC_SIGNAL_THRESHOLD = 0.42;
+export const TOXIC_SIGNAL_MIN_APPEARANCES = 20;
+
 /**
  * Given a set of signals present on a candidate pick,
  * compute a model score using learned signal weights.
- * Falls back to 0 if weights table isn't populated yet.
+ *
+ * Scoring is centred around 0.50 (breakeven):
+ *  - Signals above 50% contribute positive edge
+ *  - Signals below 50% contribute NEGATIVE edge (anti-signals)
+ *  - Final score = 0.50 + weighted_edge  (range 0–1, centre 0.50)
+ *
+ * Returns 0 when no trusted signals exist (fallback to hitRate).
+ *
+ * Also returns a `hasToxicSignal` flag when any individual signal
+ * has a reliably-losing track record (>= 20 appearances, < 42%).
  */
 export async function scorePickBySignals(
   signals: string[],
   sport: string,
-): Promise<number> {
-  if (!signals.length) return 0;
+): Promise<{ score: number; hasToxicSignal: boolean; toxicSignals: string[] }> {
+  if (!signals.length) return { score: 0, hasToxicSignal: false, toxicSignals: [] };
   const weights = await listSignalWeights(sport);
   const weightMap = new Map(weights.map((w) => [w.signal, w]));
 
-  let totalScore = 0;
+  let totalEdge = 0;
   let totalWeight = 0;
+  const toxicSignals: string[] = [];
 
   for (const sig of signals) {
     const w = weightMap.get(sig);
-    if (!w || w.appearances < 5) continue; // need at least 5 appearances to trust
-    totalScore += w.win_rate * w.appearances;
-    totalWeight += w.appearances;
+    if (!w) continue;
+
+    // Track toxic signals (reliably losing, enough data to be confident)
+    if (
+      w.appearances >= TOXIC_SIGNAL_MIN_APPEARANCES &&
+      w.win_rate < TOXIC_SIGNAL_THRESHOLD
+    ) {
+      toxicSignals.push(sig);
+    }
+
+    // Positive edge: trust at 5+ appearances
+    if (w.win_rate >= SIGNAL_BREAKEVEN && w.appearances >= 5) {
+      totalEdge += (w.win_rate - SIGNAL_BREAKEVEN) * w.appearances;
+      totalWeight += w.appearances;
+      continue;
+    }
+
+    // Negative edge (anti-signal): only penalise with enough data
+    if (w.win_rate < SIGNAL_BREAKEVEN && w.appearances >= ANTI_SIGNAL_MIN_APPEARANCES) {
+      totalEdge += (w.win_rate - SIGNAL_BREAKEVEN) * w.appearances;
+      totalWeight += w.appearances;
+    }
   }
 
-  return totalWeight > 0 ? totalScore / totalWeight : 0;
+  const score = totalWeight > 0 ? SIGNAL_BREAKEVEN + totalEdge / totalWeight : 0;
+  return {
+    score,
+    hasToxicSignal: toxicSignals.length > 0,
+    toxicSignals,
+  };
 }

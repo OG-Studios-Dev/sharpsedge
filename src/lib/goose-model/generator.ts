@@ -479,12 +479,26 @@ export async function scoreGooseCandidates(
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
-    const modelScore = await scorePickBySignals(signals, candidate.sport);
+    const { score: modelScore, hasToxicSignal, toxicSignals } =
+      await scorePickBySignals(signals, candidate.sport);
+
+    // ── Hard gate: reject picks carrying toxic signals ────────
+    // A toxic signal has 20+ appearances and < 42% win rate — the model
+    // has learned with confidence that this signal predicts losses.
+    // No amount of hit-rate blending should rescue these picks.
+    if (hasToxicSignal) {
+      console.log(
+        `[goose] REJECTED ${candidate.pick_label} (${candidate.sport}) — toxic signals: [${toxicSignals.join(", ")}]`,
+      );
+      continue;
+    }
 
     // Blend model score with hit rate as a fallback when weights are sparse
     const hitRateScore =
       typeof candidate.hit_rate_at_time === "number" ? candidate.hit_rate_at_time / 100 : 0;
 
+    // modelScore is 0 when no trusted signals exist → pure hitRate fallback.
+    // Otherwise it's centred at 0.50 (breakeven): above 0.50 = bullish, below = bearish.
     let blendedScore =
       modelScore > 0 ? modelScore * 0.7 + hitRateScore * 0.3 : hitRateScore;
 
