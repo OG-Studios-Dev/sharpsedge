@@ -6,7 +6,7 @@
 
 import type { AIPick } from "@/lib/types";
 import { tagSignals } from "./signal-tagger";
-import { scorePickBySignals, listSignalWeights } from "./store";
+import { scorePickBySignals, listSignalWeights, fetchOpeningOdds } from "./store";
 import {
   scoreNBAFeaturesWithSnapshot,
   buildNBAWeightMap,
@@ -476,6 +476,13 @@ export async function scoreGooseCandidates(
     });
   }
 
+  // ── Pre-fetch opening odds for line movement detection ───────
+  // Batch-query opening moneyline prices for all game_ids in the candidate
+  // set. Non-fatal — if snapshots don't exist yet, no movement signals fire.
+  const dateKey = new Date().toISOString().slice(0, 10);
+  const uniqueGameIds = Array.from(new Set(candidates.map((c) => c.game_id).filter(Boolean) as string[]));
+  const openingOddsMap = await fetchOpeningOdds(uniqueGameIds, dateKey);
+
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
     const signals = tagSignals(candidate.reasoning, candidate.pick_label);
@@ -508,7 +515,7 @@ export async function scoreGooseCandidates(
     // Weight: 20% NBA prior, 80% existing blend — additive and conservative.
     // Context hints are pre-fetched above and keyed by candidate index.
     let nbaFeatureSnapshot = null;
-    if (candidate.sport === "NBA" && signals.length > 0) {
+    if (candidate.sport === "NBA") {
       const contextHints = nbaContextMap.get(i) ?? null;
       const { score: nbaFeatureScore, snapshot } = scoreNBAFeaturesWithSnapshot(
         signals,
@@ -528,7 +535,7 @@ export async function scoreGooseCandidates(
     // with reasoning-tagged signals, then score with NHL-specific priors.
     // Weight: 20% NHL prior, 80% existing blend — same conservative blend as NBA.
     let nhlFeatureSnapshot = null;
-    if (candidate.sport === "NHL" && signals.length > 0) {
+    if (candidate.sport === "NHL") {
       const contextHints = nhlContextMap.get(i) ?? null;
       const { score: nhlFeatureScore, snapshot } = scoreNHLFeaturesWithSnapshot(
         signals,
@@ -546,7 +553,7 @@ export async function scoreGooseCandidates(
     // probable pitchers) with reasoning-tagged signals, then score with MLB priors.
     // Weight: 20% MLB prior, 80% existing blend — same conservative blend as NBA/NHL.
     let mlbFeatureSnapshot = null;
-    if (candidate.sport === "MLB" && signals.length > 0) {
+    if (candidate.sport === "MLB") {
       const contextHints = mlbContextMap.get(i) ?? null;
       const { score: mlbFeatureScore, snapshot } = scoreMLBFeaturesWithSnapshot(
         signals,
@@ -594,6 +601,36 @@ export async function scoreGooseCandidates(
       ...(mlbFeatureSnapshot?.context_auto_signals ?? []),
       ...(pgaFeatureSnapshot?.context_auto_signals ?? []),
     ];
+
+    // ── Edge-based auto-signal ──────────────────────────────
+    // Tag picks with strong quantified edge so the model learns
+    // whether high-edge picks actually convert at a higher rate.
+    if (typeof candidate.edge === "number" && candidate.edge >= 10) {
+      autoSignals.push("high_edge_pick");
+    }
+
+    // ── Line movement auto-signal ────────────────────────────
+    // Compare candidate's current odds to opening odds from market snapshots.
+    // Significant movement suggests sharp action or new information.
+    if (candidate.game_id && typeof candidate.odds === "number") {
+      const team = candidate.team ?? candidate.pick_label;
+      const openingKey = `${candidate.game_id}:${team}`;
+      const openingOdds = openingOddsMap.get(openingKey);
+      if (typeof openingOdds === "number") {
+        // Detect sharp movement: odds shortened by 15+ points (e.g., +130 → +115)
+        // This means money came in on this side — potentially sharp action.
+        const delta = candidate.odds - openingOdds;
+        if (delta <= -15) {
+          autoSignals.push("sharp_line_movement");
+        }
+        // Detect reverse movement: odds drifted OUT by 15+ points (e.g., -110 → +105)
+        // Market is fading this side — potentially a contrarian spot if other signals agree.
+        if (delta >= 15) {
+          autoSignals.push("reverse_line_movement");
+        }
+      }
+    }
+
     const mergedSignals = autoSignals.length > 0
       ? Array.from(new Set([...signals, ...autoSignals]))
       : signals;

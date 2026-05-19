@@ -44,7 +44,7 @@
     },
     {
       "path": "/api/admin/goose-model/generate-daily",
-      "schedule": "0 15 * * *"
+      "schedule": "30 17 * * *"
     },
     {
       "path": "/api/admin/goose-model/auto-grade",

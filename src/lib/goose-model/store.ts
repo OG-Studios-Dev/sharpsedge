@@ -673,3 +673,46 @@ export async function scorePickBySignals(
     toxicSignals,
   };
 }
+
+// ── odds movement helper ──────────────────────────────────────
+
+/**
+ * Fetch opening odds for a batch of game_ids from market_snapshot_prices.
+ * Returns a map: `gameId:outcome` → opening odds (earliest captured price).
+ * Used by the generator to detect line movement (opening vs current).
+ */
+export async function fetchOpeningOdds(
+  gameIds: string[],
+  dateKey: string,
+): Promise<Map<string, number>> {
+  if (!gameIds.length) return new Map();
+
+  try {
+    // Get earliest snapshot for this date
+    const snapshots = await postgrest<{ id: string; captured_at: string }[]>(
+      `/rest/v1/market_snapshots?date_key=eq.${eq(dateKey)}&select=id,captured_at&order=captured_at.asc&limit=1`,
+    );
+    if (!snapshots.length) return new Map();
+
+    const openingSnapshotId = snapshots[0].id;
+
+    // Fetch moneyline prices from the opening snapshot for all game_ids
+    const gameIdFilter = gameIds.map((id) => `"${id}"`).join(",");
+    const prices = await postgrest<{ game_id: string; outcome: string; odds: number }[]>(
+      `/rest/v1/market_snapshot_prices?snapshot_id=eq.${eq(openingSnapshotId)}&game_id=in.(${gameIdFilter})&market_type=eq.moneyline&select=game_id,outcome,odds`,
+    );
+
+    const map = new Map<string, number>();
+    for (const p of prices) {
+      // Use first price per game_id:outcome (opening)
+      const key = `${p.game_id}:${p.outcome}`;
+      if (!map.has(key)) {
+        map.set(key, p.odds);
+      }
+    }
+    return map;
+  } catch (err) {
+    console.warn("[goose] Opening odds fetch failed (non-fatal):", err instanceof Error ? err.message : err);
+    return new Map();
+  }
+}

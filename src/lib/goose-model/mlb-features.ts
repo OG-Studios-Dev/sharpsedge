@@ -783,15 +783,43 @@ export async function fetchMLBContextHints(
     if (park_environment === "hitter") {
       auto_signals.push("park_factor");
     }
+    // Pitcher's park → pitchers_park signal (UNDER / pitcher ML edge)
+    if (park_environment === "pitcher") {
+      auto_signals.push("pitchers_park");
+    }
 
-    // Weather wind: outdoor + blowing out + 8+ mph → weather_wind signal
+    // Weather: outdoor venue signals based on live forecast data
     if (weather_eligible && wind_blowing_out) {
       auto_signals.push("weather_wind");
+    }
+    // Wind blowing IN → suppresses offense (UNDER edge)
+    if (weather_eligible && !wind_blowing_out && wind_speed_mph !== null && wind_speed_mph >= 10 && wind_dir !== null) {
+      auto_signals.push("weather_wind_in");
+    }
+    // Extreme heat → increases ball carry (OVER / HR edge)
+    if (weather_eligible && temperature_f !== null && temperature_f >= 95) {
+      auto_signals.push("weather_hot");
+    }
+    // Cold weather → suppresses offense
+    if (weather_eligible && temperature_f !== null && temperature_f <= 50) {
+      auto_signals.push("weather_cold");
+    }
+    // Rain risk → game delays, grip issues (UNDER edge)
+    if (weather_eligible && precip_probability !== null && precip_probability >= 50) {
+      auto_signals.push("weather_rain_risk");
+    }
+    // Dome game → controlled environment, no weather variance
+    if (!weather_eligible) {
+      auto_signals.push("dome_game");
     }
 
     // Opponent bullpen fatigue: "high" level → bullpen_fatigue signal
     if (opponent_bullpen_level === "high") {
       auto_signals.push("bullpen_fatigue");
+    }
+    // Team's own bullpen fatigued → negative for the team (UNDER risk)
+    if (team_bullpen_level === "high") {
+      auto_signals.push("team_bullpen_fatigued");
     }
 
     // Weak opponent starter: quality score ≤ 45 (ERA ≥ 5.0) → probable_pitcher_weak
@@ -808,10 +836,24 @@ export async function fetchMLBContextHints(
     if (team_starter_command) {
       auto_signals.push("pitcher_command");
     }
+    // Opponent weak command: K/BB < 2.0 → walks batters, team ML / OVER edge
+    if (opponent_starter_weak_command) {
+      auto_signals.push("opponent_weak_command");
+    }
+
+    // Home field advantage: generic MLB home edge (~54%)
+    if (is_home) {
+      auto_signals.push("home_field");
+    }
 
     // Home/away edge: strong home team or weak road opponent → home_away_edge signal
     if (home_away_edge_label === "strong_home_edge" || home_away_edge_label === "weak_road_opponent" || home_away_edge_label === "both") {
       auto_signals.push("home_away_edge");
+    }
+
+    // Lineup confirmed: official lineup locked in → BvP data is reliable
+    if (team_lineup_status === "official") {
+      auto_signals.push("lineup_confirmed");
     }
 
     // FIP luck signals:
