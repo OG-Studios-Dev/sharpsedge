@@ -737,6 +737,25 @@ export async function fetchNHLContextHints(
       auto_signals.push("player_shot_quality_edge");
     }
 
+    // Corsi advantage: team CF% >= 53% (puck possession dominance).
+    // CF% measures total shot attempt share — a team above 53% is sustainably
+    // generating more offence and suppressing opponent chances.
+    const teamCfPct = teamShotProfile?.cfPct ?? null;
+    const oppCfPct = oppShotProfile?.cfPct ?? null;
+    if (teamCfPct !== null && teamCfPct >= 53.0) {
+      auto_signals.push("corsi_advantage");
+    }
+    // Corsi disadvantage: team CF% <= 47% (being outpossessed).
+    if (teamCfPct !== null && teamCfPct <= 47.0) {
+      auto_signals.push("corsi_disadvantage");
+    }
+
+    // xG dominance: team xGF% >= 55% (expected goals superiority).
+    // More granular than Corsi because it weights shot quality, not just volume.
+    if (teamXgfPct !== null && teamXgfPct >= 55.0) {
+      auto_signals.push("xg_dominance");
+    }
+
     const xDiff =
       typeof teamXGoalsPct === "number" && typeof oppXGoalsPct === "number"
         ? teamXGoalsPct - oppXGoalsPct

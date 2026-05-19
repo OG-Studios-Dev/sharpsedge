@@ -6,7 +6,8 @@
 
 import type { AIPick } from "@/lib/types";
 import { tagSignals } from "./signal-tagger";
-import { scorePickBySignals, listSignalWeights, fetchOpeningOdds } from "./store";
+import { scorePickBySignals, listSignalWeights, fetchOpeningOdds, fetchPublicBettingSplits, fetchRecentModelTrend } from "./store";
+import type { ModelTrend } from "./store";
 import {
   scoreNBAFeaturesWithSnapshot,
   buildNBAWeightMap,
@@ -481,7 +482,34 @@ export async function scoreGooseCandidates(
   // set. Non-fatal — if snapshots don't exist yet, no movement signals fire.
   const dateKey = new Date().toISOString().slice(0, 10);
   const uniqueGameIds = Array.from(new Set(candidates.map((c) => c.game_id).filter(Boolean) as string[]));
-  const openingOddsMap = await fetchOpeningOdds(uniqueGameIds, dateKey);
+  const uniqueSports = Array.from(new Set(candidates.map((c) => c.sport)));
+
+  // Fetch opening odds + public betting splits + model trends in parallel (all non-fatal)
+  const [openingOddsMap, ...publicSplitsAndTrends] = await Promise.all([
+    fetchOpeningOdds(uniqueGameIds, dateKey),
+    ...uniqueSports.map((sport) => fetchPublicBettingSplits(dateKey, sport)),
+    // L5 and L3 trends per sport for rolling direction signals
+    ...uniqueSports.map((sport) => fetchRecentModelTrend(sport, 5)),
+    ...uniqueSports.map((sport) => fetchRecentModelTrend(sport, 3)),
+  ]);
+  // Split publicSplitsAndTrends into the three groups:
+  // [0..nSports-1] = public splits maps, [nSports..2*nSports-1] = L5 trends, [2*nSports..] = L3 trends
+  const nSports = uniqueSports.length;
+  const publicSplitsMaps = publicSplitsAndTrends.slice(0, nSports) as Map<string, { side: string; bets_percent: number | null; handle_percent: number | null }>[];
+  const l5Trends = publicSplitsAndTrends.slice(nSports, nSports * 2) as ModelTrend[];
+  const l3Trends = publicSplitsAndTrends.slice(nSports * 2) as ModelTrend[];
+  // Build trend maps: sport → trend
+  const l5TrendMap = new Map<string, ModelTrend>();
+  const l3TrendMap = new Map<string, ModelTrend>();
+  uniqueSports.forEach((sport, idx) => {
+    l5TrendMap.set(sport, l5Trends[idx]);
+    l3TrendMap.set(sport, l3Trends[idx]);
+  });
+  // Merge all public splits maps into one
+  const publicSplitsMap = new Map<string, { side: string; bets_percent: number | null; handle_percent: number | null }>();
+  for (const m of publicSplitsMaps) {
+    m.forEach((v, k) => publicSplitsMap.set(k, v));
+  }
 
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
@@ -628,6 +656,65 @@ export async function scoreGooseCandidates(
         if (delta >= 15) {
           autoSignals.push("reverse_line_movement");
         }
+      }
+    }
+
+    // ── Public betting splits auto-signals ─────────────────
+    // Detect when the model is going against heavy public action (contrarian)
+    // or when handle % diverges from bet % (sharp money indicator).
+    if (candidate.team && candidate.opponent) {
+      const homeTeam = candidate.is_home ? candidate.team : candidate.opponent;
+      const awayTeam = candidate.is_home ? candidate.opponent : candidate.team;
+      const pickSide = candidate.is_home ? "home" : "away";
+      const oppSide = candidate.is_home ? "away" : "home";
+      const splitsKey = `${candidate.sport}:${homeTeam}:${awayTeam}:moneyline:${oppSide}`;
+      const oppPublic = publicSplitsMap.get(splitsKey);
+      // Fade public: other side has 70%+ of bets → model is contrarian
+      if (oppPublic?.bets_percent && oppPublic.bets_percent >= 70) {
+        autoSignals.push("fade_public");
+      }
+      // Sharp money divergence: handle % on our side is 10%+ above bets %
+      // (sharps are loading up on this side while public bets the other way)
+      const ourKey = `${candidate.sport}:${homeTeam}:${awayTeam}:moneyline:${pickSide}`;
+      const ourPublic = publicSplitsMap.get(ourKey);
+      if (
+        ourPublic?.bets_percent != null &&
+        ourPublic?.handle_percent != null &&
+        ourPublic.handle_percent - ourPublic.bets_percent >= 10
+      ) {
+        autoSignals.push("sharp_money_divergence");
+      }
+    }
+
+    // ── Rest vs fatigue compound signal ──────────────────────
+    // Fires when the model's team is rested AND the opponent is fatigued.
+    // Compound edge — research shows these stack multiplicatively.
+    const hasRest = autoSignals.includes("rest_days") || signals.includes("rest_days");
+    const oppFatigued = autoSignals.includes("back_to_back") || autoSignals.includes("three_in_four")
+      || autoSignals.includes("travel_fatigue") || signals.includes("back_to_back")
+      || signals.includes("travel_fatigue");
+    if (hasRest && oppFatigued) {
+      autoSignals.push("rest_vs_fatigue");
+    }
+
+    // ── L3/L5 rolling trend direction signals ─────────────────
+    // Track whether the model is on a hot or cold streak for this sport.
+    // Hot streak (L5 >= 80% with 5+ settled) = confidence booster.
+    // Cold streak (L5 <= 30% with 5+ settled) = caution flag.
+    const l5Trend = l5TrendMap.get(candidate.sport);
+    const l3Trend = l3TrendMap.get(candidate.sport);
+    if (l5Trend && l5Trend.settled >= 5) {
+      if (l5Trend.win_rate >= 0.80) {
+        autoSignals.push("model_hot_l5");
+      } else if (l5Trend.win_rate <= 0.30) {
+        autoSignals.push("model_cold_l5");
+      }
+    }
+    if (l3Trend && l3Trend.settled >= 3) {
+      if (l3Trend.win_rate >= 1.0) {
+        autoSignals.push("model_hot_l3");  // 3-0 streak
+      } else if (l3Trend.win_rate <= 0.0) {
+        autoSignals.push("model_cold_l3");  // 0-3 streak
       }
     }
 

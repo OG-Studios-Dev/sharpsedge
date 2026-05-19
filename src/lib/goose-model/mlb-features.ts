@@ -29,7 +29,7 @@
 // ============================================================
 
 import { getMLBEnrichmentBoard } from "@/lib/mlb-enrichment";
-import { getMLBTeamSplitRates } from "@/lib/mlb-api";
+import { getMLBTeamSplitRates, getMLBPlayerGameLog } from "@/lib/mlb-api";
 import { computeHandednessMatchup } from "@/lib/mlb-handedness";
 import type { HandednessAdvantage } from "@/lib/mlb-handedness";
 import type { LineupMatchupQuality } from "@/lib/mlb-bvp";
@@ -697,6 +697,36 @@ export async function fetchMLBContextHints(
     const team_era_is_unlucky =
       team_era_fip_divergence !== null && team_era_fip_divergence > 0.75;
 
+    // ── Pitcher recent form (last 3 starts) ──────────────────
+    // Compare recent ERA to season ERA to detect hot/cold pitchers.
+    // Uses existing getMLBPlayerGameLog (MLB Stats API game logs).
+    let team_pitcher_recent_era: number | null = null;
+    let opp_pitcher_recent_era: number | null = null;
+    try {
+      const season = new Date().getFullYear();
+      const [teamLogs, oppLogs] = await Promise.all([
+        teamPitcher?.id
+          ? getMLBPlayerGameLog(Number(teamPitcher.id), season, "pitching").catch(() => [])
+          : Promise.resolve([]),
+        oppPitcher?.id
+          ? getMLBPlayerGameLog(Number(oppPitcher.id), season, "pitching").catch(() => [])
+          : Promise.resolve([]),
+      ]);
+
+      // Filter to starts (IP >= 4) and take last 3
+      const recentERA = (logs: typeof teamLogs): number | null => {
+        const starts = logs.filter((g) => g.inningsPitched >= 4).slice(0, 3);
+        if (starts.length < 2) return null;
+        const totalER = starts.reduce((s, g) => s + g.earnedRuns, 0);
+        const totalIP = starts.reduce((s, g) => s + g.inningsPitched, 0);
+        return totalIP > 0 ? (totalER / totalIP) * 9 : null;
+      };
+      team_pitcher_recent_era = recentERA(teamLogs);
+      opp_pitcher_recent_era = recentERA(oppLogs);
+    } catch {
+      // Non-fatal — recent form degrades gracefully
+    }
+
     // ── Home/away split rates from standings ─────────────────
     const is_home = !isAway;
     const teamSplits = splitRates.get(tAbbrev) ?? splitRates.get(team.toUpperCase()) ?? null;
@@ -839,6 +869,23 @@ export async function fetchMLBContextHints(
     // Opponent weak command: K/BB < 2.0 → walks batters, team ML / OVER edge
     if (opponent_starter_weak_command) {
       auto_signals.push("opponent_weak_command");
+    }
+
+    // Pitcher recent form: team starter trending hot (recent ERA < season ERA by 1.0+)
+    if (
+      team_pitcher_recent_era !== null &&
+      team_starter_era !== null &&
+      team_starter_era - team_pitcher_recent_era >= 1.0
+    ) {
+      auto_signals.push("pitcher_hot_form");
+    }
+    // Opponent pitcher trending cold (recent ERA > season ERA by 1.0+)
+    if (
+      opp_pitcher_recent_era !== null &&
+      opponent_starter_era !== null &&
+      opp_pitcher_recent_era - opponent_starter_era >= 1.0
+    ) {
+      auto_signals.push("opponent_pitcher_cold_form");
     }
 
     // Home field advantage: generic MLB home edge (~54%)

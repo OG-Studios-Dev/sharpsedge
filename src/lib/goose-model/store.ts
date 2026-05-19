@@ -716,3 +716,191 @@ export async function fetchOpeningOdds(
     return new Map();
   }
 }
+
+// ── closing odds helper (CLV tracking) ───────────────────────
+
+/**
+ * Fetch closing odds for a batch of game_ids from market_snapshot_prices.
+ * Returns a map: `gameId:outcome` → closing odds (latest captured price
+ * with capture_window_phase = 'close', or last snapshot price if no
+ * close-phase data is available).
+ *
+ * Used by the auto-grading cron to compute CLV (Closing Line Value)
+ * for each settled pick: CLV = capturedOdds - closingOdds.
+ */
+export async function fetchClosingOdds(
+  gameIds: string[],
+  dateKey: string,
+): Promise<Map<string, number>> {
+  if (!gameIds.length) return new Map();
+
+  try {
+    // Strategy 1: Try closing-phase prices (< 30 min before game)
+    const gameIdFilter = gameIds.map((id) => `"${id}"`).join(",");
+    const closingPrices = await postgrest<{ game_id: string; outcome: string; odds: number; captured_at: string }[]>(
+      `/rest/v1/market_snapshot_prices?game_id=in.(${gameIdFilter})&market_type=eq.moneyline&is_closing_candidate=eq.true&select=game_id,outcome,odds,captured_at&order=captured_at.desc`,
+    );
+
+    const map = new Map<string, number>();
+
+    if (closingPrices.length > 0) {
+      for (const p of closingPrices) {
+        const key = `${p.game_id}:${p.outcome}`;
+        if (!map.has(key)) {
+          map.set(key, p.odds);
+        }
+      }
+      return map;
+    }
+
+    // Strategy 2: Fallback to last snapshot for the date
+    const snapshots = await postgrest<{ id: string; captured_at: string }[]>(
+      `/rest/v1/market_snapshots?date_key=eq.${eq(dateKey)}&select=id,captured_at&order=captured_at.desc&limit=1`,
+    );
+    if (!snapshots.length) return map;
+
+    const closingSnapshotId = snapshots[0].id;
+    const prices = await postgrest<{ game_id: string; outcome: string; odds: number }[]>(
+      `/rest/v1/market_snapshot_prices?snapshot_id=eq.${eq(closingSnapshotId)}&game_id=in.(${gameIdFilter})&market_type=eq.moneyline&select=game_id,outcome,odds`,
+    );
+
+    for (const p of prices) {
+      const key = `${p.game_id}:${p.outcome}`;
+      if (!map.has(key)) {
+        map.set(key, p.odds);
+      }
+    }
+    return map;
+  } catch (err) {
+    console.warn("[goose] Closing odds fetch failed (non-fatal):", err instanceof Error ? err.message : err);
+    return new Map();
+  }
+}
+
+// ── recent model trend helper (L3/L5 rolling) ────────────────
+
+export interface ModelTrend {
+  /** Last N settled picks win rate (0-1) */
+  win_rate: number;
+  /** Total settled picks counted */
+  settled: number;
+  /** Wins in the window */
+  wins: number;
+  /** Losses in the window */
+  losses: number;
+}
+
+/**
+ * Fetch the last N settled goose model picks for a sport and compute
+ * rolling win rate. Used for L3/L5 trend direction signals.
+ *
+ * @param sport  Sport filter (e.g. "MLB", "NHL")
+ * @param n      Number of recent settled picks to consider
+ * @returns      ModelTrend with win rate and breakdown
+ */
+export async function fetchRecentModelTrend(
+  sport: string,
+  n: number,
+): Promise<ModelTrend> {
+  try {
+    const rows = await postgrest<{ result: string }[]>(
+      `/rest/v1/goose_model_picks?sport=eq.${eq(sport)}&result=neq.pending&select=result&order=updated_at.desc&limit=${n}`,
+    );
+
+    const settled = (rows ?? []).filter((r) => r.result === "win" || r.result === "loss");
+    const wins = settled.filter((r) => r.result === "win").length;
+    const losses = settled.filter((r) => r.result === "loss").length;
+    const total = wins + losses;
+
+    return {
+      win_rate: total > 0 ? wins / total : 0,
+      settled: total,
+      wins,
+      losses,
+    };
+  } catch (err) {
+    console.warn(`[goose] Model trend fetch failed for ${sport} (non-fatal):`, err instanceof Error ? err.message : err);
+    return { win_rate: 0, settled: 0, wins: 0, losses: 0 };
+  }
+}
+
+/**
+ * Enrich a graded pick with CLV (Closing Line Value) data.
+ * Patches pick_snapshot.clv with captured vs closing odds comparison.
+ * Non-fatal — silently degrades if closing odds unavailable.
+ */
+export async function enrichPickWithCLV(
+  pickId: string,
+  capturedOdds: number,
+  closingOdds: number,
+  existingSnapshot: Record<string, unknown> | null,
+): Promise<void> {
+  const clv = capturedOdds - closingOdds;
+  const enrichedSnapshot = {
+    ...(existingSnapshot ?? {}),
+    clv: {
+      captured_odds: capturedOdds,
+      closing_odds: closingOdds,
+      clv_value: clv,
+      clv_positive: clv > 0,
+      computed_at: new Date().toISOString(),
+    },
+  };
+
+  try {
+    await postgrest(`/rest/v1/goose_model_picks?id=eq.${eq(pickId)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        pick_snapshot: enrichedSnapshot,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+  } catch (err) {
+    console.warn("[goose] CLV enrichment patch failed (non-fatal):", err instanceof Error ? err.message : err);
+  }
+}
+
+// ── public betting splits helper ──────────────────────────────
+
+export type PublicSplit = {
+  side: string;
+  bets_percent: number | null;
+  handle_percent: number | null;
+};
+
+/**
+ * Fetch public betting splits for a game date + team abbreviations.
+ * Returns a map: `sport:homeAbbrev:awayAbbrev:marketType:side` → { bets%, handle% }.
+ * Queries public_betting_splits_v1 Supabase table.
+ */
+export async function fetchPublicBettingSplits(
+  dateKey: string,
+  sport: string,
+): Promise<Map<string, PublicSplit>> {
+  const map = new Map<string, PublicSplit>();
+  try {
+    const rows = await postgrest<{
+      home_team_abbrev: string;
+      away_team_abbrev: string;
+      market_type: string;
+      side: string;
+      bets_percent: number | null;
+      handle_percent: number | null;
+    }[]>(
+      `/rest/v1/public_betting_splits_v1?league=eq.${eq(sport)}&game_date=eq.${eq(dateKey)}&select=home_team_abbrev,away_team_abbrev,market_type,side,bets_percent,handle_percent&order=snapshot_at.desc`,
+    );
+
+    for (const r of rows) {
+      if (!r.home_team_abbrev || !r.away_team_abbrev) continue;
+      const key = `${sport}:${r.home_team_abbrev}:${r.away_team_abbrev}:${r.market_type}:${r.side}`;
+      if (!map.has(key)) {
+        map.set(key, { side: r.side, bets_percent: r.bets_percent, handle_percent: r.handle_percent });
+      }
+    }
+    return map;
+  } catch (err) {
+    console.warn("[goose] Public splits fetch failed (non-fatal):", err instanceof Error ? err.message : err);
+    return map;
+  }
+}

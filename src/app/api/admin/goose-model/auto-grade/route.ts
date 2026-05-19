@@ -23,6 +23,8 @@ import {
   gradeGoosePick,
   setGoosePickIntegrity,
   updateSignalWeightsForPick,
+  fetchClosingOdds,
+  enrichPickWithCLV,
 } from "@/lib/goose-model/store";
 import {
   resolvePick,
@@ -274,6 +276,38 @@ async function runAutoGrade(targetDate?: string): Promise<{
       if (pick.signals_present.length > 0) {
         signalTracker.record(pick.signals_present, result);
       }
+    }
+  }
+
+  // ── CLV enrichment: compute closing line value for graded picks ──
+  // CLV = captured odds - closing odds. Positive = we got better odds than close.
+  // This is the #1 predictor of long-term profitability in sports betting.
+  // Stored in pick_snapshot.clv for analysis and future signal use.
+  const gradedPicks = picks.filter((_, i) => details[i]?.status === "graded");
+  if (gradedPicks.length > 0) {
+    try {
+      const gameIds = Array.from(new Set(
+        gradedPicks.map((p) => p.game_id).filter(Boolean) as string[],
+      ));
+      const closingOddsMap = await fetchClosingOdds(gameIds, date);
+
+      for (const pick of gradedPicks) {
+        if (!pick.game_id || typeof pick.odds !== "number") continue;
+
+        const team = pick.team ?? pick.pick_label;
+        const closingKey = `${pick.game_id}:${team}`;
+        const closingOdds = closingOddsMap.get(closingKey);
+        if (typeof closingOdds !== "number") continue;
+
+        await enrichPickWithCLV(
+          pick.id,
+          pick.odds,
+          closingOdds,
+          pick.pick_snapshot,
+        );
+      }
+    } catch (err) {
+      console.warn("[goose-model/auto-grade] CLV enrichment failed (non-fatal):", err instanceof Error ? err.message : err);
     }
   }
 
