@@ -461,6 +461,37 @@ export const MLB_SIGNAL_PRIORS: Record<string, number> = {
    * Prior: 0.61 — reflects individual matchup specificity over team-level baseline.
    */
   lineup_bvp_edge: 0.61,
+  /** Full-strength lineup: official lineup with 5+ batters having BvP history.
+   *  Reliable data context → higher-confidence pick grading. */
+  full_strength_lineup: 0.59,
+  /** Pitcher mismatch: team ace (quality ≥ 65) vs opponent weak starter (quality ≤ 45).
+   *  Compound signal — the biggest pitching differential possible in a game. */
+  pitcher_mismatch: 0.66,
+  /** Perfect hitting weather: outdoor park, 70-85°F, low wind, no rain.
+   *  Ball carries well, no weather suppression → good for OVER / hitting props. */
+  weather_perfect: 0.58,
+  /** Team bullpen fatigued — negative signal for team ML and UNDER picks. */
+  team_bullpen_fatigued: 0.43,
+  /** Opponent has weak command (K/BB < 2.0) → walks batters, run-scoring edge. */
+  opponent_weak_command: 0.60,
+  /** Pitcher in hot form — recent ERA significantly better than season ERA. */
+  pitcher_hot_form: 0.60,
+  /** Opponent pitcher trending cold — recent ERA significantly worse than season ERA. */
+  opponent_pitcher_cold_form: 0.61,
+  /** Pitcher's park: runs index ≤ 95 → suppresses offense (UNDER edge). */
+  pitchers_park: 0.58,
+  /** Wind blowing in at outdoor park → suppresses fly balls (UNDER edge). */
+  weather_wind_in: 0.57,
+  /** Extreme heat (95°F+) → ball carries, increased offense. */
+  weather_hot: 0.58,
+  /** Cold weather (≤50°F) → suppresses offense. */
+  weather_cold: 0.56,
+  /** Rain risk (50%+ precip) → game delays, grip issues (UNDER edge). */
+  weather_rain_risk: 0.55,
+  /** Dome game → controlled environment, no weather variance. */
+  dome_game: 0.52,
+  /** Lineup confirmed — official card is out, data is reliable. */
+  lineup_confirmed: 0.55,
 };
 
 /**
@@ -929,6 +960,35 @@ export async function fetchMLBContextHints(
     // BvP lineup matchup edge: official lineup, >= 3 batters with career history, avg OPS >= .750
     if (lineup_bvp_edge_fires) {
       auto_signals.push("lineup_bvp_edge");
+    }
+
+    // Full-strength lineup: official lineup with deep BvP data available.
+    // When 5+ of 9 batters have career history vs this pitcher, the lineup
+    // context is reliable and the team is likely running their regular starters.
+    if (team_lineup_status === "official" && lineup_batters_with_history >= 5) {
+      auto_signals.push("full_strength_lineup");
+    }
+
+    // Pitcher mismatch: team has an ace AND opponent has a weak starter.
+    // This compound signal captures the strongest possible pitching differential.
+    // Both individual pitcher signals also fire, so this stacks on top.
+    if (
+      typeof team_starter_quality === "number" && team_starter_quality >= 65 &&
+      typeof opponent_starter_quality === "number" && opponent_starter_quality <= 45
+    ) {
+      auto_signals.push("pitcher_mismatch");
+    }
+
+    // Weather perfect: ideal hitting conditions at outdoor park.
+    // Temp 70-85°F, wind < 8 mph, no rain risk → ball carries well, no weather suppression.
+    // Positive signal for OVER / hitting props.
+    if (
+      weather_eligible &&
+      temperature_f !== null && temperature_f >= 70 && temperature_f <= 85 &&
+      (wind_speed_mph === null || wind_speed_mph < 8) &&
+      (precip_probability === null || precip_probability < 20)
+    ) {
+      auto_signals.push("weather_perfect");
     }
 
     return {

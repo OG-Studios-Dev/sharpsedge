@@ -469,6 +469,13 @@ export const NHL_SIGNAL_PRIORS: Record<string, number> = {
    *   opponent weak/backup goalie, PP efficiency edge, shot danger edge, home ice.
    */
   situational_stack: 0.58,
+  /** Goalie starter status is uncertain (unconfirmed/unavailable + DTD players).
+   *  Not as strong as a confirmed backup, but creates lineup uncertainty. */
+  starter_uncertainty: 0.55,
+  /** 3+ days rest vs opponent with ≤1 day — stronger than basic rest_days. */
+  heavy_rest_advantage: 0.63,
+  /** Team faceoff win% ≥ 52% — controls play initiation / possession starts. */
+  faceoff_advantage: 0.56,
 };
 
 /**
@@ -735,6 +742,28 @@ export async function fetchNHLContextHints(
     // Source: nhl-pbp-aggregate per-player xG attribution.
     if (playerXgEdge !== null && playerXgEdge >= 0.025) {
       auto_signals.push("player_shot_quality_edge");
+    }
+
+    // Starter uncertainty: team's #1 goalie is day-to-day (game-time decision).
+    // This doesn't mean they won't play, but creates lineup uncertainty.
+    if (teamEntry.sourced.injuries?.dayToDayCount > 0) {
+      // Check if any DTD player is a goalie (heuristic: check if goalie is unconfirmed)
+      if (goalie.starterStatus === "unavailable" || goalie.starterStatus === "unconfirmed") {
+        auto_signals.push("starter_uncertainty");
+      }
+    }
+
+    // Heavy rest advantage: team has 3+ days off vs opponent with 1 or fewer.
+    // Stronger than the basic rest_days signal.
+    if (typeof teamRestDays === "number" && teamRestDays >= 3 && oppRestLt2) {
+      auto_signals.push("heavy_rest_advantage");
+    }
+
+    // Faceoff advantage: team FO% >= 52% (controls play initiation).
+    // Source: NHL stats REST API team faceoff percentage (already in context board).
+    const teamFoPct = (teamEntry.sourced as unknown as { faceoffPct?: number | null }).faceoffPct ?? null;
+    if (typeof teamFoPct === "number" && teamFoPct >= 52.0) {
+      auto_signals.push("faceoff_advantage");
     }
 
     // Corsi advantage: team CF% >= 53% (puck possession dominance).

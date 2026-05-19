@@ -124,6 +124,12 @@ export const NBA_SIGNAL_PRIORS: Record<string, number> = {
   home_away_split: 0.60,
   /** Favorable matchup context — confirmed market edge. */
   matchup_edge: 0.65,
+  /** Second night of a back-to-back — confirmed fatigue, stronger penalty than generic B2B. */
+  second_night_b2b: 0.38,
+  /** Heavy underdog (spread > +8) — negative game script hurts prop volume + starters pulled early. */
+  negative_game_script: 0.42,
+  /** Primary PG/playmaker is out — guard props become risky, team offense less efficient. */
+  backup_creator_downgrade: 0.40,
 };
 
 /**
@@ -173,9 +179,12 @@ export const NBA_MARKET_PRIORS: Partial<Record<NBAMarketType, Record<string, num
   team_ml: {
     home_court_edge: 0.63,   // more meaningful for team outcomes
     back_to_back: 0.40,      // even more penalizing for team MLs
+    second_night_b2b: 0.35,  // confirmed second-night fatigue destroys team ML edges
     rest_days: 0.64,
     dvp_advantage: 0.58,     // less direct signal for team ML
     usage_surge: 0.55,       // individual usage surge less relevant for team ML
+    negative_game_script: 0.40, // heavy underdog = expected to lose
+    backup_creator_downgrade: 0.38, // losing primary PG hurts team offense
   },
   team_spread: {
     home_court_edge: 0.62,
@@ -213,6 +222,10 @@ export interface NBAFeatureSnapshot {
   dvp_advantage_present: boolean;
   /** Whether recent trend (over or under) was present */
   recent_trend_active: boolean;
+  /** Whether second-night B2B penalty is active */
+  second_night_b2b_active: boolean;
+  /** Whether negative game script is active */
+  negative_game_script_active: boolean;
 
   // ── Live context enrichment (populated when context fetch is run) ──────────
   /** Whether the target player was confirmed active per ESPN roster */
@@ -473,6 +486,8 @@ export function scoreNBAFeaturesWithSnapshot(
     dvp_advantage_present: allSignals.includes("dvp_advantage"),
     recent_trend_active:
       allSignals.includes("recent_trend_over") || allSignals.includes("recent_trend_under"),
+    second_night_b2b_active: allSignals.includes("second_night_b2b"),
+    negative_game_script_active: allSignals.includes("negative_game_script"),
     // Live context fields
     player_confirmed_active: contextHints?.player_confirmed_active ?? null,
     key_teammate_out: contextHints?.key_teammate_out ?? false,

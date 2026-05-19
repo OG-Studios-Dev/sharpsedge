@@ -560,6 +560,80 @@ export async function fetchNBAContextHints(
     autoSignals.push("pace_matchup");
   }
 
+  // 8. second_night_b2b: team played yesterday — second night of back-to-back
+  //    Stronger negative signal than generic back_to_back because we know it's
+  //    the second game specifically (fatigue is confirmed, not speculative).
+  //    Uses the same recentGames data we already fetch for player stats.
+  if (teamAbbrevNorm) {
+    try {
+      const scheduleLook = await getRecentNBAGames(5);
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const playedYesterday = scheduleLook.some(
+        (g: NBAGame) =>
+          g.date === yesterday &&
+          g.status === "Final" &&
+          (g.homeTeam.abbreviation === teamAbbrevNorm || g.awayTeam.abbreviation === teamAbbrevNorm),
+      );
+      const playingToday = scheduleLook.some(
+        (g: NBAGame) =>
+          g.date === today &&
+          (g.homeTeam.abbreviation === teamAbbrevNorm || g.awayTeam.abbreviation === teamAbbrevNorm),
+      );
+      if (playedYesterday && playingToday) {
+        autoSignals.push("second_night_b2b");
+        autoSignals.push("back_to_back"); // also fire the general B2B signal
+      }
+    } catch {
+      warnings.push("B2B schedule check failed (non-fatal)");
+    }
+  }
+
+  // 9. negative_game_script: team is heavy underdog (spread > +8)
+  //    Hurts player prop volume — team likely playing from behind all game,
+  //    starters may get pulled early in blowouts, garbage-time stats inflate bench.
+  if (teamAbbrevNorm) {
+    try {
+      const todayGames = await getRecentNBAGames(5);
+      const today = new Date().toISOString().slice(0, 10);
+      const todayGame = todayGames.find(
+        (g: NBAGame) =>
+          g.date === today &&
+          (g.homeTeam.abbreviation === teamAbbrevNorm || g.awayTeam.abbreviation === teamAbbrevNorm),
+      );
+      if (todayGame?.spread) {
+        // Parse spread: "CLE -8.5" → favorite="CLE", spreadVal=8.5
+        const spreadMatch = todayGame.spread.match(/^([A-Z]+)\s*([+-]?\d+(?:\.\d+)?)$/);
+        if (spreadMatch) {
+          const favTeam = spreadMatch[1];
+          const spreadVal = parseFloat(spreadMatch[2]);
+          // If our team is NOT the favorite and the spread magnitude is >= 8
+          const isHeavyUnderdog = favTeam !== teamAbbrevNorm && Math.abs(spreadVal) >= 8;
+          if (isHeavyUnderdog) {
+            autoSignals.push("negative_game_script");
+          }
+        }
+      }
+    } catch {
+      warnings.push("Spread parse failed (non-fatal)");
+    }
+  }
+
+  // 10. backup_creator_downgrade: primary PG/playmaker is out
+  //     When the main ball-handler is out, guard props become risky (assists dry up,
+  //     scoring becomes less efficient). Applies as a negative signal for team props too.
+  {
+    const pgPositions = new Set(["PG", "PG-SG"]);
+    const primaryPGOut = teamRoster.some((p) => {
+      const pos = p.position.toUpperCase();
+      const severity = classifyInjurySeverity(p.injuryStatus);
+      return pgPositions.has(pos) && (severity === "out" || severity === "doubtful");
+    });
+    if (primaryPGOut) {
+      autoSignals.push("backup_creator_downgrade");
+    }
+  }
+
   // ── Player rolling averages from recent boxscores ─────────────────────────
   // Compute L5 avg minutes and the primary stat for this prop type.
   // Uses the same cached ESPN boxscore data as the stats engine.

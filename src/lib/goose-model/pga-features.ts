@@ -417,6 +417,15 @@ export const PGA_SIGNAL_PRIORS: Record<string, number> = {
    * Mild confirmatory boost for DG-model-backed picks.
    */
   course_good_conditions: 0.58,
+  /** Links specialist: strong SG T2G (≥ 0.5) at a links course.
+   *  Ball-striking prowess in wind/firm conditions is a real course-type edge. */
+  links_specialist: 0.63,
+  /** Parkland specialist: strong SG Approach (≥ 0.3) at a parkland course.
+   *  Approach precision through tree-lined targets is the key parkland skill. */
+  parkland_specialist: 0.61,
+  /** Form hot streak: formScore ≥ 80 (elite recent form, top of peak window).
+   *  Stronger than form_surge; stacks with it for compounding boost. */
+  form_hot_streak: 0.64,
 };
 
 /**
@@ -694,6 +703,24 @@ export async function fetchPGAContextHints(
     if (courseWeather?.conditions?.isGoodConditions) auto_signals.push("course_good_conditions");
 
     const courseTaxonomy = lookupCourseTaxonomy(tournamentName ?? dgCache.tournament);
+
+    // ── Course-type specialist signals ────────────────────────
+    // Match player SG profile to course type for a skill-context fit signal.
+    // Links courses reward ball-striking (wind play, firm conditions) → SG T2G.
+    // Parkland courses reward approach precision (tree-lined targets) → SG APP.
+    if (courseTaxonomy.courseType === "links" && typeof sg_t2g === "number" && sg_t2g >= 0.5) {
+      auto_signals.push("links_specialist");
+    }
+    if (courseTaxonomy.courseType === "parkland" && typeof sg_app === "number" && sg_app >= 0.3) {
+      auto_signals.push("parkland_specialist");
+    }
+
+    // Form hot streak: formScore >= 80 (elite recent tournament performance).
+    // Stronger than form_surge (>= 65); indicates player is in peak form window.
+    // Stacks with form_surge — both fire, providing a compounding boost.
+    if (typeof formScore === "number" && formScore >= 80) {
+      auto_signals.push("form_hot_streak");
+    }
 
     return {
       auto_signals,
