@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BDL_TEAM_IDS, getNBAStandings, getNBATeamRoster, getRecentNBAGames, NBA_TEAM_COLORS, parseNBARecord } from "@/lib/nba-api";
+import { getNBAStandings, getNBATeamRosterEntries, getRecentNBAGames, NBA_TEAM_COLORS, parseNBARecord } from "@/lib/nba-api";
 
 export async function GET(
   _req: NextRequest,
@@ -25,8 +25,9 @@ export async function GET(
         }
       : null;
 
-    const teamId = BDL_TEAM_IDS[teamAbbrev] || 0;
-    const teamRoster = teamId ? await getNBATeamRoster(teamId) : [];
+    // Use ESPN's current roster feed here. The BallDontLie fallback endpoint returns
+    // historical/stale players on some teams, which can create false team pages.
+    const teamRoster = await getNBATeamRosterEntries(teamAbbrev);
 
     const recentGames = recentGamesFeed
       .filter((g) =>

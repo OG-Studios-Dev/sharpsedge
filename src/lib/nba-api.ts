@@ -18,11 +18,12 @@
  * ESPN endpoints currently used:
  *   Scoreboard:   site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard
  *   Game summary: site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=ID
- *   Standings:    site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=2025
+ *   Standings:    site.api.espn.com/apis/v2/sports/basketball/nba/standings?season=current
  */
 
 import { BookOddsBySide } from "@/lib/types";
 import { getDateKey, getDateKeyWithOffset, NBA_TIME_ZONE } from "@/lib/date-utils";
+import { findBestFuzzyNameMatch } from "@/lib/name-match";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 const ESPN_BASE_V2 = "https://site.web.api.espn.com/apis/v2/sports/basketball/nba";
@@ -359,9 +360,7 @@ export async function getNBAPlayerGameLog(
       const boxscore = await getNBABoxscore(game.id);
       const isHome = game.homeTeam.abbreviation === teamAbbrev;
       const players = isHome ? boxscore.home : boxscore.away;
-      const player = players.find((p) =>
-        p.name.toLowerCase().includes(playerName.split(" ").pop()?.toLowerCase() ?? "")
-      );
+      const player = findBestFuzzyNameMatch(players, playerName, (candidate) => candidate.name);
       if (player) {
         const mins = parseFloat(player.minutes) || 0;
         if (mins < 15) continue; // skip DNP/garbage time
