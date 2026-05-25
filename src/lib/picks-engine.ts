@@ -151,9 +151,18 @@ function buildTeamReasoning(trend: ScoredTeamTrend): string {
 
   // Build reasoning per template: hit rate, recent form, matchup, edge, why now
   const betLabel = trend.betType || "trend";
-  const lookback = betLabel.toLowerCase().includes("streak") ? "recent stretch" : "L10";
+  const primarySplit = splits[0];
+  const splitLabel = String(primarySplit?.label ?? "").toLowerCase();
+  const splitType = String(primarySplit?.type ?? "").toLowerCase();
+  const lookback = betLabel.toLowerCase().includes("streak")
+    ? "recent stretch"
+    : splitType === "home_away" || splitLabel.startsWith("home:") || splitLabel.startsWith("road:")
+    ? splitLabel.startsWith("road:") ? "road split" : "home split"
+    : splitLabel.startsWith("l10:")
+    ? "L10"
+    : "tracked split";
 
-  parts.push(`${trend.team} ${betLabel}: ${hr.toFixed(0)}% hit rate over ${lookback}.`);
+  parts.push(`${trend.team} ${betLabel}: ${hr.toFixed(0)}% hit rate ${lookback === "L10" ? "over" : "in"} ${lookback}.`);
 
   // Include split context but strip unverified streak claims
   for (const split of splits.slice(0, 2)) {

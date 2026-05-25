@@ -223,9 +223,18 @@ function parseWinPct(value: unknown): number {
   return parsed > 1 ? parsed / 100 : parsed;
 }
 
+export function getCurrentNBASeason(date = new Date()): number {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  // ESPN labels an NBA season by the championship year. The 2025-26 season is
+  // `season=2026`, including Oct-Dec 2025 and Jan-Sep 2026.
+  return month >= 9 ? year + 1 : year;
+}
+
 export async function getNBAStandings(): Promise<NBATeamStanding[]> {
   try {
-    const data = await cachedFetch<any>(`${ESPN_BASE_V2}/standings?season=2025`, 30 * 60 * 1000);
+    const season = getCurrentNBASeason();
+    const data = await cachedFetch<any>(`${ESPN_BASE_V2}/standings?season=${season}`, 30 * 60 * 1000);
     const results: NBATeamStanding[] = [];
 
     for (const conf of (data.children ?? [])) {
