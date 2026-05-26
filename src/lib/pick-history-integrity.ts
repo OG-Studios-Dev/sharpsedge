@@ -269,8 +269,13 @@ function chooseSlateNote(records: PickHistoryRecord[]): string | null {
   return null;
 }
 
-export function buildSyntheticSlateRecord(date: string, league: string, records: PickHistoryRecord[]): PickSlateRecord {
-  const expected_pick_count = EXPECTED_DAILY_PICK_COUNT;
+export function buildSyntheticSlateRecord(
+  date: string,
+  league: string,
+  records: PickHistoryRecord[],
+  expectedPickCount: number = EXPECTED_DAILY_PICK_COUNT,
+): PickSlateRecord {
+  const expected_pick_count = Number.isFinite(expectedPickCount) ? Math.max(0, expectedPickCount) : EXPECTED_DAILY_PICK_COUNT;
   const pick_count = records.length;
   const provenance = chooseSlateProvenance(records);
   const status = pick_count >= expected_pick_count ? "locked" : "incomplete";

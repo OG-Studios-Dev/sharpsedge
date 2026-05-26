@@ -343,7 +343,9 @@ async function patchPickHistoryRow(filterColumn: "id" | "pick_id", pickId: strin
 }
 
 function toFetchResult(slate: PickSlateRecord | null, records: PickHistoryRecord[]): PickSlateFetchResult {
-  const syntheticSlate = records.length ? buildSyntheticSlateRecord(records[0].date, records[0].league, records) : null;
+  const syntheticSlate = records.length
+    ? buildSyntheticSlateRecord(records[0].date, records[0].league, records, slate?.expected_pick_count)
+    : null;
   const mergedSlate = (() => {
     if (!slate) return syntheticSlate;
     if (!syntheticSlate) return slate;
