@@ -39,6 +39,25 @@ export function normalizeMLBTeam(value?: string) {
   return normalized === "ATH" ? "OAK" : normalized;
 }
 
+function normalizeMLBTeamName(value?: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function parseSyntheticMLBGameId(gameId: string) {
+  const match = gameId.match(/^evt:mlb:[^:]+:([^@]+)@([^:]+):(\d{4}-\d{2}-\d{2})/i);
+  if (!match) return null;
+  return {
+    awaySlug: match[1],
+    homeSlug: match[2],
+    date: match[3],
+  };
+}
+
 export function normalizeGameId(value?: string | null) {
   const normalized = String(value ?? "").trim();
   if (!normalized || normalized === "undefined" || normalized === "null") return undefined;
@@ -164,10 +183,18 @@ export async function fetchJSON<T>(url: string): Promise<T | null> {
 }
 
 async function fetchMLBScheduleGame(gameId: string, date: string) {
-  const schedule = await fetchJSON<any>(`${MLB_BASE}/schedule?date=${date}&sportId=1&hydrate=linescore`);
-  return (schedule?.dates ?? [])
-    .flatMap((entry: any) => entry?.games ?? [])
-    .find((game: any) => String(game?.gamePk ?? "") === gameId) || null;
+  const synthetic = parseSyntheticMLBGameId(gameId);
+  const scheduleDate = synthetic?.date ?? date;
+  const schedule = await fetchJSON<any>(`${MLB_BASE}/schedule?date=${scheduleDate}&sportId=1&hydrate=linescore`);
+  const games = (schedule?.dates ?? []).flatMap((entry: any) => entry?.games ?? []);
+  const exact = games.find((game: any) => String(game?.gamePk ?? "") === gameId) || null;
+  if (exact || !synthetic) return exact;
+
+  return games.find((game: any) => {
+    const awaySlug = normalizeMLBTeamName(game?.teams?.away?.team?.name);
+    const homeSlug = normalizeMLBTeamName(game?.teams?.home?.team?.name);
+    return awaySlug === synthetic.awaySlug && homeSlug === synthetic.homeSlug;
+  }) || null;
 }
 
 function isMLBGameComplete(game: any) {
@@ -405,16 +432,22 @@ export async function resolveMLBPlayerPick(pick: AIPick): Promise<AIPick["result
 
   const game = await fetchMLBScheduleGame(gameId, pick.date);
   if (!game || !isMLBGameComplete(game)) return "pending";
+  const resolvedGameId = String(game?.gamePk ?? gameId);
 
-  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${gameId}/boxscore`);
+  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${resolvedGameId}/boxscore`);
   if (!boxscore) return "pending";
 
-  const homeAbbrev = normalizeMLBTeam(boxscore?.teams?.home?.team?.abbreviation || game?.teams?.home?.team?.abbreviation);
-  const awayAbbrev = normalizeMLBTeam(boxscore?.teams?.away?.team?.abbreviation || game?.teams?.away?.team?.abbreviation);
+  const homeTeam = boxscore?.teams?.home?.team ?? game?.teams?.home?.team ?? {};
+  const awayTeam = boxscore?.teams?.away?.team ?? game?.teams?.away?.team ?? {};
+  const homeAbbrev = normalizeMLBTeam(homeTeam.abbreviation);
+  const awayAbbrev = normalizeMLBTeam(awayTeam.abbreviation);
+  const homeName = normalizeMLBTeamName(homeTeam.name);
+  const awayName = normalizeMLBTeamName(awayTeam.name);
   const targetTeam = normalizeMLBTeam(pick.team);
-  const side = targetTeam === awayAbbrev
+  const targetName = normalizeMLBTeamName(pick.team);
+  const side = targetTeam === awayAbbrev || targetName === awayName
     ? "away"
-    : targetTeam === homeAbbrev
+    : targetTeam === homeAbbrev || targetName === homeName
       ? "home"
       : pick.isAway
         ? "away"
@@ -465,20 +498,30 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
 
   const game = await fetchMLBScheduleGame(gameId, pick.date);
   if (!game || !isMLBGameComplete(game)) return "pending";
+  const resolvedGameId = String(game?.gamePk ?? gameId);
 
   // Fetch boxscore for accurate team abbreviations.
   // The schedule API endpoint (/schedule?date=…) does NOT include team.abbreviation —
   // only team.name and team.id. Without abbreviations we cannot determine isAway for
   // road picks (e.g. "NYY Win ML (Road)"). The boxscore endpoint always has abbreviation.
-  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${gameId}/boxscore`);
-  const homeAbbrev = normalizeMLBTeam(
-    boxscore?.teams?.home?.team?.abbreviation || game?.teams?.home?.team?.abbreviation
-  );
-  const awayAbbrev = normalizeMLBTeam(
-    boxscore?.teams?.away?.team?.abbreviation || game?.teams?.away?.team?.abbreviation
-  );
+  const boxscore = await fetchJSON<any>(`${MLB_BASE}/game/${resolvedGameId}/boxscore`);
+  const homeTeam = boxscore?.teams?.home?.team ?? game?.teams?.home?.team ?? {};
+  const awayTeam = boxscore?.teams?.away?.team ?? game?.teams?.away?.team ?? {};
+  const homeAbbrev = normalizeMLBTeam(homeTeam.abbreviation);
+  const awayAbbrev = normalizeMLBTeam(awayTeam.abbreviation);
+  const homeName = normalizeMLBTeamName(homeTeam.name);
+  const awayName = normalizeMLBTeamName(awayTeam.name);
   const targetTeam = normalizeMLBTeam(pick.team);
-  const isAway = targetTeam === awayAbbrev ? true : targetTeam === homeAbbrev ? false : pick.isAway;
+  const targetName = normalizeMLBTeamName(pick.team);
+  const isAway = targetTeam === awayAbbrev
+    ? true
+    : targetTeam === homeAbbrev
+      ? false
+      : targetName === awayName
+        ? true
+        : targetName === homeName
+          ? false
+          : pick.isAway;
   const homeScore = toNumber(game?.teams?.home?.score);
   const awayScore = toNumber(game?.teams?.away?.score);
   const teamScore = isAway ? awayScore : homeScore;
@@ -529,10 +572,12 @@ export async function resolveMLBTeamPick(pick: AIPick): Promise<AIPick["result"]
     return "push";
   }
 
-  // Win ML — also handles "H2H ML", which is what normalizeIncomingPick infers
-  // for any pick label containing "win ml" (e.g. "STL Win ML", "NYY Win ML (Road)").
-  // NHL and NBA resolvers already include "H2H ML"; MLB was missing it.
-  if (["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak", "H2H ML"].includes(pick.betType || "")) {
+  // Win ML — also handles "H2H ML", raw "moneyline" labels, and labels such as
+  // "STL Win ML" / "NYY Win ML (Road)".
+  const isMoneylineBet = ["Team Win ML", "ML Home Win", "ML Road Win", "ML Streak", "H2H ML"].includes(pick.betType || "")
+    || String(pick.betType || "").toLowerCase().includes("moneyline")
+    || /\bwin\s+ml\b/i.test(pick.pickLabel || "");
+  if (isMoneylineBet) {
     if (teamScore > oppScore) return "win";
     if (teamScore < oppScore) return "loss";
     return "push";
