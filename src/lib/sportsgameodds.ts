@@ -18,15 +18,15 @@ export type SportsGameOddsFetchResult<T> = {
 };
 
 const LEAGUE_IDS: Record<string, string> = {
-  NBA: "4",
-  NHL: "5",
-  MLB: "6",
-  NFL: "7",
-  PGA: "2",
-  UFC: "10",
-  EPL: "17",
-  SERIE_A: "18",
-  "SERIE A": "18",
+  NBA: "NBA",
+  NHL: "NHL",
+  MLB: "MLB",
+  NFL: "NFL",
+  PGA: "PGA",
+  UFC: "UFC",
+  EPL: "EPL",
+  SERIE_A: "SERIE_A",
+  "SERIE A": "SERIE_A",
 };
 
 function getApiKeys(): string[] {
@@ -110,12 +110,15 @@ export async function getSportsGameOddsUsage(): Promise<SportsGameOddsFetchResul
   const result = await sgFetch<any>("/account/usage");
   const raw = result.data;
 
+  const monthly = raw?.data?.rateLimits?.["per-month"] ?? raw?.rateLimits?.["per-month"] ?? null;
+  const limit = Number(raw?.limit ?? raw?.monthly_limit ?? raw?.objects_limit ?? monthly?.["max-entities"] ?? 0) || 0;
+  const used = Number(raw?.used ?? raw?.objects_used ?? raw?.current ?? raw?.usage ?? monthly?.["current-entities"] ?? 0) || 0;
   const normalized: SportsGameOddsAccountUsage | null = raw
     ? {
-        used: Number(raw.used ?? raw.objects_used ?? raw.current ?? raw.usage ?? 0) || 0,
-        remaining: Number(raw.remaining ?? raw.objects_remaining ?? raw.left ?? 0) || 0,
-        limit: Number(raw.limit ?? raw.monthly_limit ?? raw.objects_limit ?? 0) || 0,
-        resetAt: raw.resetAt ?? raw.reset_at ?? raw.period_ends_at ?? null,
+        used,
+        remaining: Number(raw?.remaining ?? raw?.objects_remaining ?? raw?.left ?? (limit ? Math.max(0, limit - used) : 0)) || 0,
+        limit,
+        resetAt: raw?.resetAt ?? raw?.reset_at ?? raw?.period_ends_at ?? null,
         raw,
       }
     : null;
