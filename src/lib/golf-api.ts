@@ -389,6 +389,7 @@ function parseTournamentFromEvent(event: any, tour: "PGA" | "LIV"): GolfTourname
     event?.endDate,
     event?.calendar?.endDate,
   );
+  const status = getTournamentStatus(event, startDate, endDate);
   const tournament: GolfTournament = {
     id: firstString(event?.id, competition?.id),
     name: firstString(event?.name, event?.shortName, competition?.name, event?.label, "Tournament"),
@@ -406,7 +407,7 @@ function parseTournamentFromEvent(event: any, tour: "PGA" | "LIV"): GolfTourname
       competition?.format?.displayValue,
       "TBD",
     ),
-    status: getTournamentStatus(event, startDate, endDate),
+    status,
     tour,
     startDate,
     endDate,
@@ -420,7 +421,7 @@ function parseTournamentFromEvent(event: any, tour: "PGA" | "LIV"): GolfTourname
       event?.status?.type?.shortDetail,
       event?.status?.type?.detail,
     ),
-    current: true,
+    current: status === "in-progress",
   };
 
   return applyCourseFallback(tournament);
@@ -801,11 +802,22 @@ function mergeFallbackSchedule(espnSchedule: GolfTournament[]): GolfTournament[]
     return { ...t, status, current: status === "in-progress" };
   });
 
+  if (espnSchedule.length >= 8) {
+    // ESPN has the canonical season calendar. Do not merge the static fallback,
+    // because its rough future dates can drift and create duplicate/stale
+    // current tournaments on the PGA home page.
+    return espnSchedule.sort((a, b) => {
+      const at = a.startDate ? new Date(a.startDate).getTime() : Infinity;
+      const bt = b.startDate ? new Date(b.startDate).getTime() : Infinity;
+      return at - bt;
+    });
+  }
+
   if (espnSchedule.length > 0) {
-    // Merge: ESPN data wins, but fill gaps with fallback events ESPN doesn't know about
+    // Merge only when ESPN returns a sparse calendar.
     const espnIds = new Set(espnSchedule.map((t) => t.id));
-    const espnNames = new Set(espnSchedule.map((t) => t.name.toLowerCase().slice(0, 15)));
-    const extra = fallback.filter((t) => !espnIds.has(t.id) && !espnNames.has(t.name.toLowerCase().slice(0, 15)));
+    const espnNames = new Set(espnSchedule.map((t) => t.name.toLowerCase().replace(/^the\s+/, "").slice(0, 15)));
+    const extra = fallback.filter((t) => !espnIds.has(t.id) && !espnNames.has(t.name.toLowerCase().replace(/^the\s+/, "").slice(0, 15)));
     return [...espnSchedule, ...extra].sort((a, b) => {
       const at = a.startDate ? new Date(a.startDate).getTime() : Infinity;
       const bt = b.startDate ? new Date(b.startDate).getTime() : Infinity;
