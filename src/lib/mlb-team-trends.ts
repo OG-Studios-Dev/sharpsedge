@@ -298,21 +298,11 @@ export async function buildMLBTeamTrends(
         indicators: winRate >= 0.7 ? [{ type: "hot", active: true }] : [],
       });
 
-      const favoriteCoverRate = recent.filter((game) => (game.runsFor - game.runsAgainst) >= 2).length / recent.length;
-      const dogCoverRate = recent.filter((game) => (game.runsFor - game.runsAgainst) > -2).length / recent.length;
-      const favoriteEdge = favoriteCoverRate - implied;
-      const dogEdge = dogCoverRate - implied;
-      const selectedRunLine = favoriteEdge >= dogEdge
-        ? {
-            line: teamContext.runLine?.line ?? -1.5,
-            hitRate: favoriteCoverRate,
-            hits: recent.filter((game) => (game.runsFor - game.runsAgainst) >= 2).length,
-          }
-        : {
-            line: teamContext.runLine?.line ?? 1.5,
-            hitRate: dogCoverRate,
-            hits: recent.filter((game) => (game.runsFor - game.runsAgainst) > -2).length,
-          };
+      const runLineValue = teamContext.runLine?.line ?? (winRate >= 0.5 ? -1.5 : 1.5);
+      const runLineOdds = teamContext.runLine?.odds ?? teamContext.odds;
+      const runLineImplied = americanOddsToImpliedProbability(runLineOdds) || implied;
+      const runLineHits = recent.filter((game) => (game.runsFor - game.runsAgainst + runLineValue) > 0).length;
+      const runLineCoverRate = runLineHits / recent.length;
 
       trends.push({
         id: `mlb-run-line-${teamContext.team}-${index++}`,
@@ -321,25 +311,25 @@ export async function buildMLBTeamTrends(
         opponent: teamContext.opponent,
         isAway: teamContext.isAway,
         betType: "Run Line",
-        line: `${selectedRunLine.line > 0 ? "+" : ""}${selectedRunLine.line}`,
-        odds: teamContext.runLine?.odds ?? teamContext.odds,
+        line: `${runLineValue > 0 ? "+" : ""}${runLineValue}`,
+        odds: runLineOdds,
         book: teamContext.runLine?.book ?? teamContext.book,
         bookOdds: teamContext.runLineBookOdds,
-        impliedProb: toPct(implied),
-        hitRate: toPct(selectedRunLine.hitRate),
-        edge: toPct(selectedRunLine.hitRate - implied),
+        impliedProb: toPct(runLineImplied),
+        hitRate: toPct(runLineCoverRate),
+        edge: toPct(runLineCoverRate - runLineImplied),
         league: "MLB",
         gameId,
         splits: [
           {
-            label: `${teamContext.team} ${selectedRunLine.line > 0 ? "+" : ""}${selectedRunLine.line}: ${selectedRunLine.hits}/${recent.length} L10`,
-            hitRate: toPct(selectedRunLine.hitRate),
-            hits: selectedRunLine.hits,
+            label: `${teamContext.team} ${runLineValue > 0 ? "+" : ""}${runLineValue}: ${runLineHits}/${recent.length} L10`,
+            hitRate: toPct(runLineCoverRate),
+            hits: runLineHits,
             total: recent.length,
             type: "last_n",
           },
         ],
-        indicators: selectedRunLine.hitRate >= 0.7 ? [{ type: "hot", active: true }] : [],
+        indicators: runLineCoverRate >= 0.7 ? [{ type: "hot", active: true }] : [],
       });
 
       const totalLine = entry.total?.line ?? DEFAULT_TOTAL_LINE;
