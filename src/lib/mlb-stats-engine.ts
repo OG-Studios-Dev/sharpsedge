@@ -53,6 +53,7 @@ type PlayerTask = {
   isAway: boolean;
   matchup: string;
   gameId: string;
+  gameDate: string;
   role: PropRole;
   oddsEventId?: string;
   starterQuality?: { era?: number | null; whip?: number | null } | null;
@@ -246,7 +247,7 @@ function buildProp(
       odds: bestMarket.odds,
     }),
     reasoning: `${task.playerName} is over ${line} ${propDef.label.toLowerCase()} in ${hitRate.toFixed(1)}% of the last ${recentSample.length} games.${starterNote}${bookSummary}`,
-    summary: `${task.matchup} • Over ${line} ${propDef.label} • L10 avg ${avg10.toFixed(1)}`,
+    summary: `${task.matchup} • Over ${line} ${propDef.label} • L${recentSample.length} avg ${avg10.toFixed(1)}`,
   };
 }
 
@@ -415,6 +416,7 @@ export async function buildMLBStatsPropFeed(
       isAway: false,
       matchup,
       gameId: game.id,
+      gameDate: game.date,
       role: "hitting",
       oddsEventId: game.oddsEventId,
       starterQuality: awayStarter?.starterQuality ?? null,
@@ -428,6 +430,7 @@ export async function buildMLBStatsPropFeed(
       isAway: true,
       matchup,
       gameId: game.id,
+      gameDate: game.date,
       role: "hitting",
       oddsEventId: game.oddsEventId,
       starterQuality: homeStarter?.starterQuality ?? null,
@@ -442,6 +445,7 @@ export async function buildMLBStatsPropFeed(
         isAway: false,
         matchup,
         gameId: game.id,
+        gameDate: game.date,
         role: "pitching",
         oddsEventId: game.oddsEventId,
         starterQuality: homeStarter.starterQuality,
@@ -457,6 +461,7 @@ export async function buildMLBStatsPropFeed(
         isAway: true,
         matchup,
         gameId: game.id,
+        gameDate: game.date,
         role: "pitching",
         oddsEventId: game.oddsEventId,
         starterQuality: awayStarter.starterQuality,
@@ -489,9 +494,13 @@ export async function buildMLBStatsPropFeed(
   const props: PlayerProp[] = [];
   for (const task of tasks) {
     const logs = logCache.get(buildPlayerLogCacheKey(task.playerId, task.role, season)) ?? [];
-    if (logs.length < 5) continue;
-    // Injury/scratch filter: skip players whose most recent game is too stale (>10 days)
-    const lastMLBDate = logs[0]?.gameDate;
+    const historicalLogs = logs.filter((log) => (
+      log.gameId !== task.gameId
+      && (!task.gameDate || !log.gameDate || log.gameDate < task.gameDate)
+    ));
+    if (historicalLogs.length < 5) continue;
+    // Injury/scratch filter: skip players whose most recent completed prior game is too stale (>10 days)
+    const lastMLBDate = historicalLogs[0]?.gameDate;
     if (lastMLBDate) {
       const daysSince = Math.floor((Date.now() - new Date(lastMLBDate).getTime()) / (1000 * 60 * 60 * 24));
       if (daysSince > 10) continue;
@@ -499,7 +508,7 @@ export async function buildMLBStatsPropFeed(
 
     const eventOdds = task.oddsEventId ? (oddsMap.get(task.oddsEventId) ?? null) : null;
     for (const propDef of MLB_PROP_DEFS.filter((def) => def.role === task.role)) {
-      const prop = buildProp(task, logs, propDef, eventOdds);
+      const prop = buildProp(task, historicalLogs, propDef, eventOdds);
       if (prop) props.push(prop);
     }
   }
