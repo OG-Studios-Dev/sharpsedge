@@ -1,12 +1,13 @@
 const ODDS_API_KEY_NAMES = [
   // Prefer the high-capacity key first. The legacy 500-request keys can be
-  // exhausted mid-month; they remain as fallbacks only if the primary key fails.
+  // exhausted mid-month; the oldest legacy key is last because it is often the
+  // most depleted by the time fallback routing matters.
   "ODDS_API_KEY_6",
-  "ODDS_API_KEY",
+  "ODDS_API_KEY_5",
+  "ODDS_API_KEY_4",
   "ODDS_API_KEY_2",
   "ODDS_API_KEY_3",
-  "ODDS_API_KEY_4",
-  "ODDS_API_KEY_5",
+  "ODDS_API_KEY",
 ] as const;
 
 const EXHAUSTED_COOLDOWN_MS = 30 * 60 * 1000;
