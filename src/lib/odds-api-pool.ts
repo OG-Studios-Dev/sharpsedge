@@ -101,6 +101,18 @@ function isCooling(state: OddsApiKeyState, now = Date.now()) {
   return typeof state.coolingUntilMs === "number" && state.coolingUntilMs > now;
 }
 
+function getQuotaUsagePct(quota: OddsApiQuotaSnapshot | null) {
+  if (!quota || typeof quota.remaining !== "number" || typeof quota.used !== "number") return null;
+  const limit = quota.remaining + quota.used;
+  if (!Number.isFinite(limit) || limit <= 0) return null;
+  return quota.used / limit;
+}
+
+function isQuotaCritical(state: OddsApiKeyState) {
+  const usagePct = getQuotaUsagePct(state.quota);
+  return typeof usagePct === "number" && usagePct >= 0.9;
+}
+
 function compareKeyHealth(left: OddsApiKeyState, right: OddsApiKeyState) {
   const leftRemaining = left.quota?.remaining;
   const rightRemaining = right.quota?.remaining;
@@ -158,7 +170,7 @@ export function readOddsApiQuotaHeaders(headers: Headers): OddsApiQuotaSnapshot 
 export function getOddsApiKeyCandidates() {
   const now = Date.now();
   return getConfiguredKeyStates()
-    .filter((state) => !isCooling(state, now))
+    .filter((state) => !isCooling(state, now) && !isQuotaCritical(state))
     .sort(compareKeyHealth)
     .map(toCandidate);
 }
@@ -175,7 +187,7 @@ export function recordOddsApiResponse(apiKey: string, response: Response) {
     state.quota = quota;
     if (response.status === 401) {
       setCooling(state, UNAUTHORIZED_COOLDOWN_MS);
-    } else if (response.status === 429 || quota.remaining === 0) {
+    } else if (response.status === 429 || quota.remaining === 0 || isQuotaCritical(state)) {
       setCooling(state, EXHAUSTED_COOLDOWN_MS);
     } else if (response.ok) {
       state.coolingUntil = null;
@@ -197,7 +209,7 @@ export async function fetchWithOddsApiKeys(
 
   for (let attempt = 0; attempt < ODDS_API_KEY_NAMES.length; attempt += 1) {
     const state = getConfiguredKeyStates()
-      .filter((candidate) => !attempted.has(candidate.key) && !isCooling(candidate))
+      .filter((candidate) => !attempted.has(candidate.key) && !isCooling(candidate) && !isQuotaCritical(candidate))
       .sort(compareKeyHealth)[0];
 
     if (!state) break;
