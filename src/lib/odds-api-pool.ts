@@ -1,16 +1,17 @@
 const ODDS_API_KEY_NAMES = [
   // Prefer the high-capacity key first. The legacy 500-request keys can be
-  // exhausted mid-month; the oldest legacy key is last because it is often the
-  // most depleted by the time fallback routing matters.
+  // exhausted mid-month; keep warning-level/critical legacy keys late so cold
+  // starts don't burn quota that should be preserved.
   "ODDS_API_KEY_6",
-  "ODDS_API_KEY_5",
-  "ODDS_API_KEY_4",
-  "ODDS_API_KEY_2",
   "ODDS_API_KEY_3",
+  "ODDS_API_KEY_2",
+  "ODDS_API_KEY_4",
+  "ODDS_API_KEY_5",
   "ODDS_API_KEY",
 ] as const;
 
 const EXHAUSTED_COOLDOWN_MS = 30 * 60 * 1000;
+const WARNING_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const UNAUTHORIZED_COOLDOWN_MS = 60 * 60 * 1000;
 
 export type OddsApiKeyName = typeof ODDS_API_KEY_NAMES[number];
@@ -114,6 +115,11 @@ function isQuotaCritical(state: OddsApiKeyState) {
   return typeof usagePct === "number" && usagePct >= 0.9;
 }
 
+function isQuotaWarning(state: OddsApiKeyState) {
+  const usagePct = getQuotaUsagePct(state.quota);
+  return typeof usagePct === "number" && usagePct >= 0.8;
+}
+
 function compareKeyHealth(left: OddsApiKeyState, right: OddsApiKeyState) {
   const leftRemaining = left.quota?.remaining;
   const rightRemaining = right.quota?.remaining;
@@ -190,6 +196,8 @@ export function recordOddsApiResponse(apiKey: string, response: Response) {
       setCooling(state, UNAUTHORIZED_COOLDOWN_MS);
     } else if (response.status === 429 || quota.remaining === 0 || isQuotaCritical(state)) {
       setCooling(state, EXHAUSTED_COOLDOWN_MS);
+    } else if (response.ok && isQuotaWarning(state)) {
+      setCooling(state, WARNING_COOLDOWN_MS);
     } else if (response.ok) {
       state.coolingUntil = null;
       state.coolingUntilMs = null;
