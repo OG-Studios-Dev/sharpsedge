@@ -40,6 +40,22 @@ function integrityWarning(integrity?: { integrity_status?: string | null; status
     : undefined;
 }
 
+function isPublishablePGAPick(pick: { hitRate?: unknown; edge?: unknown; reasoning?: unknown }) {
+  return typeof pick.hitRate === "number"
+    && pick.hitRate >= 60
+    && typeof pick.edge === "number"
+    && pick.edge > 5
+    && typeof pick.reasoning === "string"
+    && pick.reasoning.trim().length > 0;
+}
+
+function getSlateGateWarning(picks: Array<{ hitRate?: unknown; edge?: unknown; reasoning?: unknown }>) {
+  if (picks.length === 0) return null;
+  const blocked = picks.filter((pick) => !isPublishablePGAPick(pick));
+  if (blocked.length === 0) return null;
+  return `Blocked ${blocked.length}/${picks.length} PGA picks below published thresholds (hitRate >= 60, edge > 5, reasoning required).`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     // Resolve the tournament start date as the canonical date key for PGA picks.
@@ -49,6 +65,22 @@ export async function GET(req: NextRequest) {
     // Check for locked slate first (already generated picks persist)
     const lockedSlate = await getStoredPickSlate(tournamentDateKey, "PGA");
     if (lockedSlate.slate && !shouldRecoverStoredSlate(lockedSlate.slate, lockedSlate.records)) {
+      const gateWarning = getSlateGateWarning(lockedSlate.picks);
+      if (gateWarning) {
+        return NextResponse.json({
+          picks: [],
+          date: tournamentDateKey,
+          source: "no-qualifying",
+          reason: gateWarning,
+          integrity: {
+            ...lockedSlate.slate,
+            status: "incomplete",
+            integrity_status: "incomplete",
+            status_note: gateWarning,
+          },
+        });
+      }
+
       return NextResponse.json(
         {
           picks: lockedSlate.picks,
@@ -74,10 +106,12 @@ export async function GET(req: NextRequest) {
     }
 
     const result = await getGolfTournamentPicks(tournamentDateKey);
+    const publishablePicks = result.picks.filter(isPublishablePGAPick);
 
     console.log("[api/golf/picks] generated", {
       date: tournamentDateKey,
       generatedCount: result.picks.length,
+      publishableCount: publishablePicks.length,
       generatedPicks: result.picks.map((pick) => ({
         player: pick.playerName,
         market: pick.propType,
@@ -87,11 +121,18 @@ export async function GET(req: NextRequest) {
       })),
     });
 
-    if (result.picks.length === 0) {
-      return NextResponse.json({ picks: [], date: tournamentDateKey, source: "no-qualifying" });
+    if (publishablePicks.length === 0) {
+      return NextResponse.json({
+        picks: [],
+        date: tournamentDateKey,
+        source: "no-qualifying",
+        reason: result.picks.length > 0
+          ? "Generated PGA picks did not meet published thresholds (hitRate >= 60, edge > 5, reasoning required)."
+          : undefined,
+      });
     }
 
-    const normalizedPicks = result.picks.map((pick) => ({ ...pick, league: "PGA" }));
+    const normalizedPicks = publishablePicks.map((pick) => ({ ...pick, league: "PGA" }));
 
     try {
       const stored = await storeDailyPickSlate(normalizedPicks, {

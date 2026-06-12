@@ -39,6 +39,8 @@ const GOLF_TOP_FINISH_MARKETS: GolfPredictionMarket[] = [
   "Top 10 Finish",
   "Top 20 Finish",
 ];
+const PGA_MIN_PUBLISHED_CONFIDENCE = 60;
+const PGA_MIN_PUBLISHED_EDGE = 0.05;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -1078,12 +1080,12 @@ export function buildGolfTournamentPicks(
   const usedOutrightPlayers = new Set<string>();
   const usedTopFinishPlayers = new Set<string>();
   const outrightRules: PGAMarketRule[] = [
-    { market: "Tournament Winner", targetCount: 5, minEdge: 0.005, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Tournament Winner", targetCount: 5, minEdge: PGA_MIN_PUBLISHED_EDGE, minConfidence: PGA_MIN_PUBLISHED_CONFIDENCE, uniquePlayerOnly: true },
   ];
   const topFinishRules: PGAMarketRule[] = [
-    { market: "Top 5 Finish", targetCount: 1, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 10 Finish", targetCount: 1, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
-    { market: "Top 20 Finish", targetCount: 2, minEdge: 0.03, minConfidence: 35, uniquePlayerOnly: true },
+    { market: "Top 5 Finish", targetCount: 1, minEdge: PGA_MIN_PUBLISHED_EDGE, minConfidence: PGA_MIN_PUBLISHED_CONFIDENCE, uniquePlayerOnly: true },
+    { market: "Top 10 Finish", targetCount: 1, minEdge: PGA_MIN_PUBLISHED_EDGE, minConfidence: PGA_MIN_PUBLISHED_CONFIDENCE, uniquePlayerOnly: true },
+    { market: "Top 20 Finish", targetCount: 2, minEdge: PGA_MIN_PUBLISHED_EDGE, minConfidence: PGA_MIN_PUBLISHED_CONFIDENCE, uniquePlayerOnly: true },
   ];
 
   for (const rule of outrightRules) {
@@ -1198,7 +1200,10 @@ export function buildGolfTournamentPicks(
     }
   }
 
-  return picks.slice(0, 16);
+  return picks
+    .filter((pick) => (pick.hitRate ?? 0) >= PGA_MIN_PUBLISHED_CONFIDENCE)
+    .filter((pick) => (pick.edge ?? 0) > PGA_MIN_PUBLISHED_EDGE * 100)
+    .slice(0, 16);
 }
 
 // --- DataGolf Integration ---
