@@ -333,8 +333,10 @@ export async function buildMLBTeamTrends(
       });
 
       const totalLine = entry.total?.line ?? DEFAULT_TOTAL_LINE;
-      const overHits = recent.filter((game) => (game.runsFor + game.runsAgainst) > totalLine).length;
-      const underHits = recent.length - overHits;
+      const gameTotals = recent.map((game) => game.runsFor + game.runsAgainst);
+      const overHits = gameTotals.filter((total) => total > totalLine).length;
+      const underHits = gameTotals.filter((total) => total < totalLine).length;
+      const pushes = gameTotals.filter((total) => total === totalLine).length;
       const overRate = overHits / recent.length;
       const underRate = underHits / recent.length;
       const totalSelection = overRate >= underRate
@@ -369,7 +371,7 @@ export async function buildMLBTeamTrends(
         gameId,
         splits: [
           {
-            label: `${totalSelection.side} ${totalLine}: ${totalSelection.hits}/${recent.length} L10`,
+            label: `${totalSelection.side} ${totalLine}: ${totalSelection.hits}/${recent.length} L10${pushes ? ` (${pushes} push${pushes === 1 ? "" : "es"})` : ""}`,
             hitRate: toPct(totalSelection.hitRate),
             hits: totalSelection.hits,
             total: recent.length,
