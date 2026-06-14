@@ -199,6 +199,69 @@ function extractLocalMatchups(snapshot: LocalGolfOddsSnapshotFile | null): GolfH
     }));
 }
 
+async function readLatestFallbackWinnerOdds(): Promise<GolfOddsBoard | null> {
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/^"|"$/g, "").trim();
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").replace(/^"|"$/g, "").trim();
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/pga_fallback_odds?select=player,market,odds,source,captured_at,tournament,book,event_id&market=eq.winner&order=captured_at.desc&limit=300`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (res.status === 404 || res.status === 400 || !res.ok) return null;
+
+    const rows = await res.json() as StoredPgaFallbackOddsRow[];
+    const latest = rows[0];
+    if (!latest) return null;
+
+    const capturedAt = new Date(latest.captured_at).getTime();
+    if (!Number.isFinite(capturedAt)) return null;
+
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+    if (Date.now() - capturedAt > FOURTEEN_DAYS_MS) return null;
+
+    const tournament = latest.tournament;
+    const best = new Map<string, GolfOutrightOdds>();
+    for (const row of rows) {
+      if (row.tournament !== tournament || row.market !== "winner") continue;
+      if (!row.player || typeof row.odds !== "number") continue;
+
+      const key = normalizeName(row.player);
+      const existing = best.get(key);
+      if (!existing || row.odds > existing.odds) {
+        best.set(key, {
+          playerName: row.player,
+          odds: row.odds,
+          book: row.book || row.source || "Fallback",
+        });
+      }
+    }
+
+    const outrights = Array.from(best.values())
+      .sort((left, right) => impliedProbability(right.odds) - impliedProbability(left.odds));
+    if (outrights.length === 0) return null;
+
+    return {
+      sportKey: "pga_fallback_winner_odds",
+      tournament,
+      commenceTime: latest.captured_at,
+      outrights,
+      h2h: [],
+      finishingPositions: [],
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function getGolfOdds(): Promise<GolfOddsBoard | null> {
   const sportKeys = getGolfSportKeys();
   for (const sportKey of sportKeys) {
@@ -218,6 +281,9 @@ export async function getGolfOdds(): Promise<GolfOddsBoard | null> {
       finishingPositions: [],
     };
   }
+
+  const fallbackWinnerOdds = await readLatestFallbackWinnerOdds();
+  if (fallbackWinnerOdds) return fallbackWinnerOdds;
 
   const localSnapshot = await readLatestLocalGolfSnapshot();
   const localOutrights = (localSnapshot?.markets?.winner ?? []).map((entry) => ({
@@ -284,6 +350,17 @@ interface StoredPgaFinishOddsSnapshot {
     top10?: Array<{ player: string; odds: number }>;
     top20?: Array<{ player: string; odds: number }>;
   };
+}
+
+interface StoredPgaFallbackOddsRow {
+  player: string;
+  market: string;
+  odds: number;
+  source: string;
+  captured_at: string;
+  tournament: string;
+  book: string | null;
+  event_id: string | null;
 }
 
 interface LocalGolfOddsSnapshotFile {

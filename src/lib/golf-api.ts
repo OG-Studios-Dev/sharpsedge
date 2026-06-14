@@ -323,7 +323,7 @@ const KNOWN_COURSES: Record<string, { course: string; location: string; par?: nu
   "the players championship": { course: "TPC Sawgrass (Stadium)", location: "Ponte Vedra Beach, FL", par: 72, yardage: 7189 },
   "masters tournament": { course: "Augusta National Golf Club", location: "Augusta, GA", par: 72, yardage: 7510 },
   "pga championship": { course: "Quail Hollow Club", location: "Charlotte, NC", par: 72, yardage: 7600 },
-  "u.s. open": { course: "Oakmont Country Club", location: "Oakmont, PA", par: 70, yardage: 7255 },
+  "u.s. open": { course: "Shinnecock Hills Golf Club", location: "Southampton, NY", par: 70, yardage: 7440 },
   "the open championship": { course: "Royal Portrush", location: "Portrush, Northern Ireland", par: 71, yardage: 7317 },
   "the memorial tournament": { course: "Muirfield Village Golf Club", location: "Dublin, OH", par: 72, yardage: 7571 },
   "rocket mortgage classic": { course: "Detroit Golf Club", location: "Detroit, MI", par: 72, yardage: 7370 },
@@ -785,7 +785,7 @@ const PGA_2026_FALLBACK: GolfTournament[] = [
   { id: "wells-fargo-2026", name: "Wells Fargo Championship", course: "Quail Hollow Club", location: "Charlotte, NC", dates: "May 7 - May 10", purse: "$9,700,000", status: "upcoming", tour: "PGA", startDate: "2026-05-07", endDate: "2026-05-10", current: false },
   { id: "colonial-2026", name: "Charles Schwab Challenge", course: "Colonial Country Club", location: "Fort Worth, TX", dates: "May 21 - May 24", purse: "$9,200,000", status: "upcoming", tour: "PGA", startDate: "2026-05-21", endDate: "2026-05-24", current: false },
   { id: "memorial-2026", name: "Memorial Tournament", course: "Muirfield Village Golf Club", location: "Dublin, OH", dates: "May 28 - Jun 1", purse: "$20,000,000", status: "upcoming", tour: "PGA", startDate: "2026-05-28", endDate: "2026-06-01", current: false },
-  { id: "us-open-2026", name: "U.S. Open", course: "Oakmont Country Club", location: "Oakmont, PA", dates: "Jun 11 - Jun 14", purse: "$21,500,000", status: "upcoming", tour: "PGA", startDate: "2026-06-11", endDate: "2026-06-14", current: false },
+  { id: "us-open-2026", name: "U.S. Open", course: "Shinnecock Hills Golf Club", location: "Southampton, NY", dates: "Jun 18 - Jun 21", purse: "$21,500,000", status: "upcoming", tour: "PGA", startDate: "2026-06-18", endDate: "2026-06-21", current: false },
   { id: "the-open-2026", name: "The Open Championship", course: "Royal Portrush", location: "Portrush, Northern Ireland", dates: "Jul 16 - Jul 19", purse: "$17,000,000", status: "upcoming", tour: "PGA", startDate: "2026-07-16", endDate: "2026-07-19", current: false },
   { id: "tour-championship-2026", name: "TOUR Championship", course: "East Lake Golf Club", location: "Atlanta, GA", dates: "Aug 27 - Aug 30", purse: "$100,000,000", status: "upcoming", tour: "PGA", startDate: "2026-08-27", endDate: "2026-08-30", current: false },
 ];
