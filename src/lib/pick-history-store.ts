@@ -194,6 +194,20 @@ async function readPickSlate(date: string, league: string): Promise<PickSlateRec
   }
 }
 
+async function readLatestPickSlate(league: string): Promise<PickSlateRecord | null> {
+  try {
+    const rows = await postgrest<any[]>(
+      `/rest/v1/pick_slates?select=*&league=eq.${eq(league)}&order=date.desc&limit=1`,
+    );
+
+    return rows[0] ? normalizePickSlateRow(rows[0]) : null;
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (isMissingRelationError(message, "pick_slates")) return null;
+    throw error;
+  }
+}
+
 async function patchPickSlate(date: string, league: string, patch: Record<string, unknown>) {
   const rows = await postgrest<any[]>(
     `/rest/v1/pick_slates?date=eq.${eq(date)}&league=eq.${eq(league)}`,
@@ -467,6 +481,45 @@ export async function getStoredPickSlate(date: string, league: string): Promise<
   })();
 
   return toFetchResult(reconciledSlate, records);
+}
+
+export async function getLatestStoredPickSlate(league: string): Promise<PickSlateFetchResult> {
+  const slate = await readLatestPickSlate(league);
+  if (!slate) return toFetchResult(null, []);
+
+  return getStoredPickSlate(slate.date, league);
+}
+
+export async function storeEmptyPickSlate(options: {
+  date: string;
+  league: string;
+  expectedPickCount?: number;
+  provenanceNote?: string | null;
+  statusNote?: string | null;
+}): Promise<PickSlateFetchResult> {
+  const expectedPickCount = typeof options.expectedPickCount === "number" && Number.isFinite(options.expectedPickCount)
+    ? Math.max(0, options.expectedPickCount)
+    : 0;
+  const provenanceNote = options.provenanceNote ?? null;
+  const statusNote = options.statusNote ?? "No publishable picks were recorded.";
+
+  try {
+    await insertPickSlate(options.date, options.league, "original", provenanceNote, expectedPickCount);
+  } catch (error) {
+    const message = toErrorMessage(error);
+    if (!isConflictError(message)) throw error;
+  }
+
+  const slate = await patchPickSlate(options.date, options.league, {
+    status: "incomplete",
+    provenance: "original",
+    provenance_note: provenanceNote,
+    expected_pick_count: expectedPickCount,
+    pick_count: 0,
+    status_note: statusNote,
+  });
+
+  return toFetchResult(slate, []);
 }
 
 export async function reconcilePickSlateMetrics(
