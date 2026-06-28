@@ -460,13 +460,19 @@ export async function resolveMLBPlayerPick(pick: AIPick): Promise<AIPick["result
     return "pending";
   }
 
+  const batting = player?.stats?.batting ?? {};
+  const pitching = player?.stats?.pitching ?? {};
+  const hasBattingGameStats = Object.keys(batting).length > 0;
+  const hasPitchingGameStats = Object.keys(pitching).length > 0;
+  if (!hasBattingGameStats && !hasPitchingGameStats && player?.gameStatus?.isOnBench === true) {
+    return "push";
+  }
+
   if (pick.line === undefined) {
     logResolverIssue(pick, "mlb_player_line_missing", { propType: pick.propType ?? "" });
     return "pending";
   }
 
-  const batting = player?.stats?.batting ?? {};
-  const pitching = player?.stats?.pitching ?? {};
   const propKey = (pick.propType || "").toLowerCase();
   let actual: number | null = null;
 
