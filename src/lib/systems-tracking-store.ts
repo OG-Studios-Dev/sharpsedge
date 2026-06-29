@@ -1368,7 +1368,7 @@ function seededCatalog(): TrackedSystem[] {
         },
       ],
       automationStatusLabel: "Rail live — qualifying",
-      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when home team ≥ 55% ML handle.",
+      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when home team ≥ 60% ML handle.",
       dataRequirements: [
         { label: "MLB public ML handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\")." },
         { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record." },
@@ -1413,7 +1413,7 @@ function seededCatalog(): TrackedSystem[] {
         },
       ],
       automationStatusLabel: "Rail live — qualifying",
-      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when Under ≥ 58% of total handle.",
+      automationStatusDetail: "getBettingSplits(\"MLB\") connected. Fires when Under ≥ 62% of total handle.",
       dataRequirements: [
         { label: "MLB public total handle %", status: "ready", detail: "Live from Action Network via getBettingSplits(\"MLB\"). totalSplitsAvailable required." },
         { label: "Intraday line-move history", status: "ready", detail: "getMarketHistoryRail() reads from Supabase market_snapshot_prices. Attached as context note per qualifying record." },
@@ -1513,8 +1513,11 @@ const SYSTEM_TRACKERS: Record<string, SystemTracker> = {
     [NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
     refresh: refreshNHLUnderMajorityHandleSystemData,
   },
-    [MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
+  [MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID]: {
     refresh: refreshMLBUnderMajorityHandleSystemData,
+  },
+  [MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID]: {
+    refresh: refreshMLBHomeMajorityHandleSystemData,
   },
   [NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID]: {
     refresh: refreshNFLHomeDogMajorityHandleSystemData,
@@ -1738,9 +1741,11 @@ const ML_GRADEABLE_SYSTEM_IDS = new Set([
   SWAGGY_STRETCH_DRIVE_SYSTEM_ID,
   FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+  TONYS_HOT_BATS_SYSTEM_ID,
   BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
   FAT_TONYS_FADE_SYSTEM_ID,
+  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
   BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
   // Totals systems — use the same pending/grader pipeline, graded by gradePendingTotalQualifiers
   NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
@@ -1752,8 +1757,10 @@ const ACTIONABLE_SYSTEM_IDS = new Set([
   SWAGGY_STRETCH_DRIVE_SYSTEM_ID,
   FALCONS_FIGHT_PUMMELED_PITCHERS_SYSTEM_ID,
   ROBBIES_RIPPER_FAST_5_SYSTEM_ID,
+  TONYS_HOT_BATS_SYSTEM_ID,
   COACH_NO_REST_SYSTEM_ID,
   FAT_TONYS_FADE_SYSTEM_ID,
+  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
   NHL_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
   MLB_UNDER_MAJORITY_HANDLE_SYSTEM_ID,
   BIG_CATS_NBA_1Q_UNDER_SYSTEM_ID,
@@ -1762,12 +1769,10 @@ const ACTIONABLE_SYSTEM_IDS = new Set([
 const PARKED_SYSTEM_IDS = new Set([
   THE_BLOWOUT_SYSTEM_ID,
   HOT_TEAMS_MATCHUP_SYSTEM_ID,
-  TONYS_HOT_BATS_SYSTEM_ID,
   BIGCAT_BONAZA_PUCKLUCK_SYSTEM_ID,
   NBA_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
   NBA_HOME_SUPER_MAJORITY_CLOSE_GAME_SYSTEM_ID,
   NHL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
-  MLB_HOME_MAJORITY_HANDLE_SYSTEM_ID,
   NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
 ]);
 
@@ -3363,7 +3368,10 @@ async function buildFalconsQualifierRecord(input: {
 async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options: SystemRefreshOptions = {}): Promise<TrackedSystem> {
   const system = getTrackedSystem(data, TONYS_HOT_BATS_SYSTEM_ID, () => normalizeSystem(SYSTEM_TEMPLATE_MAP.get(TONYS_HOT_BATS_SYSTEM_ID)!));
   const targetDate = options.date || new Date().toISOString().slice(0, 10);
-  const board = await getMLBEnrichmentBoard(targetDate);
+  const [board, oddsEvents] = await Promise.all([
+    getMLBEnrichmentBoard(targetDate),
+    getMLBOdds().catch(() => []),
+  ]);
 
   const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
   const freshRecords: SystemTrackingRecord[] = [];
@@ -3394,13 +3402,28 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       `${game?.matchup?.away?.abbreviation || "Away"}: ${summarizeBullpen(game?.matchup?.away)}`,
       `${game?.matchup?.home?.abbreviation || "Home"}: ${summarizeBullpen(game?.matchup?.home)}`,
     ].join(" • ");
-    const marketAvailability = summarizeMarketAvailability(game);
-    const currentMoneyline = null;
+    const event = findMLBOddsForGame(oddsEvents, game?.matchup?.home?.abbreviation, game?.matchup?.away?.abbreviation);
+    const trigger = await buildTonysHotBatsTrigger(game);
+    const triggerSide = trigger?.teamAbbrev === game?.matchup?.away?.abbreviation
+      ? "away"
+      : trigger?.teamAbbrev === game?.matchup?.home?.abbreviation
+        ? "home"
+        : null;
+    const moneyline = event && triggerSide
+      ? getBestOdds(event, "h2h", triggerSide === "away" ? event.away_team : event.home_team)
+      : null;
+    const currentMoneyline = moneyline?.odds ?? null;
+    const isQualifiedPick = Boolean(trigger && currentMoneyline != null);
+    const marketAvailability = [
+      summarizeMarketAvailability(game),
+      event
+        ? `Full-game ML ${game?.matchup?.away?.abbreviation || "Away"} ${formatMoneyline(getBestOdds(event, "h2h", event.away_team)?.odds ?? null)} / ${game?.matchup?.home?.abbreviation || "Home"} ${formatMoneyline(getBestOdds(event, "h2h", event.home_team)?.odds ?? null)}.`
+        : "Full-game moneyline unavailable from current odds feed.",
+    ].join(" ");
     const totalLine = typeof game?.markets?.f5?.total?.line === "number" ? game.markets.f5.total.line : null;
     const f5Summary = typeof game?.markets?.f5?.completeness === "string"
       ? `F5 ${game.markets.f5.completeness}${Array.isArray(game?.markets?.f5?.supportedMarkets) && game.markets.f5.supportedMarkets.length ? ` (${game.markets.f5.supportedMarkets.join(", ")})` : ""}.`
       : "F5 market context unavailable.";
-    const trigger = await buildTonysHotBatsTrigger(game);
 
     const notes = [
       trigger
@@ -3413,9 +3436,10 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       `Markets: ${marketAvailability}`,
       trigger ? `Why now: ${trigger.rationale}` : "Why now: waiting on either official lineup IDs, stronger recent production, or a better run environment.",
       trigger && trigger.topHitters.length ? `Top hitters: ${trigger.topHitters.join(" | ")}` : "Top hitters: official-lineup recent production sample not strong enough yet.",
+      trigger && currentMoneyline == null ? "Pick gate: recent-offense trigger passed, but no posted full-game moneyline was available, so this stays context-only." : null,
       `Scope: ${board.scope?.lineups || "Lineup status is conservative."}`,
       "Label policy: when the trigger fires, this becomes a real tracked system pick. Non-trigger rows stay context only.",
-    ].join(" • ");
+    ].filter(Boolean).join(" • ");
 
     freshRecords.push(normalizeRecord({
       id: `${TONYS_HOT_BATS_SYSTEM_ID}:${game.gameId}`,
@@ -3425,11 +3449,11 @@ async function refreshTonysHotBatsSystemData(data: SystemsTrackingData, options:
       matchup: `${game?.matchup?.away?.abbreviation || "AWAY"} @ ${game?.matchup?.home?.abbreviation || "HOME"}`,
       roadTeam: game?.matchup?.away?.abbreviation || "AWAY",
       homeTeam: game?.matchup?.home?.abbreviation || "HOME",
-      recordKind: trigger ? "qualifier" : "alert",
-      marketType: trigger ? (totalLine != null ? "total" : "moneyline") : (totalLine != null ? "context-total-board" : "context-board"),
-      qualifiedTeam: trigger?.teamAbbrev ?? null,
-      opponentTeam: trigger ? ((trigger.teamAbbrev === (game?.matchup?.away?.abbreviation || "AWAY")) ? (game?.matchup?.home?.abbreviation || "HOME") : (game?.matchup?.away?.abbreviation || "AWAY")) : null,
-      alertLabel: trigger ? `Tony's Tight Bats system pick — ${trigger.teamAbbrev}` : "Context board / no trigger",
+      recordKind: isQualifiedPick ? "qualifier" : "alert",
+      marketType: isQualifiedPick ? "moneyline" : (totalLine != null ? "context-total-board" : "context-board"),
+      qualifiedTeam: isQualifiedPick ? trigger?.teamAbbrev ?? null : null,
+      opponentTeam: isQualifiedPick ? ((trigger?.teamAbbrev === (game?.matchup?.away?.abbreviation || "AWAY")) ? (game?.matchup?.home?.abbreviation || "HOME") : (game?.matchup?.away?.abbreviation || "AWAY")) : null,
+      alertLabel: isQualifiedPick ? `Tony's Tight Bats system pick — ${trigger?.teamAbbrev}` : trigger ? "Context board / trigger missing moneyline" : "Context board / no trigger",
       currentMoneyline,
       lineupStatus,
       weatherSummary,

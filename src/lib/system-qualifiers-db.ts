@@ -77,6 +77,11 @@ export type GradeQualifierInput = {
   gradingNotes?: string;
 };
 
+type ExistingQualifierSettlement = Pick<
+  DbSystemQualifier,
+  "id" | "outcome" | "settlement_status" | "net_units" | "settled_at" | "graded_at" | "grading_source" | "grading_notes"
+>;
+
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function serviceHeaders() {
@@ -128,8 +133,11 @@ async function pgFetch<T>(path: string, init: RequestInit = {}): Promise<T | nul
       throw new Error(`Supabase ${response.status}: ${text.slice(0, 200)}`);
     }
 
-    if (response.status === 204) return null as T;
-    return await response.json() as T;
+    if (response.status === 204) return {} as T;
+
+    const text = await response.text();
+    if (!text.trim()) return {} as T;
+    return JSON.parse(text) as T;
   } catch (error) {
     // All Supabase errors are non-fatal — log and return null
     console.warn("[system-qualifiers-db] Supabase op failed (graceful skip):", error instanceof Error ? error.message : error);
@@ -208,12 +216,36 @@ export async function upsertSystemQualifiers(entries: SystemQualificationLogEntr
   const chunkSize = 50;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
+    const quotedIds = chunk.map((row) => `"${row.id.replace(/"/g, '\\"')}"`).join(",");
+    const existing = await pgFetch<ExistingQualifierSettlement[]>(
+      `/system_qualifiers?select=id,outcome,settlement_status,net_units,settled_at,graded_at,grading_source,grading_notes&id=in.(${quotedIds})`,
+    );
+    const settledById = new Map(
+      (existing ?? [])
+        .filter((row) => row.settlement_status !== "pending" || row.outcome !== "pending")
+        .map((row) => [row.id, row]),
+    );
+    const chunkWithSettlementsPreserved = chunk.map((row) => {
+      const settled = settledById.get(row.id);
+      if (!settled) return row;
+      return {
+        ...row,
+        outcome: settled.outcome,
+        settlement_status: settled.settlement_status,
+        net_units: settled.net_units,
+        settled_at: settled.settled_at,
+        graded_at: settled.graded_at,
+        grading_source: settled.grading_source,
+        grading_notes: settled.grading_notes,
+      };
+    });
+
     await pgFetch("/system_qualifiers", {
       method: "POST",
       headers: {
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
-      body: JSON.stringify(chunk),
+      body: JSON.stringify(chunkWithSettlementsPreserved),
     });
   }
 }
