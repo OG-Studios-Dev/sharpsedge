@@ -3985,12 +3985,14 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
     failedMoneylineBand: 0,
     failedNoPriorStart: 0,
     failedNotPummeled: 0,
+    conflictingQualifiedSides: 0,
   };
 
   for (const game of targetGames) {
     const event = findMLBOddsForGame(oddsEvents, game.homeTeam.abbreviation, game.awayTeam.abbreviation);
     if (event) audit.matchedEventGames += 1;
     const enrichment = enrichmentByGameId.get(game.id);
+    const gameQualifiedRecords: SystemTrackingRecord[] = [];
     const starterCandidates = [
       {
         side: "away" as const,
@@ -4070,7 +4072,7 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
         continue;
       }
 
-      freshRecords.push(await buildFalconsQualifierRecord({
+      gameQualifiedRecords.push(await buildFalconsQualifierRecord({
         gameId: game.id,
         oddsEventId: game.oddsEventId || event?.id,
         gameDate: game.date,
@@ -4094,6 +4096,25 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
         f5Summary,
       }));
     }
+
+    if (gameQualifiedRecords.length > 1) {
+      audit.conflictingQualifiedSides += gameQualifiedRecords.length - 1;
+    }
+
+    const selectedRecord = gameQualifiedRecords.sort((left, right) => {
+      return (right.falconsScore ?? -1) - (left.falconsScore ?? -1)
+        || (right.currentMoneyline ?? -9999) - (left.currentMoneyline ?? -9999)
+        || (left.qualifiedTeam || "").localeCompare(right.qualifiedTeam || "");
+    })[0];
+
+    if (selectedRecord) {
+      freshRecords.push(normalizeRecord({
+        ...selectedRecord,
+        notes: gameQualifiedRecords.length > 1
+          ? `${selectedRecord.notes} • Conflict gate: both starters qualified, so only the strongest Veal side was stored for this game.`
+          : selectedRecord.notes,
+      }));
+    }
   }
 
   const priorRecords = system.records.filter((record) => record.gameDate !== targetDate);
@@ -4103,7 +4124,7 @@ async function refreshFalconsFightPummeledPitchersSystemData(data: SystemsTracki
       || left.matchup.localeCompare(right.matchup)
       || (left.starterName || "").localeCompare(right.starterName || "");
   });
-  const auditSummary = `Audit ${audit.gamesScanned} games (${audit.matchedEventGames} matched odds events) / ${audit.starterChecks} starter checks • no matched event ${audit.failedNoEvent} • no probable starter ${audit.failedNoProbableStarter} • ERA filter ${audit.failedEra} • no moneyline ${audit.failedNoMoneyline} • moneyline band ${audit.failedMoneylineBand} • no prior start ${audit.failedNoPriorStart} • prior start not pummeled ${audit.failedNotPummeled}.`;
+  const auditSummary = `Audit ${audit.gamesScanned} games (${audit.matchedEventGames} matched odds events) / ${audit.starterChecks} starter checks • no matched event ${audit.failedNoEvent} • no probable starter ${audit.failedNoProbableStarter} • ERA filter ${audit.failedEra} • no moneyline ${audit.failedNoMoneyline} • moneyline band ${audit.failedMoneylineBand} • no prior start ${audit.failedNoPriorStart} • prior start not pummeled ${audit.failedNotPummeled} • conflict sides suppressed ${audit.conflictingQualifiedSides}.`;
   applyFalconsFightPummeledPitchersReadiness(system);
 
   system.status = freshRecords.length > 0 ? "tracking" : "awaiting_data";

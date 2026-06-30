@@ -14,3 +14,7 @@
 ## 2026-06-30 — System refresh cannot depend on writable app files in Vercel
 - Vercel production runs from a read-only `/var/task`; system refresh must persist qualifiers to Supabase before any local JSON cache write and treat filesystem cache writes as best-effort only.
 - Refresh API responses should return the freshly computed in-memory systems, not reread stale packaged JSON after a skipped cache write.
+
+## 2026-06-30 — One system cannot record both sides of the same game
+- If a system gate can qualify both teams in one matchup, add an explicit conflict resolver before persistence. Opposite-side rows create fake 1-1 accounting and make profitability meaningless.
+- For Veal/Banged Up Pitchers, keep the strongest Falcons score per game, with price as the tiebreaker.
