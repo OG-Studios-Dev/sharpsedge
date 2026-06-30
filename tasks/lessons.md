@@ -10,3 +10,7 @@
 ## 2026-06-29 — System refresh must not overwrite settled grades
 - When system qualifiers are upserted from local tracker snapshots, preserve any existing Supabase settled/ungradeable outcome fields. A refresh payload built from stale local `pending` rows can otherwise reset graded records and make profitable/system-health views look broken.
 - After fixing a grading backlog, rerun refresh and then re-check DB performance summaries to prove grades survive the next refresh cycle.
+
+## 2026-06-30 — System refresh cannot depend on writable app files in Vercel
+- Vercel production runs from a read-only `/var/task`; system refresh must persist qualifiers to Supabase before any local JSON cache write and treat filesystem cache writes as best-effort only.
+- Refresh API responses should return the freshly computed in-memory systems, not reread stale packaged JSON after a skipped cache write.

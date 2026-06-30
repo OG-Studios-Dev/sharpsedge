@@ -23,7 +23,7 @@ async function buildRefreshResponse(systemId?: string, date?: string) {
   if (systemId) {
     const system = await refreshTrackedSystem(systemId, { date });
     const persisted = await readSystemsTrackingData();
-    const persistedSystem = persisted.systems.find((entry) => entry.id === systemId) ?? system;
+    const persistedSystem = system ?? persisted.systems.find((entry) => entry.id === systemId) ?? null;
     return NextResponse.json({
       ok: Boolean(persistedSystem),
       refreshed: Boolean(persistedSystem),
@@ -33,13 +33,16 @@ async function buildRefreshResponse(systemId?: string, date?: string) {
     }, { status: persistedSystem ? 200 : 404 });
   }
 
-  await refreshTrackableSystems({ date });
+  const refreshedSystems = await refreshTrackableSystems({ date });
+  const refreshedById = new Map(refreshedSystems.map((system) => [system.id, system]));
   const persisted = await readSystemsTrackingData();
+  const systems = persisted.systems.map((system) => refreshedById.get(system.id) ?? system);
   return NextResponse.json({
     ok: true,
     refreshed: true,
-    count: persisted.systems.length,
-    systems: persisted.systems,
+    count: systems.length,
+    refreshedCount: refreshedSystems.length,
+    systems,
     updatedAt: persisted.updatedAt || new Date().toISOString(),
   });
 }

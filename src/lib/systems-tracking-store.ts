@@ -1941,7 +1941,6 @@ async function writeSystemsTrackingData(data: SystemsTrackingData) {
   for (const system of data.systems) {
     upsertSystemQualificationLog(data, system);
   }
-  await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
 
   // Supabase persistence — await so refresh callers see consistent DB-backed state
   const actionableEntries = (data.qualificationLog || []).filter(
@@ -1953,6 +1952,17 @@ async function writeSystemsTrackingData(data: SystemsTrackingData) {
     } catch (err) {
       console.warn("[systems-tracking] Supabase upsert failed (graceful skip):", err instanceof Error ? err.message : err);
     }
+  }
+
+  try {
+    await fs.writeFile(STORE_PATH, JSON.stringify(data, null, 2) + "\n", "utf8");
+  } catch (err) {
+    const code = typeof err === "object" && err && "code" in err ? String((err as NodeJS.ErrnoException).code) : "";
+    if (code === "EROFS" || code === "EACCES") {
+      console.warn("[systems-tracking] cache write skipped on read-only filesystem:", STORE_PATH);
+      return;
+    }
+    throw err;
   }
 }
 
