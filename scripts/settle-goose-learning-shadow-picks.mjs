@@ -36,6 +36,8 @@ const labSlug = args.lab || 'goose-shadow-lab';
 const limit = Math.max(1, Math.min(Number(args.limit || 1000), 5000));
 const writeMode = args.write !== 'false' && args.dryRun !== 'true';
 const lookbackDays = Math.max(1, Number(args.lookbackDays || 14));
+const sport = String(args.sport || '').trim().toUpperCase();
+if (sport && !/^[A-Z0-9_-]+$/.test(sport)) throw new Error(`Invalid sport: ${args.sport}`);
 const today = new Date();
 const settleThrough = args.through || new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 1)).toISOString().slice(0, 10);
 const since = args.since || new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - lookbackDays)).toISOString().slice(0, 10);
@@ -90,6 +92,7 @@ function profitFromResult(result, odds, units = 1) {
 const pendingPath = [
   '/goose_learning_shadow_picks?select=id,lab_slug,model_version,candidate_id,pick_date,sport,pick_label,odds,result,status,evidence_snapshot',
   `lab_slug=eq.${encodeURIComponent(labSlug)}`,
+  ...(sport ? [`sport=eq.${encodeURIComponent(sport)}`] : []),
   'result=eq.pending',
   'candidate_id=not.is.null',
   `pick_date=gte.${encodeURIComponent(since)}`,
@@ -169,6 +172,7 @@ console.log(JSON.stringify({
   ok: true,
   writeMode,
   labSlug,
+  sport: sport || null,
   since,
   settleThrough,
   pending_checked: pending?.length || 0,

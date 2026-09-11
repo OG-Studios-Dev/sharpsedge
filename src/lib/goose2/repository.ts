@@ -1,3 +1,4 @@
+import { chunkForDatabaseWrite } from "@/lib/db-batch";
 import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import type {
   Goose2DecisionLog,
@@ -44,45 +45,39 @@ async function goose2Fetch(path: string, init: RequestInit = {}) {
   return response.json().catch(() => null);
 }
 
+async function upsertGoose2Rows<T>(path: string, rows: T[]) {
+  for (const batch of chunkForDatabaseWrite(rows, 250)) {
+    await goose2Fetch(path, {
+      method: "POST",
+      body: JSON.stringify(batch),
+    });
+  }
+}
+
 export async function upsertGoose2Events(rows: Goose2MarketEvent[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_events?on_conflict=event_id", {
-    method: "POST",
-    body: JSON.stringify(rows),
-  });
+  await upsertGoose2Rows("/goose_market_events?on_conflict=event_id", rows);
 }
 
 export async function upsertGoose2Candidates(rows: Goose2MarketCandidate[]) {
   if (!rows.length) return;
   const sanitizedRows = rows.map(({ sportsbook: _sportsbook, ...row }) => row);
-  await goose2Fetch("/goose_market_candidates?on_conflict=candidate_id", {
-    method: "POST",
-    body: JSON.stringify(sanitizedRows),
-  });
+  await upsertGoose2Rows("/goose_market_candidates?on_conflict=candidate_id", sanitizedRows);
 }
 
 export async function upsertGoose2Results(rows: Goose2MarketResult[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_market_results?on_conflict=candidate_id", {
-    method: "POST",
-    body: JSON.stringify(rows),
-  });
+  await upsertGoose2Rows("/goose_market_results?on_conflict=candidate_id", rows);
 }
 
 export async function upsertGoose2FeatureRows(rows: Goose2FeatureRow[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_feature_rows?on_conflict=feature_row_id", {
-    method: "POST",
-    body: JSON.stringify(rows),
-  });
+  await upsertGoose2Rows("/goose_feature_rows?on_conflict=feature_row_id", rows);
 }
 
 export async function upsertGoose2DecisionLogs(rows: Goose2DecisionLog[]) {
   if (!rows.length) return;
-  await goose2Fetch("/goose_decision_log?on_conflict=decision_id", {
-    method: "POST",
-    body: JSON.stringify(rows),
-  });
+  await upsertGoose2Rows("/goose_decision_log?on_conflict=decision_id", rows);
 }
 
 export async function listGoose2Candidates(filters: {

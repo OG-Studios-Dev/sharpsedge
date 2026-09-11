@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { AggregatedBookOdds, AggregatedOdds, AggregatedSport } from "@/lib/books/types";
+import { chunkForDatabaseWrite } from "@/lib/db-batch";
 import { bootstrapGoose2ShadowFromSnapshot } from "@/lib/goose2/shadow-pipeline";
 import { capturePlayerPropSnapshotRows } from "@/lib/player-prop-snapshot";
 
@@ -690,6 +691,20 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     throw new Error(`${table} insert failed (${response.status})${details ? `: ${details}` : ""}`);
   };
 
+  const insertRows = async (table: string, rows: object[]) => {
+    for (const batch of chunkForDatabaseWrite(rows, 250)) {
+      const response = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/${table}`, {
+        method: "POST",
+        headers: baseHeaders,
+        body: JSON.stringify(batch),
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        await parseSupabaseInsertError(response, table);
+      }
+    }
+  };
+
   try {
     const snapshotResponse = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/market_snapshots`, {
       method: "POST",
@@ -702,27 +717,11 @@ async function persistSnapshotToSupabase(snapshot: MarketSnapshotRecord) {
     }
 
     if (eventRows.length) {
-      const eventsResponse = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/market_snapshot_events`, {
-        method: "POST",
-        headers: baseHeaders,
-        body: JSON.stringify(eventRows),
-        cache: "no-store",
-      });
-      if (!eventsResponse.ok) {
-        await parseSupabaseInsertError(eventsResponse, "market_snapshot_events");
-      }
+      await insertRows("market_snapshot_events", eventRows);
     }
 
     if (priceRows.length) {
-      const pricesResponse = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/market_snapshot_prices`, {
-        method: "POST",
-        headers: baseHeaders,
-        body: JSON.stringify(priceRows),
-        cache: "no-store",
-      });
-      if (!pricesResponse.ok) {
-        await parseSupabaseInsertError(pricesResponse, "market_snapshot_prices");
-      }
+      await insertRows("market_snapshot_prices", priceRows);
     }
 
     return {

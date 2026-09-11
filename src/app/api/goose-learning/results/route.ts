@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceRoleKey, getSupabaseUrl, toErrorMessage } from "@/lib/supabase-shared";
+import { filterLearningRowsToCutoff, learningResultsCutoff } from "@/lib/learning-results-window";
 
 export const dynamic = "force-dynamic";
 
@@ -97,18 +98,21 @@ export async function GET(request: NextRequest) {
     const league = (params.get("league") || "ALL").toUpperCase();
     const limit = Math.max(1, Math.min(Number(params.get("limit") || 2000), 5000));
     const modelVersion = params.get("modelVersion") || await resolveActiveModelVersion();
+    const cutoffDate = learningResultsCutoff();
 
     const filters = [
       "select=pick_date,sport,status,result,profit_units,model_version",
       "lab_slug=eq.goose-shadow-lab",
       `model_version=eq.${encodeURIComponent(modelVersion)}`,
       league !== "ALL" ? `sport=eq.${encodeURIComponent(league)}` : null,
+      `pick_date=lte.${cutoffDate}`,
       "order=pick_date.desc",
       `limit=${limit}`,
     ].filter(Boolean).join("&");
 
     const rows = await postgrest<ShadowPickRow[]>(`/rest/v1/goose_learning_shadow_picks?${filters}`);
-    const supportedRows = rows.filter((row) => row.sport !== "PGA");
+    const supportedRows = filterLearningRowsToCutoff(rows, cutoffDate)
+      .filter((row) => row.sport !== "PGA");
     const settledRows = supportedRows.filter((row) => row.result && row.result !== "pending");
     const latestDate = supportedRows[0]?.pick_date ?? null;
     const earliestDate = supportedRows.length ? supportedRows[supportedRows.length - 1]?.pick_date ?? null : null;
@@ -120,6 +124,7 @@ export async function GET(request: NextRequest) {
       lab: "goose-shadow-lab",
       modelVersion,
       league,
+      cutoffDate,
       latestDate,
       earliestDate,
       overall: summarize(supportedRows),

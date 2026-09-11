@@ -8,6 +8,7 @@ import { getNBAGameSummary, getNBASchedule, getNBAStandings, getRecentNBAGames, 
 import { getNBAHandleBoard, findHandleSplitsForGame, qualifiesHomeUnderdogMajorityHandle, qualifiesHomeSuperMajorityHandleCloseGame, type NBAHandleSplits } from "@/lib/nba-handle";
 import { getBettingSplits, findGameSplits, getMarketSplits } from "@/lib/betting-splits";
 import { getMarketHistoryRail, type MarketHistoryRail } from "@/lib/market-snapshot-history";
+import { nflHandleActiveState, nflHandleUnavailableState } from "@/lib/nfl-system-state";
 import { getBestOdds } from "@/lib/odds-api";
 import { getAggregatedOddsForSport } from "@/lib/odds-aggregator";
 import { getTodayNHLContextBoard, type NHLContextBoardGame, type NHLContextTeamBoardEntry } from "@/lib/nhl-context";
@@ -1427,7 +1428,7 @@ function seededCatalog(): TrackedSystem[] {
       ],
       records: [],
     },
-    // ── NFL Handle Systems (dormant / off-season) ─────────────────────────────
+    // ── NFL Handle Systems ─────────────────────────────────────────────────────
     {
       id: NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID,
       slug: "nfl-home-dog-majority-handle",
@@ -1438,8 +1439,8 @@ function seededCatalog(): TrackedSystem[] {
       status: "awaiting_data",
       trackabilityBucket: "trackable_now",
       summary:
-        "NFL home underdog receiving majority (≥ 55%) of ML handle. System logic is wired and ready; dormant during the off-season (no current NFL slate).",
-      snapshot: "🔴 OFF-SEASON | NFL regular season resumes ~Sep 2026. System logic wired — will auto-activate when slate exists.",
+        "NFL home underdog receiving majority (≥ 55%) of ML handle. The live rail is scanned daily and stores a pick only when real handle and price data clear every gate.",
+      snapshot: "🟡 Awaiting the next live NFL handle scan.",
       definition:
         "Flag NFL games where the home team is a moneyline underdog AND attracts ≥ 55% of ML handle dollars. Mirrors the NBA and NHL home-dog handle systems. NFL home-field advantage is meaningful and the public's bias toward road favourites can create mis-pricing in close matchups.",
       qualifierRules: [
@@ -1447,7 +1448,7 @@ function seededCatalog(): TrackedSystem[] {
         "Home team must be a moneyline underdog: bestHome.odds > 0.",
         "Home team must hold ≥ 55% of ML handle dollars from Action Network splits.",
         "Total splits must be available (splitsAvailable = true).",
-        "System is dormant between end of Super Bowl and start of regular season (~Feb–Aug).",
+        "Outside the NFL season, an empty slate produces no records.",
       ],
       progressionLogic: [],
       thesis:
@@ -1455,22 +1456,21 @@ function seededCatalog(): TrackedSystem[] {
       sourceNotes: [
         {
           label: "Action Network (DK primary + FD comparison)",
-          detail: "NFL ML handle splits from Action Network via getBettingSplits(\"NFL\"). Off-season returns empty board.",
+          detail: "NFL ML handle splits from Action Network via getBettingSplits(\"NFL\"). A game remains unavailable when the source has not posted handle data.",
         },
       ],
-      automationStatusLabel: "Wired — dormant off-season",
-      automationStatusDetail: "getBettingSplits(\"NFL\") connected. NFL slate empty Mar–Aug. Qualifier logic will fire automatically when September slate begins.",
+      automationStatusLabel: "Live NFL handle screen",
+      automationStatusDetail: "Scanned daily against the nearest priced NFL slate. A qualifier is stored only when live handle splits and an underdog moneyline are both available.",
       dataRequirements: [
-        { label: "NFL public ML handle %", status: "ready", detail: "getBettingSplits(\"NFL\") ready. Returns empty board during off-season." },
-        { label: "NFL home ML price", status: "ready", detail: "getAggregatedOddsForSport(\"NFL\") ready. Returns empty during off-season." },
+        { label: "NFL public ML handle %", status: "ready", detail: "getBettingSplits(\"NFL\") is connected; individual games remain unavailable until the source posts handle percentages." },
+        { label: "NFL home ML price", status: "ready", detail: "getAggregatedOddsForSport(\"NFL\") supplies live multi-book prices." },
       ],
       unlockNotes: [
-        "System logic is fully wired. Will auto-activate at September 2026 kickoff.",
-        "Review 55% ML handle threshold against Week 1 data before the season.",
+        "Review the 55% ML handle threshold after enough settled in-season qualifiers exist.",
       ],
       trackingNotes: [
-        "Off-season status is honest — no fake qualifiers stored during dormant period.",
-        "Refresh function runs but returns zero records when no NFL slate exists.",
+        "No handle percentage means no qualifier; missing source data is never inferred.",
+        "The refresh records zero picks honestly when no game clears every gate.",
       ],
       records: [],
     },
@@ -4900,13 +4900,13 @@ async function refreshNFLHomeDogMajorityHandleSystemData(
   const hasGames = Boolean(splitsResult?.available && (splitsResult.games?.length ?? 0) > 0);
 
   if (!hasGames) {
-    // Honest off-season: no records, dormant status
+    const unavailable = nflHandleUnavailableState(targetDate);
     const updated: TrackedSystem = {
       ...system,
       status: "awaiting_data" as SystemTrackingStatus,
-      snapshot: "🔴 OFF-SEASON | NFL regular season resumes ~Sep 2026. No current slate — zero records stored (honest).",
-      automationStatusLabel: "Wired — dormant off-season",
-      automationStatusDetail: `getBettingSplits("NFL") returned ${hasGames ? "games" : "empty board"} for ${targetDate}. System will auto-activate when a live NFL slate exists.`,
+      snapshot: unavailable.snapshot,
+      automationStatusLabel: unavailable.automationStatusLabel,
+      automationStatusDetail: unavailable.automationStatusDetail,
       records: [],
     };
     return updated;
@@ -4956,13 +4956,14 @@ async function refreshNFLHomeDogMajorityHandleSystemData(
     }));
   }
 
-  const auditNote = `Scanned ${audit.gamesScanned} NFL games. Not available: ${audit.notAvailable}. Not dog: ${audit.notUnderdog}. Below threshold: ${audit.notMajorityHandle}. Qualified: ${audit.qualified}.`;
+  const activeState = nflHandleActiveState(audit);
   return {
     ...system,
     status: audit.qualified > 0 ? "tracking" as SystemTrackingStatus : "awaiting_data" as SystemTrackingStatus,
-    snapshot: audit.qualified > 0
-      ? `🟢 ${audit.qualified} NFL Home Dog pick(s) today | ${auditNote}`
-      : `🟡 No NFL picks today | ${auditNote}`,
+    trackabilityBucket: "trackable_now" as SystemTrackabilityBucket,
+    snapshot: activeState.snapshot,
+    automationStatusLabel: activeState.automationStatusLabel,
+    automationStatusDetail: activeState.automationStatusDetail,
     records: freshRecords,
   };
 }

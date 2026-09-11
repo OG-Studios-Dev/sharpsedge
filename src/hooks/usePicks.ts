@@ -7,11 +7,12 @@ import { APP_TIME_ZONE, MLB_TIME_ZONE, NBA_TIME_ZONE, getDateKey } from "@/lib/d
 
 const NHL_STORAGE_KEY = "goosalytics_ai_picks_v10";
 const NBA_STORAGE_KEY = "goosalytics_nba_picks_v10";
+const NFL_STORAGE_KEY = "goosalytics_nfl_picks_v1";
 const MLB_STORAGE_KEY = "goosalytics_mlb_picks_v8";
 const GOLF_STORAGE_KEY = "goosalytics_golf_picks_v11";
 
 // Nuclear clear: wipe ALL old pick keys from localStorage (preserve active versioned keys)
-const ACTIVE_PICK_KEYS = new Set([NHL_STORAGE_KEY, NBA_STORAGE_KEY, MLB_STORAGE_KEY, GOLF_STORAGE_KEY]);
+const ACTIVE_PICK_KEYS = new Set([NHL_STORAGE_KEY, NBA_STORAGE_KEY, NFL_STORAGE_KEY, MLB_STORAGE_KEY, GOLF_STORAGE_KEY]);
 if (typeof window !== "undefined") {
   const keysToRemove: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -124,6 +125,7 @@ async function resolvePicksFromAPI(picks: AIPick[], endpoint: string): Promise<A
 
 function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEndpoint: string | null, timeZone = APP_TIME_ZONE) {
   const [allPicks, setAllPicks] = useState<PickStore>({});
+  const [learningPicks, setLearningPicks] = useState<AIPick[]>([]);
   const [loadingPicks, setLoadingPicks] = useState(true);
   const [picksError, setPicksError] = useState<string | null>(null);
 
@@ -177,6 +179,7 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
         throw new Error(`${fetchEndpoint} returned ${res.status}`);
       }
       const data = await res.json();
+      setLearningPicks(Array.isArray(data.learningPicks) ? data.learningPicks.map(normalizePick) : []);
       if (data.picks?.length) {
         const date = data.date || key;
         const incomingPicks = data.picks.map(normalizePick);
@@ -185,7 +188,8 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
 
         const canReplaceExistingSlate = existingPicks.length === 0
           || source === "generated_locked"
-          || source === "history_locked";
+          || source === "history_locked"
+          || source === "nfl_learning";
 
         if (canReplaceExistingSlate) {
           store[date] = incomingPicks;
@@ -224,7 +228,7 @@ function usePicksForLeague(storageKey: string, fetchEndpoint: string, resolveEnd
   const record = computePickRecord(Object.values(allPicks).flat());
   const stalePickCount = countStalePendingPicks(allPicks, timeZone);
 
-  return { todayPicks, allPicks, record, loadingPicks, picksError, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
+  return { todayPicks, learningPicks, allPicks, record, loadingPicks, picksError, refreshPicks: fetchAndStore, stalePickCount, clearStalePicks };
 }
 
 export function usePicks() {
@@ -233,6 +237,21 @@ export function usePicks() {
 
 export function useNBAPicks() {
   return usePicksForLeague(NBA_STORAGE_KEY, "/api/nba/picks", NBA_RESOLVE_ENDPOINT, NBA_TIME_ZONE);
+}
+
+export function useNFLPicks() {
+  const result = usePicksForLeague(NFL_STORAGE_KEY, "/api/nfl/picks", null, APP_TIME_ZONE);
+  const key = todayKey(APP_TIME_ZONE);
+  const upcomingDate = Object.keys(result.allPicks)
+    .filter((date) => date >= key)
+    .sort()[0];
+  const todayPicks = result.todayPicks.length > 0
+    ? result.todayPicks
+    : upcomingDate
+      ? result.allPicks[upcomingDate] ?? []
+      : [];
+
+  return { ...result, todayPicks };
 }
 
 export function useMLBPicks() {

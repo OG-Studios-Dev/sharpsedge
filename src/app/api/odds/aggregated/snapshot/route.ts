@@ -5,6 +5,7 @@ import { addIncident, readAdminOpsData, updateCronSchedule, updateIncident } fro
 import { SUPPORTED_AGGREGATION_SPORTS, type AggregatedSport } from "@/lib/books/types";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 150;
 
 function isTruthy(value: string | null) {
   return ["1", "true", "yes"].includes((value || "").toLowerCase());

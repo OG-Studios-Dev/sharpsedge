@@ -1,3 +1,6 @@
+import { NFL_TEAM_DIVISIONS } from "@/lib/nfl-team-divisions";
+import { resolveNFLStandingPosition } from "@/lib/nfl-standing-position";
+
 const ESPN_SITE_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const ESPN_V2_BASE = "https://site.api.espn.com/apis/v2/sports/football/nfl";
 const CACHE_TTL = 15 * 60 * 1000;
@@ -236,7 +239,7 @@ export async function getNFLSchedule(): Promise<NFLGame[]> {
   }
 }
 
-function parseStandingEntry(entry: any, conference: "AFC" | "NFC"): NFLTeamStanding {
+function parseStandingEntry(entry: any, conference: "AFC" | "NFC", fallbackPosition: number): NFLTeamStanding {
   const stats = Array.isArray(entry?.stats) ? entry.stats : [];
   const statMap = Object.fromEntries(
     stats.map((stat: any) => [
@@ -253,8 +256,18 @@ function parseStandingEntry(entry: any, conference: "AFC" | "NFC"): NFLTeamStand
     losses: Number(statMap.losses ?? 0) || 0,
     ties: Number(statMap.ties ?? 0) || 0,
     conference,
-    division: String(statMap.division || statMap.groupshortname || statMap.groupname || entry?.note?.description || "").trim() || "Division",
-    position: Number(statMap.rank ?? statMap.playoffseed ?? statMap.position ?? 0) || 0,
+    division: String(
+      statMap.division
+      || statMap.groupshortname
+      || statMap.groupname
+      || entry?.note?.description
+      || NFL_TEAM_DIVISIONS[teamAbbrev]
+      || "",
+    ).trim() || "—",
+    position: resolveNFLStandingPosition(
+      statMap.rank ?? statMap.playoffseed ?? statMap.position,
+      fallbackPosition,
+    ),
     logo: entry?.team?.logos?.[0]?.href || entry?.team?.logo,
     color: NFL_TEAM_COLORS[teamAbbrev] || "#4a9eff",
   };
@@ -270,7 +283,7 @@ export async function getNFLStandings(season = new Date().getFullYear()): Promis
       const standings: NFLTeamStanding[] = groups.flatMap((group: any) => {
         const conference: "AFC" | "NFC" = String(group?.abbreviation || group?.name || "").includes("AFC") ? "AFC" : "NFC";
         const entries = Array.isArray(group?.standings?.entries) ? group.standings.entries : [];
-        return entries.map((entry: any) => parseStandingEntry(entry, conference));
+        return entries.map((entry: any, index: number) => parseStandingEntry(entry, conference, index + 1));
       });
 
       if (standings.length > 0) {

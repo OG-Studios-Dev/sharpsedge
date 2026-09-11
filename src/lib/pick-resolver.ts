@@ -20,6 +20,7 @@ import { parsePropLine } from "@/lib/goose-model/prop-parser";
 import { detectPGANearMiss } from "@/lib/goose-model/pga-near-miss";
 import { detectPGAMarketType } from "@/lib/goose-model/pga-features";
 import type { PGANearMissResult } from "@/lib/goose-model/pga-near-miss";
+import { upstreamFetchHeaders } from "@/lib/upstream-fetch-headers";
 
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -165,11 +166,11 @@ export function resolveSpreadResult(teamScore: number, opponentScore: number, sp
 
 export async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
-    // NHL API (and some others) return 403 to bare server-side requests without a User-Agent.
-    // Always send a browser-style UA so upstream APIs don't block our Vercel environment.
+    // NHL benefits from an explicit compatibility UA, while ESPN rejects that same
+    // browser-like bot header. Keep the runtime UA for ESPN and scope the override.
     const res = await fetch(url, {
       next: { revalidate: 60 },
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; Goosalytics/1.0; +https://goosalytics.vercel.app)" },
+      headers: upstreamFetchHeaders(url),
     });
     if (!res.ok) {
       console.warn("[pick-resolver] upstream fetch failed", { url, status: res.status });

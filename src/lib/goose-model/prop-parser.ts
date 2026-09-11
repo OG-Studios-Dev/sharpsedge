@@ -170,3 +170,10 @@ export function parsePropLine(label: string | null | undefined): ParsedPropLine 
     isCombo: isComboStatType(propType),
   };
 }
+
+export default {
+  extractPropLine,
+  extractPropType,
+  isComboStatType,
+  parsePropLine,
+};

@@ -73,7 +73,7 @@ export default function NFLScheduleBoard({ showHeader = false }: { showHeader?: 
       {showHeader && (
         <div className="mb-3">
           <h3 className="page-heading">NFL Schedule</h3>
-          <p className="mt-0.5 text-[11px] text-gray-500">Lines, totals, and the offseason runway</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Lines, totals, and weekly matchups</p>
         </div>
       )}
 

@@ -342,3 +342,13 @@ export function shouldRecoverStoredSlate(slate: PickSlateRecord | null, records:
   if (slate.pick_count > 0) return false;
   return true;
 }
+
+export default {
+  EXPECTED_DAILY_PICK_COUNT,
+  buildSyntheticSlateRecords,
+  mapPickHistoryRecordToAIPick,
+  mergeSlateRecords,
+  normalizePickHistoryRow,
+  normalizePickSlateRow,
+  shouldRecoverStoredSlate,
+};
