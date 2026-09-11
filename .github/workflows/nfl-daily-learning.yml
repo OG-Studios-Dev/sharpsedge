@@ -1,0 +1,210 @@
+name: NFL Daily Data and Goose Learning
+
+on:
+  schedule:
+    - cron: "5 13 * * *"
+  workflow_dispatch:
+    inputs:
+      target_date:
+        description: "Toronto date to score (YYYY-MM-DD); blank uses today"
+        required: false
+        type: string
+
+concurrency:
+  group: nfl-daily-learning
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-score-grade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOOSE_SHADOW_MODEL_VERSION: shadow-2026-05-25-nfl-foundation
+      GOOSE_LEARNING_CONFIDENCE_MIN: "0.39"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Validate required secrets
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$NEXT_PUBLIC_SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$CRON_SECRET"
+
+      - name: Resolve Toronto target date
+        env:
+          INPUT_TARGET_DATE: ${{ inputs.target_date }}
+        run: |
+          if [ -n "$INPUT_TARGET_DATE" ] && ! [[ "$INPUT_TARGET_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "target_date must be YYYY-MM-DD" >&2
+            exit 1
+          fi
+          TARGET_DATE="${INPUT_TARGET_DATE:-$(TZ=America/Toronto date +%F)}"
+          NORMALIZED_DATE="$(date -u -d "$TARGET_DATE" +%F 2>/dev/null || true)"
+          if [ "$NORMALIZED_DATE" != "$TARGET_DATE" ]; then
+            echo "target_date must be a real YYYY-MM-DD calendar date" >&2
+            exit 1
+          fi
+          printf 'TARGET_DATE=%s\n' "$TARGET_DATE" >> "$GITHUB_ENV"
+
+      - name: Capture every available NFL market and source
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://goosalytics.vercel.app/api/odds/aggregated/snapshot?cron=true&sports=NFL&reason=nfl-daily-learning" \
+            --output /tmp/nfl-snapshot.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/nfl-snapshot.json', 'utf8'));
+          const snapshotOk = payload.ok === true
+            && payload.counts?.games > 0
+            && payload.counts?.prices > 0
+            && payload.persistence?.supabase?.status === 'persisted'
+            && payload.persistence?.goose2Shadow?.status === 'persisted';
+          console.log(JSON.stringify({
+            snapshotId: payload.snapshotId,
+            capturedAt: payload.capturedAt,
+            counts: payload.counts,
+            sources: payload.sourceSummary,
+            supabase: payload.persistence?.supabase,
+            goose2Shadow: payload.persistence?.goose2Shadow,
+          }, null, 2));
+          if (!snapshotOk) process.exit(1);
+          NODE
+
+      - name: Resolve priced NFL dates for the next seven days
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          NFL_SLATE_DATES="$(TARGET_DATE="$TARGET_DATE" node --input-type=module - <<'NODE'
+          const targetDate = process.env.TARGET_DATE;
+          const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          const through = new Date(`${targetDate}T12:00:00Z`);
+          through.setUTCDate(through.getUTCDate() + 7);
+          const throughDate = through.toISOString().slice(0, 10);
+          const url = `${baseUrl}/rest/v1/goose_market_events?select=event_date&sport=eq.NFL&event_date=gte.${encodeURIComponent(targetDate)}&event_date=lte.${encodeURIComponent(throughDate)}&order=event_date.asc&limit=200`;
+          const response = await fetch(url, {
+            headers: { apikey: key, Authorization: `Bearer ${key}` },
+          });
+          if (!response.ok) {
+            throw new Error(`NFL slate-date lookup failed (${response.status})`);
+          }
+          const rows = await response.json();
+          const validDate = /^\d{4}-\d{2}-\d{2}$/;
+          const dates = [...new Set(rows.map((row) => String(row.event_date || "")).filter((value) => validDate.test(value)))].sort();
+          process.stdout.write(dates.join(' '));
+          NODE
+          )"
+          if [ -z "$NFL_SLATE_DATES" ]; then NFL_SLATE_DATES="$TARGET_DATE"; fi
+          NEXT_NFL_DATE="${NFL_SLATE_DATES%% *}"
+          echo "NFL_SLATE_DATES=$NFL_SLATE_DATES" >> "$GITHUB_ENV"
+          echo "NEXT_NFL_DATE=$NEXT_NFL_DATE" >> "$GITHUB_ENV"
+
+      - name: Refresh live NFL systems for every priced slate date
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          for SYSTEM_DATE in $NFL_SLATE_DATES; do
+            curl --fail-with-body --silent --show-error \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "https://goosalytics.vercel.app/api/systems/refresh?cron=true&systemId=nfl-home-dog-majority-handle&date=$SYSTEM_DATE" \
+              --output "/tmp/nfl-systems-${SYSTEM_DATE}.json"
+            SYSTEM_DATE="$SYSTEM_DATE" node - <<'NODE'
+          const file = `/tmp/nfl-systems-${process.env.SYSTEM_DATE}.json`;
+          const p = require(file);
+          const s = p.system || {};
+          console.log(JSON.stringify({ date: process.env.SYSTEM_DATE, id: s.id, status: s.status, records: s.records?.length || 0, snapshot: s.snapshot }));
+          if (p.ok !== true || s.id !== "nfl-home-dog-majority-handle") process.exit(1);
+          NODE
+          done
+
+      - name: Grade completed NFL candidates
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://goosalytics.vercel.app/api/admin/goose2/grade?sport=NFL&limit=2000&lookbackDays=7" \
+            --output /tmp/nfl-grade.json
+          node -e "const p=require('/tmp/nfl-grade.json'); console.log(JSON.stringify(p.counts,null,2)); if(p.ok!==true) process.exit(1)"
+
+      - name: Grade prior NFL system qualifiers
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --data '{"systemId":"nfl-home-dog-majority-handle"}' \
+            "https://goosalytics.vercel.app/api/admin/systems/grade" \
+            --output /tmp/nfl-system-grade.json
+          node -e "const p=require('/tmp/nfl-system-grade.json'); console.log(JSON.stringify({ok:p.ok,totalPendingChecked:p.totalPendingChecked,totalGraded:p.totalGraded,reports:p.reports},null,2)); if(p.ok!==true||(p.reports||[]).some(r=>(r.errors||[]).length>0)) process.exit(1)"
+
+      - name: Score current date and every priced NFL slate date in the next week
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          for SCORE_DATE in $(printf '%s\n' "$TARGET_DATE" $NFL_SLATE_DATES | sort -u); do
+            node scripts/goose2-score-shadow.mjs \
+              --date="$SCORE_DATE" \
+              --sport=NFL \
+              --trainingDataset=data/models/goose-training-examples-nfl-foundation.json \
+              --force=true \
+              > "/tmp/nfl-score-${SCORE_DATE}.stdout.json"
+            cp tmp/goose2-shadow-score-report.json "/tmp/goose2-shadow-score-${SCORE_DATE}.json"
+            SCORE_DATE="$SCORE_DATE" node - <<'NODE'
+          const fs = require("node:fs");
+          const file = `/tmp/goose2-shadow-score-${process.env.SCORE_DATE}.json`;
+          const payload = JSON.parse(fs.readFileSync(file, "utf8"));
+          const approvedSports = Object.keys(payload.approved_by_sport || {});
+          if (payload.score_sport !== "NFL" || approvedSports.some((sport) => sport !== "NFL")) {
+            console.error(JSON.stringify(payload, null, 2));
+            process.exit(1);
+          }
+          console.log(JSON.stringify({
+            date: payload.target_date,
+            scoreSport: payload.score_sport,
+            counts: payload.counts,
+            approvedBySport: payload.approved_by_sport,
+          }));
+          NODE
+          done
+
+      - name: Settle NFL learning picks and refresh lab status
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/settle-goose-learning-shadow-picks.mjs --lookbackDays=7 --sport=NFL
+          node scripts/goose-learning-lab-status.mjs --write=true
+
+      - name: Archive run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfl-daily-learning-${{ github.run_id }}
+          path: |
+            /tmp/nfl-snapshot.json
+            /tmp/nfl-systems-*.json
+            /tmp/nfl-grade.json
+            /tmp/nfl-system-grade.json
+            /tmp/goose2-shadow-score-*.json
+            tmp/goose-learning-lab-status.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { persistGoose2Grades } from "@/lib/goose2/grading";
+import { goose2GradeEventDates } from "@/lib/goose2/grading-window";
 import { listGoose2Candidates, listGoose2Events } from "@/lib/goose2/repository";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 150;
-
-function dateKeyUTC(offsetDays = 0) {
-  const now = new Date();
-  now.setUTCDate(now.getUTCDate() + offsetDays);
-  return now.toISOString().slice(0, 10);
-}
 
 function terminalResult(result?: string | null, integrity?: string | null) {
   const resultValue = String(result ?? "").toLowerCase();
@@ -22,9 +17,7 @@ async function runGoose2Grade(input: { date?: string; sport?: string; limit?: nu
   const sport = input.sport?.trim().toUpperCase() || undefined;
   const limit = Math.min(Math.max(Number(input.limit ?? 400), 1), 2000);
   const lookbackDays = Math.min(Math.max(Number(input.lookbackDays ?? (input.date ? 1 : 3)), 1), 7);
-  const eventDates = input.date
-    ? [input.date]
-    : Array.from({ length: lookbackDays }, (_, index) => dateKeyUTC(-(index + 1)));
+  const eventDates = goose2GradeEventDates(input.date, lookbackDays);
 
   const allResults = [];
   const perDate = [];

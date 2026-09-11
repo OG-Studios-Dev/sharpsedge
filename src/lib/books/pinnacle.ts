@@ -198,7 +198,7 @@ export async function fetchOdds(sport: AggregatedSport): Promise<BookEventOdds[]
 
     const matchupsRes = await fetch(`${API_BASE}/leagues/${leagueId}/matchups`, {
       headers: hdrs,
-      next: { revalidate: 900 },
+      cache: "no-store",
     });
     if (!matchupsRes.ok) throw new Error(`Pinnacle ${sport} matchups error ${matchupsRes.status}`);
     const matchupsPayload = await matchupsRes.json();

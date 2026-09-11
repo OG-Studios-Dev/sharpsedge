@@ -1,4 +1,5 @@
 import { getNFLStandings, getNFLSchedule, type NFLGame, type NFLTeamStanding } from "@/lib/nfl-api";
+import { resolveNFLSeasonStart } from "@/lib/nfl-season-context";
 
 export type NFLDashboardData = {
   schedule: NFLGame[];
@@ -13,14 +14,6 @@ export type NFLDashboardData = {
   };
 };
 
-function getSeasonStartDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const start = new Date(year, 8, 1);
-  if (now.getTime() <= start.getTime()) return start;
-  return new Date(year + 1, 8, 1);
-}
-
 function daysUntil(date: Date) {
   const now = new Date();
   const diff = date.getTime() - now.getTime();
@@ -33,10 +26,10 @@ export async function getNFLDashboardData(): Promise<NFLDashboardData> {
     getNFLStandings(),
   ]);
 
-  const seasonStart = getSeasonStartDate();
-  const seasonLabel = seasonStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const activeSchedule = schedule.filter((game) => game.status !== "Final");
   const inOffseason = activeSchedule.length === 0;
+  const seasonStart = resolveNFLSeasonStart(new Date(), activeSchedule.length > 0);
+  const seasonLabel = seasonStart.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "America/Toronto" });
 
   return {
     schedule,

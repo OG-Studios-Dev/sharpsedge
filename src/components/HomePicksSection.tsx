@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useNFLPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import TeamLogo from "./TeamLogo";
 import PlayerAvatar from "./PlayerAvatar";
@@ -134,6 +134,7 @@ const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
   All: { icon: "🏆", label: "All" },
   NHL: { icon: "NHL", label: "NHL" },
   NBA: { icon: "NBA", label: "NBA" },
+  NFL: { icon: "NFL", label: "NFL" },
   MLB: { icon: "MLB", label: "MLB" },
   PGA: { icon: "PGA", label: "PGA" },
 };
@@ -141,19 +142,22 @@ const SPORT_ICONS: Record<string, { icon: string; label: string }> = {
 export default function HomePicksSection({ league = "All" }: { league?: string }) {
   const nhl = usePicks();
   const nba = useNBAPicks();
+  const nfl = useNFLPicks();
   const mlb = useMLBPicks();
   const golf = useGolfPicks();
   const { picks: historyPicks } = usePickHistory();
 
   const allNHLPicks = Object.values(nhl.allPicks).flat();
   const allNBAPicks = Object.values(nba.allPicks).flat();
+  const allNFLPicks = Object.values(nfl.allPicks).flat();
   const allMLBPicks = Object.values(mlb.allPicks).flat();
   const allGolfPicks = Object.values(golf.allPicks).flat();
-  const allPicks = [...allNHLPicks, ...allNBAPicks, ...allMLBPicks];
+  const allPicks = [...allNHLPicks, ...allNBAPicks, ...allNFLPicks, ...allMLBPicks];
   const nonGolfHistoryPicks = historyPicks.filter((pick) => pick.league !== "PGA");
 
   const localNhlRecord = computeRecord(allNHLPicks);
   const localNbaRecord = computeRecord(allNBAPicks);
+  const localNflRecord = computeRecord(allNFLPicks);
   const localMlbRecord = computeRecord(allMLBPicks);
   const localAllRecord = computeRecord(allPicks);
   const localGolfRecord = computeRecord(allGolfPicks);
@@ -165,6 +169,9 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
   const nbaRecord = hasRemoteHistory
     ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "NBA"))
     : localNbaRecord;
+  const nflRecord = hasRemoteHistory
+    ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "NFL"))
+    : localNflRecord;
   const mlbRecord = hasRemoteHistory
     ? computePickHistorySummary(historyPicks.filter((pick) => pick.league === "MLB"))
     : localMlbRecord;
@@ -180,6 +187,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
     All: allRecord,
     NHL: nhlRecord,
     NBA: nbaRecord,
+    NFL: nflRecord,
     MLB: mlbRecord,
     PGA: golfRecord,
   };
@@ -189,38 +197,44 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
   const displayPicks =
     league === "NBA"
       ? nba.todayPicks
+      : league === "NFL"
+      ? nfl.todayPicks
       : league === "MLB"
       ? mlb.todayPicks
       : league === "PGA"
       ? golf.todayPicks
       : league === "All"
-      ? [...nhl.todayPicks, ...nba.todayPicks, ...mlb.todayPicks]
+      ? [...nhl.todayPicks, ...nba.todayPicks, ...nfl.todayPicks, ...mlb.todayPicks]
       : nhl.todayPicks;
 
   const loadingPicks =
     league === "NBA"
       ? nba.loadingPicks
+      : league === "NFL"
+      ? nfl.loadingPicks
       : league === "MLB"
       ? mlb.loadingPicks
       : league === "PGA"
       ? golf.loadingPicks
       : league === "All"
-      ? nhl.loadingPicks || nba.loadingPicks || mlb.loadingPicks
+      ? nhl.loadingPicks || nba.loadingPicks || nfl.loadingPicks || mlb.loadingPicks
       : nhl.loadingPicks;
 
   const picksError =
     league === "NBA"
       ? nba.picksError
+      : league === "NFL"
+      ? nfl.picksError
       : league === "MLB"
       ? mlb.picksError
       : league === "PGA"
       ? golf.picksError
       : league === "All"
-      ? [nhl.picksError, nba.picksError, mlb.picksError].filter(Boolean).join(" · ") || null
+      ? [nhl.picksError, nba.picksError, nfl.picksError, mlb.picksError].filter(Boolean).join(" · ") || null
       : nhl.picksError;
 
   const record =
-    league === "NBA" ? nbaRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
+    league === "NBA" ? nbaRecord : league === "NFL" ? nflRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
   const mobileDisplayPicks = league === "PGA" ? displayPicks.slice(0, 5) : displayPicks;
 
   return (
@@ -232,7 +246,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
           <p className="text-[10px] text-gray-500 mt-0.5">
             {league === "PGA"
               ? "PGA · 12 tournament picks · 1 unit each"
-              : `${league === "All" ? "All Sports" : league} · 3 picks/day · 1 unit each`}
+              : `${league === "All" ? "All Sports" : league} · qualified picks only · 1 unit each`}
           </p>
         </div>
         <Link href="/picks" className="text-xs text-accent-blue font-medium">View all →</Link>

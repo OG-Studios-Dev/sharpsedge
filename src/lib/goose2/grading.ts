@@ -12,10 +12,12 @@ import type {
 } from "@/lib/goose2/types";
 
 const NBA_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
+const NFL_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const MLB_BASE = "https://statsapi.mlb.com/api/v1";
 const NHL_BASE = "https://api-web.nhle.com/v1";
 const PGA_SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard";
 const nbaGameIdCache = new Map<string, Promise<{ gameId: string | null; resolution: string; payload?: Record<string, unknown> }>>();
+const nflGameIdCache = new Map<string, Promise<{ gameId: string | null; resolution: string; payload?: Record<string, unknown> }>>();
 const mlbGameIdCache = new Map<string, Promise<{ gameId: string | null; resolution: string; payload?: Record<string, unknown> }>>();
 
 type GradeableGoose2Market =
@@ -34,6 +36,13 @@ type GradeableGoose2Market =
   | "player_prop_strikeouts"
   | "player_prop_home_runs"
   | "player_prop_threes"
+  | "player_prop_passing_yards"
+  | "player_prop_passing_tds"
+  | "player_prop_rushing_yards"
+  | "player_prop_rush_attempts"
+  | "player_prop_receiving_yards"
+  | "player_prop_receptions"
+  | "player_prop_anytime_td"
   | "golf_top_5"
   | "golf_top_10"
   | "golf_top_20";
@@ -459,6 +468,84 @@ async function resolveNBAGameId(event: Goose2MarketEvent): Promise<{ gameId: str
   return promise;
 }
 
+async function resolveNFLGameId(event: Goose2MarketEvent): Promise<{ gameId: string | null; resolution: string; payload?: Record<string, unknown> }> {
+  const cacheKey = event.event_id || `${event.sport}:${event.event_date}:${event.away_team_id || event.away_team}@${event.home_team_id || event.home_team}`;
+  const cached = nflGameIdCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    const direct = resolveDirectNumericGameId(event);
+    if (direct) return { gameId: direct, resolution: "direct_numeric_id" };
+
+    const boardDate = String(event.event_date || "").trim();
+    const away = normalizeTeam(event.away_team_id || event.away_team);
+    const home = normalizeTeam(event.home_team_id || event.home_team);
+    const eventStartMs = event.commence_time ? new Date(event.commence_time).getTime() : NaN;
+    const dateKeys = getAdjacentDateKeys(boardDate);
+    const boards = await Promise.all(dateKeys.map((dateKey) => fetchJSON<any>(`${NFL_BASE}/scoreboard?dates=${dateKey.replace(/-/g, "")}`)));
+    const matches = Array.from(new Map(
+      boards
+        .flatMap((board, index) => (board?.events ?? []).map((game: any) => ({ game, requestDate: dateKeys[index] })))
+        .filter(({ game }) => {
+          const competition = game?.competitions?.[0] ?? {};
+          const competitors = competition?.competitors ?? [];
+          const homeTeam = competitors.find((entry: any) => entry.homeAway === "home") ?? competitors[0];
+          const awayTeam = competitors.find((entry: any) => entry.homeAway === "away") ?? competitors[1];
+          return normalizeTeam(awayTeam?.team?.abbreviation) === away
+            && normalizeTeam(homeTeam?.team?.abbreviation) === home;
+        })
+        .map((entry) => [String(entry.game?.id), entry]),
+    ).values());
+
+    if (matches.length === 1) {
+      const matched = matches[0];
+      return {
+        gameId: String(matched.game.id),
+        resolution: "matched_by_scoreboard_exact",
+        payload: { matched_start: matched.game?.date ?? null, board_date: boardDate, matched_date: matched.requestDate, away, home },
+      };
+    }
+
+    if (matches.length > 1 && Number.isFinite(eventStartMs)) {
+      const ranked = matches
+        .map((entry) => ({ ...entry, diffMs: Math.abs(new Date(entry.game?.date ?? 0).getTime() - eventStartMs) }))
+        .sort((a, b) => a.diffMs - b.diffMs);
+      const best = ranked[0];
+      const second = ranked[1];
+      if (best && best.diffMs <= 12 * 60 * 60 * 1000 && (!second || second.diffMs !== best.diffMs)) {
+        return {
+          gameId: String(best.game.id),
+          resolution: "matched_by_scoreboard_time_proximity",
+          payload: {
+            matched_start: best.game?.date ?? null,
+            matched_date: best.requestDate,
+            time_diff_minutes: Math.round(best.diffMs / 60000),
+            board_date: boardDate,
+            away,
+            home,
+          },
+        };
+      }
+    }
+
+    return {
+      gameId: null,
+      resolution: "unresolved",
+      payload: {
+        source_event_id: event.source_event_id,
+        odds_api_event_id: event.odds_api_event_id,
+        board_date: boardDate,
+        searched_dates: dateKeys,
+        away,
+        home,
+      },
+    };
+  })();
+
+  nflGameIdCache.set(cacheKey, promise);
+  return promise;
+}
+
 function resolveMLBScheduleTeamAbbrev(team: any) {
   return normalizeMLBTeam(
     team?.abbreviation
@@ -761,6 +848,148 @@ async function gradeNBA(candidate: Goose2MarketCandidate, event: Goose2MarketEve
   });
 }
 
+export function gradeNFLFromSummary(
+  candidate: Goose2MarketCandidate,
+  event: Goose2MarketEvent,
+  summary: any,
+  resolution = "unknown",
+): Goose2MarketResult {
+  if (!summary || !isFinalNBA(summary)) {
+    return pendingResult(candidate, "NFL game not final yet.", { resolution });
+  }
+
+  const competition = getNBACompetition(summary);
+  const competitors = competition?.competitors ?? [];
+  const home = competitors.find((entry: any) => entry.homeAway === "home") ?? competitors[0];
+  const away = competitors.find((entry: any) => entry.homeAway === "away") ?? competitors[1];
+  const homeAbbrev = normalizeTeam(home?.team?.abbreviation);
+  const awayAbbrev = normalizeTeam(away?.team?.abbreviation);
+  const scoreAvailable = (value: unknown) => value !== null
+    && value !== undefined
+    && String(value).trim() !== ""
+    && Number.isFinite(Number(value));
+  if (!homeAbbrev || !awayAbbrev || !scoreAvailable(home?.score) || !scoreAvailable(away?.score)) {
+    return pendingResult(candidate, "NFL final summary is missing a complete scoreboard.", { resolution });
+  }
+  const homeScore = Number(home.score);
+  const awayScore = Number(away.score);
+  const scoreText = `${awayAbbrev} ${awayScore} @ ${homeAbbrev} ${homeScore}`;
+
+  if (candidate.market_type === "moneyline" || candidate.market_type === "spread" || candidate.market_type === "total") {
+    if (candidate.market_type === "total") {
+      if (candidate.line == null) return unsupportedResult(candidate, "NFL total candidate missing line.", "unresolvable");
+      const total = homeScore + awayScore;
+      return settledResult({
+        candidate,
+        result: resolveByLine(total, candidate.line, candidate.side),
+        actualStat: total,
+        actualStatText: scoreText,
+        notes: `NFL full-game total graded from ESPN final summary (${resolution}).`,
+      });
+    }
+
+    const participant = normalizeTeam(candidate.participant_id ?? candidate.participant_name);
+    const isHome = participant === homeAbbrev
+      || normalizeTeam(candidate.participant_name) === normalizeTeam(event.home_team)
+      || normalizeTeam(candidate.side) === "HOME";
+    const isAway = participant === awayAbbrev
+      || normalizeTeam(candidate.participant_name) === normalizeTeam(event.away_team)
+      || normalizeTeam(candidate.side) === "AWAY";
+    if (!isHome && !isAway) {
+      return unsupportedResult(candidate, "NFL team candidate could not be matched to the final summary.", "unresolvable");
+    }
+
+    const teamScore = isHome ? homeScore : awayScore;
+    const opponentScore = isHome ? awayScore : homeScore;
+    if (candidate.market_type === "moneyline") {
+      return settledResult({
+        candidate,
+        result: teamScore > opponentScore ? "win" : teamScore < opponentScore ? "loss" : "push",
+        actualStat: teamScore - opponentScore,
+        actualStatText: scoreText,
+        notes: `NFL moneyline graded from ESPN final summary (${resolution}).`,
+      });
+    }
+
+    if (candidate.line == null) return unsupportedResult(candidate, "NFL spread candidate missing line.", "unresolvable");
+    return settledResult({
+      candidate,
+      result: resolveSpreadResult(teamScore, opponentScore, candidate.line),
+      actualStat: teamScore - opponentScore,
+      actualStatText: scoreText,
+      notes: `NFL spread graded from ESPN final summary (${resolution}).`,
+    });
+  }
+
+  if (!candidate.participant_name || candidate.line == null) {
+    return unsupportedResult(candidate, "NFL player prop missing participant or line.", "unresolvable");
+  }
+
+  const playerGroups = (summary.boxscore?.players ?? []).flatMap((teamGroup: any) =>
+    (teamGroup.statistics ?? []).flatMap((statsGroup: any) => {
+      const labels: string[] = statsGroup.labels ?? [];
+      return (statsGroup.athletes ?? [])
+        .filter((athlete: any) => normalizeTeam(athlete?.athlete?.displayName) === normalizeTeam(candidate.participant_name))
+        .map((athlete: any) => ({
+          group: String(statsGroup.name ?? "").toLowerCase(),
+          stats: Object.fromEntries(labels.map((label, index) => [normalizeTeam(label), parseNumericStat(athlete.stats?.[index])])),
+        }));
+    }),
+  );
+
+  if (playerGroups.length === 0) {
+    return settledResult({
+      candidate,
+      result: "void",
+      integrityStatus: "void",
+      notes: `NFL player did not appear in the final ESPN boxscore: ${candidate.participant_name}.`,
+      payload: { resolution, dnp: true },
+    });
+  }
+
+  const stat = (group: string, label: string) => {
+    const entry = playerGroups.find((row: any) => row.group === group);
+    return entry ? toNumber(entry.stats[normalizeTeam(label)]) : 0;
+  };
+
+  let actual: number | null = null;
+  if (candidate.market_type === "player_prop_passing_yards") actual = stat("passing", "YDS");
+  else if (candidate.market_type === "player_prop_passing_tds") actual = stat("passing", "TD");
+  else if (candidate.market_type === "player_prop_rushing_yards") actual = stat("rushing", "YDS");
+  else if (candidate.market_type === "player_prop_rush_attempts") actual = stat("rushing", "CAR");
+  else if (candidate.market_type === "player_prop_receiving_yards") actual = stat("receiving", "YDS");
+  else if (candidate.market_type === "player_prop_receptions") actual = stat("receiving", "REC");
+  else if (candidate.market_type === "player_prop_anytime_td") {
+    actual = playerGroups.some((row: any) => row.group !== "passing" && toNumber(row.stats.TD) > 0) ? 1 : 0;
+  } else {
+    return unsupportedResult(candidate, `Unsupported NFL market_type: ${candidate.market_type}.`, "unresolvable");
+  }
+
+  return settledResult({
+    candidate,
+    result: resolveByLine(actual, candidate.line, candidate.side),
+    actualStat: actual,
+    actualStatText: `${candidate.participant_name}: ${actual}`,
+    notes: `NFL player prop graded from ESPN final summary (${resolution}).`,
+  });
+}
+
+async function gradeNFL(candidate: Goose2MarketCandidate, event: Goose2MarketEvent): Promise<Goose2MarketResult> {
+  const resolvedId = await resolveNFLGameId(event);
+  if (!resolvedId.gameId) {
+    return settledResult({
+      candidate,
+      result: "ungradeable",
+      integrityStatus: "unresolvable",
+      notes: `NFL event missing resolvable ESPN game id. resolution=${resolvedId.resolution}`,
+      payload: { ...(resolvedId.payload ?? {}), metadata: event.metadata },
+    });
+  }
+
+  const summary = await fetchJSON<any>(`${NFL_BASE}/summary?event=${resolvedId.gameId}`);
+  return gradeNFLFromSummary(candidate, event, summary, resolvedId.resolution);
+}
+
 async function gradeMLB(candidate: Goose2MarketCandidate, event: Goose2MarketEvent): Promise<Goose2MarketResult> {
   const resolvedId = await resolveMLBGameId(event);
   const gameId = resolvedId.gameId;
@@ -957,6 +1186,7 @@ export async function gradeGoose2Candidate(candidate: Goose2MarketCandidate, eve
   if (market === "unknown") return unsupportedResult(candidate, "Unknown Goose 2 market_type.");
   if (event.sport === "NHL") return gradeNHL(candidate, event);
   if (event.sport === "NBA") return gradeNBA(candidate, event);
+  if (event.sport === "NFL") return gradeNFL(candidate, event);
   if (event.sport === "MLB") return gradeMLB(candidate, event);
   if (event.sport === "PGA") return gradePGA(candidate, event);
   return unsupportedResult(candidate, `Unsupported sport for Goose 2 grading: ${event.sport}.`);
@@ -978,3 +1208,9 @@ export async function persistGoose2Grades(input: { candidates: Goose2MarketCandi
   await upsertGoose2Results(rows);
   return rows;
 }
+
+export default {
+  gradeNFLFromSummary,
+  gradeGoose2Candidate,
+  persistGoose2Grades,
+};

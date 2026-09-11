@@ -3,9 +3,11 @@
 // Run: npx tsx --test src/lib/goose-model/prop-parser.test.mts
 // ============================================================
 
-import { parsePropLine, extractPropLine, extractPropType } from "./prop-parser.ts";
+import propParser from "./prop-parser.ts";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
+
+const { parsePropLine, extractPropLine, extractPropType } = propParser;
 
 // ── extractPropLine ──────────────────────────────────────────
 

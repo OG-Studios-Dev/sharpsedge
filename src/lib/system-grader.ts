@@ -20,6 +20,10 @@ import { getTeamRecentGames } from "@/lib/nhl-api";
 import { batchGradeSystemQualifiers, loadPendingQualifiers, type DbSystemQualifier, type GradeQualifierInput } from "@/lib/system-qualifiers-db";
 import type { SystemQualifierOutcome, SystemQualifierSettlementStatus } from "@/lib/systems-tracking-store";
 import { getBDLTournaments, getBDLTournamentResults } from "@/lib/golf/bdl-pga";
+import { fetchJSON } from "@/lib/pick-resolver";
+import { extractFinalNFLScoreboardResults } from "@/lib/goose2/nfl-system-grading";
+
+const NFL_ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 
 // ─── System IDs that have ML grading ────────────────────────────────────────
 
@@ -744,6 +748,43 @@ async function fetchNBARecentResults(): Promise<TotalsGameResult[]> {
   return results;
 }
 
+let _nflResultsCache: { key: string; data: TotalsGameResult[]; fetchedAt: number } | null = null;
+const NFL_RESULTS_TTL_MS = 30 * 60 * 1000;
+
+function adjacentDateKeys(dateKey: string) {
+  const base = new Date(`${dateKey}T12:00:00Z`);
+  if (Number.isNaN(base.getTime())) return [dateKey];
+  return [-1, 0, 1].map((offset) => {
+    const date = new Date(base);
+    date.setUTCDate(date.getUTCDate() + offset);
+    return date.toISOString().slice(0, 10);
+  });
+}
+
+async function fetchNFLRecentResults(pending: DbSystemQualifier[]): Promise<TotalsGameResult[]> {
+  const requestedDates = Array.from(new Set(
+    pending.flatMap((qualifier) => adjacentDateKeys(qualifier.game_date)),
+  )).sort();
+  const cacheKey = requestedDates.join(",");
+  const now = Date.now();
+  if (_nflResultsCache && _nflResultsCache.key === cacheKey && now - _nflResultsCache.fetchedAt < NFL_RESULTS_TTL_MS) {
+    return _nflResultsCache.data;
+  }
+
+  const scoreboards = await Promise.all(requestedDates.map((date) => (
+    fetchJSON<any>(`${NFL_ESPN_BASE}/scoreboard?dates=${date.replace(/-/g, "")}&limit=100`)
+  )));
+  const deduped = new Map<string, TotalsGameResult>();
+  for (const scoreboard of scoreboards) {
+    for (const result of extractFinalNFLScoreboardResults(scoreboard)) {
+      deduped.set(`${result.gameDate}:${result.awayAbbrev}@${result.homeAbbrev}`, result);
+    }
+  }
+  const data = Array.from(deduped.values());
+  _nflResultsCache = { key: cacheKey, data, fetchedAt: now };
+  return data;
+}
+
 function gradeTotalOutcome(
   totalLine: number | null,
   homeScore: number,
@@ -759,7 +800,7 @@ function gradeTotalOutcome(
 
 async function gradePendingMlQualifiers(
   pending: DbSystemQualifier[],
-  source: "nhl" | "mlb" | "nba",
+  source: "nhl" | "mlb" | "nba" | "nfl",
   gradingSource: string,
 ): Promise<GradeQualifierInput[]> {
   if (!pending.length) return [];
@@ -787,14 +828,18 @@ async function gradePendingMlQualifiers(
     });
   }
 
-  const results = source === "nba" ? await fetchNBARecentResults() : await fetchMLBRecentResults();
+  const results = source === "nba"
+    ? await fetchNBARecentResults()
+    : source === "nfl"
+      ? await fetchNFLRecentResults(pending)
+      : await fetchMLBRecentResults();
   return pending.flatMap((qualifier) => {
     const qualifiedTeam = qualifier.qualified_team;
     if (!qualifiedTeam) return [];
     const matchResult = results.find((r) => (
       r.homeAbbrev.toUpperCase() === qualifier.home_team.toUpperCase() &&
       r.awayAbbrev.toUpperCase() === qualifier.road_team.toUpperCase() &&
-      (source === "nba" || r.gameDate === qualifier.game_date)
+      (source === "nba" || source === "nfl" || r.gameDate === qualifier.game_date)
     ));
     if (!matchResult) return [];
     const outcome = gradeMLOutcome(qualifiedTeam, matchResult.homeAbbrev, matchResult.awayAbbrev, matchResult.homeScore, matchResult.awayScore);
@@ -1018,6 +1063,8 @@ export async function gradeSystemById(systemId: string): Promise<GradeAllSystems
       gradedInputs = await gradePendingTotalQualifiers(allPending, "mlb", "mlb-api-final");
     } else if (systemId === "nba-home-dog-majority-handle" || systemId === "nba-home-super-majority-close-game" || systemId === "the-blowout") {
       gradedInputs = await gradePendingMlQualifiers(allPending, "nba", "nba-espn-final");
+    } else if (systemId === "nfl-home-dog-majority-handle") {
+      gradedInputs = await gradePendingMlQualifiers(allPending, "nfl", "nfl-espn-final");
     } else if (systemId === "hot-teams-matchup") {
       gradedInputs = await gradePendingTotalQualifiers(allPending, "nba", "nba-espn-final");
     } else if (systemId === "pga-goose-picks") {
@@ -1092,6 +1139,11 @@ export function getGradeabilityMap(): Record<string, {
       gradeable: true,
       gradingType: "moneyline",
       notes: "NBA moneyline: backs the qualified home dog with majority handle. Graded from ESPN/NBA final scores.",
+    },
+    "nfl-home-dog-majority-handle": {
+      gradeable: true,
+      gradingType: "moneyline",
+      notes: "NFL moneyline: backs the qualified home dog with majority handle. Graded from ESPN/NFL final scores by the dedicated NFL workflow.",
     },
     "nba-home-super-majority-close-game": {
       gradeable: true,

@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
+import pickHistoryIntegrity from "./pick-history-integrity.ts";
+
+const {
   EXPECTED_DAILY_PICK_COUNT,
   buildSyntheticSlateRecords,
   mapPickHistoryRecordToAIPick,
@@ -9,7 +11,7 @@ import {
   normalizePickHistoryRow,
   normalizePickSlateRow,
   shouldRecoverStoredSlate,
-} from "./pick-history-integrity.ts";
+} = pickHistoryIntegrity;
 
 test("legacy reconstructed dates are labeled and keep stored snapshots", () => {
   const record = normalizePickHistoryRow({

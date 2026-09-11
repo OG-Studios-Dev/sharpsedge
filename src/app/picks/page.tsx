@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Clock, ChevronDown, Flag } from "lucide-react";
-import { usePicks, useNBAPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
+import { usePicks, useNBAPicks, useNFLPicks, useMLBPicks, useGolfPicks } from "@/hooks/usePicks";
 import { usePickHistory } from "@/hooks/usePickHistory";
 import { useLeague } from "@/hooks/useLeague";
 import type { AIPick, GolfDashboardData, GolfTournament } from "@/lib/types";
@@ -150,6 +150,7 @@ const SPORT_ICONS: Record<string, { label: string }> = {
   All: { label: "All" },
   NHL: { label: "NHL" },
   NBA: { label: "NBA" },
+  NFL: { label: "NFL" },
   MLB: { label: "MLB" },
   PGA: { label: "PGA" },
 };
@@ -293,7 +294,7 @@ function mapRecordToHistoryItem(record: PickHistoryRecord): HistoryItem {
   };
 }
 
-function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: boolean; onToggle: () => void }) {
+function PickCard({ pick, isExpanded, onToggle, shadowOnly = false }: { pick: AIPick; isExpanded: boolean; onToggle: () => void; shadowOnly?: boolean }) {
   const { openAddPickModal } = useAppChrome();
   const bookOdds = sortBookOddsForDisplay(pick.bookOdds || [], pick.line);
   const selectedBookOdds = resolveSelectedBookOdds(bookOdds, {
@@ -366,16 +367,20 @@ function PickCard({ pick, isExpanded, onToggle }: { pick: AIPick; isExpanded: bo
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <ResultPill result={pick.result} />
+          {shadowOnly
+            ? <span className="rounded-full border border-violet-400/40 bg-violet-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-300">Learning</span>
+            : <ResultPill result={pick.result} />}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => openAddPickModal(createDraftFromAIPick(pick))}
-              className="tap-button inline-flex h-10 w-10 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
-              aria-label={`Add ${pick.pickLabel} to My Picks`}
-            >
-              +
-            </button>
+            {!shadowOnly && (
+              <button
+                type="button"
+                onClick={() => openAddPickModal(createDraftFromAIPick(pick))}
+                className="tap-button inline-flex h-10 w-10 items-center justify-center rounded-xl border border-dark-border bg-dark-bg/70 text-sm font-semibold text-accent-blue"
+                aria-label={`Add ${pick.pickLabel} to My Picks`}
+              >
+                +
+              </button>
+            )}
             <button onClick={onToggle} className="tap-button inline-flex min-h-[44px] items-center gap-1 rounded-full border border-dark-border bg-dark-bg/70 px-3 text-[11px] font-semibold text-gray-300">
               AI
               <ChevronDown size={12} className={`text-gray-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
@@ -447,6 +452,7 @@ export default function PicksPage() {
 
   const { todayPicks: nhlToday, allPicks: nhlAll, loadingPicks: nhlLoading, picksError: nhlPicksError, stalePickCount: nhlStalePickCount, clearStalePicks: clearNHLStalePicks } = usePicks();
   const { todayPicks: nbaToday, allPicks: nbaAll, loadingPicks: nbaLoading, picksError: nbaPicksError, stalePickCount: nbaStalePickCount, clearStalePicks: clearNBAStalePicks } = useNBAPicks();
+  const { todayPicks: nflToday, learningPicks: nflLearningPicks, allPicks: nflAll, loadingPicks: nflLoading, picksError: nflPicksError, stalePickCount: nflStalePickCount, clearStalePicks: clearNFLStalePicks } = useNFLPicks();
   const { todayPicks: mlbToday, allPicks: mlbAll, loadingPicks: mlbLoading, picksError: mlbPicksError, stalePickCount: mlbStalePickCount, clearStalePicks: clearMLBStalePicks } = useMLBPicks();
   const { todayPicks: golfToday, allPicks: golfAll, loadingPicks: golfLoading, picksError: golfPicksError, stalePickCount: golfStalePickCount, clearStalePicks: clearGolfStalePicks } = useGolfPicks();
   const { picks: historyPicks = [] } = usePickHistory();
@@ -470,7 +476,7 @@ export default function PicksPage() {
   }, [sportLeague]);
 
   useEffect(() => {
-    if (sportLeague === "PGA" || sportLeague === "NFL" || sportLeague === "EPL" || sportLeague === "Serie A") {
+    if (sportLeague === "PGA" || sportLeague === "EPL" || sportLeague === "Serie A") {
       setLearningResults(null);
       setLearningResultsLoading(false);
       return undefined;
@@ -478,9 +484,10 @@ export default function PicksPage() {
 
     let cancelled = false;
     const resultLeague = sportLeague === "All" ? "ALL" : sportLeague;
+    const modelQuery = sportLeague === "NFL" ? "&modelVersion=shadow-2026-05-25-nfl-foundation" : "";
     setLearningResultsLoading(true);
 
-    fetch(`/api/goose-learning/results?league=${encodeURIComponent(resultLeague)}`)
+    fetch(`/api/goose-learning/results?league=${encodeURIComponent(resultLeague)}${modelQuery}`)
       .then((response) => response.ok ? response.json() : null)
       .then((payload: LearningResultsPayload | null) => {
         if (!cancelled) setLearningResults(payload?.ok ? payload : null);
@@ -500,12 +507,14 @@ export default function PicksPage() {
   const todayKey = todayKeyForLeague(sportLeague);
   const activeToday = sportLeague === "NBA"
     ? nbaToday
+    : sportLeague === "NFL"
+      ? nflToday
     : sportLeague === "MLB"
       ? mlbToday
       : sportLeague === "PGA"
         ? golfToday
         : sportLeague === "All"
-          ? [...nhlToday, ...nbaToday, ...mlbToday]
+          ? [...nhlToday, ...nbaToday, ...nflToday, ...mlbToday]
           : nhlToday;
 
   const activeAll: Record<string, AIPick[]> = {};
@@ -518,37 +527,44 @@ export default function PicksPage() {
 
   if (sportLeague === "NHL" || sportLeague === "All") mergeStore(nhlAll);
   if (sportLeague === "NBA" || sportLeague === "All") mergeStore(nbaAll);
+  if (sportLeague === "NFL" || sportLeague === "All") mergeStore(nflAll);
   if (sportLeague === "MLB" || sportLeague === "All") mergeStore(mlbAll);
   if (sportLeague === "PGA") mergeStore(golfAll);
 
   const activeStalePickCount = sportLeague === "NBA"
     ? nbaStalePickCount
+    : sportLeague === "NFL"
+      ? nflStalePickCount
     : sportLeague === "MLB"
       ? mlbStalePickCount
       : sportLeague === "PGA"
         ? golfStalePickCount
         : sportLeague === "All"
-          ? nhlStalePickCount + nbaStalePickCount + mlbStalePickCount
+          ? nhlStalePickCount + nbaStalePickCount + nflStalePickCount + mlbStalePickCount
           : nhlStalePickCount;
 
   const loading = sportLeague === "NBA"
     ? nbaLoading
+    : sportLeague === "NFL"
+      ? nflLoading
     : sportLeague === "MLB"
       ? mlbLoading
       : sportLeague === "PGA"
         ? golfLoading
         : sportLeague === "All"
-          ? (nhlLoading || nbaLoading || mlbLoading)
+          ? (nhlLoading || nbaLoading || nflLoading || mlbLoading)
           : nhlLoading;
 
   const picksError = sportLeague === "NBA"
     ? nbaPicksError
+    : sportLeague === "NFL"
+      ? nflPicksError
     : sportLeague === "MLB"
       ? mlbPicksError
       : sportLeague === "PGA"
         ? golfPicksError
         : sportLeague === "All"
-          ? [nhlPicksError, nbaPicksError, mlbPicksError].filter(Boolean).join(" · ") || null
+          ? [nhlPicksError, nbaPicksError, nflPicksError, mlbPicksError].filter(Boolean).join(" · ") || null
           : nhlPicksError;
 
   const golfTournament = resolveGolfTournament(golfDashboard);
@@ -557,6 +573,7 @@ export default function PicksPage() {
 
   const nhlFlat = Object.values(nhlAll).flat();
   const nbaFlat = Object.values(nbaAll).flat();
+  const nflFlat = Object.values(nflAll).flat();
   const mlbFlat = Object.values(mlbAll).flat();
   const golfFlat = Object.values(golfAll).flat();
 
@@ -573,10 +590,11 @@ export default function PicksPage() {
   const activeRecord = computeHistoryRecord(historyItems);
   const nhlRec = remoteHistoryItems.length > 0 ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NHL").map(mapRecordToHistoryItem)) : computePickRecord(nhlFlat);
   const nbaRec = remoteHistoryItems.length > 0 ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NBA").map(mapRecordToHistoryItem)) : computePickRecord(nbaFlat);
+  const nflRec = remoteHistoryItems.length > 0 ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "NFL").map(mapRecordToHistoryItem)) : computePickRecord(nflFlat);
   const mlbRec = remoteHistoryItems.length > 0 ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "MLB").map(mapRecordToHistoryItem)) : computePickRecord(mlbFlat);
   const golfRec = remoteHistoryItems.length > 0 ? computeHistoryRecord(historyPicks.filter((pick) => pick.league === "PGA").map(mapRecordToHistoryItem)) : computePickRecord(golfFlat);
 
-  const recordMap: Record<string, typeof activeRecord> = { All: activeRecord, NHL: nhlRec, NBA: nbaRec, MLB: mlbRec, PGA: golfRec };
+  const recordMap: Record<string, typeof activeRecord> = { All: activeRecord, NHL: nhlRec, NBA: nbaRec, NFL: nflRec, MLB: mlbRec, PGA: golfRec };
   const displayRecord = recordMap[recordSport] || activeRecord;
   const currentSeasonRecord = sportLeague === "All" ? displayRecord : activeRecord;
   const currentSeasonWinStats = computePickWinRateStats(currentSeasonRecord);
@@ -605,25 +623,19 @@ export default function PicksPage() {
 
   function handleClearStalePicks() {
     if (sportLeague === "NBA") return clearNBAStalePicks();
+    if (sportLeague === "NFL") return clearNFLStalePicks();
     if (sportLeague === "MLB") return clearMLBStalePicks();
     if (sportLeague === "PGA") return clearGolfStalePicks();
     if (sportLeague === "All") {
       clearNHLStalePicks();
       clearNBAStalePicks();
+      clearNFLStalePicks();
       clearMLBStalePicks();
       return;
     }
     clearNHLStalePicks();
   }
 
-  if (sportLeague === "NFL") {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeader title="Picks" subtitle="Today’s strongest plays, with reasoning and record tracking." right={<LeagueDropdown active={sportLeague} onChange={setLeague} />} />
-        <EmptyStateCard eyebrow="NFL" title="NFL picks launch Week 1" body="The offseason build keeps NFL visible through schedule, standings, and odds. Pick generation turns on when weekly props and sides are posting consistently." ctaLabel="Open Schedule" ctaHref="/schedule" />
-      </div>
-    );
-  }
 
   if (sportLeague === "EPL" || sportLeague === "Serie A") {
     return (
@@ -715,8 +727,8 @@ export default function PicksPage() {
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <p className="section-heading">Today&apos;s AI Picks</p>
-                <span className="text-[10px] text-gray-500">{sportLeague === "PGA" ? "12 tournament picks · 1u each" : "3 picks · 1u each"}</span>
+                <p className="section-heading">{sportLeague === "NFL" ? "Next NFL AI Slate" : "Today's AI Picks"}</p>
+                <span className="text-[10px] text-gray-500">{activeToday.length} qualified pick{activeToday.length === 1 ? "" : "s"}</span>
               </div>
 
               {loading ? (
@@ -724,7 +736,7 @@ export default function PicksPage() {
               ) : picksError && activeToday.length === 0 ? (
                 <EmptyStateCard eyebrow="Picks unavailable" title="AI picks feed did not load" body={picksError} />
               ) : activeToday.length === 0 ? (
-                <EmptyStateCard eyebrow="AI Picks" title={`No ${sportLeague === "All" ? "" : `${sportLeague} `}picks today`} body={sportLeague === "PGA" ? golfBannerCopy : "Check back when games are scheduled to see today's top AI picks."} />
+                <EmptyStateCard eyebrow="AI Picks" title={`No ${sportLeague === "All" ? "" : `${sportLeague} `}picks today`} body={sportLeague === "NFL" && nflLearningPicks.length ? "The NFL model is running, but no play cleared both production gates: 65% backtest hit rate and 10% measured edge. No forced picks." : sportLeague === "PGA" ? golfBannerCopy : "Check back when games are scheduled to see today's top AI picks."} />
               ) : (
                 <div className="space-y-3">
                   {activeToday.map((pick, index) => (
@@ -736,6 +748,24 @@ export default function PicksPage() {
               )}
             </div>
           </div>
+
+          {sportLeague === "NFL" && nflLearningPicks.length > 0 && (
+            <section className="mx-4 mb-6 rounded-3xl border border-violet-400/25 bg-violet-400/[0.06] p-4 lg:mx-0">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-300">Goose Learning · Shadow</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">NFL learning picks are running daily</h2>
+                  <p className="mt-1 max-w-3xl text-xs leading-relaxed text-gray-400">These plays train and validate the model against forward 2026 results. They are not official recommendations and cannot be added to My Picks until they clear the production gates.</p>
+                </div>
+                <span className="rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-violet-300">{nflLearningPicks.length} tracked</span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                {nflLearningPicks.map((pick) => (
+                  <PickCard key={pick.id} pick={pick} shadowOnly isExpanded={expandedPickId === pick.id} onToggle={() => setExpandedPickId(expandedPickId === pick.id ? null : pick.id)} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {sportLeague === "PGA" && (
             <div className="mt-6 rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-4">

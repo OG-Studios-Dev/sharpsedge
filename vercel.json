@@ -27,7 +27,7 @@
       "schedule": "17 * * * *"
     },
     {
-      "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,MLB,NBA,NFL&reason=lm-daily-archive",
+      "path": "/api/odds/aggregated/snapshot?cron=true&sports=NHL,MLB,NBA&reason=lm-daily-archive",
       "schedule": "5 6 * * *"
     },
     {
