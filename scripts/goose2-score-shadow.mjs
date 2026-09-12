@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { filterRowsBySport, normalizeScoreSport } from './lib/goose2-score-scope.mjs';
+import { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport } from './lib/goose2-score-scope.mjs';
 
 const envPath = path.join(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
@@ -562,7 +562,13 @@ async function fetchPagedCandidates(date) {
   const out = [];
   const select = 'candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing';
   for (let offset = 0; offset < SCORE_MAX_ROWS; offset += SCORE_PAGE_SIZE) {
-    const page = await rest(`/goose_market_candidates?select=${encodeURIComponent(select)}&event_date=eq.${encodeURIComponent(date)}&order=capture_ts.desc&limit=${SCORE_PAGE_SIZE}&offset=${offset}`);
+    const page = await rest(buildCandidatePagePath({
+      date,
+      sport: SCORE_SPORT,
+      select,
+      limit: SCORE_PAGE_SIZE,
+      offset,
+    }));
     out.push(...(page || []));
     if (!page || page.length < SCORE_PAGE_SIZE) break;
   }

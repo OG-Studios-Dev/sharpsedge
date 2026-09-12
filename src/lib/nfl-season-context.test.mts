@@ -9,6 +9,11 @@ test("active September NFL schedule stays in the current season", () => {
   assert.equal(start.toISOString(), "2026-09-01T04:00:00.000Z");
 });
 
+test("September remains in the current NFL season even when an upstream schedule call is empty", () => {
+  const start = resolveNFLSeasonStart(new Date("2026-09-11T12:00:00Z"), false);
+  assert.equal(start.toISOString(), "2026-09-01T04:00:00.000Z");
+});
+
 test("January NFL playoffs belong to the season that started the prior September", () => {
   const start = resolveNFLSeasonStart(new Date("2027-01-10T18:00:00Z"), true);
   assert.equal(start.toISOString(), "2026-09-01T04:00:00.000Z");

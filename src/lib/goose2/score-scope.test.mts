@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import scoreScope from "../../../scripts/lib/goose2-score-scope.mjs";
 
-const { filterRowsBySport, normalizeScoreSport } = scoreScope;
+const { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport } = scoreScope;
 
 test("normalizeScoreSport accepts a league case-insensitively", () => {
   assert.equal(normalizeScoreSport("nfl"), "NFL");
@@ -12,6 +12,21 @@ test("normalizeScoreSport accepts a league case-insensitively", () => {
 
 test("normalizeScoreSport rejects unsupported leagues", () => {
   assert.throws(() => normalizeScoreSport("EPL"), /Unsupported score sport/);
+});
+
+test("candidate page query pushes the sport scope into Supabase before sorting", () => {
+  const path = buildCandidatePagePath({
+    date: "2026-09-13",
+    sport: "NFL",
+    select: "candidate_id,event_id,sport,capture_ts",
+    limit: 1000,
+    offset: 0,
+  });
+  const url = new URL(path, "https://example.test");
+  assert.equal(url.pathname, "/goose_market_candidates");
+  assert.equal(url.searchParams.get("event_date"), "eq.2026-09-13");
+  assert.equal(url.searchParams.get("sport"), "eq.NFL");
+  assert.equal(url.searchParams.get("order"), "capture_ts.desc");
 });
 
 test("filterRowsBySport prevents a league model from scoring other sports", () => {
