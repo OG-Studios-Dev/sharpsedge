@@ -10,9 +10,11 @@ function torontoYearMonth(now: Date) {
 
 export function resolveNFLSeasonStart(now: Date = new Date(), hasActiveSchedule = false) {
   const { year, month } = torontoYearMonth(now);
-  const seasonYear = hasActiveSchedule
-    ? (month <= 2 ? year - 1 : year)
-    : (month <= 8 ? year : year + 1);
+  const seasonYear = month >= 9
+    ? year
+    : hasActiveSchedule && month <= 2
+      ? year - 1
+      : year;
   return new Date(Date.UTC(seasonYear, 8, 1, 4));
 }
 
