@@ -49,3 +49,17 @@ test("maps NFL player props as player picks with readable labels", () => {
   assert.equal(pick?.direction, "Over");
   assert.equal(pick?.pickLabel, "Over 20.5 Receiving Yards");
 });
+
+test("NFL pick ids remain unique for multiple props on the same event", () => {
+  const sharedPrefix = "cand:evt:nfl:nfl:5ad8135dc2b5f27d:";
+  const first = mapNFLLearningShadowPick({
+    ...propRow(),
+    candidate_id: `${sharedPrefix}player_prop_rush_attempts:j-k-dobbins:over:12.5:fanatics`,
+  }, false);
+  const second = mapNFLLearningShadowPick({
+    ...propRow(),
+    candidate_id: `${sharedPrefix}player_prop_rushing_yards:j-k-dobbins:over:51.5:draftkings`,
+  }, false);
+
+  assert.notEqual(first?.id, second?.id);
+});

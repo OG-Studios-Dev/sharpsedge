@@ -1,4 +1,5 @@
 import { formatAmericanOdds } from "@/lib/book-odds";
+import { createHash } from "node:crypto";
 import { NFL_TEAM_COLORS } from "@/lib/nfl-api";
 import {
   nflDisplayDate,
@@ -119,7 +120,7 @@ function addDays(date: string, days: number) {
 }
 
 function stablePickId(candidateId: string, shadowOnly: boolean) {
-  const encoded = Buffer.from(candidateId).toString("base64url").slice(0, 44);
+  const encoded = createHash("sha256").update(candidateId).digest("base64url").slice(0, 32);
   return `nfl-${shadowOnly ? "learning" : "official"}-${encoded}`;
 }
 
