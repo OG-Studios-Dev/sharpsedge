@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readSystemsTrackingData, refreshTrackableSystems, refreshTrackedSystem } from "@/lib/systems-tracking-store";
+import { authorizeSystemsMutation, parseSystemsRefreshDate } from "@/lib/systems-refresh-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -7,16 +8,14 @@ function isTruthy(value: string | null) {
   return ["1", "true", "yes"].includes((value || "").toLowerCase());
 }
 
-function authorizeCron(request: NextRequest) {
-  if (request.nextUrl.searchParams.get("cron") !== "true") return null;
-
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return null;
-
-  const authHeader = request.headers.get("authorization");
-  if (authHeader === `Bearer ${cronSecret}`) return null;
-
+function unauthorizedResponse() {
   return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+}
+
+function refreshErrorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : "Failed to refresh tracked systems";
+  const status = message.startsWith("date must be ") ? 400 : 500;
+  return NextResponse.json({ ok: false, error: message }, { status });
 }
 
 async function buildRefreshResponse(systemId?: string, date?: string) {
@@ -48,13 +47,9 @@ async function buildRefreshResponse(systemId?: string, date?: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const unauthorized = authorizeCron(request);
-  if (unauthorized) return unauthorized;
-
   try {
     const refresh = isTruthy(request.nextUrl.searchParams.get("refresh") || request.nextUrl.searchParams.get("cron"));
     const systemId = request.nextUrl.searchParams.get("systemId") || undefined;
-    const date = request.nextUrl.searchParams.get("date") || undefined;
 
     if (!refresh) {
       return NextResponse.json({
@@ -64,26 +59,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const authorized = authorizeSystemsMutation(
+      request.headers.get("authorization"),
+      process.env.CRON_SECRET,
+    );
+    if (!authorized) return unauthorizedResponse();
+
+    const date = parseSystemsRefreshDate(request.nextUrl.searchParams.get("date"));
+
     return await buildRefreshResponse(systemId, date);
   } catch (error) {
-    return NextResponse.json({
-      ok: false,
-      error: error instanceof Error ? error.message : "Failed to refresh tracked systems",
-    }, { status: 500 });
+    return refreshErrorResponse(error);
   }
 }
 
 export async function POST(request: NextRequest) {
+  const authorized = authorizeSystemsMutation(
+    request.headers.get("authorization"),
+    process.env.CRON_SECRET,
+  );
+  if (!authorized) return unauthorizedResponse();
+
   try {
     const body = await request.json().catch(() => ({}));
     const systemId = typeof body?.systemId === "string" ? body.systemId : undefined;
-    const date = typeof body?.date === "string" ? body.date : undefined;
+    const date = parseSystemsRefreshDate(typeof body?.date === "string" ? body.date : undefined);
 
     return await buildRefreshResponse(systemId, date);
   } catch (error) {
-    return NextResponse.json({
-      ok: false,
-      error: error instanceof Error ? error.message : "Failed to refresh tracked systems",
-    }, { status: 500 });
+    return refreshErrorResponse(error);
   }
 }

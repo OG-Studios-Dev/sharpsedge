@@ -31,6 +31,21 @@ test("NFL handle system reports an active scan during the season even with zero 
   assert.equal(state.automationStatusLabel, "Live NFL handle screen");
 });
 
+test("NFL system is actionable and gradeable instead of silently parked", () => {
+  const source = readFileSync(new URL("./systems-tracking-store.ts", import.meta.url), "utf8");
+  const setBody = (name: string, nextName: string) => source.slice(
+    source.indexOf(`const ${name}`),
+    source.indexOf(`const ${nextName}`),
+  );
+  const gradeable = setBody("ML_GRADEABLE_SYSTEM_IDS", "ACTIONABLE_SYSTEM_IDS");
+  const actionable = setBody("ACTIONABLE_SYSTEM_IDS", "PARKED_SYSTEM_IDS");
+  const parked = source.slice(source.indexOf("const PARKED_SYSTEM_IDS"), source.indexOf("function systemHasActionableTracking"));
+
+  assert.match(gradeable, /NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID/);
+  assert.match(actionable, /NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID/);
+  assert.doesNotMatch(parked, /NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID/);
+});
+
 test("NFL system catalog copy describes the live in-season rail without stale kickoff promises", () => {
   const source = readFileSync(new URL("./systems-tracking-store.ts", import.meta.url), "utf8");
   const start = source.indexOf("id: NFL_HOME_DOG_MAJORITY_HANDLE_SYSTEM_ID");

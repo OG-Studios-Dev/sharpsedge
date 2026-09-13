@@ -11,6 +11,7 @@ import { AIPick } from "@/lib/types";
 import { computePickRecord, computePickWinRateStats } from "@/lib/pick-record";
 import { computePickHistorySummary } from "@/lib/pick-history";
 import { getTeamHref, getPlayerHref } from "@/lib/drill-down";
+import { formatPickMatchupLabel, isSyntheticGameMarketTeam } from "@/lib/pick-display";
 
 function displayHitRate(val: number): string {
   const pct = Math.abs(val) <= 1 ? val * 100 : val;
@@ -80,31 +81,35 @@ function OddsPill({ odds }: { odds?: number }) {
   );
 }
 
-function formatPickMatchup(pick: AIPick): string | null {
-  if (!pick.team || !pick.opponent) return null;
-  return `${pick.team} vs ${pick.opponent}`;
-}
-
 function formatPickDetail(pick: AIPick): string {
-  const matchup = formatPickMatchup(pick);
+  const matchup = formatPickMatchupLabel(pick);
   return matchup ? `${matchup} — ${pick.pickLabel}` : pick.pickLabel;
 }
 
 function PickRow({ pick }: { pick: AIPick }) {
+  const isSyntheticTeam = isSyntheticGameMarketTeam(pick.team);
   const teamHref = getTeamHref(pick.team, pick.league);
-  const drillHref = pick.type === "player" && pick.playerId ? getPlayerHref(pick.playerId) : teamHref;
+  const drillHref = isSyntheticTeam
+    ? `/picks?league=${pick.league || "NFL"}`
+    : pick.type === "player" && pick.playerId
+    ? getPlayerHref(pick.playerId)
+    : teamHref;
 
   return (
     <Link href={drillHref} className="flex items-start gap-3 py-3 border-b border-dark-border/40 last:border-0 group sm:items-center sm:py-2.5">
       {pick.type === "player" ? (
         <PlayerAvatar name={pick.playerName || pick.team} team={pick.team} league={pick.league} playerId={pick.playerId} size={30} teamColor={pick.teamColor} />
+      ) : isSyntheticTeam ? (
+        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-dark-border bg-dark-bg/70">
+          <LeagueLogo league={pick.league || "NFL"} size={18} />
+        </span>
       ) : (
         <TeamLogo team={pick.team} size={30} color={pick.teamColor} sport={pick.league ?? undefined} />
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-white text-[13px] sm:text-xs font-semibold truncate group-hover:text-emerald-300 transition-colors">
-            {pick.type === "player" ? pick.playerName : formatPickMatchup(pick) || pick.team}
+            {pick.type === "player" ? pick.playerName : formatPickMatchupLabel(pick) || pick.team}
           </p>
           {pick.league && (
             <span className="inline-flex items-center gap-1 text-[9px] text-gray-500 uppercase shrink-0"><LeagueLogo league={pick.league} size={12} />{pick.league}</span>
@@ -236,6 +241,7 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
   const record =
     league === "NBA" ? nbaRecord : league === "NFL" ? nflRecord : league === "MLB" ? mlbRecord : league === "PGA" ? golfRecord : league === "All" ? allRecord : nhlRecord;
   const mobileDisplayPicks = league === "PGA" ? displayPicks.slice(0, 5) : displayPicks;
+  const displayLearningPicks = league === "NFL" ? nfl.learningPicks.slice(0, 3) : [];
 
   return (
     <section className="rounded-2xl bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] border border-dark-border p-4 sm:p-4">
@@ -246,6 +252,8 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
           <p className="text-[10px] text-gray-500 mt-0.5">
             {league === "PGA"
               ? "PGA · 12 tournament picks · 1 unit each"
+              : league === "NFL"
+              ? "NFL · this week’s qualified picks · 1 unit each"
               : `${league === "All" ? "All Sports" : league} · qualified picks only · 1 unit each`}
           </p>
         </div>
@@ -286,39 +294,64 @@ export default function HomePicksSection({ league = "All" }: { league?: string }
               <div key={i} className="h-12 rounded-xl bg-dark-border/40 animate-pulse" />
             ))}
           </div>
-        ) : picksError && displayPicks.length === 0 ? (
+        ) : picksError && displayPicks.length === 0 && displayLearningPicks.length === 0 ? (
           <div className="rounded-2xl border border-accent-red/30 bg-accent-red/10 px-4 py-3">
             <p className="text-sm font-semibold text-accent-red">Picks feed unavailable</p>
             <p className="mt-1 text-xs text-gray-400">{picksError}</p>
           </div>
-        ) : displayPicks.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-gray-400 text-sm font-medium">
-              {league === "PGA" ? "No PGA tournament picks available" : "Picks loading for today's slate"}
-            </p>
-            <p className="text-gray-600 text-xs mt-1">
-              {league === "PGA"
-                ? "The board will populate when ESPN posts a PGA field or live leaderboard for the current event."
-                : "Check back once games are posted"}
-            </p>
-          </div>
         ) : (
-          <div className="space-y-0">
-            <div className="sm:hidden">
-              {mobileDisplayPicks.map((pick) => (
-                <PickRow key={pick.id} pick={pick} />
-              ))}
-              {league === "PGA" && displayPicks.length > mobileDisplayPicks.length ? (
-                <Link href="/picks" className="mt-3 inline-flex text-xs font-medium text-accent-blue">
-                  View all {displayPicks.length} tournament picks →
-                </Link>
-              ) : null}
-            </div>
-            <div className="hidden sm:block">
-              {displayPicks.map((pick) => (
-                <PickRow key={pick.id} pick={pick} />
-              ))}
-            </div>
+          <div className="space-y-3">
+            {displayPicks.length === 0 ? (
+              <div className="rounded-xl border border-dark-border/50 bg-dark-bg/35 px-3 py-3 text-center">
+                <p className="text-gray-300 text-xs font-medium">
+                  {league === "PGA"
+                    ? "No PGA tournament picks available"
+                    : league === "NFL"
+                    ? "No official NFL pick cleared both gates this week"
+                    : "No qualified picks on the current slate"}
+                </p>
+                <p className="text-gray-600 text-[10px] mt-1">
+                  {league === "PGA"
+                    ? "The board will populate when ESPN posts a PGA field or live leaderboard for the current event."
+                    : league === "NFL"
+                    ? "Nothing gets forced. Hit rate and measured edge must both qualify."
+                    : "Check back once games are posted"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-0">
+                <div className="sm:hidden">
+                  {mobileDisplayPicks.map((pick) => (
+                    <PickRow key={pick.id} pick={pick} />
+                  ))}
+                  {league === "PGA" && displayPicks.length > mobileDisplayPicks.length ? (
+                    <Link href="/picks" className="mt-3 inline-flex text-xs font-medium text-accent-blue">
+                      View all {displayPicks.length} tournament picks →
+                    </Link>
+                  ) : null}
+                </div>
+                <div className="hidden sm:block">
+                  {displayPicks.map((pick) => (
+                    <PickRow key={pick.id} pick={pick} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {displayLearningPicks.length > 0 ? (
+              <div className="rounded-xl border border-violet-500/20 bg-violet-500/[0.06] px-3 py-2.5">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-semibold text-violet-300">Goose Learning · shadow only</p>
+                    <p className="text-[9px] text-gray-600">Model training picks — never counted as official releases</p>
+                  </div>
+                  <Link href="/picks?league=NFL" className="shrink-0 text-[10px] font-medium text-violet-300">View →</Link>
+                </div>
+                {displayLearningPicks.map((pick) => (
+                  <PickRow key={`learning-${pick.id}`} pick={pick} />
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
       </div>

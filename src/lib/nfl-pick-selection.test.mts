@@ -154,3 +154,180 @@ test("selectNFLPickRows keeps shadow-only signals out of official picks", () => 
   assert.deepEqual(selected.learningRows.map((pick) => pick.id), ["shadow-only"]);
   assert.deepEqual(selected.productionRows, []);
 });
+
+test("selectNFLPickRows targets six qualified team markets and six qualified player props", () => {
+  const eligibleSignal = {
+    edge: 0.14,
+    primary_learning_signal: {
+      test_wins: 80,
+      test_losses: 20,
+      test_sample: 100,
+      promotion_status: "eligible",
+    },
+  };
+  const teamRows = Array.from({ length: 7 }, (_, index) => row({
+    id: `team-${index}`,
+    candidate_id: `team-${index}`,
+    home_team: `Home ${index}`,
+    away_team: `Away ${index}`,
+    opponent_name: `Away ${index} @ Home ${index}`,
+    odds: index === 6 ? -151 : -150 + index,
+    evidence_snapshot: eligibleSignal,
+  }));
+  const propRows = Array.from({ length: 8 }, (_, index) => row({
+    id: `prop-${index}`,
+    candidate_id: `prop-${index}`,
+    market_type: "player_prop_receptions",
+    team_name: `Player ${index}`,
+    side: "over",
+    line: 4.5 + index,
+    odds: index === 6 ? -201 : index === 7 ? -200 : -190 + index,
+    evidence_snapshot: {
+      ...eligibleSignal,
+      participantName: `Player ${index}`,
+    },
+  }));
+
+  const selected = selectNFLPickRows([...teamRows, ...propRows], { now: NOW });
+
+  assert.equal(selected.productionRows.filter((pick) => !pick.market_type.startsWith("player_prop_")).length, 6);
+  assert.equal(selected.productionRows.filter((pick) => pick.market_type.startsWith("player_prop_")).length, 6);
+  assert.equal(selected.productionRows.some((pick) => pick.id === "team-6"), false);
+  assert.equal(selected.productionRows.some((pick) => pick.id === "prop-6"), false);
+  assert.equal(selected.productionRows.some((pick) => pick.id === "prop-7"), false);
+});
+
+test("selectNFLPickRows accepts the exact player-prop price boundary", () => {
+  const boundary = row({
+    id: "prop-boundary",
+    candidate_id: "prop-boundary",
+    market_type: "player_prop_receptions",
+    team_name: "Boundary Player",
+    odds: -200,
+    evidence_snapshot: {
+      edge: 0.14,
+      participantName: "Boundary Player",
+      primary_learning_signal: {
+        test_wins: 80,
+        test_losses: 20,
+        test_sample: 100,
+        promotion_status: "eligible",
+      },
+    },
+  });
+  assert.deepEqual(selectNFLPickRows([boundary], { now: NOW }).productionRows.map((pick) => pick.id), ["prop-boundary"]);
+});
+
+test("selectNFLPickRows requires a 70 percent historical hit rate for all official NFL picks", () => {
+  const belowTeamGate = row({
+    id: "team-69",
+    candidate_id: "team-69",
+    evidence_snapshot: {
+      edge: 0.15,
+      primary_learning_signal: {
+        test_wins: 69,
+        test_losses: 31,
+        test_sample: 100,
+        promotion_status: "eligible",
+      },
+    },
+  });
+  const belowPropGate = row({
+    id: "prop-69",
+    candidate_id: "prop-69",
+    market_type: "player_prop_receiving_yards",
+    team_name: "Player 69",
+    evidence_snapshot: {
+      edge: 0.15,
+      participantName: "Player 69",
+      primary_learning_signal: {
+        test_wins: 69,
+        test_losses: 31,
+        test_sample: 100,
+        promotion_status: "eligible",
+      },
+    },
+  });
+
+  const selected = selectNFLPickRows([belowTeamGate, belowPropGate], { now: NOW });
+  assert.deepEqual(selected.productionRows, []);
+  assert.deepEqual(selected.learningRows.map((pick) => pick.id).sort(), ["prop-69", "team-69"]);
+});
+
+test("selectNFLPickRows requires at least ten settled decisions for an official NFL pick", () => {
+  const thinSample = row({
+    id: "thin-sample",
+    candidate_id: "thin-sample",
+    evidence_snapshot: {
+      edge: 0.2,
+      primary_learning_signal: {
+        test_wins: 7,
+        test_losses: 2,
+        test_sample: 9,
+        promotion_status: "eligible",
+      },
+    },
+  });
+  const provenSample = row({
+    id: "proven-sample",
+    candidate_id: "proven-sample",
+    home_team: "Different Home",
+    away_team: "Different Away",
+    evidence_snapshot: {
+      edge: 0.2,
+      primary_learning_signal: {
+        test_wins: 7,
+        test_losses: 3,
+        test_sample: 10,
+        promotion_status: "eligible",
+      },
+    },
+  });
+
+  const selected = selectNFLPickRows([thinSample, provenSample], { now: NOW });
+  assert.deepEqual(selected.productionRows.map((pick) => pick.id), ["proven-sample"]);
+  assert.deepEqual(selected.learningRows.map((pick) => pick.id), ["thin-sample"]);
+});
+
+test("selectNFLPickRows collapses the same player prop across books and alternate lines", () => {
+  const evidence = {
+    edge: 0.2,
+    participantName: "Jauan Jennings",
+    primary_learning_signal: {
+      test_wins: 15,
+      test_losses: 2,
+      test_sample: 17,
+      promotion_status: "eligible",
+    },
+  };
+  const selected = selectNFLPickRows([
+    row({ id: "line-20", candidate_id: "line-20", market_type: "player_prop_receiving_yards", team_name: "Jauan Jennings", line: 20.5, odds: -108, evidence_snapshot: evidence }),
+    row({ id: "line-22", candidate_id: "line-22", market_type: "player_prop_receiving_yards", team_name: "Jauan Jennings", line: 22.5, odds: -113, evidence_snapshot: evidence }),
+  ], { now: NOW });
+
+  assert.equal(selected.productionRows.length, 1);
+  assert.equal(selected.duplicatesCollapsed, 1);
+});
+
+test("learning rows never contain extra production-qualified candidates beyond the official cap", () => {
+  const productionEvidence = {
+    edge: 0.2,
+    primary_learning_signal: {
+      test_wins: 80,
+      test_losses: 20,
+      test_sample: 100,
+      promotion_status: "eligible",
+    },
+  };
+  const rows = Array.from({ length: 8 }, (_, index) => row({
+    id: `qualified-${index}`,
+    candidate_id: `qualified-${index}`,
+    home_team: `Home ${index}`,
+    away_team: `Away ${index}`,
+    evidence_snapshot: productionEvidence,
+  }));
+  const selected = selectNFLPickRows(rows, { now: NOW, teamLimit: 6 });
+
+  assert.equal(selected.productionRows.length, 6);
+  assert.deepEqual(selected.learningRows, []);
+});

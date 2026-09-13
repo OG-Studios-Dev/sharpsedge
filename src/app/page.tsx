@@ -18,6 +18,7 @@ export default async function HomePage() {
   return (
     <HomeContent
       systemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} />}
+      nflSystemsSection={<HomeSystemsSection systems={data.systems} dbPerformance={dbPerformance} league="NFL" />}
       systemsFirst={systemsFirst}
     />
   );

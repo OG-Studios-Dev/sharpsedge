@@ -110,10 +110,6 @@ async function cachedFetch<T>(url: string, ttl = CACHE_TTL): Promise<T> {
   return data;
 }
 
-function dateStamp(date: Date) {
-  return `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-}
-
 function statusFor(event: any) {
   const statusType = event?.status?.type ?? {};
   const clock = String(event?.status?.displayClock || "").trim();
@@ -159,7 +155,7 @@ function statusFor(event: any) {
   };
 }
 
-function parseNFLGame(event: any): NFLGame {
+function parseNFLGame(event: any, scoreboardWeek?: number | null): NFLGame {
   const competition = event?.competitions?.[0] ?? {};
   const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
   const home = competitors.find((entry: any) => entry?.homeAway === "home") ?? competitors[0] ?? {};
@@ -176,7 +172,8 @@ function parseNFLGame(event: any): NFLGame {
     statusDetail: status.statusDetail,
     quarter: status.quarter,
     clock: status.clock,
-    week: String(event?.week?.text || competition?.week?.text || "").trim() || undefined,
+    week: String(event?.week?.text || competition?.week?.text || "").trim()
+      || (scoreboardWeek ? `Week ${scoreboardWeek}` : undefined),
     venue: competition?.venue?.fullName || null,
     homeTeam: {
       id: String(home?.team?.id ?? ""),
@@ -204,39 +201,26 @@ function parseNFLGame(event: any): NFLGame {
   };
 }
 
-function getUpcomingMilestoneDates() {
-  const now = new Date();
-  const year = now.getFullYear();
-
-  return [
-    new Date(year, now.getMonth(), now.getDate()),
-    new Date(year, now.getMonth(), now.getDate() + 1),
-    new Date(year, 7, 1),
-    new Date(year, 8, 1),
-    new Date(year, 8, 15),
-  ];
+export function parseNFLScoreboard(payload: any): NFLGame[] {
+  const scoreboardWeek = Number(payload?.week?.number);
+  const weekNumber = Number.isInteger(scoreboardWeek) && scoreboardWeek > 0 ? scoreboardWeek : null;
+  const games = (Array.isArray(payload?.events) ? payload.events : []).map((event: any) => parseNFLGame(event, weekNumber));
+  const deduped = new Map<string, NFLGame>();
+  for (const game of games) {
+    if (game.id && !deduped.has(game.id)) deduped.set(game.id, game);
+  }
+  return Array.from(deduped.values()).sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
 }
 
-export async function getNFLSchedule(): Promise<NFLGame[]> {
-  try {
-    const dates = getUpcomingMilestoneDates();
-    const payloads = await Promise.all(
-      dates.map((date) => cachedFetch<any>(`${ESPN_SITE_BASE}/scoreboard?dates=${dateStamp(date)}`)),
-    );
+export function buildNFLScoreboardUrl(week?: number | null): string {
+  return week
+    ? `${ESPN_SITE_BASE}/scoreboard?seasontype=2&week=${week}&limit=100`
+    : `${ESPN_SITE_BASE}/scoreboard?limit=100`;
+}
 
-    const games = payloads
-      .flatMap((payload) => Array.isArray(payload?.events) ? payload.events : [])
-      .map(parseNFLGame);
-
-    const deduped = new Map<string, NFLGame>();
-    for (const game of games) {
-      if (!deduped.has(game.id)) deduped.set(game.id, game);
-    }
-
-    return Array.from(deduped.values()).sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime());
-  } catch {
-    return [];
-  }
+export async function getNFLSchedule(week?: number | null): Promise<NFLGame[]> {
+  const payload = await cachedFetch<any>(buildNFLScoreboardUrl(week));
+  return parseNFLScoreboard(payload);
 }
 
 function parseStandingEntry(entry: any, conference: "AFC" | "NFC", fallbackPosition: number): NFLTeamStanding {
@@ -296,3 +280,5 @@ export async function getNFLStandings(season = new Date().getFullYear()): Promis
 
   return [];
 }
+
+export default { NFL_TEAM_COLORS, buildNFLScoreboardUrl, getNFLSchedule, getNFLStandings, parseNFLScoreboard };

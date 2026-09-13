@@ -1,5 +1,6 @@
 import { getNFLStandings, getNFLSchedule, type NFLGame, type NFLTeamStanding } from "@/lib/nfl-api";
 import { resolveNFLSeasonStart } from "@/lib/nfl-season-context";
+import { nflWeekSummary, type NFLWeekSummary } from "@/lib/nfl-week";
 
 export type NFLDashboardData = {
   schedule: NFLGame[];
@@ -10,6 +11,7 @@ export type NFLDashboardData = {
     seasonStartsLabel: string;
     seasonStartDate: string;
     countdownDays: number;
+    week: NFLWeekSummary;
     upcomingEvents: Array<{ label: string; dateLabel: string }>;
   };
 };
@@ -20,9 +22,9 @@ function daysUntil(date: Date) {
   return Math.max(0, Math.ceil(diff / 86400000));
 }
 
-export async function getNFLDashboardData(): Promise<NFLDashboardData> {
+export async function getNFLDashboardData(week?: number | null): Promise<NFLDashboardData> {
   const [schedule, standings] = await Promise.all([
-    getNFLSchedule(),
+    getNFLSchedule(week),
     getNFLStandings(),
   ]);
 
@@ -40,6 +42,7 @@ export async function getNFLDashboardData(): Promise<NFLDashboardData> {
       seasonStartsLabel: seasonLabel,
       seasonStartDate: seasonStart.toISOString(),
       countdownDays: daysUntil(seasonStart),
+      week: nflWeekSummary(schedule),
       upcomingEvents: [
         { label: "NFL Draft", dateLabel: seasonStart.getFullYear() === new Date().getFullYear() ? `April ${seasonStart.getFullYear()}` : `April ${seasonStart.getFullYear()}` },
         { label: "Preseason", dateLabel: `August ${seasonStart.getFullYear()}` },

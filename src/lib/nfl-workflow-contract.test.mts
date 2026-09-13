@@ -42,6 +42,8 @@ test("NFL daily workflow scopes scoring, grading, and settlement to NFL", () => 
   assert.match(workflow, /--sport=NFL/);
   assert.match(workflow, /goose2\/grade\?sport=NFL/);
   assert.match(workflow, /settle-goose-learning-shadow-picks\.mjs --lookbackDays=7 --sport=NFL/);
+  assert.match(workflow, /approved_by_bucket/);
+  assert.doesNotMatch(workflow, /approved_by_sport/);
 
   const settler = readFileSync("scripts/settle-goose-learning-shadow-picks.mjs", "utf8");
   assert.match(settler, /sport=eq\.\$\{encodeURIComponent\(sport\)\}/);

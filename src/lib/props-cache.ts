@@ -8,6 +8,42 @@ import type { OddsEvent } from "@/lib/types";
 const ODDS_API_BASE = "https://api.the-odds-api.com/v4";
 const DATA_DIR = path.join(process.cwd(), "data");
 const PROP_ODDS_REFRESH_TTL_MS = 60 * 60 * 1000;
+const PROP_FETCH_CONCURRENCY = 6;
+
+export function filterPropEventsByHorizon<T extends { commence_time?: string | null; commenceTime?: string | null }>(
+  events: T[],
+  now: string | Date = new Date(),
+  horizonDays = 8,
+) {
+  const start = new Date(now).getTime();
+  const end = start + Math.max(1, horizonDays) * 24 * 60 * 60 * 1000;
+  return events.filter((event) => {
+    const raw = String(event.commence_time || event.commenceTime || "").trim();
+    const commence = /^\d{10}$/.test(raw)
+      ? Number(raw) * 1000
+      : /^\d{13}$/.test(raw)
+        ? Number(raw)
+        : new Date(raw).getTime();
+    return Number.isFinite(commence) && commence > start && commence < end;
+  });
+}
+
+export async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T, index: number) => Promise<R>,
+) {
+  const results = new Array<R>(values.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(values.length, Math.max(1, Math.floor(concurrency))) }, async () => {
+    while (cursor < values.length) {
+      const index = cursor++;
+      results[index] = await mapper(values[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 
 export const NHL_PLAYER_PROP_MARKETS = "player_points,player_shots_on_goal,player_assists,player_goals";
 export const NBA_PLAYER_PROP_MARKETS = "player_points,player_rebounds,player_assists,player_threes";
@@ -308,7 +344,7 @@ export async function getDailyPlayerPropOddsEvents(
     return buildResult(normalizedIds, "quota-blocked", cache, league);
   }
 
-  const responses = await Promise.all(idsToFetch.map((eventId) => fetchPropOddsEvent(league, eventId)));
+  const responses = await mapWithConcurrency(idsToFetch, PROP_FETCH_CONCURRENCY, (eventId) => fetchPropOddsEvent(league, eventId));
   for (const response of responses) {
     leagueCache.events[response.eventId] = response.data;
     if (response.quota && response.quota.remaining !== null) {
@@ -328,3 +364,8 @@ export async function getDailyPlayerPropOddsEvent(league: PropsLeague, eventId?:
   const result = await getDailyPlayerPropOddsEvents(league, [eventId]);
   return result.events.get(eventId) ?? null;
 }
+
+export default {
+  filterPropEventsByHorizon,
+  mapWithConcurrency,
+};

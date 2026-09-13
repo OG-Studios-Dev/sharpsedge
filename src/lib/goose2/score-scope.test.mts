@@ -14,10 +14,11 @@ test("normalizeScoreSport rejects unsupported leagues", () => {
   assert.throws(() => normalizeScoreSport("EPL"), /Unsupported score sport/);
 });
 
-test("candidate page query pushes the sport scope into Supabase before sorting", () => {
+test("candidate page query pushes sport scope before stable primary-key pagination", () => {
   const path = buildCandidatePagePath({
     date: "2026-09-13",
     sport: "NFL",
+    capturedAfter: "2026-09-11T18:00:00.000Z",
     select: "candidate_id,event_id,sport,capture_ts",
     limit: 1000,
     offset: 0,
@@ -26,7 +27,8 @@ test("candidate page query pushes the sport scope into Supabase before sorting",
   assert.equal(url.pathname, "/goose_market_candidates");
   assert.equal(url.searchParams.get("event_date"), "eq.2026-09-13");
   assert.equal(url.searchParams.get("sport"), "eq.NFL");
-  assert.equal(url.searchParams.get("order"), "capture_ts.desc");
+  assert.equal(url.searchParams.get("capture_ts"), "gte.2026-09-11T18:00:00.000Z");
+  assert.equal(url.searchParams.get("order"), "candidate_id.asc");
 });
 
 test("filterRowsBySport prevents a league model from scoring other sports", () => {

@@ -7,7 +7,11 @@ export function inferGoose2MarketType(input: {
   propType?: string | null;
 }): Goose2MarketType {
   const market = String(input.marketType || "").toLowerCase();
-  const prop = String(input.propType || "").toLowerCase();
+  const prop = String(input.propType || "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (market === "moneyline") return "moneyline";
   if (market === "spread") return "spread";

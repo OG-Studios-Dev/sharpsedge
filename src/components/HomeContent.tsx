@@ -244,7 +244,7 @@ function GolfMatchupBoard({ matchups }: { matchups: GolfHeadToHeadPrediction[] }
   );
 }
 
-export default function HomeContent({ systemsSection, systemsFirst }: { systemsSection?: ReactNode; systemsFirst?: boolean }) {
+export default function HomeContent({ systemsSection, nflSystemsSection, systemsFirst }: { systemsSection?: ReactNode; nflSystemsSection?: ReactNode; systemsFirst?: boolean }) {
   const [league, setLeague] = useLeague();
   const sportLeague = normalizeSportsLeague(league);
   const dashboards = useSportsDashboards(sportLeague);
@@ -273,11 +273,13 @@ export default function HomeContent({ systemsSection, systemsFirst }: { systemsS
         <div className="mx-auto max-w-6xl space-y-5 lg:py-1">
           <PageHeader
             title="Home"
-            subtitle="NFL is wired in with offseason visibility."
+            subtitle="This week’s edge, ranked and ready."
             right={<LeagueDropdown active={sportLeague} onChange={setLeague} />}
           />
 
           <div className="space-y-5 px-4 lg:px-0">
+            <HomePicksSection league="NFL" />
+            {nflSystemsSection}
             <NFLScheduleBoard showHeader />
             <NFLStandingsTable />
           </div>

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     diagnostics: result.diagnostics,
     fallbackReason: result.fallbackReason,
     disclosure: result.learningPicks.length
-      ? "Goose Learning picks are shadow-tracked and do not become official AI picks unless they clear the 65% hit-rate and 10% edge gates."
+      ? "Goose Learning picks are shadow-tracked and do not become official AI picks unless they clear the 70% hit-rate and 10% edge gates."
       : "No fresh NFL learning slate is available yet.",
     generatedAt: new Date().toISOString(),
   }, {

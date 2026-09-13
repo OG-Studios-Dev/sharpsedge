@@ -172,8 +172,11 @@ jobs:
           const fs = require("node:fs");
           const file = `/tmp/goose2-shadow-score-${process.env.SCORE_DATE}.json`;
           const payload = JSON.parse(fs.readFileSync(file, "utf8"));
-          const approvedSports = Object.keys(payload.approved_by_sport || {});
-          if (payload.score_sport !== "NFL" || approvedSports.some((sport) => sport !== "NFL")) {
+          const approvedBuckets = Object.entries(payload.approved_by_bucket || {});
+          if (
+            payload.score_sport !== "NFL"
+            || approvedBuckets.some(([bucket, count]) => !bucket.startsWith("NFL:") || Number(count) > 6)
+          ) {
             console.error(JSON.stringify(payload, null, 2));
             process.exit(1);
           }
@@ -181,7 +184,7 @@ jobs:
             date: payload.target_date,
             scoreSport: payload.score_sport,
             counts: payload.counts,
-            approvedBySport: payload.approved_by_sport,
+            approvedByBucket: payload.approved_by_bucket,
           }));
           NODE
           done
