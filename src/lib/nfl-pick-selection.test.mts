@@ -155,7 +155,7 @@ test("selectNFLPickRows keeps shadow-only signals out of official picks", () => 
   assert.deepEqual(selected.productionRows, []);
 });
 
-test("selectNFLPickRows targets six qualified team markets and six qualified player props", () => {
+test("selectNFLPickRows publishes four weekly team markets and keeps six qualified player props", () => {
   const eligibleSignal = {
     edge: 0.14,
     primary_learning_signal: {
@@ -190,8 +190,9 @@ test("selectNFLPickRows targets six qualified team markets and six qualified pla
 
   const selected = selectNFLPickRows([...teamRows, ...propRows], { now: NOW });
 
-  assert.equal(selected.productionRows.filter((pick) => !pick.market_type.startsWith("player_prop_")).length, 6);
+  assert.equal(selected.productionRows.filter((pick) => !pick.market_type.startsWith("player_prop_")).length, 4);
   assert.equal(selected.productionRows.filter((pick) => pick.market_type.startsWith("player_prop_")).length, 6);
+  assert.equal(selected.productionRows.some((pick) => pick.id === "team-0"), false);
   assert.equal(selected.productionRows.some((pick) => pick.id === "team-6"), false);
   assert.equal(selected.productionRows.some((pick) => pick.id === "prop-6"), false);
   assert.equal(selected.productionRows.some((pick) => pick.id === "prop-7"), false);
@@ -218,7 +219,7 @@ test("selectNFLPickRows accepts the exact player-prop price boundary", () => {
   assert.deepEqual(selectNFLPickRows([boundary], { now: NOW }).productionRows.map((pick) => pick.id), ["prop-boundary"]);
 });
 
-test("selectNFLPickRows requires a 70 percent historical hit rate for all official NFL picks", () => {
+test("selectNFLPickRows uses a lenient weekly team policy while retaining the strict player-prop gate", () => {
   const belowTeamGate = row({
     id: "team-69",
     candidate_id: "team-69",
@@ -250,16 +251,87 @@ test("selectNFLPickRows requires a 70 percent historical hit rate for all offici
   });
 
   const selected = selectNFLPickRows([belowTeamGate, belowPropGate], { now: NOW });
-  assert.deepEqual(selected.productionRows, []);
-  assert.deepEqual(selected.learningRows.map((pick) => pick.id).sort(), ["prop-69", "team-69"]);
+  assert.deepEqual(selected.productionRows.map((pick) => pick.id), ["team-69"]);
+  assert.deepEqual(selected.learningRows.map((pick) => pick.id), ["prop-69"]);
 });
 
-test("selectNFLPickRows requires at least ten settled decisions for an official NFL pick", () => {
+test("selectNFLPickRows promotes the best four shadow-daily team values without weakening hard integrity gates", () => {
+  const weeklyTeamEvidence = (wins: number, losses: number, edge: number, promotionStatus = "shadow_daily_candidate") => ({
+    edge,
+    primary_learning_signal: {
+      test_wins: wins,
+      test_losses: losses,
+      test_sample: wins + losses,
+      promotion_status: promotionStatus,
+    },
+  });
+  const weeklyTeams = Array.from({ length: 5 }, (_, index) => row({
+    id: `weekly-${index}`,
+    candidate_id: `weekly-${index}`,
+    home_team: `Weekly Home ${index}`,
+    away_team: `Weekly Away ${index}`,
+    opponent_name: `Weekly Away ${index} @ Weekly Home ${index}`,
+    evidence_snapshot: weeklyTeamEvidence(141 - index, 100 + index, 0.106 - index * 0.001),
+  }));
+  const lowEdge = row({
+    id: "low-edge-team",
+    candidate_id: "low-edge-team",
+    home_team: "Low Edge Home",
+    away_team: "Low Edge Away",
+    evidence_snapshot: weeklyTeamEvidence(35, 25, 0.049),
+  });
+  const thinSample = row({
+    id: "thin-team",
+    candidate_id: "thin-team",
+    home_team: "Thin Home",
+    away_team: "Thin Away",
+    evidence_snapshot: weeklyTeamEvidence(8, 2, 0.2),
+  });
+  const unapprovedShadow = row({
+    id: "generic-shadow",
+    candidate_id: "generic-shadow",
+    home_team: "Shadow Home",
+    away_team: "Shadow Away",
+    evidence_snapshot: weeklyTeamEvidence(40, 20, 0.15, "shadow"),
+  });
+
+  const selected = selectNFLPickRows([...weeklyTeams, lowEdge, thinSample, unapprovedShadow], { now: NOW });
+
+  assert.deepEqual(selected.productionRows.map((pick) => pick.id), ["weekly-0", "weekly-1", "weekly-2", "weekly-3"]);
+  assert.equal(selected.productionRows.some((pick) => ["low-edge-team", "thin-team", "generic-shadow"].includes(pick.id)), false);
+});
+
+test("selectNFLPickRows rejects a team candidate without real odds", () => {
+  const missingOdds = {
+    ...row({
+      id: "missing-odds",
+      candidate_id: "missing-odds",
+      evidence_snapshot: {
+        edge: 0.15,
+        primary_learning_signal: {
+          test_wins: 40,
+          test_losses: 20,
+          test_sample: 60,
+          promotion_status: "shadow_daily_candidate",
+        },
+      },
+    }),
+    odds: null,
+  };
+
+  const selected = selectNFLPickRows([missingOdds], { now: NOW });
+  assert.deepEqual(selected.productionRows, []);
+});
+
+test("selectNFLPickRows requires at least ten settled decisions for an official NFL player prop", () => {
   const thinSample = row({
     id: "thin-sample",
     candidate_id: "thin-sample",
+    market_type: "player_prop_receptions",
+    team_name: "Thin Player",
     evidence_snapshot: {
       edge: 0.2,
+      participantName: "Thin Player",
       primary_learning_signal: {
         test_wins: 7,
         test_losses: 2,
@@ -271,10 +343,11 @@ test("selectNFLPickRows requires at least ten settled decisions for an official 
   const provenSample = row({
     id: "proven-sample",
     candidate_id: "proven-sample",
-    home_team: "Different Home",
-    away_team: "Different Away",
+    market_type: "player_prop_receptions",
+    team_name: "Proven Player",
     evidence_snapshot: {
       edge: 0.2,
+      participantName: "Proven Player",
       primary_learning_signal: {
         test_wins: 7,
         test_losses: 3,

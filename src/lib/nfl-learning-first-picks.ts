@@ -14,10 +14,15 @@ import type { AIPick } from "@/lib/types";
 
 const LAB_SLUG = "goose-shadow-lab";
 const DEFAULT_NFL_LEARNING_MODEL_VERSION = "shadow-2026-05-25-nfl-foundation";
-const NFL_WEEKLY_PICK_TARGET = 6;
+const NFL_WEEKLY_TEAM_PICK_TARGET = 4;
+const NFL_WEEKLY_PLAYER_PROP_LIMIT = 6;
 const MAX_PRICE_AGE_HOURS = 36;
-const PRODUCTION_TEAM_HIT_RATE = 70;
-const PRODUCTION_EDGE = 10;
+const PRODUCTION_TEAM_HIT_RATE = 55;
+const PRODUCTION_TEAM_EDGE = 5;
+const PRODUCTION_TEAM_MIN_DECISIONS = 50;
+const PRODUCTION_PLAYER_PROP_HIT_RATE = 70;
+const PRODUCTION_PLAYER_PROP_EDGE = 10;
+const PRODUCTION_PLAYER_PROP_MIN_DECISIONS = 10;
 
 type ShadowPickRow = {
   id: string;
@@ -57,6 +62,12 @@ export type NFLLearningFirstResult = {
     maxPriceAgeHours: number;
     productionHitRate: number;
     productionEdge: number;
+    productionMinDecisions: number;
+    productionPlayerPropHitRate: number;
+    productionPlayerPropEdge: number;
+    productionPlayerPropMinDecisions: number;
+    weeklyTeamPickTarget: number;
+    weeklyPlayerPropLimit: number;
   };
   diagnostics: {
     rowsRead: number;
@@ -193,7 +204,9 @@ export function mapNFLLearningShadowPick(row: NFLShadowCandidate, shadowOnly: bo
     reasoning: [
       shadowOnly
         ? "Goose Learning shadow pick — tracked for model training, not an official recommendation."
-        : "NFL AI pick cleared the production gates.",
+        : isPlayerProp
+          ? "NFL player prop cleared the strict production gates."
+          : "NFL weekly best-bet selection — one of the four highest-ranked validated team-market options.",
       `${signalLabel}: ${wins}-${losses}-${pushes} over ${sample} backtest decisions (${hitRate.toFixed(1)}%).`,
       `Measured edge: +${edge.toFixed(1)}%.`,
       `Captured price: ${book} ${formatAmericanOdds(row.odds)}.`,
@@ -292,6 +305,17 @@ async function enrichRows(rows: ShadowPickRow[]): Promise<NFLShadowCandidate[]> 
 }
 
 export async function getNFLLearningFirstPicks(date: string, allowUpcoming = true): Promise<NFLLearningFirstResult> {
+  const thresholds = {
+    maxPriceAgeHours: MAX_PRICE_AGE_HOURS,
+    productionHitRate: PRODUCTION_TEAM_HIT_RATE,
+    productionEdge: PRODUCTION_TEAM_EDGE,
+    productionMinDecisions: PRODUCTION_TEAM_MIN_DECISIONS,
+    productionPlayerPropHitRate: PRODUCTION_PLAYER_PROP_HIT_RATE,
+    productionPlayerPropEdge: PRODUCTION_PLAYER_PROP_EDGE,
+    productionPlayerPropMinDecisions: PRODUCTION_PLAYER_PROP_MIN_DECISIONS,
+    weeklyTeamPickTarget: NFL_WEEKLY_TEAM_PICK_TARGET,
+    weeklyPlayerPropLimit: NFL_WEEKLY_PLAYER_PROP_LIMIT,
+  };
   const empty = (fallbackReason: string, modelVersion: string | null = DEFAULT_NFL_LEARNING_MODEL_VERSION): NFLLearningFirstResult => ({
     picks: [],
     learningPicks: [],
@@ -299,7 +323,7 @@ export async function getNFLLearningFirstPicks(date: string, allowUpcoming = tru
     source: "none",
     slateDate: date,
     rawPickDate: null,
-    thresholds: { maxPriceAgeHours: MAX_PRICE_AGE_HOURS, productionHitRate: PRODUCTION_TEAM_HIT_RATE, productionEdge: PRODUCTION_EDGE },
+    thresholds,
     diagnostics: { rowsRead: 0, rejectedStale: 0, rejectedStarted: 0, duplicatesCollapsed: 0 },
     fallbackReason,
   });
@@ -315,10 +339,14 @@ export async function getNFLLearningFirstPicks(date: string, allowUpcoming = tru
       const enriched = await enrichRows(rows);
       const selected = selectNFLPickRows(enriched, {
         maxAgeHours: MAX_PRICE_AGE_HOURS,
-        teamLimit: NFL_WEEKLY_PICK_TARGET,
-        playerPropLimit: NFL_WEEKLY_PICK_TARGET,
+        teamLimit: NFL_WEEKLY_TEAM_PICK_TARGET,
+        playerPropLimit: NFL_WEEKLY_PLAYER_PROP_LIMIT,
         productionHitRate: PRODUCTION_TEAM_HIT_RATE,
-        productionEdge: PRODUCTION_EDGE,
+        productionPlayerPropHitRate: PRODUCTION_PLAYER_PROP_HIT_RATE,
+        productionEdge: PRODUCTION_TEAM_EDGE,
+        productionPlayerPropEdge: PRODUCTION_PLAYER_PROP_EDGE,
+        productionMinDecisions: PRODUCTION_TEAM_MIN_DECISIONS,
+        productionPlayerPropMinDecisions: PRODUCTION_PLAYER_PROP_MIN_DECISIONS,
       });
       staleRows += selected.rejectedStale;
 
@@ -333,7 +361,7 @@ export async function getNFLLearningFirstPicks(date: string, allowUpcoming = tru
         source: "nfl_learning",
         slateDate: date,
         rawPickDate: rows[0]?.pick_date || null,
-        thresholds: { maxPriceAgeHours: MAX_PRICE_AGE_HOURS, productionHitRate: PRODUCTION_TEAM_HIT_RATE, productionEdge: PRODUCTION_EDGE },
+        thresholds,
         diagnostics: {
           rowsRead: rows.length,
           rejectedStale: selected.rejectedStale,

@@ -59,6 +59,14 @@ export function buildNFLPlayerPropSelectionKey({ eventId, marketType, participan
   return [String(eventId || ""), String(marketType || "").trim().toLowerCase(), normalizeNFLPlayerName(participantName)].join("|");
 }
 
+export function isNFLPregameEvent(event, now = Date.now()) {
+  const status = String(event?.status ?? "unknown").trim().toLowerCase();
+  if (!["scheduled", "unknown"].includes(status)) return false;
+  const commenceAt = event?.commence_time ? new Date(event.commence_time).getTime() : Number.NaN;
+  const nowAt = new Date(now).getTime();
+  return Number.isFinite(commenceAt) && Number.isFinite(nowAt) && commenceAt > nowAt;
+}
+
 export function isNFLProductionReadyShadowRow(row) {
   const playerProp = isNFLPlayerPropMarket(row?.market_type);
   const signal = row?.primary_system_signal ?? row?.primary_signal ?? null;
@@ -69,10 +77,12 @@ export function isNFLProductionReadyShadowRow(row) {
   const hitRate = decisions > 0 ? wins / decisions : 0;
   const edge = finiteNumber(row?.edge) ?? 0;
   const odds = finiteNumber(row?.odds) ?? -100000;
-  return ["eligible", "promoted"].includes(status)
-    && decisions >= 10
-    && hitRate >= 0.7
-    && edge >= 0.1
+  const acceptedStatus = ["eligible", "promoted"].includes(status)
+    || (!playerProp && status === "shadow_daily_candidate");
+  return acceptedStatus
+    && decisions >= (playerProp ? 10 : 50)
+    && hitRate >= (playerProp ? 0.7 : 0.55)
+    && edge >= (playerProp ? 0.1 : 0.05)
     && odds >= (playerProp ? -200 : -150);
 }
 

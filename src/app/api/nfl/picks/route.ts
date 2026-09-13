@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     diagnostics: result.diagnostics,
     fallbackReason: result.fallbackReason,
     disclosure: result.learningPicks.length
-      ? "Goose Learning picks are shadow-tracked and do not become official AI picks unless they clear the 70% hit-rate and 10% edge gates."
+      ? "The four best weekly team-market options require at least a 55% historical hit rate, 50 decisions, and 5% measured edge. Player props retain the 70% hit-rate and 10% edge gates. Every pick still requires a validated signal, fresh price, acceptable odds, and an unstarted game; Goose Learning tracks the remaining candidates."
       : "No fresh NFL learning slate is available yet.",
     generatedAt: new Date().toISOString(),
   }, {

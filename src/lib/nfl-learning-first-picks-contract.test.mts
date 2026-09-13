@@ -12,15 +12,21 @@ test("NFL pick loading aggregates the current date through the seven-day weekly 
   assert.doesNotMatch(source, /if \(!hasActionableRows\(\) && allowUpcoming\)/);
 });
 
-test("NFL picks API truthfully discloses the universal 70 percent official gate", () => {
+test("NFL picks API distinguishes the weekly team-value policy from strict player-prop gates", () => {
   const route = readFileSync("src/app/api/nfl/picks/route.ts", "utf8");
-  assert.match(route, /70% hit-rate and 10% edge gates/);
-  assert.doesNotMatch(route, /65% hit-rate/);
+  const picksPage = readFileSync("src/app/picks/page.tsx", "utf8");
+  assert.match(route, /four best weekly team-market options/);
+  assert.match(route, /55% historical hit rate, 50 decisions, and 5% measured edge/);
+  assert.match(route, /Player props retain the 70% hit-rate and 10% edge gates/);
+  assert.doesNotMatch(picksPage, /65% backtest hit rate/);
+  assert.match(picksPage, /weekly team-value or strict player-prop gates/);
 });
 
-test("NFL pick loading exposes six weekly picks in each market bucket", () => {
-  assert.match(source, /const NFL_WEEKLY_PICK_TARGET = 6/);
-  assert.match(source, /const PRODUCTION_TEAM_HIT_RATE = 70/);
-  assert.match(source, /teamLimit: NFL_WEEKLY_PICK_TARGET/);
-  assert.match(source, /playerPropLimit: NFL_WEEKLY_PICK_TARGET/);
+test("NFL pick loading targets four weekly team options without weakening the six-player-prop ceiling", () => {
+  assert.match(source, /const NFL_WEEKLY_TEAM_PICK_TARGET = 4/);
+  assert.match(source, /const NFL_WEEKLY_PLAYER_PROP_LIMIT = 6/);
+  assert.match(source, /const PRODUCTION_TEAM_HIT_RATE = 55/);
+  assert.match(source, /const PRODUCTION_TEAM_EDGE = 5/);
+  assert.match(source, /teamLimit: NFL_WEEKLY_TEAM_PICK_TARGET/);
+  assert.match(source, /playerPropLimit: NFL_WEEKLY_PLAYER_PROP_LIMIT/);
 });

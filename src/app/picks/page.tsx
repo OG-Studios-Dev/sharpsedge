@@ -736,7 +736,7 @@ export default function PicksPage() {
               ) : picksError && activeToday.length === 0 ? (
                 <EmptyStateCard eyebrow="Picks unavailable" title="AI picks feed did not load" body={picksError} />
               ) : activeToday.length === 0 ? (
-                <EmptyStateCard eyebrow="AI Picks" title={`No ${sportLeague === "All" ? "" : `${sportLeague} `}picks today`} body={sportLeague === "NFL" && nflLearningPicks.length ? "The NFL model is running, but no play cleared both production gates: 65% backtest hit rate and 10% measured edge. No forced picks." : sportLeague === "PGA" ? golfBannerCopy : "Check back when games are scheduled to see today's top AI picks."} />
+                <EmptyStateCard eyebrow="AI Picks" title={`No ${sportLeague === "All" ? "" : `${sportLeague} `}picks today`} body={sportLeague === "NFL" && nflLearningPicks.length ? "The NFL model is running, but no current play cleared the weekly team-value or strict player-prop gates. Prices may be stale, games may have started, or the available evidence may be below the published floors." : sportLeague === "PGA" ? golfBannerCopy : "Check back when games are scheduled to see today's top AI picks."} />
               ) : (
                 <div className="space-y-3">
                   {activeToday.map((pick, index) => (

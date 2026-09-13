@@ -5,7 +5,7 @@ import test from "node:test";
 const source = readFileSync(new URL("../goose2-score-shadow.mjs", import.meta.url), "utf8");
 
 test("NFL shadow scoring budgets team markets and player props independently", () => {
-  assert.match(source, /NFL_TEAM_PICK_TARGET/);
+  assert.match(source, /NFL_TEAM_PICK_TARGET\s*=\s*4/);
   assert.match(source, /NFL_PLAYER_PROP_PICK_TARGET/);
   assert.match(source, /isNFLPlayerPropMarket\(row\.market_type\)\s*\?\s*NFL_PLAYER_PROP_PICK_TARGET/);
   assert.match(source, /normalizeNFLPlayerName\(row\.participant_name\)/);
@@ -32,4 +32,9 @@ test("NFL scorer keeps both prop sides until final selection and limits live rea
   assert.match(source, /latestCaptureTs/);
   assert.match(source, /capturedAt:\s*latestCaptureTs/);
   assert.match(source, /candidate query reached the configured cap/);
+});
+
+test("NFL scorer loads promoted signals and rejects events that are not verifiably pregame", () => {
+  assert.match(source, /promotion_status=in\.\(eligible,promoted,shadow_daily_candidate,keep_shadow_only\)/);
+  assert.match(source, /!isNFLPregameEvent\(event\)/);
 });
