@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import scoreScope from "../../../scripts/lib/goose2-score-scope.mjs";
 
-const { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport } = scoreScope;
+const { buildCandidatePagePath, buildLatestCandidateCapturePath, filterRowsBySport, normalizeScoreSport } = scoreScope;
 
 test("normalizeScoreSport accepts a league case-insensitively", () => {
   assert.equal(normalizeScoreSport("nfl"), "NFL");
@@ -14,11 +14,11 @@ test("normalizeScoreSport rejects unsupported leagues", () => {
   assert.throws(() => normalizeScoreSport("EPL"), /Unsupported score sport/);
 });
 
-test("candidate page query pushes sport scope before stable primary-key pagination", () => {
+test("candidate page query pins scoring to the latest capture before stable primary-key pagination", () => {
   const path = buildCandidatePagePath({
     date: "2026-09-13",
     sport: "NFL",
-    capturedAfter: "2026-09-11T18:00:00.000Z",
+    capturedAt: "2026-09-13T00:16:53.386+00:00",
     select: "candidate_id,event_id,sport,capture_ts",
     limit: 1000,
     offset: 0,
@@ -27,8 +27,22 @@ test("candidate page query pushes sport scope before stable primary-key paginati
   assert.equal(url.pathname, "/goose_market_candidates");
   assert.equal(url.searchParams.get("event_date"), "eq.2026-09-13");
   assert.equal(url.searchParams.get("sport"), "eq.NFL");
-  assert.equal(url.searchParams.get("capture_ts"), "gte.2026-09-11T18:00:00.000Z");
+  assert.equal(url.searchParams.get("capture_ts"), "eq.2026-09-13T00:16:53.386+00:00");
   assert.equal(url.searchParams.get("order"), "candidate_id.asc");
+});
+
+test("latest capture query only considers fresh NFL snapshots", () => {
+  const path = buildLatestCandidateCapturePath({
+    date: "2026-09-13",
+    sport: "NFL",
+    capturedAfter: "2026-09-11T18:00:00.000Z",
+  });
+  const url = new URL(path, "https://example.test");
+  assert.equal(url.searchParams.get("event_date"), "eq.2026-09-13");
+  assert.equal(url.searchParams.get("sport"), "eq.NFL");
+  assert.equal(url.searchParams.get("capture_ts"), "gte.2026-09-11T18:00:00.000Z");
+  assert.equal(url.searchParams.get("order"), "capture_ts.desc");
+  assert.equal(url.searchParams.get("limit"), "1");
 });
 
 test("filterRowsBySport prevents a league model from scoring other sports", () => {

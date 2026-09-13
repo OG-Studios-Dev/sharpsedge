@@ -28,6 +28,8 @@ test("NFL scorer keeps both prop sides until final selection and limits live rea
   const evidenceStart = source.indexOf("const nflPlayerPropEvidence", dedupeStart);
   const dedupe = source.slice(dedupeStart, evidenceStart);
   assert.match(dedupe, /normalizeToken\(row\.side\)/);
-  assert.match(source, /capturedAfter/);
+  assert.match(source, /buildLatestCandidateCapturePath/);
+  assert.match(source, /latestCaptureTs/);
+  assert.match(source, /capturedAt:\s*latestCaptureTs/);
   assert.match(source, /candidate query reached the configured cap/);
 });

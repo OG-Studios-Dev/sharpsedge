@@ -14,7 +14,7 @@ export function filterRowsBySport(rows, sport) {
   return rows.filter((row) => String(row?.sport ?? "").toUpperCase() === sport);
 }
 
-export function buildCandidatePagePath({ date, sport, capturedAfter, select, limit, offset }) {
+export function buildCandidatePagePath({ date, sport, capturedAfter, capturedAt, select, limit, offset }) {
   const params = new URLSearchParams({
     select,
     event_date: `eq.${date}`,
@@ -23,8 +23,21 @@ export function buildCandidatePagePath({ date, sport, capturedAfter, select, lim
     offset: String(offset),
   });
   if (sport) params.set("sport", `eq.${sport}`);
-  if (capturedAfter) params.set("capture_ts", `gte.${capturedAfter}`);
+  if (capturedAt) params.set("capture_ts", `eq.${capturedAt}`);
+  else if (capturedAfter) params.set("capture_ts", `gte.${capturedAfter}`);
   return `/goose_market_candidates?${params.toString()}`;
 }
 
-export default { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport };
+export function buildLatestCandidateCapturePath({ date, sport, capturedAfter }) {
+  const params = new URLSearchParams({
+    select: "capture_ts",
+    event_date: `eq.${date}`,
+    capture_ts: `gte.${capturedAfter}`,
+    order: "capture_ts.desc",
+    limit: "1",
+  });
+  if (sport) params.set("sport", `eq.${sport}`);
+  return `/goose_market_candidates?${params.toString()}`;
+}
+
+export default { buildCandidatePagePath, buildLatestCandidateCapturePath, filterRowsBySport, normalizeScoreSport };
