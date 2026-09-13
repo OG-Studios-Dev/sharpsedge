@@ -4,6 +4,7 @@ import {
   nflDisplayDate,
   nflShadowEdge,
   nflShadowHitRate,
+  isNFLPlayerPropMarket,
   selectNFLPickRows,
   type NFLShadowCandidate,
 } from "@/lib/nfl-pick-selection";
@@ -12,9 +13,9 @@ import type { AIPick } from "@/lib/types";
 
 const LAB_SLUG = "goose-shadow-lab";
 const DEFAULT_NFL_LEARNING_MODEL_VERSION = "shadow-2026-05-25-nfl-foundation";
-const MAX_LEARNING_NFL_PICKS = 3;
+const NFL_WEEKLY_PICK_TARGET = 6;
 const MAX_PRICE_AGE_HOURS = 36;
-const PRODUCTION_TEAM_HIT_RATE = 65;
+const PRODUCTION_TEAM_HIT_RATE = 70;
 const PRODUCTION_EDGE = 10;
 
 type ShadowPickRow = {
@@ -63,6 +64,16 @@ export type NFLLearningFirstResult = {
     duplicatesCollapsed: number;
   };
   fallbackReason?: string;
+};
+
+const NFL_PROP_LABELS: Record<string, string> = {
+  player_prop_passing_yards: "Passing Yards",
+  player_prop_passing_tds: "Passing TDs",
+  player_prop_rushing_yards: "Rushing Yards",
+  player_prop_rush_attempts: "Rush Attempts",
+  player_prop_receiving_yards: "Receiving Yards",
+  player_prop_receptions: "Receptions",
+  player_prop_anytime_td: "Anytime Touchdown",
 };
 
 const NFL_FULL_NAME_TO_ABBR: Record<string, string> = {
@@ -123,10 +134,15 @@ function marketLabel(row: NFLShadowCandidate) {
   if (market === "moneyline") return `${row.team_name || side} ML`;
   if (market === "spread") return `${row.team_name || side} ${row.line != null && row.line > 0 ? "+" : ""}${row.line ?? ""}`.trim();
   if (market === "total") return `${side.charAt(0).toUpperCase()}${side.slice(1)} ${row.line ?? ""}`.trim();
+  if (isNFLPlayerPropMarket(market)) {
+    const direction = side.toLowerCase() === "under" ? "Under" : "Over";
+    const label = NFL_PROP_LABELS[market] || market.replace(/^player_prop_/, "").replace(/_/g, " ");
+    return market === "player_prop_anytime_td" ? label : `${direction} ${row.line ?? ""} ${label}`.trim();
+  }
   return `${side} ${market}`;
 }
 
-function mapShadowPick(row: NFLShadowCandidate, shadowOnly: boolean): AIPick | null {
+export function mapNFLLearningShadowPick(row: NFLShadowCandidate, shadowOnly: boolean): AIPick | null {
   if (typeof row.odds !== "number") return null;
 
   const market = row.market_type.toLowerCase();
@@ -143,24 +159,30 @@ function mapShadowPick(row: NFLShadowCandidate, shadowOnly: boolean): AIPick | n
   const matchup = row.home_team && row.away_team
     ? `${row.away_team} @ ${row.home_team}`
     : (row.opponent_name || "Opponent TBD");
-  const team = market === "total" ? "Game Total" : (row.team_name || row.side || "NFL");
-  const opponent = market === "total"
+  const isPlayerProp = isNFLPlayerPropMarket(market);
+  const playerName = isPlayerProp ? (row.team_name || row.side || "NFL Player") : undefined;
+  const team = isPlayerProp ? "NFL Player Prop" : market === "total" ? "Game Total" : (row.team_name || row.side || "NFL");
+  const opponent = isPlayerProp || market === "total"
     ? matchup
     : team === row.home_team
       ? (row.away_team || row.opponent_name || "Opponent TBD")
       : (row.home_team || row.opponent_name || "Opponent TBD");
-  const isAway = market !== "total" && Boolean(row.away_team && team === row.away_team);
+  const isAway = !isPlayerProp && market !== "total" && Boolean(row.away_team && team === row.away_team);
+  const direction = String(row.side || "").toLowerCase() === "under" ? "Under" : "Over";
   const confidence = Math.round(Math.max(0, Math.min(100, Number(row.confidence_score ?? 0) * 100)));
   const signalLabel = signal?.signal_key || "matched NFL learning signal";
 
   return {
     id: stablePickId(row.candidate_id, shadowOnly),
     date: displayDate,
-    type: "team",
+    type: isPlayerProp ? "player" : "team",
+    playerName,
     team,
     teamColor: teamColor(team),
     opponent,
     isAway,
+    propType: isPlayerProp ? (NFL_PROP_LABELS[market] || market.replace(/^player_prop_/, "").replace(/_/g, " ")) : undefined,
+    direction: isPlayerProp ? direction : undefined,
     betType: row.market_type,
     line: typeof row.line === "number" ? row.line : undefined,
     pickLabel: marketLabel(row),
@@ -174,7 +196,7 @@ function mapShadowPick(row: NFLShadowCandidate, shadowOnly: boolean): AIPick | n
       `${signalLabel}: ${wins}-${losses}-${pushes} over ${sample} backtest decisions (${hitRate.toFixed(1)}%).`,
       `Measured edge: +${edge.toFixed(1)}%.`,
       `Captured price: ${book} ${formatAmericanOdds(row.odds)}.`,
-      market === "total" ? matchup : `${team} vs ${opponent}.`,
+      isPlayerProp ? `${playerName} — ${matchup}.` : market === "total" ? matchup : `${team} vs ${opponent}.`,
     ].join(" "),
     result: row.result === "win" || row.result === "loss" || row.result === "push" ? row.result : "pending",
     units: 1,
@@ -198,20 +220,16 @@ async function fetchShadowRows(date: string, modelVersion: string | null, allowU
     sport: "eq.NFL",
     status: "eq.recorded",
     order: allowUpcoming ? "pick_date.asc,confidence_score.desc,recorded_at.desc" : "confidence_score.desc,recorded_at.desc",
-    limit: "100",
+    limit: "500",
   });
   if (modelVersion) params.set("model_version", `eq.${modelVersion}`);
   if (allowUpcoming) {
-    params.set("pick_date", `gt.${date}`);
+    params.set("pick_date", `gte.${date}`);
     params.set("and", `(pick_date.lte.${addDays(date, 7)})`);
   } else {
     params.set("pick_date", `eq.${date}`);
   }
-
-  const rows = await postgrest<ShadowPickRow[]>(`/rest/v1/goose_learning_shadow_picks?${params.toString()}`);
-  if (!allowUpcoming || rows.length === 0) return rows;
-  const firstDate = rows[0].pick_date;
-  return rows.filter((row) => row.pick_date === firstDate);
+  return postgrest<ShadowPickRow[]>(`/rest/v1/goose_learning_shadow_picks?${params.toString()}`);
 }
 
 async function fetchByIds<T>(table: string, column: string, values: string[], select: string) {
@@ -292,38 +310,27 @@ export async function getNFLLearningFirstPicks(date: string, allowUpcoming = tru
     let staleRows = 0;
 
     for (const modelVersion of modelCandidates) {
-      let rows = await fetchShadowRows(date, modelVersion, false);
-      let enriched = await enrichRows(rows);
-      let selected = selectNFLPickRows(enriched, {
+      const rows = await fetchShadowRows(date, modelVersion, allowUpcoming);
+      const enriched = await enrichRows(rows);
+      const selected = selectNFLPickRows(enriched, {
         maxAgeHours: MAX_PRICE_AGE_HOURS,
-        limit: MAX_LEARNING_NFL_PICKS,
+        teamLimit: NFL_WEEKLY_PICK_TARGET,
+        playerPropLimit: NFL_WEEKLY_PICK_TARGET,
         productionHitRate: PRODUCTION_TEAM_HIT_RATE,
         productionEdge: PRODUCTION_EDGE,
       });
       staleRows += selected.rejectedStale;
 
-      const hasActionableRows = () => selected.learningRows.length > 0 || selected.productionRows.length > 0;
-      if (!hasActionableRows() && allowUpcoming) {
-        rows = await fetchShadowRows(date, modelVersion, true);
-        enriched = await enrichRows(rows);
-        selected = selectNFLPickRows(enriched, {
-          maxAgeHours: MAX_PRICE_AGE_HOURS,
-          limit: MAX_LEARNING_NFL_PICKS,
-          productionHitRate: PRODUCTION_TEAM_HIT_RATE,
-          productionEdge: PRODUCTION_EDGE,
-        });
-        staleRows += selected.rejectedStale;
-      }
-      if (!hasActionableRows()) continue;
+      if (selected.learningRows.length === 0 && selected.productionRows.length === 0) continue;
 
-      const learningPicks = selected.learningRows.map((row) => mapShadowPick(row, true)).filter((pick): pick is AIPick => Boolean(pick));
-      const picks = selected.productionRows.map((row) => mapShadowPick(row, false)).filter((pick): pick is AIPick => Boolean(pick));
+      const learningPicks = selected.learningRows.map((row) => mapNFLLearningShadowPick(row, true)).filter((pick): pick is AIPick => Boolean(pick));
+      const picks = selected.productionRows.map((row) => mapNFLLearningShadowPick(row, false)).filter((pick): pick is AIPick => Boolean(pick));
       return {
         picks,
         learningPicks,
         modelVersion: modelVersion || rows[0]?.model_version || null,
         source: "nfl_learning",
-        slateDate: learningPicks[0]?.date || date,
+        slateDate: date,
         rawPickDate: rows[0]?.pick_date || null,
         thresholds: { maxPriceAgeHours: MAX_PRICE_AGE_HOURS, productionHitRate: PRODUCTION_TEAM_HIT_RATE, productionEdge: PRODUCTION_EDGE },
         diagnostics: {
@@ -343,3 +350,8 @@ export async function getNFLLearningFirstPicks(date: string, allowUpcoming = tru
     return empty(toErrorMessage(error, "failed_to_load_nfl_learning_picks"), null);
   }
 }
+
+export default {
+  getNFLLearningFirstPicks,
+  mapNFLLearningShadowPick,
+};

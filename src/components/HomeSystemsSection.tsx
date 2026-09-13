@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSystemDerivedMetrics, type TrackedSystem, type DbSystemPerformanceSummary } from "@/lib/systems-tracking-store";
 
-const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system"]);
+const ML_GRADEABLE_IDS = new Set(["swaggy-stretch-drive", "falcons-fight-pummeled-pitchers", "robbies-ripper-fast-5", "nba-goose-system", "nfl-home-dog-majority-handle"]);
 const MIN_SAMPLE_FOR_TIER = 8; // minimum graded qualifiers before we display a tier
 const OFFLINE_SYSTEM_IDS = new Set(["the-blowout", "hot-teams-matchup", "tonys-hot-bats"]);
 
@@ -93,12 +93,14 @@ function getSystemInsightLine(
 type Props = {
   systems: TrackedSystem[];
   dbPerformance?: DbSystemPerformanceSummary[];
+  league?: string;
 };
 
-export default function HomeSystemsSection({ systems, dbPerformance = [] }: Props) {
+export default function HomeSystemsSection({ systems, dbPerformance = [], league }: Props) {
   const dbPerfMap = new Map(dbPerformance.map((p) => [p.system_id, p]));
   // Show top 3 only — compact homepage real estate
-  const featuredSystems = sortSystemsForHome(systems, dbPerfMap).slice(0, 3);
+  const leagueSystems = league ? systems.filter((system) => system.league === league) : systems;
+  const featuredSystems = sortSystemsForHome(leagueSystems, dbPerfMap).slice(0, 3);
 
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#141821_0%,#0f131b_100%)] p-4 shadow-[0_12px_40px_rgba(0,0,0,0.24)]">
@@ -116,6 +118,11 @@ export default function HomeSystemsSection({ systems, dbPerformance = [] }: Prop
       </div>
 
       <div className="mt-3 space-y-1">
+        {featuredSystems.length === 0 ? (
+          <div className="rounded-lg border border-dark-border/60 bg-dark-bg/40 px-3 py-4 text-xs text-gray-500">
+            No {league || "live"} systems are tracking yet.
+          </div>
+        ) : null}
         {featuredSystems.map((system) => {
           const metrics = getSystemDerivedMetrics(system);
           const perf = metrics.performance;

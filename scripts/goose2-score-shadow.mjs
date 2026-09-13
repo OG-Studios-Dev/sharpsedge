@@ -1,6 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport } from './lib/goose2-score-scope.mjs';
+import {
+  NFL_PLAYER_PROP_MARKETS,
+  buildNFLPlayerPropSelectionKey,
+  calculateNFLPlayerPropEvidence,
+  extractESPNPlayerGameLogCategories,
+  isNFLPlayerPropMarket,
+  isNFLProductionReadyShadowRow,
+  normalizeNFLPlayerName,
+  resolveUniqueNFLAthleteId,
+} from './lib/nfl-player-prop-evidence.mjs';
 
 const envPath = path.join(process.cwd(), '.env.local');
 if (fs.existsSync(envPath)) {
@@ -42,14 +52,17 @@ const POLICY_VERSION = 'phase2-shadow-selective';
 const LEARNING_CONFIDENCE_MIN = Number(args.learningConfidenceMin || process.env.GOOSE_LEARNING_CONFIDENCE_MIN || 0.45);
 const MIN_EDGE = 0.035;
 const MAX_PLAYS_PER_SPORT = 3;
+const NFL_TEAM_PICK_TARGET = 6;
+const NFL_PLAYER_PROP_PICK_TARGET = 6;
 const SYSTEM_EDGE_MIN_SAMPLE = Number(args.systemEdgeMinSample || 10);
 const EXCLUDE_IMPLAUSIBLE_LINES = args.excludeImplausibleLines !== 'false';
-const ALLOWED_MARKETS = new Set(['moneyline', 'spread', 'total', 'first_five_total', 'first_five_side']);
+const ALLOWED_MARKETS = new Set(['moneyline', 'spread', 'total', 'first_five_total', 'first_five_side', ...NFL_PLAYER_PROP_MARKETS]);
 const FORCE_RESCORE = args.force === 'true' || args.force === '1';
 const ALLOW_HISTORICAL_SCORING = args.allowHistorical === 'true' || args.allowHistorical === '1' || process.env.GOOSE_SHADOW_ALLOW_HISTORICAL === '1';
 const SCORE_PAGE_SIZE = Number(args.scorePageSize || 1000);
 const SCORE_MAX_ROWS = Number(args.scoreMaxRows || 10000);
 const SCORE_SPORT = normalizeScoreSport(args.sport || process.env.GOOSE_SHADOW_SCORE_SPORT);
+const NFL_LIVE_MAX_PRICE_AGE_HOURS = 36;
 
 const trainPath = path.resolve(process.cwd(), args.trainingDataset || process.env.GOOSE_SHADOW_TRAINING_DATASET || path.join('tmp', 'goose2-training-dataset-v1.json'));
 if (!fs.existsSync(trainPath)) throw new Error('Missing training dataset. Run npm run goose2:export-training first.');
@@ -561,16 +574,33 @@ function chunk(values, size = 150) {
 async function fetchPagedCandidates(date) {
   const out = [];
   const select = 'candidate_id,event_id,sport,league,event_date,market_type,participant_name,opponent_name,side,line,odds,book,capture_ts,is_best_price,is_opening,is_closing';
+  const capturedAfter = SCORE_SPORT === 'NFL' && !ALLOW_HISTORICAL_SCORING
+    ? new Date(Date.now() - (NFL_LIVE_MAX_PRICE_AGE_HOURS * 60 * 60 * 1000)).toISOString()
+    : null;
   for (let offset = 0; offset < SCORE_MAX_ROWS; offset += SCORE_PAGE_SIZE) {
     const page = await rest(buildCandidatePagePath({
       date,
       sport: SCORE_SPORT,
+      capturedAfter,
       select,
       limit: SCORE_PAGE_SIZE,
       offset,
     }));
     out.push(...(page || []));
     if (!page || page.length < SCORE_PAGE_SIZE) break;
+  }
+  if (out.length >= SCORE_MAX_ROWS) {
+    const overflow = await rest(buildCandidatePagePath({
+      date,
+      sport: SCORE_SPORT,
+      capturedAfter,
+      select: 'candidate_id',
+      limit: 1,
+      offset: SCORE_MAX_ROWS,
+    }));
+    if (overflow?.length) {
+      throw new Error(`candidate query reached the configured cap of ${SCORE_MAX_ROWS} rows`);
+    }
   }
   return out;
 }
@@ -605,6 +635,61 @@ const rows = candidateRows
   }))
   .filter((row) => row.goose_feature_rows.length && row.goose_market_events.length);
 
+async function loadNFLPlayerPropEvidence(candidateRowsForDate) {
+  if (SCORE_SPORT !== 'NFL') return new Map();
+  const playerNames = Array.from(new Set(candidateRowsForDate
+    .filter((row) => isNFLPlayerPropMarket(row.market_type))
+    .map((row) => String(row.participant_name || '').trim())
+    .filter(Boolean)));
+  if (!playerNames.length) return new Map();
+
+  const athletesResponse = await fetch('https://partners.api.espn.com/v2/sports/football/nfl/athletes?limit=7000', {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!athletesResponse.ok) throw new Error(`ESPN NFL athletes HTTP ${athletesResponse.status}`);
+  const athletesPayload = await athletesResponse.json();
+  const athletes = Array.isArray(athletesPayload?.athletes) ? athletesPayload.athletes : [];
+
+  const targetSeason = Number(String(targetDate).slice(0, 4));
+  const seasons = [targetSeason, targetSeason - 1];
+  const categoriesByPlayer = new Map();
+  for (let index = 0; index < playerNames.length; index += 12) {
+    const batch = playerNames.slice(index, index + 12);
+    await Promise.all(batch.map(async (playerName) => {
+      const playerKey = normalizeNFLPlayerName(playerName);
+      const eventTeams = candidateRowsForDate
+        .filter((row) => normalizeNFLPlayerName(row.participant_name) === playerKey)
+        .flatMap((row) => {
+          const event = Array.isArray(row.goose_market_events) ? row.goose_market_events[0] : row.goose_market_events;
+          return [event?.home_team, event?.away_team].filter(Boolean);
+        });
+      const athleteId = resolveUniqueNFLAthleteId(athletes, playerName, eventTeams);
+      if (!athleteId) return;
+      const payloads = await Promise.all(seasons.map(async (season) => {
+        const response = await fetch(`https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${encodeURIComponent(athleteId)}/gamelog?season=${season}`,
+          { signal: AbortSignal.timeout(20_000) }).catch(() => null);
+        if (!response?.ok) return null;
+        return response.json().catch(() => null);
+      }));
+      const categories = payloads.flatMap((payload) => extractESPNPlayerGameLogCategories(payload));
+      if (categories.length) categoriesByPlayer.set(normalizeNFLPlayerName(playerName), categories);
+    }));
+  }
+
+  const evidenceByCandidate = new Map();
+  for (const row of candidateRowsForDate) {
+    if (!isNFLPlayerPropMarket(row.market_type)) continue;
+    const evidence = calculateNFLPlayerPropEvidence({
+      marketType: row.market_type,
+      side: row.side,
+      line: row.line,
+      categories: categoriesByPlayer.get(normalizeNFLPlayerName(row.participant_name)) || [],
+    });
+    if (evidence) evidenceByCandidate.set(row.candidate_id, evidence);
+  }
+  return evidenceByCandidate;
+}
+
 const latestByEventMarketSide = new Map();
 for (const row of rows) {
   const decisions = Array.isArray(row.goose_decision_log) ? row.goose_decision_log : [];
@@ -613,11 +698,15 @@ for (const row of rows) {
   const gameKey = event?.home_team && event?.away_team
     ? `${normalizeToken(event.away_team)}@${normalizeToken(event.home_team)}:${row.event_date}`
     : row.event_id;
-  const dedupeKey = [gameKey, row.market_type, sideRole(row, event), row.book || 'unknown'].join('|');
+  const participantKey = isNFLPlayerPropMarket(row.market_type)
+    ? `${normalizeNFLPlayerName(row.participant_name)}:${normalizeToken(row.side)}:${row.line ?? ''}`
+    : sideRole(row, event);
+  const dedupeKey = [gameKey, row.market_type, participantKey, row.book || 'unknown'].join('|');
   const existing = latestByEventMarketSide.get(dedupeKey);
   if (!existing || String(row.capture_ts) > String(existing.capture_ts)) latestByEventMarketSide.set(dedupeKey, row);
 }
 
+const nflPlayerPropEvidence = await loadNFLPlayerPropEvidence(Array.from(latestByEventMarketSide.values()));
 const scored = [];
 for (const row of latestByEventMarketSide.values()) {
   if (!ALLOWED_MARKETS.has(row.market_type)) continue;
@@ -631,11 +720,28 @@ for (const row of latestByEventMarketSide.values()) {
     implied_prob: implied,
     qualifier_count: qualifierCount,
   }).map((v, j) => (v - means[j]) / stds[j]);
-  const pTrue = sigmoid(dot(weights, vector) + bias);
+  const playerPropEvidence = isNFLPlayerPropMarket(row.market_type)
+    ? nflPlayerPropEvidence.get(row.candidate_id) || null
+    : null;
+  const modelPTrue = sigmoid(dot(weights, vector) + bias);
+  const pTrue = playerPropEvidence?.hitRate ?? modelPTrue;
   const calibrated = pTrue;
   const modelEdge = calibrated - implied;
   const signalKeys = signalsForCandidate(row, event, feature);
-  const matchedSignals = signalKeys.map((key) => learningSignals.get(key)).filter(Boolean);
+  const empiricalPlayerSignal = playerPropEvidence ? {
+    signal_key: `NFL:${row.market_type}:player:${normalizeNFLPlayerName(row.participant_name)}:espn_game_log`,
+    promotion_status: playerPropEvidence.sample >= 10 ? 'eligible' : 'observed',
+    test_sample: playerPropEvidence.sample,
+    test_wins: playerPropEvidence.wins,
+    test_losses: playerPropEvidence.losses,
+    test_pushes: playerPropEvidence.pushes,
+    test_roi: 0,
+    edge_score: modelEdge,
+    confidence_score: Math.min(0.95, playerPropEvidence.sample / 16),
+  } : null;
+  const matchedSignals = empiricalPlayerSignal
+    ? [empiricalPlayerSignal]
+    : signalKeys.map((key) => learningSignals.get(key)).filter(Boolean);
   matchedSignals.sort((a, b) => Number(b.edge_score || 0) - Number(a.edge_score || 0));
   const matchedSystemSignals = matchedSignals.filter((signal) => isSystemSignalKey(signal.signal_key));
   const matchedMarketSignals = matchedSignals.filter((signal) => !isSystemSignalKey(signal.signal_key));
@@ -658,6 +764,7 @@ for (const row of latestByEventMarketSide.values()) {
   const rejectionReasons = [];
   const candidateLineHealth = lineHealth(row);
   if (!matchedSignals.length) rejectionReasons.push('no_matched_learning_signal');
+  if (isNFLPlayerPropMarket(row.market_type) && (!playerPropEvidence || playerPropEvidence.sample < 10)) rejectionReasons.push('insufficient_player_game_log_sample');
   if (confidenceScore < LEARNING_CONFIDENCE_MIN) rejectionReasons.push('below_learning_confidence_floor');
   if (edge < MIN_EDGE) rejectionReasons.push('edge_below_floor');
   if (EXCLUDE_IMPLAUSIBLE_LINES && isImplausibleLine(row)) rejectionReasons.push(`implausible_line:${candidateLineHealth}`);
@@ -707,6 +814,10 @@ for (const row of latestByEventMarketSide.values()) {
 }
 
 scored.sort((a, b) => {
+  if (SCORE_SPORT === 'NFL') {
+    const productionDelta = Number(isNFLProductionReadyShadowRow(b)) - Number(isNFLProductionReadyShadowRow(a));
+    if (productionDelta !== 0) return productionDelta;
+  }
   const scoreDelta = (b.edge + (b.matched_system_signal_keys.length ? 0.005 : 0)) - (a.edge + (a.matched_system_signal_keys.length ? 0.005 : 0));
   if (scoreDelta !== 0) return scoreDelta;
   const freshnessDelta = new Date(b.capture_ts).getTime() - new Date(a.capture_ts).getTime();
@@ -724,20 +835,35 @@ scored.sort((a, b) => {
   return Number(b.odds || -100000) - Number(a.odds || -100000);
 });
 const picks = [];
-const countsBySport = new Map();
+const countsByBucket = new Map();
 const approvedGameMarkets = new Set();
 for (const row of scored) {
-  const current = countsBySport.get(row.sport) ?? 0;
-  const gameMarketKey = [
-    row.sport,
-    row.home_team && row.away_team ? `${normalizeToken(row.away_team)}@${normalizeToken(row.home_team)}` : row.event_id,
-    row.market_type,
-  ].join('|');
+  const isNFLProp = row.sport === 'NFL' && isNFLPlayerPropMarket(row.market_type);
+  const bucket = row.sport === 'NFL' ? (isNFLProp ? 'NFL:player-props' : 'NFL:team-markets') : row.sport;
+  const selectionTier = row.sport === 'NFL'
+    ? (isNFLProductionReadyShadowRow(row) ? 'production' : 'learning')
+    : 'selection';
+  const counterBucket = `${bucket}:${selectionTier}`;
+  const current = countsByBucket.get(counterBucket) ?? 0;
+  const categoryLimit = row.sport === 'NFL'
+    ? (isNFLPlayerPropMarket(row.market_type) ? NFL_PLAYER_PROP_PICK_TARGET : NFL_TEAM_PICK_TARGET)
+    : MAX_PLAYS_PER_SPORT;
+  const gameMarketKey = isNFLProp
+    ? buildNFLPlayerPropSelectionKey({
+        eventId: row.event_id,
+        marketType: row.market_type,
+        participantName: row.participant_name,
+      })
+    : [
+        row.sport,
+        row.home_team && row.away_team ? `${normalizeToken(row.away_team)}@${normalizeToken(row.home_team)}` : row.event_id,
+        row.market_type,
+      ].join('|');
   const approved = row.rejection_reasons.length === 0
-    && current < MAX_PLAYS_PER_SPORT
+    && current < categoryLimit
     && !approvedGameMarkets.has(gameMarketKey);
   if (approved) {
-    countsBySport.set(row.sport, current + 1);
+    countsByBucket.set(counterBucket, current + 1);
     approvedGameMarkets.add(gameMarketKey);
     picks.push(row.candidate_id);
   }
@@ -911,7 +1037,7 @@ const report = {
     candidates_with_system_edge_signal: scored.filter((row) => row.matched_system_signal_keys.length > 0).length,
     approved_with_system_edge_signal: scored.filter((row) => row.bet_decision && row.matched_system_signal_keys.length > 0).length,
   },
-  approved_by_sport: Object.fromEntries([...countsBySport.entries()]),
+  approved_by_bucket: Object.fromEntries([...countsByBucket.entries()]),
   top_approved: scored.filter((row) => row.bet_decision).slice(0, 10),
   top_rejections: scored.filter((row) => !row.bet_decision).slice(0, 10),
 };

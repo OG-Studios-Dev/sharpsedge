@@ -8,13 +8,12 @@ import { GameCardSkeleton } from "@/components/LoadingSkeleton";
 
 function sectionLabel(date: string) {
   const target = new Date(date);
-  const today = new Date();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  if (target.toDateString() === today.toDateString()) return "Today";
-  if (target.toDateString() === tomorrow.toDateString()) return "Tomorrow";
-  return target.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  return target.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    timeZone: "America/Toronto",
+  });
 }
 
 function OffseasonHero({ data }: { data: NFLDashboardData["meta"] }) {
@@ -50,16 +49,31 @@ function OffseasonHero({ data }: { data: NFLDashboardData["meta"] }) {
 export default function NFLScheduleBoard({ showHeader = false }: { showHeader?: boolean }) {
   const [data, setData] = useState<NFLDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/nfl/dashboard")
-      .then((response) => response.json())
+    const controller = new AbortController();
+    const dashboardUrl = selectedWeek ? `/api/nfl/dashboard?week=${selectedWeek}` : "/api/nfl/dashboard";
+    setLoading(true);
+    fetch(dashboardUrl, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || "NFL dashboard unavailable");
+        return payload;
+      })
       .then((payload) => {
         setData(payload);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((error) => {
+        if (error instanceof Error && error.name !== "AbortError") setData(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedWeek]);
+
+  const displayedWeek = data?.meta.week.number ?? selectedWeek;
 
   const groups = new Map<string, NFLGame[]>();
   for (const game of data?.schedule || []) {
@@ -71,9 +85,38 @@ export default function NFLScheduleBoard({ showHeader = false }: { showHeader?: 
   return (
     <section className="rounded-2xl border border-dark-border bg-[linear-gradient(180deg,#151821_0%,#10131b_100%)] p-4">
       {showHeader && (
-        <div className="mb-3">
-          <h3 className="page-heading">NFL Schedule</h3>
-          <p className="mt-0.5 text-[11px] text-gray-500">Lines, totals, and weekly matchups</p>
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">Complete weekly slate</p>
+            <h3 className="mt-1 text-xl font-bold tracking-tight text-white">
+              {data ? data.meta.week.label : "NFL Week"}
+            </h3>
+            <p className="mt-0.5 text-[11px] text-gray-500">
+              {data?.meta.week.dateRange ? `${data.meta.week.dateRange} · ${data.meta.week.gameCount} games · ` : ""}
+              Lines, totals, and weekly matchups
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 p-0.5 text-emerald-300">
+            <button
+              type="button"
+              aria-label="Previous NFL week"
+              disabled={!displayedWeek || displayedWeek <= 1 || loading}
+              onClick={() => displayedWeek && setSelectedWeek(displayedWeek - 1)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-sm disabled:opacity-25"
+            >
+              ‹
+            </button>
+            <span className="px-1 text-[10px] font-semibold">All games</span>
+            <button
+              type="button"
+              aria-label="Next NFL week"
+              disabled={!displayedWeek || displayedWeek >= 18 || loading}
+              onClick={() => displayedWeek && setSelectedWeek(displayedWeek + 1)}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-sm disabled:opacity-25"
+            >
+              ›
+            </button>
+          </div>
         </div>
       )}
 

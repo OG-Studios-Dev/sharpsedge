@@ -14,15 +14,16 @@ export function filterRowsBySport(rows, sport) {
   return rows.filter((row) => String(row?.sport ?? "").toUpperCase() === sport);
 }
 
-export function buildCandidatePagePath({ date, sport, select, limit, offset }) {
+export function buildCandidatePagePath({ date, sport, capturedAfter, select, limit, offset }) {
   const params = new URLSearchParams({
     select,
     event_date: `eq.${date}`,
-    order: "capture_ts.desc",
+    order: "candidate_id.asc",
     limit: String(limit),
     offset: String(offset),
   });
   if (sport) params.set("sport", `eq.${sport}`);
+  if (capturedAfter) params.set("capture_ts", `gte.${capturedAfter}`);
   return `/goose_market_candidates?${params.toString()}`;
 }
 
