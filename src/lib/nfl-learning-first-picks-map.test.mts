@@ -49,3 +49,29 @@ test("maps NFL player props as player picks with readable labels", () => {
   assert.equal(pick?.direction, "Over");
   assert.equal(pick?.pickLabel, "Over 20.5 Receiving Yards");
 });
+
+test("distinct NFL bets in the same event keep distinct display IDs", () => {
+  const prefix = "cand:evt:nfl:nfl:e55c6fe19fce094ce214c8b0e5b504e9:";
+  const rush = mapNFLLearningShadowPick({
+    ...propRow(),
+    candidate_id: `${prefix}player-prop-rush-attempts:bhayshul-tuten:under:11.5:betmgm:2026-09-13T00:24`,
+  }, false);
+  const receptions = mapNFLLearningShadowPick({
+    ...propRow(),
+    candidate_id: `${prefix}player-prop-receptions:bhayshul-tuten:under:1.5:betmgm:2026-09-13T00:24`,
+  }, false);
+  assert.ok(rush && receptions);
+  assert.notEqual(rush.id, receptions.id, "different markets in one event must not share a pick ID");
+});
+
+test("NFL display IDs remain deterministic and separate official from shadow picks", () => {
+  const row = propRow();
+  const official = mapNFLLearningShadowPick(row, false);
+  const repeated = mapNFLLearningShadowPick(row, false);
+  const learning = mapNFLLearningShadowPick(row, true);
+  assert.ok(official && repeated && learning);
+  assert.equal(official.id, repeated.id);
+  assert.notEqual(official.id, learning.id);
+  assert.match(official.id, /^nfl-official-[a-f0-9]{64}$/);
+  assert.match(learning.id, /^nfl-learning-[a-f0-9]{64}$/);
+});

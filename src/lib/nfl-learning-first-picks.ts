@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { formatAmericanOdds } from "@/lib/book-odds";
 import { NFL_TEAM_COLORS } from "@/lib/nfl-api";
 import {
@@ -119,7 +120,9 @@ function addDays(date: string, days: number) {
 }
 
 function stablePickId(candidateId: string, shadowOnly: boolean) {
-  const encoded = Buffer.from(candidateId).toString("base64url").slice(0, 44);
+  // Candidate IDs share long event prefixes; truncating the encoding merges
+  // distinct players/markets in the same game into one React/pick identity.
+  const encoded = createHash("sha256").update(candidateId).digest("hex");
   return `nfl-${shadowOnly ? "learning" : "official"}-${encoded}`;
 }
 
