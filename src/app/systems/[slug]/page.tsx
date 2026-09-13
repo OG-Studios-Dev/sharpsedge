@@ -38,15 +38,18 @@ export default async function SystemDetailPage({ params }: Props) {
     redirect(`/systems/${resolvedSlug}`);
   }
 
-  await refreshTrackableSystems().catch(() => null);
+  const refreshedSystems = await refreshTrackableSystems().catch(() => []);
+  let directlyRefreshedSystem = null;
   if (resolvedSlug === "tonys-hot-bats" || resolvedSlug === "swaggy-stretch-drive" || resolvedSlug === "robbies-ripper-fast-5") {
-    await refreshTrackedSystem(resolvedSlug).catch(() => null);
+    directlyRefreshedSystem = await refreshTrackedSystem(resolvedSlug).catch(() => null);
   }
-  const [data, system, nhlContextBoard] = await Promise.all([
+  const [data, storedSystem, nhlContextBoard] = await Promise.all([
     readSystemsTrackingData(),
     getTrackedSystemBySlug(resolvedSlug),
     resolvedSlug === "swaggy-stretch-drive" ? getTodayNHLContextBoard().catch(() => null) : Promise.resolve(null),
   ]);
+  const refreshedSystem = directlyRefreshedSystem || refreshedSystems.find((entry) => entry.slug === resolvedSlug) || null;
+  const system = refreshedSystem || storedSystem;
 
   if (!system) notFound();
 
