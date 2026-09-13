@@ -42,7 +42,9 @@ export type NFLPickSelectionOptions = {
   productionHitRate?: number;
   productionPlayerPropHitRate?: number;
   productionEdge?: number;
+  productionPlayerPropEdge?: number;
   productionMinDecisions?: number;
+  productionPlayerPropMinDecisions?: number;
   teamLimit?: number;
   playerPropLimit?: number;
   teamMinOdds?: number;
@@ -58,6 +60,7 @@ export type NFLPickSelection = {
 };
 
 function numeric(value: unknown, fallback = 0) {
+  if (value === null || value === undefined || (typeof value === "string" && value.trim() === "")) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -98,7 +101,8 @@ function primarySignal(row: NFLShadowCandidate) {
 
 function isProductionEligibleSignal(row: NFLShadowCandidate) {
   const status = String(primarySignal(row)?.promotion_status ?? "").trim().toLowerCase();
-  return status === "eligible" || status === "promoted";
+  if (status === "eligible" || status === "promoted") return true;
+  return !isNFLPlayerPropMarket(row.market_type) && status === "shadow_daily_candidate";
 }
 
 function settledSignalDecisions(row: NFLShadowCandidate) {
@@ -164,12 +168,14 @@ export function selectNFLPickRows(
   const nowMs = new Date(options.now ?? Date.now()).getTime();
   const maxAgeMs = numeric(options.maxAgeHours, 36) * 60 * 60 * 1000;
   const legacyLimit = options.limit == null ? null : Math.max(1, Math.floor(numeric(options.limit, 3)));
-  const teamLimit = Math.max(1, Math.floor(numeric(options.teamLimit, legacyLimit ?? 6)));
+  const teamLimit = Math.max(1, Math.floor(numeric(options.teamLimit, legacyLimit ?? 4)));
   const playerPropLimit = Math.max(1, Math.floor(numeric(options.playerPropLimit, legacyLimit ?? 6)));
-  const productionHitRate = numeric(options.productionHitRate, 70);
+  const productionHitRate = numeric(options.productionHitRate, 55);
   const productionPlayerPropHitRate = numeric(options.productionPlayerPropHitRate, 70);
-  const productionEdge = numeric(options.productionEdge, 10);
-  const productionMinDecisions = Math.max(1, Math.floor(numeric(options.productionMinDecisions, 10)));
+  const productionEdge = numeric(options.productionEdge, 5);
+  const productionPlayerPropEdge = numeric(options.productionPlayerPropEdge, 10);
+  const productionMinDecisions = Math.max(1, Math.floor(numeric(options.productionMinDecisions, 50)));
+  const productionPlayerPropMinDecisions = Math.max(1, Math.floor(numeric(options.productionPlayerPropMinDecisions, 10)));
   const teamMinOdds = numeric(options.teamMinOdds, -150);
   const playerPropMinOdds = numeric(options.playerPropMinOdds, -200);
 
@@ -192,13 +198,14 @@ export function selectNFLPickRows(
   }
 
   const actionableRows = Array.from(byGameMarket.values()).sort(compareRows);
-  const productionCandidates = actionableRows.filter((row) => (
-    isProductionEligibleSignal(row)
-    && settledSignalDecisions(row) >= productionMinDecisions
-    && nflShadowHitRate(row) >= (isNFLPlayerPropMarket(row.market_type) ? productionPlayerPropHitRate : productionHitRate)
-    && nflShadowEdge(row) >= productionEdge
-    && numeric(row.odds, -100000) >= (isNFLPlayerPropMarket(row.market_type) ? playerPropMinOdds : teamMinOdds)
-  ));
+  const productionCandidates = actionableRows.filter((row) => {
+    const playerProp = isNFLPlayerPropMarket(row.market_type);
+    return isProductionEligibleSignal(row)
+      && settledSignalDecisions(row) >= (playerProp ? productionPlayerPropMinDecisions : productionMinDecisions)
+      && nflShadowHitRate(row) >= (playerProp ? productionPlayerPropHitRate : productionHitRate)
+      && nflShadowEdge(row) >= (playerProp ? productionPlayerPropEdge : productionEdge)
+      && numeric(row.odds, -100000) >= (playerProp ? playerPropMinOdds : teamMinOdds);
+  });
   const productionRows = takeCategoryLimits(productionCandidates, teamLimit, playerPropLimit);
   const productionCandidateIds = new Set(productionCandidates.map((row) => row.id));
   const learningRows = takeCategoryLimits(

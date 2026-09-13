@@ -49,6 +49,11 @@ test("NFL daily workflow scopes scoring, grading, and settlement to NFL", () => 
   assert.match(settler, /sport=eq\.\$\{encodeURIComponent\(sport\)\}/);
 });
 
+test("NFL daily workflow enforces four team picks while preserving the six-prop ceiling", () => {
+  assert.match(workflow, /bucket\.startsWith\("NFL:team-markets:"\)\s*&&\s*Number\(count\) > 4/);
+  assert.match(workflow, /bucket\.startsWith\("NFL:player-props:"\)\s*&&\s*Number\(count\) > 6/);
+});
+
 test("production secrets are scoped to only steps that need them", () => {
   const jobPrefix = workflow.slice(0, workflow.indexOf("    steps:"));
   assert.doesNotMatch(jobPrefix, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET/);

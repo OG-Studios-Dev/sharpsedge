@@ -6,6 +6,7 @@ import {
   buildNFLPlayerPropSelectionKey,
   calculateNFLPlayerPropEvidence,
   extractESPNPlayerGameLogCategories,
+  isNFLPregameEvent,
   isNFLPlayerPropMarket,
   isNFLProductionReadyShadowRow,
   normalizeNFLPlayerName,
@@ -52,7 +53,7 @@ const POLICY_VERSION = 'phase2-shadow-selective';
 const LEARNING_CONFIDENCE_MIN = Number(args.learningConfidenceMin || process.env.GOOSE_LEARNING_CONFIDENCE_MIN || 0.45);
 const MIN_EDGE = 0.035;
 const MAX_PLAYS_PER_SPORT = 3;
-const NFL_TEAM_PICK_TARGET = 6;
+const NFL_TEAM_PICK_TARGET = 4;
 const NFL_PLAYER_PROP_PICK_TARGET = 6;
 const SYSTEM_EDGE_MIN_SAMPLE = Number(args.systemEdgeMinSample || 10);
 const EXCLUDE_IMPLAUSIBLE_LINES = args.excludeImplausibleLines !== 'false';
@@ -461,7 +462,7 @@ const MODEL_VERSION = await resolveModelVersion();
 
 async function loadLearningSignals(modelVersion) {
   try {
-    const rows = await rest(`/goose_signal_candidates_v1?select=signal_key,train_sample,train_wins,train_losses,train_pushes,train_roi,test_sample,test_wins,test_losses,test_pushes,test_roi,edge_score,confidence_score,promotion_status,rejection_reason&model_version=eq.${encodeURIComponent(modelVersion)}&promotion_status=in.(eligible,shadow_daily_candidate,keep_shadow_only)&order=edge_score.desc&limit=1000`);
+    const rows = await rest(`/goose_signal_candidates_v1?select=signal_key,train_sample,train_wins,train_losses,train_pushes,train_roi,test_sample,test_wins,test_losses,test_pushes,test_roi,edge_score,confidence_score,promotion_status,rejection_reason&model_version=eq.${encodeURIComponent(modelVersion)}&promotion_status=in.(eligible,promoted,shadow_daily_candidate,keep_shadow_only)&order=edge_score.desc&limit=1000`);
     return new Map((rows || [])
       .filter((row) => Number(row.test_sample || 0) >= 50)
       .map((row) => {
@@ -773,7 +774,7 @@ for (const row of latestByEventMarketSide.values()) {
   if (confidenceScore < LEARNING_CONFIDENCE_MIN) rejectionReasons.push('below_learning_confidence_floor');
   if (edge < MIN_EDGE) rejectionReasons.push('edge_below_floor');
   if (EXCLUDE_IMPLAUSIBLE_LINES && isImplausibleLine(row)) rejectionReasons.push(`implausible_line:${candidateLineHealth}`);
-  if (!ALLOW_HISTORICAL_SCORING && !['scheduled', 'unknown'].includes(String(event?.status ?? 'unknown'))) rejectionReasons.push('event_not_pregame');
+  if (!ALLOW_HISTORICAL_SCORING && !isNFLPregameEvent(event)) rejectionReasons.push('event_not_pregame');
 
   scored.push({
     candidate_id: row.candidate_id,

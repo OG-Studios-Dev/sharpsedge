@@ -70,11 +70,23 @@ test("classifies NFL production readiness with prop and team thresholds", async 
   const signal = { promotion_status: "eligible", test_wins: 14, test_losses: 6 };
   assert.equal(isNFLProductionReadyShadowRow({ market_type: "player_prop_receptions", odds: -200, edge: 0.1, primary_signal: signal }), true);
   assert.equal(isNFLProductionReadyShadowRow({ market_type: "player_prop_receptions", odds: -201, edge: 0.1, primary_signal: signal }), false);
-  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.1, primary_signal: { ...signal, test_wins: 14, test_losses: 6 } }), true);
-  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.1, primary_signal: { ...signal, test_wins: 7, test_losses: 2 } }), false);
-  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.1, primary_signal: { ...signal, test_wins: 13, test_losses: 7 } }), false);
-  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -151, edge: 0.1, primary_signal: { ...signal, test_wins: 14, test_losses: 6 } }), false);
-  assert.equal(isNFLProductionReadyShadowRow({ market_type: "total", odds: -110, edge: 0.1, primary_signal: { ...signal, promotion_status: "shadow_daily_candidate" } }), false);
+  const weeklySignal = { promotion_status: "shadow_daily_candidate", test_wins: 33, test_losses: 27 };
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.05, primary_signal: weeklySignal }), true);
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.049, primary_signal: weeklySignal }), false);
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -150, edge: 0.1, primary_signal: { ...weeklySignal, test_wins: 8, test_losses: 2 } }), false);
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "moneyline", odds: -151, edge: 0.1, primary_signal: weeklySignal }), false);
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "total", odds: -110, edge: 0.106, primary_signal: { ...weeklySignal, test_wins: 141, test_losses: 100 } }), true);
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "total", odds: -110, edge: 0.2, primary_signal: { ...weeklySignal, promotion_status: "shadow" } }), false);
+});
+
+test("fails closed on missing odds and on events that are not verifiably pregame", async () => {
+  const { isNFLPregameEvent, isNFLProductionReadyShadowRow } = await import("./nfl-player-prop-evidence.mjs");
+  const signal = { promotion_status: "shadow_daily_candidate", test_wins: 40, test_losses: 20 };
+  assert.equal(isNFLProductionReadyShadowRow({ market_type: "total", odds: null, edge: 0.1, primary_signal: signal }), false);
+  assert.equal(isNFLPregameEvent({ status: "scheduled", commence_time: "2026-09-13T18:00:00.000Z" }, "2026-09-13T17:59:59.000Z"), true);
+  assert.equal(isNFLPregameEvent({ status: "unknown", commence_time: "2026-09-13T18:00:00.000Z" }, "2026-09-13T18:00:00.000Z"), false);
+  assert.equal(isNFLPregameEvent({ status: "scheduled", commence_time: null }, "2026-09-13T17:00:00.000Z"), false);
+  assert.equal(isNFLPregameEvent({ status: "completed", commence_time: "2026-09-13T19:00:00.000Z" }, "2026-09-13T17:00:00.000Z"), false);
 });
 
 test("calculates an over hit rate from historical ESPN game-log rows", () => {
