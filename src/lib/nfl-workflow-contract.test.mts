@@ -54,6 +54,15 @@ test("NFL daily workflow enforces four team picks while preserving the six-prop 
   assert.match(workflow, /bucket\.startsWith\("NFL:player-props:"\)\s*&&\s*Number\(count\) > 6/);
 });
 
+test("NFL grading retries transient server failures before failing the game-day pipeline", () => {
+  const gradeStepStart = workflow.indexOf("- name: Grade completed NFL candidates");
+  const gradeStepEnd = workflow.indexOf("- name: Grade prior NFL system qualifiers");
+  const gradeStep = workflow.slice(gradeStepStart, gradeStepEnd);
+  assert.match(gradeStep, /--retry 3/);
+  assert.match(gradeStep, /--retry-delay 5/);
+  assert.match(gradeStep, /--retry-all-errors/);
+});
+
 test("production secrets are scoped to only steps that need them", () => {
   const jobPrefix = workflow.slice(0, workflow.indexOf("    steps:"));
   assert.doesNotMatch(jobPrefix, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET/);

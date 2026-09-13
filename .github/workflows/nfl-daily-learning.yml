@@ -137,6 +137,7 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 5 --retry-all-errors \
             -H "Authorization: Bearer $CRON_SECRET" \
             "https://goosalytics.vercel.app/api/admin/goose2/grade?sport=NFL&limit=2000&lookbackDays=7" \
             --output /tmp/nfl-grade.json
