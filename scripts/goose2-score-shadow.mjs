@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildCandidatePagePath, filterRowsBySport, normalizeScoreSport } from './lib/goose2-score-scope.mjs';
+import { buildCandidatePagePath, buildLatestCandidateCapturePath, filterRowsBySport, normalizeScoreSport } from './lib/goose2-score-scope.mjs';
 import {
   NFL_PLAYER_PROP_MARKETS,
   buildNFLPlayerPropSelectionKey,
@@ -577,11 +577,16 @@ async function fetchPagedCandidates(date) {
   const capturedAfter = SCORE_SPORT === 'NFL' && !ALLOW_HISTORICAL_SCORING
     ? new Date(Date.now() - (NFL_LIVE_MAX_PRICE_AGE_HOURS * 60 * 60 * 1000)).toISOString()
     : null;
+  const latestCaptureRows = capturedAfter
+    ? await rest(buildLatestCandidateCapturePath({ date, sport: SCORE_SPORT, capturedAfter }))
+    : null;
+  const latestCaptureTs = latestCaptureRows?.[0]?.capture_ts || null;
+  if (capturedAfter && !latestCaptureTs) return out;
   for (let offset = 0; offset < SCORE_MAX_ROWS; offset += SCORE_PAGE_SIZE) {
     const page = await rest(buildCandidatePagePath({
       date,
       sport: SCORE_SPORT,
-      capturedAfter,
+      capturedAt: latestCaptureTs,
       select,
       limit: SCORE_PAGE_SIZE,
       offset,
@@ -593,7 +598,7 @@ async function fetchPagedCandidates(date) {
     const overflow = await rest(buildCandidatePagePath({
       date,
       sport: SCORE_SPORT,
-      capturedAfter,
+      capturedAt: latestCaptureTs,
       select: 'candidate_id',
       limit: 1,
       offset: SCORE_MAX_ROWS,
